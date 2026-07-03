@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d0_source_registry.schema.json",
+  "title": "D0 Source Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "registry_id",
+    "registry_status",
+    "as_of_date",
+    "source_identity_policy",
+    "sources",
+    "blocking_rules"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D0-T02"},
+    "registry_id": {"const": "D0_SOURCE_REGISTRY_V1"},
+    "registry_status": {
+      "enum": ["draft_for_g1_review", "accepted", "superseded"]
+    },
+    "as_of_date": {"type": "string", "format": "date"},
+    "source_identity_policy": {"type": "string", "minLength": 1},
+    "sources": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/source"},
+      "contains": {
+        "properties": {
+          "source_registry_id": {"const": "CSINDEX_OFFICIAL"}
+        },
+        "required": ["source_registry_id"]
+      }
+    },
+    "blocking_rules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "sources": {
+          "allOf": [
+            {
+              "contains": {
+                "properties": {
+                  "source_registry_id": {"const": "A_STOCK_DATA_RECON"}
+                },
+                "required": ["source_registry_id"]
+              }
+            },
+            {
+              "contains": {
+                "properties": {
+                  "source_registry_id": {"const": "HITHINK_FINANCIAL_API"}
+                },
+                "required": ["source_registry_id"]
+              }
+            },
+            {
+              "contains": {
+                "properties": {
+                  "source_registry_id": {"const": "BAOSTOCK"}
+                },
+                "required": ["source_registry_id"]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "non_empty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "candidate_tables": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(d0|d1|d2|d3)\\.[a-z0-9_]+$"
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_registry_id",
+        "source_name",
+        "publisher_or_vendor",
+        "source_kind",
+        "access_method",
+        "authentication_required",
+        "license_status",
+        "terms_review_status",
+        "allowed_uses",
+        "prohibited_uses",
+        "covered_fact_domains",
+        "candidate_tables",
+        "raw_snapshot_required",
+        "raw_snapshot_retention_rule",
+        "hash_required",
+        "as_of_policy",
+        "revision_policy",
+        "rate_limit_or_quota",
+        "availability_risk",
+        "field_coverage_notes",
+        "known_limitations",
+        "qualification_status",
+        "review_required_before_use",
+        "source_reference_urls"
+      ],
+      "properties": {
+        "source_registry_id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$"
+        },
+        "source_name": {"type": "string", "minLength": 1},
+        "publisher_or_vendor": {"type": "string", "minLength": 1},
+        "source_kind": {
+          "enum": [
+            "official_index_publisher",
+            "vendor_api",
+            "wrapper_or_endpoint_recon_tool",
+            "open_data_api",
+            "public_web_endpoint_category"
+          ]
+        },
+        "access_method": {
+          "enum": [
+            "official_website_download_or_page_snapshot",
+            "open_source_repository_and_endpoint_catalog_review",
+            "authenticated_api_and_vendor_export",
+            "python_client_to_baostock_data_server",
+            "manual_endpoint_due_diligence_only"
+          ]
+        },
+        "authentication_required": {"type": "boolean"},
+        "license_status": {"type": "string", "minLength": 1},
+        "terms_review_status": {
+          "enum": [
+            "not_started",
+            "pending",
+            "not_reviewed_for_formal_data_use",
+            "limited_g0_use_reviewed",
+            "approved_for_specific_allowed_uses",
+            "rejected"
+          ]
+        },
+        "allowed_uses": {"$ref": "#/$defs/non_empty_strings"},
+        "prohibited_uses": {"$ref": "#/$defs/non_empty_strings"},
+        "covered_fact_domains": {"$ref": "#/$defs/non_empty_strings"},
+        "candidate_tables": {"$ref": "#/$defs/candidate_tables"},
+        "raw_snapshot_required": {"const": true},
+        "raw_snapshot_retention_rule": {"type": "string", "minLength": 1},
+        "hash_required": {"const": true},
+        "as_of_policy": {"type": "string", "minLength": 1},
+        "revision_policy": {"type": "string", "minLength": 1},
+        "rate_limit_or_quota": {"type": "string", "minLength": 1},
+        "availability_risk": {"type": "string", "minLength": 1},
+        "field_coverage_notes": {"type": "string", "minLength": 1},
+        "known_limitations": {"$ref": "#/$defs/non_empty_strings"},
+        "qualification_status": {
+          "enum": [
+            "approved_limited_g0_evidence",
+            "formal_candidate_pending_terms_review",
+            "backup_candidate_pending_review",
+            "endpoint_research_only",
+            "category_placeholder_pending_review",
+            "blocked"
+          ]
+        },
+        "review_required_before_use": {"type": "boolean"},
+        "source_reference_urls": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "format": "uri"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "qualification_status": {
+                "enum": [
+                  "formal_candidate_pending_terms_review",
+                  "backup_candidate_pending_review",
+                  "endpoint_research_only",
+                  "category_placeholder_pending_review",
+                  "blocked"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "review_required_before_use": {"const": true}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_kind": {"const": "wrapper_or_endpoint_recon_tool"}
+            }
+          },
+          "then": {
+            "properties": {
+              "qualification_status": {"const": "endpoint_research_only"}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

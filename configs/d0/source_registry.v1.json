@@ -1,0 +1,261 @@
+{
+  "$schema": "../../schemas/d0_source_registry.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D0-T02",
+  "registry_id": "D0_SOURCE_REGISTRY_V1",
+  "registry_status": "accepted",
+  "as_of_date": "2026-07-03",
+  "source_identity_policy": "Wrapper libraries, mirrors, SDKs, and endpoint collections are not treated as primary publishers. Any formal data use must identify the original publisher, endpoint, license, snapshot rule, and revision/as-of semantics before D1/D2/D3 design can depend on it.",
+  "sources": [
+    {
+      "source_registry_id": "CSINDEX_OFFICIAL",
+      "source_name": "CSI Index official website",
+      "publisher_or_vendor": "China Securities Index Co., Ltd.",
+      "source_kind": "official_index_publisher",
+      "access_method": "official_website_download_or_page_snapshot",
+      "authentication_required": false,
+      "license_status": "official_public_document_reviewed_for_g0_membership_evidence_only",
+      "terms_review_status": "limited_g0_use_reviewed",
+      "allowed_uses": [
+        "universe_membership_evidence",
+        "index_constituent_document_snapshot_audit"
+      ],
+      "prohibited_uses": [
+        "market_price_source",
+        "corporate_action_source",
+        "trading_status_source",
+        "financial_statement_source",
+        "d1_d2_d3_formal_data_source_without_new_review"
+      ],
+      "covered_fact_domains": [
+        "index_membership"
+      ],
+      "candidate_tables": [
+        "d0.index_membership_evidence",
+        "d2.membership_alignment"
+      ],
+      "raw_snapshot_required": true,
+      "raw_snapshot_retention_rule": "Keep the downloaded official constituent file or captured page bytes under data/external with SHA-256, retrieval timestamp, source URL, and independent review handoff. Do not replace the G0 snapshot in place.",
+      "hash_required": true,
+      "as_of_policy": "Use only the effective date stated or implied by the official constituent evidence. Do not infer historical index membership beyond DR-001 static-backfill boundaries.",
+      "revision_policy": "If CSI republishes or corrects a constituent document, register a new snapshot_id and keep the old bytes immutable.",
+      "rate_limit_or_quota": "Manual or low-frequency official document retrieval only; no automated bulk market-data crawling authorized.",
+      "availability_risk": "medium_official_site_layout_and_document_urls_may_change",
+      "field_coverage_notes": "Covers official CSI 800 membership evidence for G0. Does not by itself cover prices, trading status, corporate actions, or financial statements.",
+      "known_limitations": [
+        "Approved only for the already reviewed G0 universe membership evidence chain.",
+        "Static current constituent cohort is not a historical membership history."
+      ],
+      "qualification_status": "approved_limited_g0_evidence",
+      "review_required_before_use": true,
+      "source_reference_urls": [
+        "https://www.csindex.com.cn/"
+      ]
+    },
+    {
+      "source_registry_id": "A_STOCK_DATA_RECON",
+      "source_name": "simonlin1212/a-stock-data",
+      "publisher_or_vendor": "simonlin1212 GitHub project",
+      "source_kind": "wrapper_or_endpoint_recon_tool",
+      "access_method": "open_source_repository_and_endpoint_catalog_review",
+      "authentication_required": false,
+      "license_status": "wrapper_repository_license_must_not_be_treated_as_data_license",
+      "terms_review_status": "not_reviewed_for_formal_data_use",
+      "allowed_uses": [
+        "endpoint_reconnaissance",
+        "field_coverage_reference",
+        "candidate_endpoint_discovery"
+      ],
+      "prohibited_uses": [
+        "formal_data_source",
+        "raw_snapshot_publisher_identity",
+        "license_substitute_for_underlying_endpoints",
+        "direct_d1_d2_d3_ingestion"
+      ],
+      "covered_fact_domains": [
+        "endpoint_catalog",
+        "field_coverage_reference"
+      ],
+      "candidate_tables": [],
+      "raw_snapshot_required": true,
+      "raw_snapshot_retention_rule": "If consulted, retain only repository commit hash, endpoint notes, and review notes. Do not store wrapper-returned data as formal raw snapshots unless the underlying original endpoint has its own registry entry and approval.",
+      "hash_required": true,
+      "as_of_policy": "Repository commit time is only a tooling review timestamp, not a market-data observed_at time.",
+      "revision_policy": "Pin repository commit for endpoint research. Any endpoint promoted for formal use must receive its own source_registry_id and revision policy.",
+      "rate_limit_or_quota": "Not applicable for formal data use; downstream endpoint limits must be reviewed separately.",
+      "availability_risk": "high_third_party_repository_and_underlying_endpoints_can_change_independently",
+      "field_coverage_notes": "Useful for discovering A-share data endpoints and field names, but it is not the publisher of the underlying facts.",
+      "known_limitations": [
+        "Cannot establish data license for underlying endpoints.",
+        "Cannot establish as-of semantics or revision policy for returned data.",
+        "Cannot be used as a formal data source without primary endpoint attribution."
+      ],
+      "qualification_status": "endpoint_research_only",
+      "review_required_before_use": true,
+      "source_reference_urls": [
+        "https://github.com/simonlin1212/a-stock-data"
+      ]
+    },
+    {
+      "source_registry_id": "HITHINK_FINANCIAL_API",
+      "source_name": "HiThink Financial-API",
+      "publisher_or_vendor": "HiThink / Tonghuashun ecosystem",
+      "source_kind": "vendor_api",
+      "access_method": "authenticated_api_and_vendor_export",
+      "authentication_required": true,
+      "license_status": "pending_account_terms_and_data_license_review",
+      "terms_review_status": "pending",
+      "allowed_uses": [
+        "formal_candidate_due_diligence",
+        "endpoint_capability_review",
+        "schema_design_input_after_terms_review"
+      ],
+      "prohibited_uses": [
+        "formal_data_ingestion_before_terms_approval",
+        "publishing_vendor_raw_data",
+        "using_api_key_in_committed_files",
+        "assuming_duckdb_is_vendor_marketdb_replacement"
+      ],
+      "covered_fact_domains": [
+        "security_master",
+        "market_prices",
+        "corporate_actions",
+        "financial_statements",
+        "trading_calendar",
+        "index_data",
+        "limit_up_events",
+        "dragon_tiger_list",
+        "full_market_export"
+      ],
+      "candidate_tables": [
+        "d1.security_master",
+        "d1.trading_calendar",
+        "d1.raw_market_prices",
+        "d1.corporate_actions",
+        "d1.trading_constraints",
+        "d2.adjusted_market_prices",
+        "d2.market_price_quality_flags"
+      ],
+      "raw_snapshot_required": true,
+      "raw_snapshot_retention_rule": "Every formal request must persist raw response bytes or vendor export files under data/raw or data/external with endpoint, parameters, API version if available, retrieval timestamp, account context, SHA-256, and manifest link. API keys and secrets must never be committed.",
+      "hash_required": true,
+      "as_of_policy": "Blocked until the API documents whether each endpoint returns point-in-time, latest revised, or mixed histories. Formal use must record observed_at, endpoint timestamp, request parameters, and factor_as_of_time where applicable.",
+      "revision_policy": "Revision policy is blocked until full dump and incremental dump behavior is tested. If vendor data revises history, each dump must receive a data snapshot version and old snapshots remain immutable.",
+      "rate_limit_or_quota": "Pending account review; must document API key scope, quota, throttling, retry policy, full-market export limits, and vendor marketdb boundary before G4 authorization.",
+      "availability_risk": "medium_to_high_depends_on_vendor_account_terms_quota_and_endpoint_stability",
+      "field_coverage_notes": "Candidate broad primary source for A-share master data, market data, corporate actions, reports, calendars, index data, abnormal limit-up data, dragon-tiger lists, and full-market export workflows.",
+      "known_limitations": [
+        "Formal use is blocked until API key handling, license terms, quota, raw response retention, and revision semantics are reviewed.",
+        "Vendor-managed marketdb or local export cache must be treated as upstream/source cache, not as the project DuckDB warehouse.",
+        "Endpoint capability does not imply permission for research redistribution or committed raw data."
+      ],
+      "qualification_status": "formal_candidate_pending_terms_review",
+      "review_required_before_use": true,
+      "source_reference_urls": [
+        "https://github.com/HiThink-Tech/Financial-API"
+      ]
+    },
+    {
+      "source_registry_id": "BAOSTOCK",
+      "source_name": "baostock",
+      "publisher_or_vendor": "baostock project and data service",
+      "source_kind": "open_data_api",
+      "access_method": "python_client_to_baostock_data_server",
+      "authentication_required": false,
+      "license_status": "free_use_claim_requires_terms_and_redistribution_review",
+      "terms_review_status": "pending",
+      "allowed_uses": [
+        "backup_candidate_due_diligence",
+        "cross_validation_candidate",
+        "historical_price_coverage_review"
+      ],
+      "prohibited_uses": [
+        "sole_formal_primary_source_before_revision_review",
+        "redistribution_without_terms_review",
+        "using_adjusted_prices_without_factor_as_of_review"
+      ],
+      "covered_fact_domains": [
+        "market_prices",
+        "adjusted_price_flags",
+        "trading_status",
+        "valuation_fields",
+        "financial_statements"
+      ],
+      "candidate_tables": [
+        "d1.raw_market_prices",
+        "d1.trading_constraints",
+        "d2.adjusted_market_prices",
+        "d2.market_price_quality_flags"
+      ],
+      "raw_snapshot_required": true,
+      "raw_snapshot_retention_rule": "Persist raw query result files with login client version, query parameters, adjustment flag, fields, retrieval timestamp, row count, and SHA-256. Do not rely on the remote service as the only copy.",
+      "hash_required": true,
+      "as_of_policy": "Treat returned historical data as final-revised history until proven otherwise. Formal point-in-time use is blocked unless revision timing and adjustment factor as-of behavior are documented or empirically bounded.",
+      "revision_policy": "Run repeated snapshot comparisons before formal use. Any historical changes must produce a new source snapshot version with diff attribution.",
+      "rate_limit_or_quota": "No API key is required, but practical request throttling and service availability must be measured before any full-market pull.",
+      "availability_risk": "medium_free_service_and_server_contract_may_change",
+      "field_coverage_notes": "Candidate backup or cross-check source for daily OHLCV, adjustment flags, suspension/trading status signals, valuation fields, and selected statements.",
+      "known_limitations": [
+        "Free availability does not settle redistribution or formal research-use licensing.",
+        "As-of and revision semantics are not accepted yet.",
+        "Adjusted data cannot be used for D2 without explicit factor timing review."
+      ],
+      "qualification_status": "backup_candidate_pending_review",
+      "review_required_before_use": true,
+      "source_reference_urls": [
+        "http://baostock.com/",
+        "https://pypi.org/project/baostock/"
+      ]
+    },
+    {
+      "source_registry_id": "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET",
+      "source_name": "Public A-share web/API endpoint review bucket",
+      "publisher_or_vendor": "Multiple public website or API publishers",
+      "source_kind": "public_web_endpoint_category",
+      "access_method": "manual_endpoint_due_diligence_only",
+      "authentication_required": false,
+      "license_status": "unknown_until_endpoint_specific_review",
+      "terms_review_status": "not_started",
+      "allowed_uses": [
+        "candidate_source_backlog",
+        "manual_terms_review_planning",
+        "cross_validation_idea_backlog"
+      ],
+      "prohibited_uses": [
+        "formal_data_source_without_dedicated_registry_entry",
+        "bulk_crawling_without_terms_review",
+        "d1_d2_d3_ingestion"
+      ],
+      "covered_fact_domains": [
+        "market_prices",
+        "corporate_actions",
+        "trading_calendar",
+        "index_data",
+        "financial_statements"
+      ],
+      "candidate_tables": [],
+      "raw_snapshot_required": true,
+      "raw_snapshot_retention_rule": "Before any endpoint is used, create a dedicated source_registry_id with publisher identity, terms review, snapshot rules, hash requirements, and failure blocking criteria.",
+      "hash_required": true,
+      "as_of_policy": "Unknown until endpoint-specific review.",
+      "revision_policy": "Unknown until endpoint-specific review.",
+      "rate_limit_or_quota": "Unknown until endpoint-specific review.",
+      "availability_risk": "high_until_publisher_terms_and_endpoint_stability_are_reviewed",
+      "field_coverage_notes": "Category placeholder for later source candidates such as exchange, vendor, or public web endpoints. It does not authorize scraping or ingestion.",
+      "known_limitations": [
+        "Not a source by itself.",
+        "Cannot satisfy D1/D2/D3 source requirements without a later registry entry."
+      ],
+      "qualification_status": "category_placeholder_pending_review",
+      "review_required_before_use": true,
+      "source_reference_urls": []
+    }
+  ],
+  "blocking_rules": [
+    "No source may feed D1/D2/D3 until license_status and terms_review_status permit the specific allowed use.",
+    "Any source without raw_snapshot_required=true and hash_required=true is blocked from formal use.",
+    "Any wrapper or SDK must be traced to the underlying publisher and endpoint before returned data can be treated as raw evidence.",
+    "Any unknown as_of_policy or revision_policy blocks formal point-in-time research use.",
+    "Secrets, API keys, account tokens, and licensed raw data must not be committed."
+  ]
+}
