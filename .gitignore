@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.obsidian/
 
 # Immutable source snapshots are retained locally and referenced by manifests.
 data/raw/
