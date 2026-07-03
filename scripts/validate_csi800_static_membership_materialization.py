@@ -260,8 +260,15 @@ def first_present(row: dict[str, str], names: tuple[str, ...]) -> str:
 
 
 def normalize_ticker(value: str) -> str:
-    match = re.search(r"(\d{6})", value)
-    return match.group(1) if match else value.strip()
+    match = re.search(r"(?<!\d)(\d{6})(?!\d)", value)
+    return match.group(1) if match else ""
+
+
+def normalize_member_ticker(raw_ticker: str, source_symbol: str) -> str:
+    ticker = normalize_ticker(raw_ticker)
+    if ticker:
+        return ticker
+    return normalize_ticker(source_symbol)
 
 
 def derive_exchange(source_symbol: str, explicit_exchange: str) -> str:
@@ -292,7 +299,7 @@ def validate_members(
     for index, member in enumerate(members, start=1):
         source_symbol = first_present(member, SYMBOL_FIELDS)
         raw_ticker = first_present(member, TICKER_FIELDS)
-        ticker = normalize_ticker(raw_ticker)
+        ticker = normalize_member_ticker(raw_ticker, source_symbol)
         exchange = derive_exchange(
             source_symbol, first_present(member, EXCHANGE_FIELDS)
         )
@@ -302,7 +309,7 @@ def validate_members(
                 STATUS_FAILED, f"member {index} missing source_symbol"
             )
         if not ticker:
-            return ValidationResult(STATUS_FAILED, f"member {index} missing ticker")
+            return ValidationResult(STATUS_FAILED, f"member {index} invalid ticker")
         if not exchange:
             return ValidationResult(STATUS_FAILED, f"member {index} missing exchange")
         if not mapping_reference:
