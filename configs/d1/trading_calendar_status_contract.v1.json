@@ -1,0 +1,302 @@
+{
+  "$schema": "../../schemas/d1_trading_calendar_status_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D1-T02",
+  "contract_id": "D1_TRADING_CALENDAR_STATUS_CONTRACT_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D1-T00",
+    "D1-T01",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D0_SOURCE_REGISTRY_V1"
+  ],
+  "base_data_product_contract": {
+    "contract_id": "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "required_tables": [
+      "d1.trading_calendar",
+      "d1.trading_constraints"
+    ]
+  },
+  "tables": [
+    {
+      "table_name": "d1.trading_calendar",
+      "field_semantics": {
+        "data_version": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Versioned D1 dataset identifier; calendar semantic changes require a new data_version before formal use."
+        },
+        "universe_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Research universe identifier; D1-T02 does not materialize universe membership."
+        },
+        "time_segment_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Configured time segment key; calendar rows must not imply dates outside the approved segment boundary."
+        },
+        "exchange": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Canonical exchange code from the project enum: SSE or SZSE."
+        },
+        "trading_date": {
+          "type": "DATE",
+          "nullable": false,
+          "rule": "Exchange-local calendar date in Asia/Shanghai semantics; not a timestamp and not a data retrieval date."
+        },
+        "is_trading_day": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "rule": "True only when the exchange session is open for normal trading under the source calendar evidence; unknown must not be converted to false."
+        },
+        "calendar_session_type": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Controlled session classification for the exchange date."
+        },
+        "source_registry_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Registry id of the approved source snapshot; formal ingestion remains unauthorized in D1-T02."
+        },
+        "source_snapshot_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Immutable raw snapshot reference required before any future loader can write formal rows."
+        },
+        "run_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Run manifest id required before formal materialization; D1-T02 does not create run manifests."
+        }
+      },
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "exchange",
+        "trading_date"
+      ],
+      "exchange_policy": {
+        "allowed_exchanges": [
+          "SSE",
+          "SZSE"
+        ],
+        "exchange_code_system": "Use project canonical exchange codes: SSE for Shanghai Stock Exchange and SZSE for Shenzhen Stock Exchange."
+      },
+      "controlled_vocabularies": {
+        "calendar_session_type": {
+          "allowed_values": [
+            "regular",
+            "holiday",
+            "weekend",
+            "special_session",
+            "unknown"
+          ],
+          "unknown_value_rule": "unknown may be used only when source quality is explicitly unresolved and must block formal downstream release."
+        }
+      },
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "candidate_only_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "reason": "HiThink remains only a candidate source for trading_calendar; source terms, as-of behavior, revision behavior, raw snapshot retention, manifests, and run authorization are not closed."
+      },
+      "as_of_policy": "Calendar facts must use retrieval observed_at and any exchange-declared effective dates; formal use is blocked until these semantics are reviewed.",
+      "revision_policy": "Calendar revisions require a new source_snapshot_id or data_version and a diff attribution record; old snapshots remain immutable.",
+      "quality_checks": [
+        "primary_key_unique",
+        "exchange_allowed",
+        "trading_date_valid",
+        "is_trading_day_not_unknown_boolean",
+        "calendar_session_type_allowed",
+        "calendar_has_no_duplicate_sessions",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "source_terms_pending_for_formal_ingestion",
+        "calendar_revision_policy_unknown",
+        "as_of_policy_not_verified",
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_source_snapshot_manifest",
+        "missing_run_manifest"
+      ],
+      "downstream_boundary": "Trading calendar rows must not be read directly by R0; R0 can use calendar facts only through d3.daily_market_observations references."
+    },
+    {
+      "table_name": "d1.trading_constraints",
+      "field_semantics": {
+        "data_version": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Versioned D1 dataset identifier; trading constraint semantic changes require a new data_version before formal use."
+        },
+        "universe_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Research universe identifier; D1-T02 does not materialize universe membership."
+        },
+        "time_segment_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Configured time segment key; constraint rows must not imply dates outside the approved segment boundary."
+        },
+        "security_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Project-internal stable security key from the D1-T01 contract."
+        },
+        "trading_date": {
+          "type": "DATE",
+          "nullable": false,
+          "rule": "Exchange-local trading or calendar date in Asia/Shanghai semantics."
+        },
+        "is_suspended": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "rule": "Suspension fact for the security/date; unknown source quality must not be converted to false."
+        },
+        "is_st": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "rule": "ST or special-treatment fact for the security/date; this is a trading constraint fact, not a security_type."
+        },
+        "limit_up_price": {
+          "type": "DOUBLE",
+          "nullable": true,
+          "rule": "Raw exchange limit-up price when applicable; null is allowed only when no applicable limit exists or the approved source explicitly reports unknown."
+        },
+        "limit_down_price": {
+          "type": "DOUBLE",
+          "nullable": true,
+          "rule": "Raw exchange limit-down price when applicable; null is allowed only when no applicable limit exists or the approved source explicitly reports unknown."
+        },
+        "price_limit_status": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Controlled price-limit status for the security/date; unknown must remain explicit."
+        },
+        "tradable_flag": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "rule": "Boolean tradability fact after applying suspension and source-declared constraints; unknown must not be silently converted to false."
+        },
+        "source_registry_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Registry id of the approved source snapshot; formal ingestion remains unauthorized in D1-T02."
+        },
+        "source_snapshot_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Immutable raw snapshot reference required before any future loader can write formal rows."
+        },
+        "observed_at": {
+          "type": "TIMESTAMP",
+          "nullable": false,
+          "rule": "Timestamp at which the constraint fact was observed or retrieved; future loaders must enforce observed_at-bounded use."
+        },
+        "run_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Run manifest id required before formal materialization; D1-T02 does not create run manifests."
+        }
+      },
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "source_snapshot_id"
+      ],
+      "exchange_policy": {
+        "allowed_exchanges": [
+          "SSE",
+          "SZSE"
+        ],
+        "exchange_code_system": "Trading constraints inherit canonical exchange semantics through security_id and upstream security mapping."
+      },
+      "controlled_vocabularies": {
+        "price_limit_status": {
+          "allowed_values": [
+            "none",
+            "limit_up",
+            "limit_down",
+            "unknown"
+          ],
+          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it. Near-limit concepts belong to later D2/R or execution-quality derived layers, not D1 raw trading constraint facts."
+        }
+      },
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "candidate_only_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "reason": "HiThink remains a candidate source and BaoStock remains only a candidate or backup for trading_constraints; source terms, as-of behavior, revision behavior, raw snapshot retention, manifests, and run authorization are not closed."
+      },
+      "as_of_policy": "Constraint facts must be observed_at-bounded and aligned to the same security_id/trading_date as raw trading facts before downstream use.",
+      "revision_policy": "Revised suspension, ST, tradability, or price-limit facts require a new source_snapshot_id or data_version and comparison report.",
+      "quality_checks": [
+        "primary_key_unique",
+        "security_id_present",
+        "tradable_flag_consistent_with_suspension",
+        "limit_prices_nonnegative_or_null",
+        "price_limit_status_allowed",
+        "price_limit_status_not_silently_false",
+        "observed_at_present",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "source_terms_pending_for_formal_ingestion",
+        "constraint_source_terms_pending",
+        "as_of_policy_not_verified",
+        "revision_policy_not_verified",
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_source_snapshot_manifest",
+        "missing_run_manifest",
+        "unknown_trading_constraint_quality"
+      ],
+      "downstream_boundary": "Trading status, tradability, suspension, ST, and price-limit facts are execution/constraint facts, not price-shape signals; R0 may use them only through d3.daily_market_observations references."
+    }
+  ],
+  "shared_boundary": {
+    "d3_entry_rule": "R0 must not read d1.trading_calendar or d1.trading_constraints directly; D3 remains the only formal daily research entry point.",
+    "not_price_shape_signal_rule": "Trading status, tradability, suspension, ST, and price-limit facts are trading constraints rather than price compression, trend, or release signals.",
+    "unknown_state_rule": "unknown, missing, or low-quality status must stay explicit and must not be converted to false."
+  },
+  "implementation_exclusions": [
+    "no_loader",
+    "no_external_api_call",
+    "no_real_data_import",
+    "no_duckdb_entity_data",
+    "no_committed_duckdb_file",
+    "no_manifest"
+  ],
+  "future_loader_requirements": [
+    "Future loader must read only approved raw snapshots and manifests, never live APIs.",
+    "Future loader must fail non-zero on duplicate primary keys, invalid exchange, invalid controlled vocabulary values, invalid nullable fields, date/timestamp quality failures, or missing source snapshot references.",
+    "Future loader must not populate d1.trading_calendar or d1.trading_constraints until source terms, raw snapshot, manifest, as-of, revision, and run authorization gates pass.",
+    "Future loader must preserve source provenance outside DuckDB raw byte storage and must not store vendor payloads in formal tables."
+  ]
+}
