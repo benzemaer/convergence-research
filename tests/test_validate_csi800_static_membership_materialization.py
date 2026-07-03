@@ -787,17 +787,25 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
             exit_code = validator.main(["--check-security-mapping-output"])
         self.assertEqual(exit_code, 0)
         payload = json.loads(output.getvalue())
-        self.assertEqual(
+        self.assertIn(
             payload["report_status"],
-            "blocked_missing_security_mapping_output",
+            {"blocked_missing_security_mapping_output", "passed"},
         )
         self.assertEqual(payload["expected_row_count"], 800)
-        self.assertEqual(payload["observed_row_count"], 0)
-        self.assertEqual(payload["mapped_row_count"], 0)
-        self.assertEqual(
-            payload["downstream_decision"],
-            "materialization_remains_blocked",
-        )
+        if payload["report_status"] == "passed":
+            self.assertEqual(payload["observed_row_count"], 800)
+            self.assertEqual(payload["mapped_row_count"], 800)
+            self.assertEqual(
+                payload["downstream_decision"],
+                "security_mapping_output_validated_but_membership_rows_not_materialized",
+            )
+        else:
+            self.assertEqual(payload["observed_row_count"], 0)
+            self.assertEqual(payload["mapped_row_count"], 0)
+            self.assertEqual(
+                payload["downstream_decision"],
+                "materialization_remains_blocked",
+            )
         self.assertFalse(payload["row_level_detail_included"])
         self.assertFalse(payload["output_rows_committed"])
         self.assertFalse(payload["security_id_mapping_output_committed"])

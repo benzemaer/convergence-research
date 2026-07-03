@@ -11,9 +11,9 @@
   "security_mapping_reference_contract_id": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1",
   "security_mapping_output_contract_id": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_CONTRACT_V1",
   "expected_row_count": 800,
-  "report_status": "blocked_missing_security_mapping_output",
-  "observed_row_count": 0,
-  "mapped_row_count": 0,
+  "report_status": "passed",
+  "observed_row_count": 800,
+  "mapped_row_count": 800,
   "unmapped_row_count": 0,
   "duplicate_membership_key_count": 0,
   "duplicate_security_id_count": 0,
@@ -30,7 +30,7 @@
   "dataset_manifest_created": false,
   "materialization_authorized": false,
   "member_rows_materialized": false,
-  "downstream_decision": "materialization_remains_blocked",
-  "validation_reason": "Security mapping output contract exists, but no approved row-level security mapping output is available in committed or runtime-approved inputs; no security_id was generated or inferred.",
+  "downstream_decision": "security_mapping_output_validated_but_membership_rows_not_materialized",
+  "validation_reason": "Approved raw evidence was parsed and mapped through the approved field alias and D1 security master mapping contracts; all 800 rows mapped successfully in aggregate, but no row-level security mapping output or membership rows are committed.",
   "report_boundary": "This is an aggregate security mapping output report only, not security_id mapping output, not membership rows, not materialization manifest, not run manifest, not dataset manifest, with no row-level values included."
 }
