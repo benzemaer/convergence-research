@@ -2,7 +2,7 @@
 
 ## 状态
 
-in progress
+completed via PR #10
 
 ## 目标
 

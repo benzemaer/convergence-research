@@ -18,8 +18,8 @@
 
 ```text
 current_stage: D1
-current_task: D1-T01
-next_planned_task: D1-T02
+current_task: D1-T02
+next_planned_task: D1-T03
 ```
 
 ## G0：样本宇宙与时间边界
@@ -71,8 +71,8 @@ next_planned_task: D1-T02
 状态：planned
 
 - `D1-T00` DuckDB 依赖、空 schema 与契约测试：completed via PR #9
-- `D1-T01` `security_master` 与代码映射：in progress
-- `D1-T02` 交易日历与交易状态主表
+- `D1-T01` `security_master` 与代码映射：completed via PR #10
+- `D1-T02` 交易日历与交易状态主表：in progress
 - `D1-T03` 公司行为与复权因子主表
 - `D1-T04` `CSI800_STATIC_2026_06` universe membership materialization
 

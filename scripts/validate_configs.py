@@ -25,6 +25,10 @@ CONFIGS = (
         ROOT / "schemas/d1_security_master_contract.schema.json",
         ROOT / "configs/d1/security_master_contract.v1.json",
     ),
+    (
+        ROOT / "schemas/d1_trading_calendar_status_contract.schema.json",
+        ROOT / "configs/d1/trading_calendar_status_contract.v1.json",
+    ),
 )
 
 
