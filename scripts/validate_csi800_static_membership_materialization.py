@@ -622,36 +622,11 @@ def diagnose_fields(contract_path: Path = DEFAULT_CONTRACT_PATH) -> dict[str, ob
 def check_security_mapping_output(
     output_contract_path: Path = DEFAULT_SECURITY_MAPPING_OUTPUT_CONTRACT_PATH,
 ) -> dict[str, object]:
-    output_contract = load_security_mapping_output_contract(output_contract_path)
-    return {
-        "report_status": "blocked_missing_security_mapping_output",
-        "reason": (
-            "security mapping output contract exists, but no approved row-level "
-            "security mapping output is available; no security_id was generated "
-            "or inferred"
-        ),
-        "security_mapping_output_contract_id": output_contract["contract_id"],
-        "expected_row_count": output_contract["expected_row_count"],
-        "observed_row_count": 0,
-        "mapped_row_count": 0,
-        "unmapped_row_count": 0,
-        "duplicate_membership_key_count": 0,
-        "duplicate_security_id_count": 0,
-        "invalid_security_id_format_count": 0,
-        "invalid_mapping_method_count": 0,
-        "invalid_mapping_status_count": 0,
-        "row_level_detail_included": False,
-        "output_rows_committed": False,
-        "security_id_mapping_output_committed": False,
-        "raw_bytes_committed": False,
-        "member_rows_committed": False,
-        "duckdb_written": False,
-        "run_manifest_created": False,
-        "dataset_manifest_created": False,
-        "materialization_authorized": False,
-        "member_rows_materialized": False,
-        "downstream_decision": "materialization_remains_blocked",
-    }
+    from scripts import build_csi800_security_mapping_output
+
+    return build_csi800_security_mapping_output.build_aggregate_report(
+        security_mapping_output_contract_path=output_contract_path
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

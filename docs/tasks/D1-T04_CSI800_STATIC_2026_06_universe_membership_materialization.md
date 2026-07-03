@@ -94,6 +94,17 @@ security mapping output，因此报告状态为 `blocked_missing_security_mappin
 `source_symbol` / `ticker` / `exchange` / `security_id` / `security_id_mapping_reference`
 值。actual membership row materialization 仍然 blocked。
 
+## 受控证券映射执行与聚合报告
+
+D1-T04 后续 PR 增加受控 security mapping runner，并首次执行 approved evidence 到
+D1 `security_id` 的 aggregate-only 映射检查。Runner 读取 approved CSINDEX raw evidence、
+field alias contract、security mapping reference contract、security mapping output contract
+和 D1 security master contract，在内存中标准化 `source_symbol` / `ticker` / `exchange`，
+按 `CN.{exchange}.{ticker}` 规则检查 800 个 aggregate mapping。即使 aggregate mapping
+为 `passed`，本 PR 也不提交 row-level security_id mapping output，不提交 membership rows，
+不写 DuckDB，不创建 run manifest 或 dataset manifest，不进入 D2-T01。D1-T04 actual
+membership row materialization 仍然 blocked，等待单独 PR 授权。
+
 ## Binary Excel parser support
 
 D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。
@@ -160,6 +171,8 @@ actual membership row materialization 仍然 blocked。
 - `configs/d1/csi800_static_2026_06_security_mapping_output_report.v1.json`
 - `schemas/d1_csi800_static_security_mapping_output_report.schema.json`
 - `tests/test_d1_csi800_static_security_mapping_output_report.py`
+- `scripts/build_csi800_security_mapping_output.py`
+- `tests/test_build_csi800_security_mapping_output.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界

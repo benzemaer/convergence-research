@@ -115,19 +115,19 @@ class D1CSI800StaticSecurityMappingOutputReportTest(unittest.TestCase):
             self.output_contract["expected_row_count"],
         )
 
-    def test_blocked_report_keeps_all_counts_zero(self) -> None:
+    def test_passed_report_records_clean_aggregate_counts(self) -> None:
         self.assertEqual(
             self.config["report_status"],
-            "blocked_missing_security_mapping_output",
+            "passed",
         )
-        self.assertEqual(self.config["observed_row_count"], 0)
-        self.assertEqual(self.config["mapped_row_count"], 0)
+        self.assertEqual(self.config["observed_row_count"], 800)
+        self.assertEqual(self.config["mapped_row_count"], 800)
         for field in FAILURE_COUNTS:
             with self.subTest(field=field):
                 self.assertEqual(self.config[field], 0)
         self.assertEqual(
             self.config["downstream_decision"],
-            "materialization_remains_blocked",
+            "security_mapping_output_validated_but_membership_rows_not_materialized",
         )
 
     def test_no_artifact_or_materialization_flags_are_false(self) -> None:
@@ -145,6 +145,18 @@ class D1CSI800StaticSecurityMappingOutputReportTest(unittest.TestCase):
                 "downstream_decision": (
                     "security_mapping_output_validated_but_membership_rows_not_materialized"
                 ),
+            }
+        )
+        self.validate(changed)
+
+    def test_blocked_synthetic_report_keeps_all_counts_zero(self) -> None:
+        changed = deepcopy(self.config)
+        changed.update(
+            {
+                "report_status": "blocked_missing_security_mapping_output",
+                "observed_row_count": 0,
+                "mapped_row_count": 0,
+                "downstream_decision": "materialization_remains_blocked",
             }
         )
         self.validate(changed)
