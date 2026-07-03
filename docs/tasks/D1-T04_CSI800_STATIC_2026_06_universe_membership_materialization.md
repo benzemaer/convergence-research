@@ -54,6 +54,8 @@ security_id mapping 所需字段是否存在。
 - `configs/d1/csi800_static_2026_06_membership_contract.v1.json`
 - `schemas/d1_csi800_static_membership_contract.schema.json`
 - `tests/test_d1_csi800_static_membership_contract.py`
+- `scripts/validate_csi800_static_membership_materialization.py`
+- `tests/test_validate_csi800_static_membership_materialization.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
