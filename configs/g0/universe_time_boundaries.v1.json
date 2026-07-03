@@ -2,26 +2,26 @@
   "config_version": "1.0.0",
   "decision_id": "DR-001",
   "decision_status": "accepted",
-  "operational_status": "blocked_pending_official_membership_evidence",
+  "operational_status": "eligible_for_d0",
   "universe": {
     "universe_id": "CSI800_STATIC_2026_06",
     "universe_type": "static_current_constituent_cohort",
     "index_name": "CSI 800",
     "historical_membership_mode": "static_backfilled",
     "membership_evidence": {
-      "status": "pending",
+      "status": "verified",
       "source_registry_id": "CSINDEX_OFFICIAL",
       "publisher_name": "中证指数有限公司",
       "official_domain": "csindex.com.cn",
       "document_type": "index_constituent_list",
       "index_code": "000906",
-      "document_id": null,
-      "document_title": null,
-      "effective_date": null,
-      "source_url": null,
-      "retrieved_at": null,
-      "file_path": null,
-      "file_sha256": null
+      "document_id": "000906cons.xls",
+      "document_title": "000906cons",
+      "effective_date": "2026-06-12",
+      "source_url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000906cons.xls",
+      "retrieved_at": "2026-07-03T10:09:21.8572846Z",
+      "file_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906cons.xls",
+      "file_sha256": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
     },
     "claim_scope": "Applicable only to securities in the officially verified 2026-06 CSI 800 static cohort. Not a historical point-in-time index universe.",
     "prohibited_claims": [
@@ -32,12 +32,12 @@
     ]
   },
   "g0_review": {
-    "status": "pending",
+    "status": "approved",
     "gate": "G0",
-    "reviewed_by": null,
-    "reviewed_at": null,
-    "review_commit": null,
-    "independence_attested": false
+    "reviewed_by": "benzemaer",
+    "reviewed_at": "2026-07-03T10:56:36Z",
+    "review_commit": "e6bae22f35653fdceedb0b671970e3b6ce3ac2ca",
+    "independence_attested": true
   },
   "time_partitions": {
     "boundary_semantics": "inclusive_calendar_dates",
