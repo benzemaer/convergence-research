@@ -515,6 +515,43 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
             payload = json.loads(output.getvalue())
             self.assertEqual(payload["status"], validator.STATUS_BLOCKED)
 
+    def test_cli_diagnose_fields_emits_only_aggregate_header_data(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.csv"
+            evidence_text = (
+                "成份券代码Constituent Code,交易所Exchange\n000001.SZ,SZSE\n"
+            )
+            evidence.write_bytes(evidence_text.encode())
+            contract_path = contract_for_fixture(
+                tmp_path,
+                evidence,
+                evidence_text,
+                expected_count=1,
+            )
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = validator.main(
+                    ["--contract", str(contract_path), "--diagnose-fields"]
+                )
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["member_count_observed"], 1)
+            self.assertEqual(payload["observed_column_count"], 2)
+            self.assertFalse(payload["row_level_detail_included"])
+            self.assertFalse(payload["raw_bytes_committed"])
+            self.assertFalse(payload["member_rows_committed"])
+            self.assertIn(
+                "security_id_mapping_reference",
+                payload["missing_required_fields"],
+            )
+            self.assertIn(
+                "成份券代码Constituent Code",
+                payload["candidate_aliases_by_required_field"]["source_symbol"],
+            )
+            self.assertNotIn("000001.SZ", output.getvalue())
+            self.assertNotIn("SZSE", output.getvalue())
+
     def test_validator_does_not_access_network(self) -> None:
         def fail_network(*args: object, **kwargs: object) -> None:
             raise AssertionError("network access attempted")

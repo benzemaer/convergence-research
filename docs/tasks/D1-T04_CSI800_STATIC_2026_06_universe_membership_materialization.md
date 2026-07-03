@@ -38,6 +38,16 @@ manifest。本地严格 runner 已确认 approved raw evidence SHA-256 匹配 co
 标准库 parser 无法解析二进制 Excel/OLE `.xls`，因此 report 状态为 `failed_parse`，
 actual membership row materialization 仍然 blocked。
 
+## Field alias diagnostics
+
+D1-T04 后续 PR 增加 aggregate field diagnostics，只记录真实 approved evidence 的列名、
+列数量、列名哈希、aggregate row count、required field 匹配状态、缺失字段类别和候选别名。
+该诊断不包含任何 `source_symbol`、`ticker`、`exchange` 或 member row 明细，不是
+materialization manifest，也不授权正式 row materialization。当前诊断显示 raw evidence
+SHA-256 匹配且 aggregate row count 为 800；`source_symbol` / `ticker` / `exchange`
+存在候选列，但 `security_id_mapping_reference` 仍缺失，因此 D1-T04 actual membership
+row materialization 继续 blocked。
+
 ## Binary Excel parser support
 
 D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。

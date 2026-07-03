@@ -38,6 +38,12 @@ MAPPING_REFERENCE_FIELDS = (
     "mapping_reference",
     "security_master_mapping_reference",
 )
+REQUIRED_FIELDS = (
+    "source_symbol",
+    "ticker",
+    "exchange",
+    "security_id_mapping_reference",
+)
 OLE_COMPOUND_FILE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
@@ -259,6 +265,71 @@ def first_present(row: dict[str, str], names: tuple[str, ...]) -> str:
     return ""
 
 
+def normalize_column_name(value: str) -> str:
+    return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", value.lower())
+
+
+def observed_columns_hash(columns: list[str]) -> str:
+    payload = json.dumps(columns, ensure_ascii=False, separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def candidate_aliases_by_required_field(
+    columns: list[str],
+) -> dict[str, list[str]]:
+    normalized = {column: normalize_column_name(column) for column in columns}
+    candidates: dict[str, list[str]] = {field: [] for field in REQUIRED_FIELDS}
+    for column, normalized_column in normalized.items():
+        if normalized_column in {"sourcesymbol", "symbol"}:
+            candidates["source_symbol"].append(column)
+        if "成份券代码" in normalized_column or "成分券代码" in normalized_column:
+            candidates["source_symbol"].append(column)
+            candidates["ticker"].append(column)
+        if "证券代码" in normalized_column or "constituentcode" in normalized_column:
+            candidates["source_symbol"].append(column)
+            candidates["ticker"].append(column)
+        if normalized_column in {"ticker", "securitycode"}:
+            candidates["ticker"].append(column)
+        if normalized_column in {"exchange", "market"} or "交易所" in normalized_column:
+            candidates["exchange"].append(column)
+        if (
+            "mappingreference" in normalized_column
+            or "securityidmappingreference" in normalized_column
+        ):
+            candidates["security_id_mapping_reference"].append(column)
+    return {
+        field: sorted(set(field_candidates))
+        for field, field_candidates in candidates.items()
+    }
+
+
+def field_diagnostics(members: list[dict[str, str]]) -> dict[str, object]:
+    columns = list(members[0]) if members else []
+    candidates = candidate_aliases_by_required_field(columns)
+    matched = {
+        "source_symbol": bool(candidates["source_symbol"]),
+        "ticker": bool(candidates["ticker"]),
+        "exchange": bool(candidates["exchange"]),
+        "security_id_mapping_reference": bool(
+            candidates["security_id_mapping_reference"]
+        ),
+    }
+    return {
+        "observed_column_count": len(columns),
+        "observed_columns_hash": observed_columns_hash(columns),
+        "normalized_observed_columns": columns,
+        "member_count_observed": len(members),
+        "required_field_match_summary": matched,
+        "missing_required_fields": [
+            field for field, is_matched in matched.items() if not is_matched
+        ],
+        "candidate_aliases_by_required_field": candidates,
+        "row_level_detail_included": False,
+        "raw_bytes_committed": False,
+        "member_rows_committed": False,
+    }
+
+
 def normalize_ticker(value: str) -> str:
     match = re.search(r"(?<!\d)(\d{6})(?!\d)", value)
     return match.group(1) if match else ""
@@ -353,6 +424,34 @@ def validate_materialization_inputs(
     return validate_members(members, int(inputs["expected_member_count"]))
 
 
+def diagnose_fields(contract_path: Path = DEFAULT_CONTRACT_PATH) -> dict[str, object]:
+    contract = load_contract(contract_path)
+    inputs = contract_inputs(contract)
+    evidence_path = inputs["raw_evidence_path"]
+    if not evidence_path.exists():
+        raise ValueError(f"missing approved raw evidence at {evidence_path}")
+    actual_sha256 = sha256_file(evidence_path)
+    if actual_sha256 != inputs["raw_evidence_sha256"]:
+        raise ValueError(
+            "raw_evidence_sha256_mismatch "
+            f"expected={inputs['raw_evidence_sha256']} actual={actual_sha256}"
+        )
+    members = parse_members(evidence_path)
+    diagnostics = field_diagnostics(members)
+    diagnostics.update(
+        {
+            "universe_id": inputs["universe_id"],
+            "index_code": inputs["index_code"],
+            "source_snapshot_id": inputs["source_snapshot_id"],
+            "raw_evidence_path": contract["source_evidence"]["raw_evidence_path"],
+            "raw_evidence_sha256_expected": inputs["raw_evidence_sha256"],
+            "raw_evidence_sha256_actual": actual_sha256,
+            "expected_member_count": inputs["expected_member_count"],
+        }
+    )
+    return diagnostics
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -371,11 +470,34 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Return 0 with blocked status when local ignored raw evidence is absent.",
     )
+    parser.add_argument(
+        "--diagnose-fields",
+        action="store_true",
+        help="Emit aggregate field diagnostics as JSON and do not validate rows.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.diagnose_fields:
+        try:
+            diagnostics = diagnose_fields(contract_path=args.contract)
+        except Exception as exc:
+            print(
+                json.dumps(
+                    {
+                        "diagnostics_status": "diagnostics_failed",
+                        "reason": str(exc),
+                        "row_level_detail_included": False,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 1
+        print(json.dumps(diagnostics, ensure_ascii=False, sort_keys=True))
+        return 0
     result = validate_materialization_inputs(
         contract_path=args.contract,
         allow_missing_evidence=args.allow_missing_evidence,
