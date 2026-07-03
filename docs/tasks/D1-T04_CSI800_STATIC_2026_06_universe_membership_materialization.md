@@ -34,8 +34,10 @@ D1-T04 后续 PR 增加 aggregate evidence validation report，只记录 validat
 raw evidence SHA-256、observed member count、mapping readiness 汇总和 no-artifact
 边界。该报告不包含 raw evidence bytes，不包含 `source_symbol`、`ticker`、`exchange`
 或任何 member row 明细，不是 run manifest、dataset manifest 或 materialization
-manifest。本地严格 runner 已确认 approved raw evidence SHA-256 匹配 contract，但当前
-标准库 parser 无法解析二进制 Excel/OLE `.xls`，因此 report 状态为 `failed_parse`，
+manifest。PR #15 的 initial aggregate evidence validation report 已确认 approved raw
+evidence SHA-256 匹配 contract；由于当时 runner 尚未支持 binary Excel/OLE `.xls`，
+report 原状态为 `failed_parse`。后续 PR #16 增加 binary Excel/OLE parser support，
+PR #17 重新运行 validator 后将 aggregate report 刷新为 `failed_mapping_fields`。
 actual membership row materialization 仍然 blocked。
 
 ## Field alias diagnostics
