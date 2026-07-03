@@ -233,11 +233,9 @@
             "none",
             "limit_up",
             "limit_down",
-            "near_limit_up",
-            "near_limit_down",
             "unknown"
           ],
-          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it."
+          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it. Near-limit concepts belong to later D2/R or execution-quality derived layers, not D1 raw trading constraint facts."
         }
       },
       "source_registry_requirements": {

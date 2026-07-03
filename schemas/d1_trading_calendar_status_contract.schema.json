@@ -242,7 +242,75 @@
         "quality_checks": {"$ref": "#/$defs/non_empty_strings"},
         "blocking_conditions": {"$ref": "#/$defs/non_empty_strings"},
         "downstream_boundary": {"type": "string", "minLength": 1}
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "table_name": {"const": "d1.trading_calendar"}
+            },
+            "required": ["table_name"]
+          },
+          "then": {
+            "properties": {
+              "source_registry_requirements": {
+                "properties": {
+                  "allowed_source_registry_ids": {
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "items": {"const": "HITHINK_FINANCIAL_API"},
+                    "contains": {"const": "HITHINK_FINANCIAL_API"}
+                  },
+                  "candidate_only_source_registry_ids": {
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "items": {"const": "HITHINK_FINANCIAL_API"},
+                    "contains": {"const": "HITHINK_FINANCIAL_API"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "table_name": {"const": "d1.trading_constraints"}
+            },
+            "required": ["table_name"]
+          },
+          "then": {
+            "properties": {
+              "source_registry_requirements": {
+                "properties": {
+                  "allowed_source_registry_ids": {
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]
+                    },
+                    "allOf": [
+                      {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+                      {"contains": {"const": "BAOSTOCK"}}
+                    ]
+                  },
+                  "candidate_only_source_registry_ids": {
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]
+                    },
+                    "allOf": [
+                      {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+                      {"contains": {"const": "BAOSTOCK"}}
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

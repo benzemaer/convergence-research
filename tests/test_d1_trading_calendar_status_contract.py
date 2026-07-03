@@ -178,6 +178,31 @@ class D1TradingCalendarStatusContractTest(unittest.TestCase):
             ],
         )
 
+    def test_table_specific_source_registry_boundaries_are_exact(self) -> None:
+        calendar_requirements = self.table("d1.trading_calendar")[
+            "source_registry_requirements"
+        ]
+        constraint_requirements = self.table("d1.trading_constraints")[
+            "source_registry_requirements"
+        ]
+
+        self.assertEqual(
+            calendar_requirements["allowed_source_registry_ids"],
+            ["HITHINK_FINANCIAL_API"],
+        )
+        self.assertEqual(
+            calendar_requirements["candidate_only_source_registry_ids"],
+            ["HITHINK_FINANCIAL_API"],
+        )
+        self.assertEqual(
+            set(constraint_requirements["allowed_source_registry_ids"]),
+            {"HITHINK_FINANCIAL_API", "BAOSTOCK"},
+        )
+        self.assertEqual(
+            set(constraint_requirements["candidate_only_source_registry_ids"]),
+            {"HITHINK_FINANCIAL_API", "BAOSTOCK"},
+        )
+
     def test_controlled_vocabularies_and_d3_boundary_are_explicit(self) -> None:
         calendar_vocab = self.table("d1.trading_calendar")["controlled_vocabularies"]
         constraint_vocab = self.table("d1.trading_constraints")[
@@ -197,6 +222,14 @@ class D1TradingCalendarStatusContractTest(unittest.TestCase):
         )
         self.assertIn(
             "unknown",
+            constraint_vocab["price_limit_status"]["allowed_values"],
+        )
+        self.assertNotIn(
+            "near_limit_up",
+            constraint_vocab["price_limit_status"]["allowed_values"],
+        )
+        self.assertNotIn(
+            "near_limit_down",
             constraint_vocab["price_limit_status"]["allowed_values"],
         )
         self.assertIn("D3", self.config["shared_boundary"]["d3_entry_rule"])
@@ -237,6 +270,17 @@ class D1TradingCalendarStatusContractTest(unittest.TestCase):
         self.table("d1.trading_constraints", changed)["source_registry_requirements"][
             "allowed_source_registry_ids"
         ].append("A_STOCK_DATA_RECON")
+        with self.assertRaises(ValidationError):
+            self.validate(changed)
+
+    def test_adding_baostock_to_calendar_source_boundaries_is_rejected(self) -> None:
+        changed = deepcopy(self.config)
+        calendar_requirements = self.table("d1.trading_calendar", changed)[
+            "source_registry_requirements"
+        ]
+        calendar_requirements["allowed_source_registry_ids"].append("BAOSTOCK")
+        calendar_requirements["candidate_only_source_registry_ids"].append("BAOSTOCK")
+
         with self.assertRaises(ValidationError):
             self.validate(changed)
 
