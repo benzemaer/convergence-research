@@ -41,6 +41,10 @@ CONFIGS = (
         ROOT / "schemas/d1_csi800_static_membership_validation_report.schema.json",
         ROOT / "configs/d1/csi800_static_2026_06_membership_validation_report.v1.json",
     ),
+    (
+        ROOT / "schemas/d1_csi800_static_membership_field_diagnostics.schema.json",
+        ROOT / "configs/d1/csi800_static_2026_06_membership_field_diagnostics.v1.json",
+    ),
 )
 
 

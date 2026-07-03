@@ -1,0 +1,60 @@
+{
+  "$schema": "../../schemas/d1_csi800_static_membership_field_diagnostics.schema.json",
+  "report_id": "D1_T04_CSI800_STATIC_2026_06_FIELD_DIAGNOSTICS_V1",
+  "report_version": "1.0.0",
+  "task_id": "D1-T04",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "index_code": "000906",
+  "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "raw_evidence_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906cons.xls",
+  "raw_evidence_sha256_expected": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+  "raw_evidence_sha256_actual": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+  "expected_member_count": 800,
+  "member_count_observed": 800,
+  "diagnostics_status": "field_aliases_required",
+  "observed_column_count": 9,
+  "observed_columns_hash": "39504708cdb7748084eed4f3898d3288c9d107a2fd2da206b72f76e67623c830",
+  "normalized_observed_columns": [
+    "日期Date",
+    "指数代码 Index Code",
+    "指数名称 Index Name",
+    "指数英文名称Index Name(Eng)",
+    "成份券代码Constituent Code",
+    "成份券名称Constituent Name",
+    "成份券英文名称Constituent Name(Eng)",
+    "交易所Exchange",
+    "交易所英文名称Exchange(Eng)"
+  ],
+  "required_field_match_summary": {
+    "source_symbol": true,
+    "ticker": true,
+    "exchange": true,
+    "security_id_mapping_reference": false
+  },
+  "missing_required_fields": [
+    "security_id_mapping_reference"
+  ],
+  "candidate_aliases_by_required_field": {
+    "source_symbol": [
+      "成份券代码Constituent Code"
+    ],
+    "ticker": [
+      "成份券代码Constituent Code"
+    ],
+    "exchange": [
+      "交易所Exchange",
+      "交易所英文名称Exchange(Eng)"
+    ],
+    "security_id_mapping_reference": []
+  },
+  "row_level_detail_included": false,
+  "raw_bytes_committed": false,
+  "member_rows_committed": false,
+  "duckdb_written": false,
+  "run_manifest_created": false,
+  "dataset_manifest_created": false,
+  "materialization_authorized": false,
+  "member_rows_materialized": false,
+  "downstream_decision": "materialization_remains_blocked",
+  "report_boundary": "This is aggregate field diagnostics only, not membership rows, not materialization manifest, not run manifest, and not dataset manifest."
+}

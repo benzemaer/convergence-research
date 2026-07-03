@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_membership_field_diagnostics.schema.json",
+  "title": "D1 CSI800 Static Membership Field Diagnostics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "report_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "source_snapshot_id",
+    "raw_evidence_path",
+    "raw_evidence_sha256_expected",
+    "raw_evidence_sha256_actual",
+    "expected_member_count",
+    "member_count_observed",
+    "diagnostics_status",
+    "observed_column_count",
+    "observed_columns_hash",
+    "normalized_observed_columns",
+    "required_field_match_summary",
+    "missing_required_fields",
+    "candidate_aliases_by_required_field",
+    "row_level_detail_included",
+    "raw_bytes_committed",
+    "member_rows_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "materialization_authorized",
+    "member_rows_materialized",
+    "downstream_decision",
+    "report_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "report_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_FIELD_DIAGNOSTICS_V1"
+    },
+    "report_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_path": {
+      "const": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906cons.xls"
+    },
+    "raw_evidence_sha256_expected": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "raw_evidence_sha256_actual": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "expected_member_count": {"const": 800},
+    "member_count_observed": {"const": 800},
+    "diagnostics_status": {
+      "enum": ["field_aliases_required", "field_aliases_resolved", "diagnostics_failed"]
+    },
+    "observed_column_count": {"type": "integer", "minimum": 1},
+    "observed_columns_hash": {"$ref": "#/$defs/sha256"},
+    "normalized_observed_columns": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "required_field_match_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_symbol",
+        "ticker",
+        "exchange",
+        "security_id_mapping_reference"
+      ],
+      "properties": {
+        "source_symbol": {"type": "boolean"},
+        "ticker": {"type": "boolean"},
+        "exchange": {"type": "boolean"},
+        "security_id_mapping_reference": {"type": "boolean"}
+      }
+    },
+    "missing_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "source_symbol",
+          "ticker",
+          "exchange",
+          "security_id_mapping_reference"
+        ]
+      }
+    },
+    "candidate_aliases_by_required_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_symbol",
+        "ticker",
+        "exchange",
+        "security_id_mapping_reference"
+      ],
+      "properties": {
+        "source_symbol": {"$ref": "#/$defs/string_list"},
+        "ticker": {"$ref": "#/$defs/string_list"},
+        "exchange": {"$ref": "#/$defs/string_list"},
+        "security_id_mapping_reference": {"$ref": "#/$defs/string_list"}
+      }
+    },
+    "row_level_detail_included": {"const": false},
+    "raw_bytes_committed": {"const": false},
+    "member_rows_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "materialization_authorized": {"const": false},
+    "member_rows_materialized": {"const": false},
+    "downstream_decision": {"const": "materialization_remains_blocked"},
+    "report_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "aggregate field diagnostics only"},
+        {"pattern": "not membership rows"},
+        {"pattern": "not materialization manifest"}
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "string_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}
