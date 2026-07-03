@@ -1,0 +1,126 @@
+{
+  "manifest_type": "source_snapshot_manifest",
+  "manifest_version": "1.0.0",
+  "snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "task_id": "G0-T01",
+  "gate": "G0",
+  "source_registry_id": "CSINDEX_OFFICIAL",
+  "publisher_name": "中证指数有限公司",
+  "official_domain": "csindex.com.cn",
+  "index_code": "000906",
+  "index_name": "CSI 800",
+  "document_type": "index_constituent_list",
+  "document_id": "000906cons.xls",
+  "document_title": "000906cons",
+  "retrieved_at": "2026-07-03T10:09:21.8572846Z",
+  "retrieval_timezone": "UTC",
+  "effective_date": "2026-06-12",
+  "effective_date_semantics": "effective_after_market_close",
+  "effective_date_status": "candidate_supported_by_official_announcement_and_methodology_pending_independent_review",
+  "source_page_url": "https://www.csindex.com.cn/#/indices/family/detail?indexCode=000906",
+  "license_or_terms_reference": "https://www.csindex.com.cn/#/disclaimer",
+  "local_snapshot_root": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z",
+  "local_snapshot_manifest": {
+    "path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/source_snapshot_manifest.json",
+    "sha256": "cda9cc11bdf0962610f960117f2451f2e9d264e3a3d534838723a3d38b11262e"
+  },
+  "evidence": [
+    {
+      "role": "index_detail_api",
+      "source_url": "https://www.csindex.com.cn/csindex-home/indexInfo/index-details-data?fileLang=2&indexCode=000906",
+      "final_url": "https://www.csindex.com.cn/csindex-home/indexInfo/index-details-data?fileLang=2&indexCode=000906",
+      "body_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/index-details-data_000906.json",
+      "headers_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/index-details-data_000906.json.headers.json",
+      "sha256": "96a65f74f8d11430d5780239d18814bcd16c0ca4820d8af0add2d3d49ac268ad",
+      "size_bytes": 1946,
+      "status_code": 200,
+      "redirect_count": 0,
+      "content_type": "application/json; charset=UTF-8"
+    },
+    {
+      "role": "official_constituent_file",
+      "source_url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000906cons.xls",
+      "final_url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000906cons.xls",
+      "body_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906cons.xls",
+      "headers_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906cons.xls.headers.json",
+      "sha256": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+      "size_bytes": 169984,
+      "status_code": 200,
+      "redirect_count": 0,
+      "content_type": "application/vnd.ms-excel"
+    },
+    {
+      "role": "official_rebalance_announcement",
+      "announcement_id": 3006137,
+      "title": "关于沪深300、中证500、中证1000、中证A500等指数定期调整结果的公告",
+      "publish_date": "2026-05-29",
+      "effective_statement": "于2026年6月12日收市后生效",
+      "source_url": "https://www.csindex.com.cn/csindex-home/announcement/queryAnnouncementById?id=3006137",
+      "final_url": "https://www.csindex.com.cn/csindex-home/announcement/queryAnnouncementById?id=3006137",
+      "body_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/announcement_3006137.json",
+      "headers_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/announcement_3006137.json.headers.json",
+      "sha256": "e878da9770dd4b9697c019d46816ff6a110386ae2a65eac80294497b64737fe2",
+      "size_bytes": 2300,
+      "status_code": 200,
+      "redirect_count": 0,
+      "content_type": "application/json"
+    },
+    {
+      "role": "official_rebalance_attachment",
+      "source_url": "https://oss-ch.csindex.com.cn/notice/20260529155822-附件：部分指数样本调整名单.pdf",
+      "final_url": "https://oss-ch.csindex.com.cn/notice/20260529155822-附件：部分指数样本调整名单.pdf",
+      "body_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/2026-05-29_部分指数样本调整名单.pdf",
+      "headers_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/2026-05-29_部分指数样本调整名单.pdf.headers.json",
+      "sha256": "63301b60a2a2040c4bdd97c7db5021afc8425e1f0473b96dc0b472a39ba25d32",
+      "size_bytes": 149582,
+      "status_code": 200,
+      "redirect_count": 0,
+      "content_type": "application/pdf"
+    },
+    {
+      "role": "official_index_methodology",
+      "source_url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/000906_Index_Methodology_cn.pdf",
+      "final_url": "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/000906_Index_Methodology_cn.pdf",
+      "body_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906_Index_Methodology_cn.pdf",
+      "headers_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906_Index_Methodology_cn.pdf.headers.json",
+      "sha256": "6109ad8390fdad70ed807c799309f7d5cabc1cd949d45754704c7a8acf4d1933",
+      "size_bytes": 185201,
+      "status_code": 200,
+      "redirect_count": 0,
+      "content_type": "application/pdf"
+    }
+  ],
+  "executor_validation": {
+    "path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/executor_validation.json",
+    "sha256": "5601fbfb8d8a6dd9c1031866d37e5c07463eceb0c075611f6b699abe192e0cdd",
+    "constituent_row_count": 800,
+    "distinct_constituent_count": 800,
+    "file_date": "2026-07-02",
+    "duplicate_constituent_count": 0,
+    "missing_required_row_count": 0,
+    "invalid_code_count": 0,
+    "exchange_counts": {
+      "上海证券交易所": 469,
+      "深圳证券交易所": 331
+    }
+  },
+  "evidence_interpretation": [
+    "The official 000906 methodology defines CSI 800 as the combined constituents of CSI 500 and CSI 300.",
+    "The official rebalance announcement states that the 2026 regular adjustment takes effect after market close on 2026-06-12.",
+    "The official 000906 constituent file contains 800 unique constituents and carries file date 2026-07-02.",
+    "Independent G0 review must verify that this evidence chain supports CSI800_STATIC_2026_06."
+  ],
+  "review": {
+    "status": "pending",
+    "gate": "G0",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_commit": null,
+    "independence_attested": false
+  },
+  "operational_effect": {
+    "membership_evidence_status": "pending",
+    "operational_status": "blocked_pending_official_membership_evidence",
+    "eligible_for_d0": false
+  }
+}
