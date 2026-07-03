@@ -53,8 +53,13 @@ class G0ConfigTest(unittest.TestCase):
         )
         return changed
 
-    def test_proposed_config_is_valid(self) -> None:
+    def test_accepted_but_operationally_blocked_config_is_valid(self) -> None:
         self.validator.validate(self.config)
+        self.assertEqual(self.config["decision_status"], "accepted")
+        self.assertEqual(
+            self.config["operational_status"],
+            "blocked_pending_official_membership_evidence",
+        )
 
     def test_static_backfill_claim_boundary_is_explicit(self) -> None:
         universe = self.config["universe"]
