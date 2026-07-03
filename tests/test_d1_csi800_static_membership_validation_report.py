@@ -148,6 +148,8 @@ class D1CSI800StaticMembershipValidationReportTest(unittest.TestCase):
             "row_level_data_committed",
             "raw_bytes_committed",
             "duckdb_written",
+            "run_manifest_created",
+            "dataset_manifest_created",
         ):
             changed = deepcopy(self.report)
             changed[field] = True
