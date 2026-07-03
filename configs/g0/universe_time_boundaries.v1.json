@@ -1,0 +1,74 @@
+{
+  "config_version": "1.0.0",
+  "decision_id": "DR-001",
+  "decision_status": "proposed",
+  "operational_status": "blocked_pending_official_membership_evidence",
+  "universe": {
+    "universe_id": "CSI800_STATIC_2026_06",
+    "universe_type": "static_current_constituent_cohort",
+    "index_name": "CSI 800",
+    "historical_membership_mode": "static_backfilled",
+    "membership_evidence": {
+      "status": "pending",
+      "effective_date": null,
+      "source_url": null,
+      "retrieved_at": null,
+      "file_path": null,
+      "file_sha256": null
+    },
+    "claim_scope": "Applicable only to securities in the officially verified 2026-06 CSI 800 static cohort. Not a historical point-in-time index universe.",
+    "prohibited_claims": [
+      "historical point-in-time CSI 800 generalization",
+      "CSI 1000 or small-cap generalization",
+      "full A-share market generalization",
+      "cross-market generalization"
+    ]
+  },
+  "time_partitions": {
+    "boundary_semantics": "inclusive_calendar_dates",
+    "warmup": {
+      "start": "2016-01-01",
+      "end": "2016-12-30",
+      "allowed_uses": ["rolling_window_warmup"],
+      "prohibited_uses": ["statistical_conclusion", "parameter_selection"]
+    },
+    "design": {
+      "start": "2017-01-01",
+      "end": "2022-12-30",
+      "allowed_uses": ["state_definition", "structural_analysis"],
+      "prohibited_uses": [
+        "future_path_selection",
+        "return_based_selection",
+        "backtest_based_selection"
+      ]
+    },
+    "temporal_validation": {
+      "start": "2023-01-01",
+      "end": "2024-12-31",
+      "allowed_uses": [
+        "frequency_validation",
+        "stability_validation",
+        "cooccurrence_validation",
+        "null_model_validation",
+        "alternative_definition_validation"
+      ],
+      "prohibited_uses": [
+        "future_path_selection",
+        "return_based_selection",
+        "backtest_based_selection"
+      ]
+    },
+    "historical_reserved_evaluation_candidate": {
+      "start": "2025-01-01",
+      "end": "2026-06-30",
+      "held_out_eligible": false,
+      "eligibility_status": "pending_information_exposure_audit",
+      "upgrade_rule": "May be designated held-out test only if an independent audit finds no prior exposure to future paths, returns, or backtest results for this period."
+    },
+    "prospective": {
+      "start": null,
+      "start_rule": "next_trading_day_after_R2_freeze",
+      "minimum_duration_months": 6
+    }
+  }
+}

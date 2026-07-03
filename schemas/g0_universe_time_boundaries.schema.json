@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/g0_universe_time_boundaries.schema.json",
+  "title": "G0 Universe and Time Boundaries",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "decision_id",
+    "decision_status",
+    "operational_status",
+    "universe",
+    "time_partitions"
+  ],
+  "properties": {
+    "config_version": {"const": "1.0.0"},
+    "decision_id": {"pattern": "^DR-[0-9]{3}$"},
+    "decision_status": {"enum": ["proposed", "accepted", "superseded"]},
+    "operational_status": {
+      "enum": [
+        "blocked_pending_official_membership_evidence",
+        "eligible_for_d0"
+      ]
+    },
+    "universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "universe_id",
+        "universe_type",
+        "index_name",
+        "historical_membership_mode",
+        "membership_evidence",
+        "claim_scope",
+        "prohibited_claims"
+      ],
+      "properties": {
+        "universe_id": {"const": "CSI800_STATIC_2026_06"},
+        "universe_type": {"const": "static_current_constituent_cohort"},
+        "index_name": {"const": "CSI 800"},
+        "historical_membership_mode": {"const": "static_backfilled"},
+        "membership_evidence": {"$ref": "#/$defs/membership_evidence"},
+        "claim_scope": {"type": "string", "minLength": 1},
+        "prohibited_claims": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "time_partitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_semantics",
+        "warmup",
+        "design",
+        "temporal_validation",
+        "historical_reserved_evaluation_candidate",
+        "prospective"
+      ],
+      "properties": {
+        "boundary_semantics": {"const": "inclusive_calendar_dates"},
+        "warmup": {
+          "allOf": [
+            {"$ref": "#/$defs/fixed_partition"},
+            {
+              "properties": {
+                "start": {"const": "2016-01-01"},
+                "end": {"const": "2016-12-30"}
+              }
+            }
+          ]
+        },
+        "design": {
+          "allOf": [
+            {"$ref": "#/$defs/fixed_partition"},
+            {
+              "properties": {
+                "start": {"const": "2017-01-01"},
+                "end": {"const": "2022-12-30"}
+              }
+            }
+          ]
+        },
+        "temporal_validation": {
+          "allOf": [
+            {"$ref": "#/$defs/fixed_partition"},
+            {
+              "properties": {
+                "start": {"const": "2023-01-01"},
+                "end": {"const": "2024-12-31"}
+              }
+            }
+          ]
+        },
+        "historical_reserved_evaluation_candidate": {
+          "$ref": "#/$defs/reserved_partition"
+        },
+        "prospective": {"$ref": "#/$defs/prospective_partition"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operational_status": {"const": "eligible_for_d0"}
+        }
+      },
+      "then": {
+        "properties": {
+          "decision_status": {"const": "accepted"},
+          "universe": {
+            "properties": {
+              "membership_evidence": {
+                "properties": {
+                  "status": {"const": "verified"},
+                  "effective_date": {"type": "string", "format": "date"},
+                  "source_url": {"type": "string", "format": "uri"},
+                  "retrieved_at": {"type": "string", "format": "date-time"},
+                  "file_path": {"type": "string", "minLength": 1},
+                  "file_sha256": {"$ref": "#/$defs/sha256"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "membership_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "effective_date",
+        "source_url",
+        "retrieved_at",
+        "file_path",
+        "file_sha256"
+      ],
+      "properties": {
+        "status": {"enum": ["pending", "verified"]},
+        "effective_date": {"type": ["string", "null"], "format": "date"},
+        "source_url": {"type": ["string", "null"], "format": "uri"},
+        "retrieved_at": {"type": ["string", "null"], "format": "date-time"},
+        "file_path": {"type": ["string", "null"]},
+        "file_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "verified"}}},
+          "then": {
+            "properties": {
+              "effective_date": {"type": "string", "format": "date"},
+              "source_url": {"type": "string", "format": "uri"},
+              "retrieved_at": {"type": "string", "format": "date-time"},
+              "file_path": {"type": "string", "minLength": 1},
+              "file_sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        }
+      ]
+    },
+    "fixed_partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "allowed_uses", "prohibited_uses"],
+      "properties": {
+        "start": {"type": "string", "format": "date"},
+        "end": {"type": "string", "format": "date"},
+        "allowed_uses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "prohibited_uses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "reserved_partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end",
+        "held_out_eligible",
+        "eligibility_status",
+        "upgrade_rule"
+      ],
+      "properties": {
+        "start": {"const": "2025-01-01"},
+        "end": {"const": "2026-06-30"},
+        "held_out_eligible": {"const": false},
+        "eligibility_status": {
+          "const": "pending_information_exposure_audit"
+        },
+        "upgrade_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "prospective_partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "start_rule", "minimum_duration_months"],
+      "properties": {
+        "start": {"type": "null"},
+        "start_rule": {"const": "next_trading_day_after_R2_freeze"},
+        "minimum_duration_months": {"type": "integer", "minimum": 6}
+      }
+    }
+  }
+}

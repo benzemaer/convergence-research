@@ -35,6 +35,7 @@
 ```bash
 python scripts/build_compendium.py --check
 python scripts/validate_manifests.py
+python scripts/validate_configs.py
 ruff format --check scripts tests
 ruff check scripts tests
 python -m unittest discover -s tests -v

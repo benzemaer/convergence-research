@@ -46,5 +46,8 @@ jobs:
       - name: Validate manifest contracts
         run: python scripts/validate_manifests.py
 
+      - name: Validate governance configurations
+        run: python scripts/validate_configs.py
+
       - name: Run tests
         run: python -m unittest discover -s tests -v
