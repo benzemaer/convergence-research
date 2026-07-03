@@ -44,8 +44,19 @@ D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser
 实现使用 `xlrd==2.0.1` 作为只读 `.xls` 解析依赖；该库采用 BSD license，使用边界仅限
 本地 dry-run evidence validation，不联网，不调用外部 API，不写 DuckDB，不生成
 manifest，不输出或提交 member rows，也不创建 `security_id`。HTML-table `.xls` 仍保留
-原有 HTML parser 分支。PR #15 的 aggregate validation report 仍保持 `failed_parse`，
-直到后续受控运行重新执行 validator 并提交新的 aggregate report。
+原有 HTML parser 分支。PR #15 的 aggregate validation report 原状态为 `failed_parse`；
+PR #17 在 binary Excel/OLE parser support 合并后重新运行 validator，并将 aggregate
+report 刷新为 `failed_mapping_fields`。
+
+## Evidence validation report refresh
+
+D1-T04 后续 PR 在 binary Excel/OLE parser support 合并后重新严格运行本地 validator。
+approved raw evidence 存在且 SHA-256 匹配，parser 得到 aggregate `member_count_observed=800`，
+但 mapping-readiness gate 仍失败：validator 未确认所有 required
+`source_symbol` / `ticker` / `exchange` / `security_id_mapping_reference` 字段均满足契约，
+且 approved `security_id` mapping 仍未生成。因此 aggregate report 状态更新为
+`failed_mapping_fields`，不提交 raw bytes、member rows、DuckDB、manifest 或任何行级字段；
+actual membership row materialization 仍然 blocked。
 
 ## 非目标
 
