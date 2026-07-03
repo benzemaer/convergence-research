@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_corporate_actions_adjustment_contract.schema.json",
+  "title": "D1 Corporate Actions and Adjustment Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "contract_id",
+    "contract_status",
+    "depends_on",
+    "base_data_product_contract",
+    "tables",
+    "shared_boundary",
+    "implementation_exclusions",
+    "future_loader_requirements"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T03"},
+    "contract_id": {"const": "D1_CORPORATE_ACTIONS_ADJUSTMENT_CONTRACT_V1"},
+    "contract_status": {
+      "enum": ["draft_for_g1_review", "accepted", "superseded"]
+    },
+    "depends_on": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D1-T00"}},
+        {"contains": {"const": "D1-T01"}},
+        {"contains": {"const": "D1-T02"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "D0_SOURCE_REGISTRY_V1"}}
+      ]
+    },
+    "base_data_product_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_id", "required_tables"],
+      "properties": {
+        "contract_id": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"},
+        "required_tables": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["d1.corporate_actions", "d2.adjusted_market_prices"]
+          },
+          "allOf": [
+            {"contains": {"const": "d1.corporate_actions"}},
+            {"contains": {"const": "d2.adjusted_market_prices"}}
+          ]
+        }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/table_contract"}
+    },
+    "shared_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "d3_entry_rule",
+        "mechanical_gap_rule",
+        "factor_as_of_rule",
+        "revision_rule"
+      ],
+      "properties": {
+        "d3_entry_rule": {"type": "string", "minLength": 1},
+        "mechanical_gap_rule": {"type": "string", "minLength": 1},
+        "factor_as_of_rule": {"type": "string", "minLength": 1},
+        "revision_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "implementation_exclusions": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "no_loader",
+          "no_external_api_call",
+          "no_real_data_import",
+          "no_duckdb_entity_data",
+          "no_committed_duckdb_file",
+          "no_manifest"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "no_loader"}},
+        {"contains": {"const": "no_external_api_call"}},
+        {"contains": {"const": "no_real_data_import"}},
+        {"contains": {"const": "no_duckdb_entity_data"}},
+        {"contains": {"const": "no_committed_duckdb_file"}},
+        {"contains": {"const": "no_manifest"}}
+      ]
+    },
+    "future_loader_requirements": {"$ref": "#/$defs/non_empty_strings"}
+  },
+  "$defs": {
+    "non_empty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "field_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "nullable", "rule"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "nullable": {"type": "boolean"},
+        "rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_registry_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_source_registry_ids",
+        "candidate_only_source_registry_ids",
+        "prohibited_source_registry_ids",
+        "formal_ingestion_authorized",
+        "reason"
+      ],
+      "properties": {
+        "allowed_source_registry_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]
+          }
+        },
+        "candidate_only_source_registry_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]
+          },
+          "contains": {"const": "HITHINK_FINANCIAL_API"}
+        },
+        "prohibited_source_registry_ids": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "CSINDEX_OFFICIAL"}},
+            {"contains": {"const": "A_STOCK_DATA_RECON"}}
+          ],
+          "items": {
+            "enum": [
+              "CSINDEX_OFFICIAL",
+              "A_STOCK_DATA_RECON"
+            ]
+          }
+        },
+        "formal_ingestion_authorized": {"const": false},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "controlled_vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_values", "unknown_value_rule"],
+      "properties": {
+        "allowed_values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "unknown_value_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "table_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table_name",
+        "field_semantics",
+        "primary_key",
+        "controlled_vocabularies",
+        "source_registry_requirements",
+        "as_of_policy",
+        "revision_policy",
+        "quality_checks",
+        "blocking_conditions",
+        "downstream_boundary"
+      ],
+      "properties": {
+        "table_name": {
+          "enum": ["d1.corporate_actions", "d2.adjusted_market_prices"]
+        },
+        "field_semantics": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/field_rule"},
+          "minProperties": 1
+        },
+        "primary_key": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        },
+        "controlled_vocabularies": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/controlled_vocabulary"},
+          "minProperties": 1
+        },
+        "source_registry_requirements": {
+          "$ref": "#/$defs/source_registry_requirements"
+        },
+        "as_of_policy": {"type": "string", "minLength": 1},
+        "revision_policy": {"type": "string", "minLength": 1},
+        "quality_checks": {"$ref": "#/$defs/non_empty_strings"},
+        "blocking_conditions": {"$ref": "#/$defs/non_empty_strings"},
+        "downstream_boundary": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "table_name": {"const": "d1.corporate_actions"}
+            },
+            "required": ["table_name"]
+          },
+          "then": {
+            "properties": {
+              "source_registry_requirements": {
+                "properties": {
+                  "allowed_source_registry_ids": {
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "items": {"const": "HITHINK_FINANCIAL_API"},
+                    "contains": {"const": "HITHINK_FINANCIAL_API"}
+                  },
+                  "candidate_only_source_registry_ids": {
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "items": {"const": "HITHINK_FINANCIAL_API"},
+                    "contains": {"const": "HITHINK_FINANCIAL_API"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "table_name": {"const": "d2.adjusted_market_prices"}
+            },
+            "required": ["table_name"]
+          },
+          "then": {
+            "properties": {
+              "source_registry_requirements": {
+                "properties": {
+                  "allowed_source_registry_ids": {
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]
+                    },
+                    "allOf": [
+                      {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+                      {"contains": {"const": "BAOSTOCK"}}
+                    ]
+                  },
+                  "candidate_only_source_registry_ids": {
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                      "enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]
+                    },
+                    "allOf": [
+                      {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+                      {"contains": {"const": "BAOSTOCK"}}
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
