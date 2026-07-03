@@ -1,0 +1,184 @@
+{
+  "$schema": "../../schemas/d1_security_master_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D1-T01",
+  "contract_id": "D1_SECURITY_MASTER_CONTRACT_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D1-T00",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D0_SOURCE_REGISTRY_V1"
+  ],
+  "table_name": "d1.security_master",
+  "base_data_product_contract": {
+    "contract_id": "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "required_fields_source": "configs/d0/data_product_contracts.v1.json#d1.security_master.required_fields",
+    "primary_key_source": "configs/d0/data_product_contracts.v1.json#d1.security_master.primary_key"
+  },
+  "field_semantics": {
+    "data_version": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Versioned D1 dataset identifier; any source mapping or lifecycle semantic change requires a new data_version before formal use."
+    },
+    "universe_id": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Research universe identifier; D1-T01 does not materialize membership rows and does not expand the G0 universe."
+    },
+    "time_segment_id": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Configured time segment key; security identity rows must not infer facts outside the approved segment boundary."
+    },
+    "security_id": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Project-internal stable key generated as CN.{exchange}.{ticker}; it is not a supplier code and not a raw source symbol."
+    },
+    "ticker": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Six digit A-share ticker normalized without exchange suffix or vendor prefix; leading zeros must be preserved."
+    },
+    "exchange": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Canonical exchange code from the project enum: SSE or SZSE."
+    },
+    "security_name": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Issuer/security display name as observed in the approved source snapshot; name changes require snapshot provenance."
+    },
+    "listing_date": {
+      "type": "DATE",
+      "nullable": false,
+      "rule": "First exchange listing date for the security identity in Asia/Shanghai exchange-date semantics."
+    },
+    "delisting_date": {
+      "type": "DATE",
+      "nullable": true,
+      "rule": "Final delisting date when explicitly available from source evidence; null means no observed delisting fact, not false."
+    },
+    "security_type": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Canonical project security type; D1-T01 permits only A_SHARE_COMMON for this contract version."
+    },
+    "source_registry_id": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Registry id of the approved source snapshot used for the row; formal ingestion remains unauthorized in D1-T01."
+    },
+    "source_snapshot_id": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Immutable raw snapshot reference required before any future loader can write formal rows."
+    },
+    "run_id": {
+      "type": "TEXT",
+      "nullable": false,
+      "rule": "Run manifest id required before formal materialization; D1-T01 does not create run manifests."
+    }
+  },
+  "identifier_policy": {
+    "security_id_role": "security_id is the project's stable internal identity key for joins; downstream research must use it instead of vendor symbols.",
+    "security_id_format": "CN.{exchange}.{ticker}",
+    "security_id_regex": "^CN\\.(SSE|SZSE)\\.[0-9]{6}$",
+    "not_equal_to_vendor_code_rule": "Vendor codes such as 600000.SH, SH600000, 000001.SZ, or source-specific symbols must be retained as source symbols and normalized into security_id only through reviewed mapping rules.",
+    "stability_rule": "For the same listed security identity, security_id remains stable across source snapshots unless the exchange or ticker identity itself changes; corrections require new snapshot provenance and review."
+  },
+  "exchange_policy": {
+    "allowed_exchanges": [
+      "SSE",
+      "SZSE"
+    ],
+    "exchange_code_system": "Use project canonical exchange codes: SSE for Shanghai Stock Exchange and SZSE for Shenzhen Stock Exchange."
+  },
+  "ticker_policy": {
+    "normalization_rule": "Strip vendor exchange suffixes/prefixes only after source_registry_id and source_symbol have been retained in raw snapshot evidence; output ticker must be exactly six ASCII digits.",
+    "ticker_regex": "^[0-9]{6}$",
+    "leading_zero_rule": "Treat ticker as text; never parse as integer or drop leading zeros."
+  },
+  "security_type_policy": {
+    "allowed_security_types": [
+      "A_SHARE_COMMON"
+    ],
+    "type_code_system": "Use project canonical security type codes. ST status is a trading/status fact and must not be encoded as security_type."
+  },
+  "source_symbol_policy": {
+    "traceability_rule": "Every future source symbol mapping must be traceable to source_registry_id, source_snapshot_id, original source_symbol, observed_at or retrieval time, and the normalization rule version.",
+    "normalization_boundary": "D1-T01 defines mapping rules only; it does not add a source_symbol column to d1.security_master and does not store vendor payloads in DuckDB.",
+    "required_mapping_keys": [
+      "source_registry_id",
+      "source_snapshot_id",
+      "source_symbol",
+      "security_id",
+      "ticker",
+      "exchange",
+      "observed_at"
+    ],
+    "prohibited_assumptions": [
+      "Do not assume a supplier code is equal to security_id.",
+      "Do not infer exchange solely from ticker prefix without source evidence.",
+      "Do not treat wrapper-returned symbols as publisher identity.",
+      "Do not convert unknown mapping quality to false."
+    ]
+  },
+  "lifecycle_policy": {
+    "listing_date_rule": "listing_date is the exchange listing date observed from approved source evidence and must be <= delisting_date when delisting_date is present.",
+    "delisting_date_rule": "delisting_date may be null only when the source snapshot lacks an explicit delisting fact; null must not be interpreted as active membership or tradability.",
+    "date_timezone": "Asia/Shanghai",
+    "revision_rule": "Any correction to listing_date, delisting_date, ticker, exchange, security_name, or security_type requires new source_snapshot_id or data_version and must not rewrite old evidence."
+  },
+  "source_registry_requirements": {
+    "allowed_source_registry_ids": [
+      "HITHINK_FINANCIAL_API"
+    ],
+    "prohibited_source_registry_ids": [
+      "CSINDEX_OFFICIAL",
+      "A_STOCK_DATA_RECON",
+      "BAOSTOCK"
+    ],
+    "formal_ingestion_authorized": false,
+    "reason": "HiThink remains only a candidate source for security_master; source terms, as-of semantics, revision behavior, raw snapshot retention, manifests, and run authorization are not closed."
+  },
+  "quality_checks": [
+    "primary_key_unique",
+    "security_id_matches_regex",
+    "ticker_matches_regex",
+    "exchange_allowed",
+    "security_type_allowed",
+    "ticker_exchange_mapping_unique_within_version",
+    "listing_date_not_after_delisting_date",
+    "source_registry_allowed",
+    "source_snapshot_id_present",
+    "no_unreviewed_source_symbol_mapping"
+  ],
+  "implementation_exclusions": [
+    "no_loader",
+    "no_external_api_call",
+    "no_real_data_import",
+    "no_duckdb_entity_data",
+    "no_committed_duckdb_file",
+    "no_manifest"
+  ],
+  "blocking_conditions": [
+    "source_terms_pending_for_formal_ingestion",
+    "as_of_policy_not_verified",
+    "revision_policy_not_verified",
+    "missing_raw_snapshot",
+    "missing_sha256",
+    "missing_source_snapshot_manifest",
+    "missing_run_manifest",
+    "unreviewed_source_symbol_mapping",
+    "unknown_security_identity_quality"
+  ],
+  "future_loader_requirements": [
+    "Future loader must read only approved raw snapshots and manifests, never live APIs.",
+    "Future loader must preserve raw source_symbol provenance outside DuckDB raw byte storage.",
+    "Future loader must fail non-zero on duplicate primary keys, duplicate ticker/exchange mappings, invalid security_id format, invalid exchange, invalid security_type, date-order violations, or missing source snapshot references.",
+    "Future loader must not populate d1.security_master until source terms, raw snapshot, manifest, as-of, revision, and run authorization gates pass."
+  ]
+}
