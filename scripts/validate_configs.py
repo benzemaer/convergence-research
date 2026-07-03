@@ -8,6 +8,11 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
+SECURITY_MAPPING_REFERENCE_CONTRACT_PATH = (
+    ROOT
+    / "configs/d1"
+    / "csi800_static_2026_06_security_mapping_reference_contract.v1.json"
+)
 CONFIGS = (
     (
         ROOT / "schemas/g0_universe_time_boundaries.schema.json",
@@ -48,6 +53,11 @@ CONFIGS = (
     (
         ROOT / "schemas/d1_csi800_static_membership_field_aliases.schema.json",
         ROOT / "configs/d1/csi800_static_2026_06_membership_field_aliases.v1.json",
+    ),
+    (
+        ROOT
+        / "schemas/d1_csi800_static_security_mapping_reference_contract.schema.json",
+        SECURITY_MAPPING_REFERENCE_CONTRACT_PATH,
     ),
 )
 

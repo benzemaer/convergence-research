@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/d1_csi800_static_security_mapping_reference_contract.schema.json",
+  "contract_id": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1",
+  "contract_version": "1.0.0",
+  "task_id": "D1-T04",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "index_code": "000906",
+  "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "raw_evidence_sha256_expected": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+  "field_alias_contract_id": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1",
+  "field_alias_contract_version": "1.0.0",
+  "security_mapping_source": {
+    "source_domain": "D1_SECURITY_MASTER",
+    "source_artifact": "configs/d1/security_master_contract.v1.json#D1_SECURITY_MASTER_CONTRACT_V1",
+    "mapping_key_fields": ["ticker", "exchange"],
+    "effective_date": "2026-06-12",
+    "mapping_grain": "one security_id per ticker/exchange/effective_date"
+  },
+  "prohibited_mapping_shortcuts": {
+    "using_csindex_raw_evidence_as_security_id_source": false,
+    "fabricate_security_id_mapping_reference": false,
+    "ticker_only_mapping_allowed": false,
+    "exchange_agnostic_mapping_allowed": false
+  },
+  "unresolved_mapping_policy": {
+    "missing_match_action": "block_materialization",
+    "duplicate_match_action": "block_materialization",
+    "inactive_or_delisted_ambiguity_action": "block_materialization"
+  },
+  "materialization_gate": {
+    "security_id_mapping_reference_required_before_membership_rows": true,
+    "all_800_rows_must_map": true,
+    "no_unmapped_rows_allowed": true,
+    "no_duplicate_security_id_for_same_membership_row": true
+  },
+  "row_level_detail_included": false,
+  "raw_bytes_committed": false,
+  "member_rows_committed": false,
+  "duckdb_written": false,
+  "run_manifest_created": false,
+  "dataset_manifest_created": false,
+  "materialization_authorized": false,
+  "member_rows_materialized": false,
+  "downstream_decision": "materialization_remains_blocked",
+  "report_boundary": "This is a security mapping reference contract only, not membership rows, not security_id mapping output, not materialization manifest, not run manifest, and not dataset manifest."
+}

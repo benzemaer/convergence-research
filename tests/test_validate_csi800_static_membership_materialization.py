@@ -132,6 +132,38 @@ def field_aliases_for_fixture(tmp_path: Path) -> Path:
     return alias_path
 
 
+def security_mapping_reference_contract_for_fixture(tmp_path: Path) -> Path:
+    contract = {
+        "security_mapping_source": {
+            "source_domain": "D1_SECURITY_MASTER",
+            "source_artifact": (
+                "configs/d1/security_master_contract.v1.json"
+                "#D1_SECURITY_MASTER_CONTRACT_V1"
+            ),
+            "mapping_key_fields": ["ticker", "exchange"],
+            "effective_date": "2026-06-12",
+            "mapping_grain": "one security_id per ticker/exchange/effective_date",
+        },
+        "prohibited_mapping_shortcuts": {
+            "using_csindex_raw_evidence_as_security_id_source": False,
+            "fabricate_security_id_mapping_reference": False,
+            "ticker_only_mapping_allowed": False,
+            "exchange_agnostic_mapping_allowed": False,
+        },
+        "row_level_detail_included": False,
+        "raw_bytes_committed": False,
+        "member_rows_committed": False,
+        "duckdb_written": False,
+        "run_manifest_created": False,
+        "dataset_manifest_created": False,
+        "materialization_authorized": False,
+        "member_rows_materialized": False,
+    }
+    contract_path = tmp_path / "security_mapping_reference_contract.json"
+    write_json(contract_path, contract)
+    return contract_path
+
+
 class FakeSheet:
     def __init__(self, rows: list[list[object]]) -> None:
         self._rows = rows
@@ -653,6 +685,84 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
             self.assertNotIn("000001", output.getvalue())
             self.assertNotIn("000001.SZ", output.getvalue())
             self.assertNotIn("SZSE", output.getvalue())
+
+    def test_field_aliases_with_mapping_contract_still_block_materialization(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.csv"
+            evidence_text = (
+                "成份券代码Constituent Code,交易所Exchange\n000001.SZ,SZSE\n"
+            )
+            evidence.write_bytes(evidence_text.encode())
+            contract_path = contract_for_fixture(
+                tmp_path,
+                evidence,
+                evidence_text,
+                expected_count=1,
+            )
+            alias_path = field_aliases_for_fixture(tmp_path)
+            mapping_contract_path = security_mapping_reference_contract_for_fixture(
+                tmp_path
+            )
+            result = validator.validate_materialization_inputs(
+                contract_path,
+                field_aliases_path=alias_path,
+                security_mapping_reference_contract_path=mapping_contract_path,
+            )
+            self.assertEqual(result.status, validator.STATUS_FAILED)
+            self.assertEqual(result.member_count, 1)
+            self.assertIn("source/ticker/exchange_aliases_resolved", result.reason)
+            self.assertIn(
+                "security_mapping_reference_contract_present",
+                result.reason,
+            )
+            self.assertIn("security_id_mapping_output_pending", result.reason)
+            self.assertIn("materialization_remains_blocked", result.reason)
+
+    def test_cli_mapping_contract_emits_no_row_level_values(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.csv"
+            evidence_text = (
+                "成份券代码Constituent Code,交易所Exchange\n000001.SZ,SZSE\n"
+            )
+            evidence.write_bytes(evidence_text.encode())
+            contract_path = contract_for_fixture(
+                tmp_path,
+                evidence,
+                evidence_text,
+                expected_count=1,
+            )
+            alias_path = field_aliases_for_fixture(tmp_path)
+            mapping_contract_path = security_mapping_reference_contract_for_fixture(
+                tmp_path
+            )
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = validator.main(
+                    [
+                        "--contract",
+                        str(contract_path),
+                        "--field-aliases",
+                        str(alias_path),
+                        "--security-mapping-reference-contract",
+                        str(mapping_contract_path),
+                    ]
+                )
+            self.assertEqual(exit_code, 1)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["status"], validator.STATUS_FAILED)
+            self.assertEqual(payload["member_count"], 1)
+            self.assertIn(
+                "security_id_mapping_output_pending",
+                payload["reason"],
+            )
+            self.assertNotIn("000001", output.getvalue())
+            self.assertNotIn("000001.SZ", output.getvalue())
+            self.assertNotIn("SZSE", output.getvalue())
+            self.assertNotIn("SSE", output.getvalue())
 
     def test_field_aliases_do_not_fabricate_security_mapping_reference(self) -> None:
         members = [
