@@ -1,0 +1,333 @@
+{
+  "$schema": "../../schemas/d1_corporate_actions_adjustment_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D1-T03",
+  "contract_id": "D1_CORPORATE_ACTIONS_ADJUSTMENT_CONTRACT_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D1-T00",
+    "D1-T01",
+    "D1-T02",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D0_SOURCE_REGISTRY_V1"
+  ],
+  "base_data_product_contract": {
+    "contract_id": "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "required_tables": [
+      "d1.corporate_actions",
+      "d2.adjusted_market_prices"
+    ]
+  },
+  "tables": [
+    {
+      "table_name": "d1.corporate_actions",
+      "field_semantics": {
+        "data_version": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Versioned D1 dataset identifier; corporate-action semantic changes require a new data_version before formal use."
+        },
+        "universe_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Research universe identifier; D1-T03 does not materialize universe membership."
+        },
+        "time_segment_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Configured time segment key; action facts must not imply events outside the approved segment boundary."
+        },
+        "security_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Project-internal stable security key from the D1-T01 contract."
+        },
+        "action_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Source-snapshot-scoped action identifier; corrections must not overwrite prior action evidence."
+        },
+        "action_type": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Controlled corporate-action type for the event."
+        },
+        "ex_date": {
+          "type": "DATE",
+          "nullable": false,
+          "rule": "Exchange ex-date on which the mechanical price adjustment takes effect."
+        },
+        "record_date": {
+          "type": "DATE",
+          "nullable": true,
+          "rule": "Shareholder record date; may be null only when the approved source explicitly lacks the date."
+        },
+        "pay_date": {
+          "type": "DATE",
+          "nullable": true,
+          "rule": "Cash or distribution payment date; may be null only when the approved source explicitly lacks the date."
+        },
+        "action_terms": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Structured-as-text action terms sufficient to reconstruct attribution review; raw vendor payloads must not be stored here."
+        },
+        "source_registry_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Registry id of the approved source snapshot; formal ingestion remains unauthorized in D1-T03."
+        },
+        "source_snapshot_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Immutable raw snapshot reference required before any future loader can write formal rows."
+        },
+        "observed_at": {
+          "type": "TIMESTAMP",
+          "nullable": false,
+          "rule": "Timestamp at which the corporate-action fact was observed or retrieved; later corrections require new provenance."
+        },
+        "run_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Run manifest id required before formal materialization; D1-T03 does not create run manifests."
+        }
+      },
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "action_id",
+        "source_snapshot_id"
+      ],
+      "controlled_vocabularies": {
+        "action_type": {
+          "allowed_values": [
+            "cash_dividend",
+            "stock_dividend",
+            "bonus_share",
+            "rights_issue",
+            "split",
+            "reverse_split",
+            "other",
+            "unknown"
+          ],
+          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it."
+        }
+      },
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "candidate_only_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "reason": "HiThink remains only a candidate source for corporate_actions; source terms, as-of behavior, revision behavior, raw snapshot retention, manifests, and run authorization are not closed."
+      },
+      "as_of_policy": "Corporate action facts must record observed_at separately from ex_date, record_date, and pay_date; formal use is blocked until point-in-time semantics are reviewed.",
+      "revision_policy": "Any correction to action_terms, ex_date, record_date, pay_date, action_type, or action attribution requires a new source_snapshot_id or data_version and must not overwrite old evidence.",
+      "quality_checks": [
+        "primary_key_unique",
+        "action_type_allowed",
+        "ex_date_present",
+        "record_date_pay_date_nullable_only_when_source_lacks_date",
+        "observed_at_present",
+        "observed_at_not_after_version_cutoff",
+        "source_registry_allowed",
+        "action_terms_not_vendor_payload"
+      ],
+      "blocking_conditions": [
+        "source_terms_pending_for_formal_ingestion",
+        "corporate_action_revision_policy_unknown",
+        "as_of_policy_not_verified",
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_source_snapshot_manifest",
+        "missing_run_manifest",
+        "unknown_action_quality"
+      ],
+      "downstream_boundary": "Corporate actions are mechanical gap attribution facts; R0 must not read D1 directly and may use them only through D3 references."
+    },
+    {
+      "table_name": "d2.adjusted_market_prices",
+      "field_semantics": {
+        "data_version": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Versioned D2 dataset identifier; factor or continuous-price semantic changes require a new data_version before formal use."
+        },
+        "universe_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Research universe identifier; D1-T03 does not materialize adjusted price rows."
+        },
+        "time_segment_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Configured time segment key; adjustment facts must not imply observations outside the approved segment boundary."
+        },
+        "security_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Project-internal stable security key from the D1-T01 contract."
+        },
+        "trading_date": {
+          "type": "DATE",
+          "nullable": false,
+          "rule": "Exchange-local observation date for the adjusted research price."
+        },
+        "adj_open": {
+          "type": "DOUBLE",
+          "nullable": false,
+          "rule": "Continuous research open price generated by a future approved adjustment process; D1-T03 does not compute this value."
+        },
+        "adj_high": {
+          "type": "DOUBLE",
+          "nullable": false,
+          "rule": "Continuous research high price generated by a future approved adjustment process; D1-T03 does not compute this value."
+        },
+        "adj_low": {
+          "type": "DOUBLE",
+          "nullable": false,
+          "rule": "Continuous research low price generated by a future approved adjustment process; D1-T03 does not compute this value."
+        },
+        "adj_close": {
+          "type": "DOUBLE",
+          "nullable": false,
+          "rule": "Continuous research close price generated by a future approved adjustment process; D1-T03 does not compute this value."
+        },
+        "adjustment_factor": {
+          "type": "DOUBLE",
+          "nullable": false,
+          "rule": "Positive adjustment factor with source and revision provenance; must be traceable by data_version, source_snapshot_id, and adjustment_revision."
+        },
+        "adjustment_method": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Controlled adjustment methodology used by future materialization."
+        },
+        "factor_as_of_time": {
+          "type": "TIMESTAMP",
+          "nullable": false,
+          "rule": "Timestamp at which the factor was known or retrieved; must not use future corporate-action knowledge relative to the observation date."
+        },
+        "corporate_action_flag": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "rule": "Explicit flag that the adjusted row is affected by corporate-action attribution; unknown quality must not be converted to false."
+        },
+        "adjustment_revision": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Controlled revision id for the adjustment calculation; factor or method changes require a new revision or data_version."
+        },
+        "source_registry_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Registry id of the approved source snapshot; formal ingestion remains unauthorized in D1-T03."
+        },
+        "source_snapshot_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Immutable raw snapshot reference required before any future loader can write formal rows."
+        },
+        "run_id": {
+          "type": "TEXT",
+          "nullable": false,
+          "rule": "Run manifest id required before formal materialization; D1-T03 does not create run manifests."
+        }
+      },
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "adjustment_revision"
+      ],
+      "controlled_vocabularies": {
+        "adjustment_method": {
+          "allowed_values": [
+            "forward_adjusted",
+            "backward_adjusted",
+            "total_return",
+            "none",
+            "unknown"
+          ],
+          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it."
+        },
+        "adjustment_revision": {
+          "allowed_values": [
+            "v1",
+            "candidate",
+            "unknown"
+          ],
+          "unknown_value_rule": "unknown must not be used in frozen or released data products."
+        }
+      },
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "candidate_only_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "reason": "HiThink remains a candidate source and BaoStock remains only a candidate or backup for adjusted_market_prices; factor as-of, source terms, revision behavior, raw snapshot retention, manifests, and run authorization are not closed."
+      },
+      "as_of_policy": "factor_as_of_time must bound all adjustment factors and must not use future corporate-action knowledge relative to the observation date.",
+      "revision_policy": "Any correction to adjustment_factor, adjustment_method, factor_as_of_time, corporate_action_flag, or attribution requires a new adjustment_revision, source_snapshot_id, or data_version.",
+      "quality_checks": [
+        "primary_key_unique",
+        "adjusted_ohlc_order_valid",
+        "adjustment_factor_positive",
+        "adjustment_method_allowed",
+        "adjustment_revision_allowed",
+        "factor_as_of_time_present",
+        "factor_as_of_time_no_future_information",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "source_terms_pending_for_formal_ingestion",
+        "factor_as_of_policy_unknown",
+        "revision_policy_not_verified",
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_source_snapshot_manifest",
+        "missing_run_manifest",
+        "baostock_used_as_formal_adjusted_price_source"
+      ],
+      "downstream_boundary": "Adjusted market prices are continuous research prices for later D2/D3 use; D1-T03 does not compute them and R0 may use them only through D3 references."
+    }
+  ],
+  "shared_boundary": {
+    "d3_entry_rule": "R0 must not read d1.corporate_actions or d2.adjusted_market_prices directly; D3 remains the only formal daily research entry point.",
+    "mechanical_gap_rule": "Ex-right, ex-dividend, bonus share, rights issue, split, reverse split, and other corporate-action mechanical gaps must not be interpreted directly as market release signals.",
+    "factor_as_of_rule": "factor_as_of_time must prevent future corporate-action knowledge from contaminating historical observations, and factors must be traceable by data_version, source_snapshot_id, and adjustment_revision.",
+    "revision_rule": "Any action_terms, ex_date, factor_as_of_time, adjustment_factor, or adjustment_method correction must create a new source_snapshot_id, adjustment_revision, or data_version rather than overwriting old evidence."
+  },
+  "implementation_exclusions": [
+    "no_loader",
+    "no_external_api_call",
+    "no_real_data_import",
+    "no_duckdb_entity_data",
+    "no_committed_duckdb_file",
+    "no_manifest"
+  ],
+  "future_loader_requirements": [
+    "Future loader must read only approved raw snapshots and manifests, never live APIs.",
+    "Future loader must fail non-zero on duplicate primary keys, invalid controlled vocabulary values, invalid nullable fields, invalid date ordering, nonpositive adjustment factors, missing factor_as_of_time, or missing source snapshot references.",
+    "Future loader must not populate d1.corporate_actions or d2.adjusted_market_prices until source terms, raw snapshot, manifest, as-of, revision, and run authorization gates pass.",
+    "Future loader must preserve source provenance outside DuckDB raw byte storage and must not store vendor payloads in formal tables."
+  ]
+}

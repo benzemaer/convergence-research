@@ -29,6 +29,10 @@ CONFIGS = (
         ROOT / "schemas/d1_trading_calendar_status_contract.schema.json",
         ROOT / "configs/d1/trading_calendar_status_contract.v1.json",
     ),
+    (
+        ROOT / "schemas/d1_corporate_actions_adjustment_contract.schema.json",
+        ROOT / "configs/d1/corporate_actions_adjustment_contract.v1.json",
+    ),
 )
 
 
