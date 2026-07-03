@@ -11,6 +11,7 @@
     "contract_status",
     "depends_on",
     "materialization_status",
+    "blocked_reason",
     "materialization_authorized",
     "member_rows_materialized",
     "universe",
@@ -47,6 +48,13 @@
     },
     "materialization_status": {
       "const": "blocked_until_approved_machine_readable_evidence_available_in_runtime"
+    },
+    "blocked_reason": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "ignored data/external"},
+        {"pattern": "no reviewable, reproducible materialization input"}
+      ]
     },
     "materialization_authorized": {"const": false},
     "member_rows_materialized": {"const": false},
@@ -147,6 +155,7 @@
       "required": [
         "allowed_source_registry_ids",
         "prohibited_source_registry_ids",
+        "csindex_official_authorized_domains",
         "prohibited_fact_domains",
         "formal_ingestion_authorized",
         "materialization_authorized",
@@ -175,6 +184,22 @@
               "HITHINK_FINANCIAL_API",
               "BAOSTOCK",
               "A_STOCK_DATA_RECON"
+            ]
+          }
+        },
+        "csindex_official_authorized_domains": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "universe_membership_evidence"}},
+            {"contains": {"const": "d2.membership_alignment"}}
+          ],
+          "items": {
+            "enum": [
+              "universe_membership_evidence",
+              "d2.membership_alignment"
             ]
           }
         },
@@ -213,26 +238,31 @@
     },
     "implementation_exclusions": {
       "type": "array",
-      "minItems": 6,
+      "minItems": 9,
       "uniqueItems": true,
       "items": {
         "enum": [
           "no_loader",
           "no_external_api_call",
+          "no_real_data_import",
           "no_market_data_import",
           "no_duckdb_entity_data",
           "no_committed_duckdb_file",
           "no_network_access",
-          "no_manifest"
+          "no_manifest",
+          "no_membership_rows_materialized"
         ]
       },
       "allOf": [
         {"contains": {"const": "no_loader"}},
         {"contains": {"const": "no_external_api_call"}},
+        {"contains": {"const": "no_real_data_import"}},
         {"contains": {"const": "no_market_data_import"}},
         {"contains": {"const": "no_duckdb_entity_data"}},
         {"contains": {"const": "no_committed_duckdb_file"}},
-        {"contains": {"const": "no_network_access"}}
+        {"contains": {"const": "no_network_access"}},
+        {"contains": {"const": "no_manifest"}},
+        {"contains": {"const": "no_membership_rows_materialized"}}
       ]
     },
     "blocking_conditions": {"$ref": "#/$defs/non_empty_strings"},

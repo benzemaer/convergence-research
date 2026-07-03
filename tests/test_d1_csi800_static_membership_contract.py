@@ -16,11 +16,13 @@ D0_CONTRACT_PATH = ROOT / "configs/d0/data_product_contracts.v1.json"
 EXPECTED_IMPLEMENTATION_EXCLUSIONS = {
     "no_loader",
     "no_external_api_call",
+    "no_real_data_import",
     "no_market_data_import",
     "no_duckdb_entity_data",
     "no_committed_duckdb_file",
     "no_network_access",
     "no_manifest",
+    "no_membership_rows_materialized",
 }
 EXPECTED_FIELD_TYPES = {
     "data_version": "TEXT",
@@ -151,6 +153,10 @@ class D1CSI800StaticMembershipContractTest(unittest.TestCase):
         )
         self.assertFalse(requirements["formal_ingestion_authorized"])
         self.assertFalse(requirements["materialization_authorized"])
+        self.assertEqual(
+            set(requirements["csindex_official_authorized_domains"]),
+            {"universe_membership_evidence", "d2.membership_alignment"},
+        )
 
     def test_csindex_is_not_authorized_for_other_fact_domains(self) -> None:
         prohibited_domains = set(
@@ -183,6 +189,11 @@ class D1CSI800StaticMembershipContractTest(unittest.TestCase):
         )
         self.assertFalse(self.config["member_rows_materialized"])
         self.assertFalse(self.config["materialization_authorized"])
+        self.assertIn("ignored data/external", self.config["blocked_reason"])
+        self.assertIn(
+            "no reviewable, reproducible materialization input",
+            self.config["blocked_reason"],
+        )
         self.assertIn("run manifest", self.config["source_evidence"]["run_id_policy"])
 
     def test_allowing_a_stock_data_as_source_is_rejected(self) -> None:
@@ -225,6 +236,35 @@ class D1CSI800StaticMembershipContractTest(unittest.TestCase):
         changed["source_registry_requirements"]["materialization_authorized"] = True
         with self.assertRaises(ValidationError):
             self.validate(changed)
+
+    def test_removing_loader_network_or_membership_row_boundary_is_rejected(
+        self,
+    ) -> None:
+        for exclusion in (
+            "no_loader",
+            "no_network_access",
+            "no_manifest",
+            "no_membership_rows_materialized",
+        ):
+            changed = deepcopy(self.config)
+            changed["implementation_exclusions"] = [
+                value
+                for value in changed["implementation_exclusions"]
+                if value != exclusion
+            ]
+            with self.subTest(exclusion=exclusion):
+                with self.assertRaises(ValidationError):
+                    self.validate(changed)
+
+    def test_authorizing_csindex_for_price_or_status_domains_is_rejected(self) -> None:
+        for domain in ("market_prices", "corporate_actions", "trading_status"):
+            changed = deepcopy(self.config)
+            changed["source_registry_requirements"][
+                "csindex_official_authorized_domains"
+            ].append(domain)
+            with self.subTest(domain=domain):
+                with self.assertRaises(ValidationError):
+                    self.validate(changed)
 
 
 if __name__ == "__main__":

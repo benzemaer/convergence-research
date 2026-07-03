@@ -15,6 +15,8 @@ in progress via PR
 本 PR 不生成 membership rows。实际 row materialization 仍被阻塞，直到 approved
 machine-readable G0 evidence 在受控运行环境中可用，并且 future materialization PR
 能验证 raw evidence SHA-256、成员数量、成员映射字段、manifest 与 run authorization。
+当前阻塞原因是 approved raw bytes / machine-readable evidence 位于 ignored `data/external/`
+路径；当前仓库没有可提交、可复核的 materialization input。
 
 ## 非目标
 
@@ -22,10 +24,12 @@ machine-readable G0 evidence 在受控运行环境中可用，并且 future mate
 - 不调用任何外部 API。
 - 不新增行情 loader、API client 或 ETL worker。
 - 不导入行情、日历、公司行为、价格或复权因子数据。
+- 不导入真实数据或 market data。
 - 不生成 `d1.security_master`、`d1.trading_calendar`、`d1.corporate_actions`、
   `d1.raw_market_prices` 或 `d2.adjusted_market_prices` 实体数据。
 - 不创建 committed DuckDB 文件。
 - 不生成 raw snapshot、dataset manifest、run manifest 或 run artifact。
+- 不 materialize membership rows。
 
 ## 输入
 

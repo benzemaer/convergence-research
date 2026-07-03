@@ -13,6 +13,7 @@
     "DR-001"
   ],
   "materialization_status": "blocked_until_approved_machine_readable_evidence_available_in_runtime",
+  "blocked_reason": "Approved raw bytes and machine-readable evidence currently live under ignored data/external/ paths; the committed repository has no reviewable, reproducible materialization input, so this PR must not create membership rows.",
   "materialization_authorized": false,
   "member_rows_materialized": false,
   "universe": {
@@ -124,6 +125,10 @@
       "BAOSTOCK",
       "A_STOCK_DATA_RECON"
     ],
+    "csindex_official_authorized_domains": [
+      "universe_membership_evidence",
+      "d2.membership_alignment"
+    ],
     "prohibited_fact_domains": [
       "market_prices",
       "trading_status",
@@ -146,11 +151,13 @@
   "implementation_exclusions": [
     "no_loader",
     "no_external_api_call",
+    "no_real_data_import",
     "no_market_data_import",
     "no_duckdb_entity_data",
     "no_committed_duckdb_file",
     "no_network_access",
-    "no_manifest"
+    "no_manifest",
+    "no_membership_rows_materialized"
   ],
   "blocking_conditions": [
     "actual_member_row_materialization_blocked_in_this_pr",
