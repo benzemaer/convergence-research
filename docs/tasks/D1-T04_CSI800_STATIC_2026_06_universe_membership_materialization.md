@@ -18,6 +18,16 @@ machine-readable G0 evidence 在受控运行环境中可用，并且 future mate
 当前阻塞原因是 approved raw bytes / machine-readable evidence 位于 ignored `data/external/`
 路径；当前仓库没有可提交、可复核的 materialization input。
 
+## 受控本地 runner
+
+D1-T04 后续 PR 增加 `scripts/validate_csi800_static_membership_materialization.py`
+作为 dry-run validator。该脚本只读取 D1-T04 contract 与本地已存在的 approved raw
+evidence，默认在证据缺失时失败；CI 或无本地 evidence 环境可使用
+`--allow-missing-evidence` 得到 blocked 状态。脚本不访问网络，不调用外部 API，不写
+DuckDB，不生成 manifest，不提交 membership rows，也不创建 `security_id`。
+它只验证 raw evidence SHA-256、可解析性、`expected_member_count=800` 和后续
+security_id mapping 所需字段是否存在。
+
 ## 非目标
 
 - 不重新爬取中证指数官网。
