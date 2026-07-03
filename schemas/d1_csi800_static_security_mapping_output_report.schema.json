@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_security_mapping_output_report.schema.json",
+  "title": "D1 CSI800 Static Security Mapping Output Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "report_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "source_snapshot_id",
+    "raw_evidence_sha256_expected",
+    "field_alias_contract_id",
+    "security_mapping_reference_contract_id",
+    "security_mapping_output_contract_id",
+    "expected_row_count",
+    "report_status",
+    "observed_row_count",
+    "mapped_row_count",
+    "unmapped_row_count",
+    "duplicate_membership_key_count",
+    "duplicate_security_id_count",
+    "invalid_security_id_format_count",
+    "invalid_mapping_method_count",
+    "invalid_mapping_status_count",
+    "row_level_detail_included",
+    "output_rows_committed",
+    "security_id_mapping_output_committed",
+    "raw_bytes_committed",
+    "member_rows_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "materialization_authorized",
+    "member_rows_materialized",
+    "downstream_decision",
+    "validation_reason",
+    "report_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "report_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_REPORT_V1"
+    },
+    "report_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_sha256_expected": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "field_alias_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1"
+    },
+    "security_mapping_reference_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1"
+    },
+    "security_mapping_output_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_CONTRACT_V1"
+    },
+    "expected_row_count": {"const": 800},
+    "report_status": {
+      "enum": [
+        "passed",
+        "blocked_missing_security_mapping_output",
+        "failed_row_count",
+        "failed_unmapped_rows",
+        "failed_duplicate_membership_key",
+        "failed_duplicate_security_id",
+        "failed_security_id_format",
+        "failed_mapping_method",
+        "failed_mapping_status",
+        "failed_contract_mismatch"
+      ]
+    },
+    "observed_row_count": {"$ref": "#/$defs/non_negative_integer"},
+    "mapped_row_count": {"$ref": "#/$defs/non_negative_integer"},
+    "unmapped_row_count": {"$ref": "#/$defs/non_negative_integer"},
+    "duplicate_membership_key_count": {"$ref": "#/$defs/non_negative_integer"},
+    "duplicate_security_id_count": {"$ref": "#/$defs/non_negative_integer"},
+    "invalid_security_id_format_count": {"$ref": "#/$defs/non_negative_integer"},
+    "invalid_mapping_method_count": {"$ref": "#/$defs/non_negative_integer"},
+    "invalid_mapping_status_count": {"$ref": "#/$defs/non_negative_integer"},
+    "row_level_detail_included": {"const": false},
+    "output_rows_committed": {"const": false},
+    "security_id_mapping_output_committed": {"const": false},
+    "raw_bytes_committed": {"const": false},
+    "member_rows_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "materialization_authorized": {"const": false},
+    "member_rows_materialized": {"const": false},
+    "downstream_decision": {
+      "enum": [
+        "materialization_remains_blocked",
+        "security_mapping_output_validated_but_membership_rows_not_materialized"
+      ]
+    },
+    "validation_reason": {"type": "string", "minLength": 1},
+    "report_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "aggregate security mapping output report only"},
+        {"pattern": "not security_id mapping output"},
+        {"pattern": "not membership rows"},
+        {"pattern": "not materialization manifest"},
+        {"pattern": "not run manifest"},
+        {"pattern": "not dataset manifest"},
+        {"pattern": "no row-level values included"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"report_status": {"const": "passed"}}},
+      "then": {
+        "properties": {
+          "observed_row_count": {"const": 800},
+          "mapped_row_count": {"const": 800},
+          "unmapped_row_count": {"const": 0},
+          "duplicate_membership_key_count": {"const": 0},
+          "duplicate_security_id_count": {"const": 0},
+          "invalid_security_id_format_count": {"const": 0},
+          "invalid_mapping_method_count": {"const": 0},
+          "invalid_mapping_status_count": {"const": 0},
+          "downstream_decision": {
+            "const": "security_mapping_output_validated_but_membership_rows_not_materialized"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "downstream_decision": {"const": "materialization_remains_blocked"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "report_status": {"const": "blocked_missing_security_mapping_output"}
+        }
+      },
+      "then": {
+        "properties": {
+          "observed_row_count": {"const": 0},
+          "mapped_row_count": {"const": 0},
+          "unmapped_row_count": {"const": 0},
+          "duplicate_membership_key_count": {"const": 0},
+          "duplicate_security_id_count": {"const": 0},
+          "invalid_security_id_format_count": {"const": 0},
+          "invalid_mapping_method_count": {"const": 0},
+          "invalid_mapping_status_count": {"const": 0}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "non_negative_integer": {"type": "integer", "minimum": 0}
+  }
+}
