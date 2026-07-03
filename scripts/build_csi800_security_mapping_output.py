@@ -168,6 +168,7 @@ def report_status(aggregate: dict[str, object]) -> str:
 def blocked_report(reason: str, output_contract: dict[str, Any]) -> dict[str, object]:
     return {
         "report_status": "blocked_missing_security_mapping_output",
+        "security_mapping_output_contract_id": output_contract["contract_id"],
         "expected_row_count": output_contract["expected_row_count"],
         "observed_row_count": 0,
         "mapped_row_count": 0,
@@ -179,6 +180,22 @@ def blocked_report(reason: str, output_contract: dict[str, Any]) -> dict[str, ob
         "invalid_mapping_status_count": 0,
         "downstream_decision": "materialization_remains_blocked",
         "validation_reason": reason,
+        "row_level_detail_included": False,
+        "output_rows_committed": False,
+        "security_id_mapping_output_committed": False,
+        "raw_bytes_committed": False,
+        "member_rows_committed": False,
+        "duckdb_written": False,
+        "run_manifest_created": False,
+        "dataset_manifest_created": False,
+        "materialization_authorized": False,
+        "member_rows_materialized": False,
+        "report_boundary": (
+            "This is an aggregate security mapping output report only, not "
+            "security_id mapping output, not membership rows, not materialization "
+            "manifest, not run manifest, not dataset manifest, with no row-level "
+            "values included."
+        ),
     }
 
 

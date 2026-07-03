@@ -156,6 +156,10 @@ class BuildCSI800SecurityMappingOutputTest(unittest.TestCase):
         self.assertEqual(aggregate["report_status"], "failed_unmapped_rows")
 
     def test_no_approved_evidence_returns_blocked_report(self) -> None:
+        before_duckdb = {path.resolve() for path in ROOT.rglob("*.duckdb*")}
+        before_manifests = {
+            path.resolve() for path in (ROOT / "manifests").rglob("*.json")
+        }
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
             tmp_path = Path(tmp_dir)
             missing = tmp_path / "missing.csv"
@@ -171,10 +175,49 @@ class BuildCSI800SecurityMappingOutputTest(unittest.TestCase):
             report["report_status"],
             "blocked_missing_security_mapping_output",
         )
+        self.assertEqual(
+            report["security_mapping_output_contract_id"],
+            "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_CONTRACT_V1",
+        )
+        self.assertEqual(report["expected_row_count"], 800)
+        self.assertEqual(report["observed_row_count"], 0)
+        self.assertEqual(report["mapped_row_count"], 0)
+        self.assertEqual(report["unmapped_row_count"], 0)
+        self.assertEqual(report["duplicate_membership_key_count"], 0)
+        self.assertEqual(report["duplicate_security_id_count"], 0)
+        self.assertEqual(report["invalid_security_id_format_count"], 0)
+        self.assertEqual(report["invalid_mapping_method_count"], 0)
+        self.assertEqual(report["invalid_mapping_status_count"], 0)
+        for field in (
+            "row_level_detail_included",
+            "output_rows_committed",
+            "security_id_mapping_output_committed",
+            "raw_bytes_committed",
+            "member_rows_committed",
+            "duckdb_written",
+            "run_manifest_created",
+            "dataset_manifest_created",
+            "materialization_authorized",
+            "member_rows_materialized",
+        ):
+            with self.subTest(field=field):
+                self.assertFalse(report[field])
         self.assertIn(
             "approved raw evidence is unavailable",
             report["validation_reason"],
         )
+        self.assertIn(
+            "no security_id was generated or inferred", report["validation_reason"]
+        )
+        self.assertIn(
+            "aggregate security mapping output report only", report["report_boundary"]
+        )
+        after_duckdb = {path.resolve() for path in ROOT.rglob("*.duckdb*")}
+        after_manifests = {
+            path.resolve() for path in (ROOT / "manifests").rglob("*.json")
+        }
+        self.assertEqual(after_duckdb, before_duckdb)
+        self.assertEqual(after_manifests, before_manifests)
 
     def test_cli_outputs_only_aggregate_values(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
