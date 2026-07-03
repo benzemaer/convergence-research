@@ -38,6 +38,15 @@ manifest。本地严格 runner 已确认 approved raw evidence SHA-256 匹配 co
 标准库 parser 无法解析二进制 Excel/OLE `.xls`，因此 report 状态为 `failed_parse`，
 actual membership row materialization 仍然 blocked。
 
+## Binary Excel parser support
+
+D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。
+实现使用 `xlrd==2.0.1` 作为只读 `.xls` 解析依赖；该库采用 BSD license，使用边界仅限
+本地 dry-run evidence validation，不联网，不调用外部 API，不写 DuckDB，不生成
+manifest，不输出或提交 member rows，也不创建 `security_id`。HTML-table `.xls` 仍保留
+原有 HTML parser 分支。PR #15 的 aggregate validation report 仍保持 `failed_parse`，
+直到后续受控运行重新执行 validator 并提交新的 aggregate report。
+
 ## 非目标
 
 - 不重新爬取中证指数官网。

@@ -6,6 +6,7 @@ import io
 import json
 import socket
 import tempfile
+import types
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -67,6 +68,78 @@ def contract_for_fixture(
     return contract_path
 
 
+def contract_for_bytes_fixture(
+    tmp_path: Path,
+    evidence_path: Path,
+    evidence_bytes: bytes,
+    expected_count: int,
+) -> Path:
+    contract = deepcopy(load_contract())
+    relative_evidence = evidence_path.relative_to(ROOT).as_posix()
+    contract["source_evidence"]["raw_evidence_path"] = relative_evidence
+    contract["source_evidence"]["raw_evidence_sha256"] = hashlib.sha256(
+        evidence_bytes
+    ).hexdigest()
+    contract["universe"]["expected_member_count"] = expected_count
+    contract_path = tmp_path / "contract.json"
+    write_json(contract_path, contract)
+    return contract_path
+
+
+class FakeSheet:
+    def __init__(self, rows: list[list[object]]) -> None:
+        self._rows = rows
+        self.nrows = len(rows)
+        self.ncols = max(len(row) for row in rows)
+
+    def cell_value(self, row_index: int, column_index: int) -> object:
+        row = self._rows[row_index]
+        if column_index >= len(row):
+            return ""
+        return row[column_index]
+
+
+class FakeWorkbook:
+    def __init__(self, rows: list[list[object]]) -> None:
+        self.nsheets = 1
+        self._sheet = FakeSheet(rows)
+
+    def sheet_by_index(self, index: int) -> FakeSheet:
+        if index != 0:
+            raise IndexError(index)
+        return self._sheet
+
+
+def fake_xlrd_module(rows: list[list[object]]) -> types.SimpleNamespace:
+    return types.SimpleNamespace(open_workbook=lambda file_contents: FakeWorkbook(rows))
+
+
+def binary_xls_bytes() -> bytes:
+    return validator.OLE_COMPOUND_FILE_MAGIC + b"synthetic-xls"
+
+
+def binary_rows(count: int, missing_column: str | None = None) -> list[list[object]]:
+    headers: list[object] = [
+        "source_symbol",
+        "ticker",
+        "exchange",
+        "security_id_mapping_reference",
+    ]
+    if missing_column:
+        headers.remove(missing_column)
+    rows = [headers]
+    for index in range(count):
+        ticker = f"{index + 1:06d}"
+        values: dict[str, object] = {
+            "source_symbol": ticker if missing_column == "exchange" else f"{ticker}.SH",
+            "ticker": float(ticker),
+            "exchange": "SSE",
+            "security_id_mapping_reference": "requires_d1_security_master_mapping",
+        }
+        rows.append([values[header] for header in headers])
+    return rows
+
+
 class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
     def test_missing_raw_evidence_fails_by_default(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
@@ -116,6 +189,32 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
             self.assertEqual(result.member_count, 3)
             self.assertIn("security_id mapping remains required", result.reason)
 
+    def test_synthetic_json_fixture_passes_dry_run_validation(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.json"
+            members = [
+                {
+                    "source_symbol": "600000.SH",
+                    "ticker": "600000",
+                    "exchange": "SSE",
+                    "security_id_mapping_reference": (
+                        "requires_d1_security_master_mapping"
+                    ),
+                }
+            ]
+            evidence_text = json.dumps({"members": members})
+            evidence.write_bytes(evidence_text.encode())
+            contract_path = contract_for_fixture(
+                tmp_path,
+                evidence,
+                evidence_text,
+                expected_count=1,
+            )
+            result = validator.validate_materialization_inputs(contract_path)
+            self.assertEqual(result.status, validator.STATUS_PASSED)
+            self.assertEqual(result.member_count, 1)
+
     def test_html_table_fixture_can_be_parsed(self) -> None:
         html = """
         <table>
@@ -145,6 +244,75 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
             )
             result = validator.validate_materialization_inputs(contract_path)
             self.assertEqual(result.status, validator.STATUS_PASSED)
+
+    def test_binary_xls_fixture_passes_dry_run_validation(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.xls"
+            evidence_bytes = binary_xls_bytes()
+            evidence.write_bytes(evidence_bytes)
+            contract_path = contract_for_bytes_fixture(
+                tmp_path,
+                evidence,
+                evidence_bytes,
+                expected_count=3,
+            )
+            with patch.dict(
+                "sys.modules",
+                {"xlrd": fake_xlrd_module(binary_rows(3))},
+            ):
+                result = validator.validate_materialization_inputs(contract_path)
+            self.assertEqual(result.status, validator.STATUS_PASSED)
+            self.assertEqual(result.member_count, 3)
+
+    def test_binary_xls_member_count_mismatch_fails(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.xls"
+            evidence_bytes = binary_xls_bytes()
+            evidence.write_bytes(evidence_bytes)
+            contract_path = contract_for_bytes_fixture(
+                tmp_path,
+                evidence,
+                evidence_bytes,
+                expected_count=3,
+            )
+            with patch.dict(
+                "sys.modules",
+                {"xlrd": fake_xlrd_module(binary_rows(2))},
+            ):
+                result = validator.validate_materialization_inputs(contract_path)
+            self.assertEqual(result.status, validator.STATUS_FAILED)
+            self.assertIn("member_count_mismatch", result.reason)
+
+    def test_binary_xls_missing_required_mapping_fields_fail(self) -> None:
+        for missing_column in (
+            "source_symbol",
+            "ticker",
+            "exchange",
+            "security_id_mapping_reference",
+        ):
+            with self.subTest(missing_column=missing_column):
+                with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+                    tmp_path = Path(tmp_dir)
+                    evidence = tmp_path / "members.xls"
+                    evidence_bytes = binary_xls_bytes()
+                    evidence.write_bytes(evidence_bytes)
+                    contract_path = contract_for_bytes_fixture(
+                        tmp_path,
+                        evidence,
+                        evidence_bytes,
+                        expected_count=1,
+                    )
+                    with patch.dict(
+                        "sys.modules",
+                        {"xlrd": fake_xlrd_module(binary_rows(1, missing_column))},
+                    ):
+                        result = validator.validate_materialization_inputs(
+                            contract_path
+                        )
+                    self.assertEqual(result.status, validator.STATUS_FAILED)
+                    self.assertIn(f"missing {missing_column}", result.reason)
 
     def test_sha256_mismatch_fails(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:

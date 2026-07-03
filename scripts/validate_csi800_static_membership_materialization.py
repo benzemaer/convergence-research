@@ -38,6 +38,7 @@ MAPPING_REFERENCE_FIELDS = (
     "mapping_reference",
     "security_master_mapping_reference",
 )
+OLE_COMPOUND_FILE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
 @dataclass(frozen=True)
@@ -126,14 +127,13 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_text(path: Path) -> str:
-    data = path.read_bytes()
+def read_text(data: bytes) -> str:
     for encoding in ("utf-8-sig", "utf-8", "gb18030"):
         try:
             return data.decode(encoding)
         except UnicodeDecodeError:
             continue
-    raise ValueError("raw evidence is not decodable text or HTML-table .xls")
+    raise ValueError("raw evidence is not decodable text")
 
 
 def parse_json_members(text: str) -> list[dict[str, str]]:
@@ -180,6 +180,14 @@ def rows_to_dicts(rows: list[list[str]]) -> list[dict[str, str]]:
     return members
 
 
+def format_excel_cell(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
 def parse_delimited_members(text: str) -> list[dict[str, str]]:
     sample = text[:4096]
     try:
@@ -199,8 +207,37 @@ def parse_html_table_members(text: str) -> list[dict[str, str]]:
     return rows_to_dicts(parser.rows)
 
 
+def is_binary_xls(data: bytes) -> bool:
+    return data.startswith(OLE_COMPOUND_FILE_MAGIC)
+
+
+def parse_binary_xls_members(data: bytes) -> list[dict[str, str]]:
+    try:
+        import xlrd
+    except ImportError as exc:
+        raise ValueError(
+            "binary Excel/OLE .xls parsing requires xlrd from requirements-dev.txt"
+        ) from exc
+    workbook = xlrd.open_workbook(file_contents=data)
+    if workbook.nsheets < 1:
+        raise ValueError("binary Excel/OLE .xls has no worksheets")
+    sheet = workbook.sheet_by_index(0)
+    rows: list[list[str]] = []
+    for row_index in range(sheet.nrows):
+        rows.append(
+            [
+                format_excel_cell(sheet.cell_value(row_index, column_index))
+                for column_index in range(sheet.ncols)
+            ]
+        )
+    return rows_to_dicts(rows)
+
+
 def parse_members(path: Path) -> list[dict[str, str]]:
-    text = read_text(path)
+    data = path.read_bytes()
+    if is_binary_xls(data):
+        return parse_binary_xls_members(data)
+    text = read_text(data)
     suffix = path.suffix.lower()
     stripped = text.lstrip()
     if suffix == ".json" or stripped.startswith(("{", "[")):
