@@ -12,20 +12,20 @@ SCHEMA_PATH = ROOT / "schemas/d1_security_master_contract.schema.json"
 CONFIG_PATH = ROOT / "configs/d1/security_master_contract.v1.json"
 D0_CONTRACT_PATH = ROOT / "configs/d0/data_product_contracts.v1.json"
 
-EXPECTED_FIELDS = {
-    "data_version",
-    "universe_id",
-    "time_segment_id",
-    "security_id",
-    "ticker",
-    "exchange",
-    "security_name",
-    "listing_date",
-    "delisting_date",
-    "security_type",
-    "source_registry_id",
-    "source_snapshot_id",
-    "run_id",
+EXPECTED_FIELD_TYPES = {
+    "data_version": "TEXT",
+    "universe_id": "TEXT",
+    "time_segment_id": "TEXT",
+    "security_id": "TEXT",
+    "ticker": "TEXT",
+    "exchange": "TEXT",
+    "security_name": "TEXT",
+    "listing_date": "DATE",
+    "delisting_date": "DATE",
+    "security_type": "TEXT",
+    "source_registry_id": "TEXT",
+    "source_snapshot_id": "TEXT",
+    "run_id": "TEXT",
 }
 EXPECTED_EXCHANGES = {"SSE", "SZSE"}
 EXPECTED_SECURITY_TYPES = {"A_SHARE_COMMON"}
@@ -71,12 +71,36 @@ class D1SecurityMasterContractTest(unittest.TestCase):
         self.validate(self.config)
 
     def test_field_semantics_match_d0_required_fields_exactly(self) -> None:
-        self.assertEqual(set(self.config["field_semantics"]), EXPECTED_FIELDS)
-        self.assertEqual(set(self.d0_table["required_fields"]), EXPECTED_FIELDS)
+        d0_required_fields = set(self.d0_table["required_fields"])
+        self.assertEqual(set(self.config["field_semantics"]), d0_required_fields)
         self.assertEqual(
             self.config["base_data_product_contract"]["contract_id"],
             "D0_DATA_PRODUCT_CONTRACTS_V1",
         )
+
+    def test_field_semantics_nullable_matches_d0_contract(self) -> None:
+        d0_required_fields = set(self.d0_table["required_fields"])
+        d0_nullable_fields = set(self.d0_table["nullable_fields"])
+
+        self.assertEqual(d0_nullable_fields, {"delisting_date"})
+        for field_name, field_rule in self.config["field_semantics"].items():
+            with self.subTest(field=field_name):
+                self.assertIn(field_name, d0_required_fields)
+                self.assertEqual(
+                    field_rule["nullable"],
+                    field_name in d0_nullable_fields,
+                )
+
+    def test_field_semantics_types_match_d1_duckdb_contract(self) -> None:
+        self.assertEqual(
+            set(EXPECTED_FIELD_TYPES), set(self.d0_table["required_fields"])
+        )
+        for field_name, expected_type in EXPECTED_FIELD_TYPES.items():
+            with self.subTest(field=field_name):
+                self.assertEqual(
+                    self.config["field_semantics"][field_name]["type"],
+                    expected_type,
+                )
 
     def test_identifier_ticker_and_exchange_rules_are_explicit(self) -> None:
         identifier_policy = self.config["identifier_policy"]

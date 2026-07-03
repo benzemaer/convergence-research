@@ -202,15 +202,18 @@
       "properties": {
         "allowed_source_registry_ids": {
           "type": "array",
+          "minItems": 1,
           "uniqueItems": true,
-          "items": {"const": "HITHINK_FINANCIAL_API"}
+          "items": {"const": "HITHINK_FINANCIAL_API"},
+          "contains": {"const": "HITHINK_FINANCIAL_API"}
         },
         "prohibited_source_registry_ids": {
           "type": "array",
           "uniqueItems": true,
           "allOf": [
             {"contains": {"const": "CSINDEX_OFFICIAL"}},
-            {"contains": {"const": "A_STOCK_DATA_RECON"}}
+            {"contains": {"const": "A_STOCK_DATA_RECON"}},
+            {"contains": {"const": "BAOSTOCK"}}
           ],
           "items": {
             "enum": [
