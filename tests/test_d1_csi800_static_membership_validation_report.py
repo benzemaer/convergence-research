@@ -79,18 +79,25 @@ class D1CSI800StaticMembershipValidationReportTest(unittest.TestCase):
             universe["expected_member_count"],
         )
 
-    def test_failed_parse_report_keeps_materialization_blocked(self) -> None:
-        self.assertEqual(self.report["validation_status"], "failed_parse")
+    def test_failed_mapping_fields_report_keeps_materialization_blocked(self) -> None:
+        self.assertEqual(self.report["validation_status"], "failed_mapping_fields")
         self.assertEqual(
             self.report["raw_evidence_sha256_actual"],
             self.report["raw_evidence_sha256_expected"],
         )
-        self.assertEqual(self.report["member_count_observed"], 0)
+        self.assertEqual(self.report["member_count_observed"], 800)
         self.assertEqual(
             self.report["downstream_decision"],
             "materialization_remains_blocked",
         )
-        self.assertIn("binary Excel", self.report["validation_reason"])
+        self.assertIn(
+            "mapping-readiness validation failed",
+            self.report["validation_reason"],
+        )
+        self.assertIn(
+            "No row-level data was committed",
+            self.report["validation_reason"],
+        )
 
     def test_passed_report_requires_count_and_sha_match(self) -> None:
         report = self.passed_report()
