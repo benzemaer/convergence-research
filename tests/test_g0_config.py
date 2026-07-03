@@ -53,13 +53,17 @@ class G0ConfigTest(unittest.TestCase):
         )
         return changed
 
-    def test_accepted_but_operationally_blocked_config_is_valid(self) -> None:
+    def test_current_config_is_approved_and_d0_eligible(self) -> None:
         self.validator.validate(self.config)
         self.assertEqual(self.config["decision_status"], "accepted")
         self.assertEqual(
             self.config["operational_status"],
-            "blocked_pending_official_membership_evidence",
+            "eligible_for_d0",
         )
+        self.assertEqual(
+            self.config["universe"]["membership_evidence"]["status"], "verified"
+        )
+        self.assertEqual(self.config["g0_review"]["status"], "approved")
 
     def test_static_backfill_claim_boundary_is_explicit(self) -> None:
         universe = self.config["universe"]
@@ -79,6 +83,18 @@ class G0ConfigTest(unittest.TestCase):
         changed = deepcopy(self.config)
         changed["decision_status"] = "accepted"
         changed["operational_status"] = "eligible_for_d0"
+        changed["universe"]["membership_evidence"].update(
+            {
+                "status": "pending",
+                "document_id": None,
+                "document_title": None,
+                "effective_date": None,
+                "source_url": None,
+                "retrieved_at": None,
+                "file_path": None,
+                "file_sha256": None,
+            }
+        )
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 
@@ -117,7 +133,18 @@ class G0ConfigTest(unittest.TestCase):
 
     def test_verified_membership_status_requires_complete_evidence(self) -> None:
         changed = deepcopy(self.config)
-        changed["universe"]["membership_evidence"]["status"] = "verified"
+        changed["universe"]["membership_evidence"].update(
+            {
+                "status": "verified",
+                "document_id": None,
+                "document_title": None,
+                "effective_date": None,
+                "source_url": None,
+                "retrieved_at": None,
+                "file_path": None,
+                "file_sha256": None,
+            }
+        )
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 
