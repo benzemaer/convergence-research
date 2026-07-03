@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/dataset_manifest.schema.json",
+  "title": "Dataset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "dataset_id",
+    "data_version",
+    "lifecycle",
+    "schema_version",
+    "source_snapshot_id",
+    "sources",
+    "input_hashes",
+    "transformation_code_commit",
+    "config_hash",
+    "run_id",
+    "created_at",
+    "quality_report_path",
+    "output_hashes",
+    "primary_key",
+    "time_semantics",
+    "review"
+  ],
+  "properties": {
+    "manifest_version": {"const": "1.0.0"},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "data_version": {"type": "string", "minLength": 1},
+    "lifecycle": {
+      "enum": ["draft", "candidate", "validated", "frozen", "released"]
+    },
+    "schema_version": {"type": "string", "minLength": 1},
+    "source_snapshot_id": {"type": "string", "minLength": 1},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "license",
+          "retrieved_at",
+          "snapshot_version",
+          "sha256"
+        ],
+        "properties": {
+          "source_id": {"type": "string", "minLength": 1},
+          "license": {"type": "string", "minLength": 1},
+          "retrieved_at": {"type": "string", "format": "date-time"},
+          "snapshot_version": {"type": "string", "minLength": 1},
+          "sha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "input_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file_hash"}
+    },
+    "transformation_code_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "run_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "quality_report_path": {"type": "string", "minLength": 1},
+    "output_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/output_hash"}
+    },
+    "supersedes": {"type": ["string", "null"]},
+    "primary_key": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "time_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timezone", "observed_at_rule", "revision_policy"],
+      "properties": {
+        "timezone": {"type": "string", "minLength": 1},
+        "observed_at_rule": {"type": "string", "minLength": 1},
+        "revision_policy": {
+          "enum": ["point_in_time", "final_revised_history"]
+        }
+      }
+    },
+    "review": {"$ref": "#/$defs/review"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle": {"enum": ["validated", "frozen", "released"]}
+        }
+      },
+      "then": {
+        "properties": {
+          "review": {
+            "properties": {
+              "status": {"const": "approved"},
+              "reviewed_by": {"type": "string", "minLength": 1},
+              "reviewed_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "file_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "output_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "row_count"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "row_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewed_by", "reviewed_at"],
+      "properties": {
+        "status": {"enum": ["pending", "approved", "rejected"]},
+        "reviewed_by": {"type": ["string", "null"]},
+        "reviewed_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "manifest_version": "1.0.0",
+  "run_id": "example-run",
+  "stage": "D0",
+  "step": "example-step",
+  "data_version": "example-v1",
+  "state_definition_version": null,
+  "code_commit": "0000000000000000000000000000000000000000",
+  "environment_lock_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "config_path": "configs/REPLACE_BEFORE_USE.yaml",
+  "config_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "inputs": [
+    {
+      "path": "manifests/REPLACE_BEFORE_USE.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "random_seed": null,
+  "parallel_mode": "single",
+  "worker_count": 1,
+  "started_at": "2000-01-01T00:00:00Z",
+  "ended_at": "2000-01-01T00:00:00Z",
+  "exit_code": 0,
+  "peak_rss_mb": 0,
+  "outputs": [
+    {
+      "path": "artifacts/REPLACE_BEFORE_USE",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "quality_checks": [
+    {
+      "name": "example_check",
+      "status": "passed",
+      "details": "Replace this example before formal use."
+    }
+  ],
+  "notes": "Example only; replace every sentinel value before formal use."
+}
