@@ -8,3 +8,4 @@ rpds-py==2026.6.3
 ruff==0.12.2
 six==1.17.0
 typing-extensions==4.16.0
+xlrd==2.0.1
