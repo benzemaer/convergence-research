@@ -135,6 +135,8 @@ draft → candidate → validated → frozen → released
 ## 9. Pull Request 与变更控制
 
 - `main` 只接受通过审核与 CI 的 PR。
+- `README.md`、`AGENTS.md` 与 `docs/00_*.md` 至 `docs/05_*.md` 是基础文档唯一权威来源；根目录合订本只能由 `scripts/build_compendium.py` 生成，禁止手工编辑。
+- 数据集、运行和产物 manifest 必须分别通过 `schemas/` 中对应的 JSON Schema；不得用运行清单替代数据集或产物清单。
 - 每个 PR 必须说明目标、非目标、受影响阶段、数据/参数/schema/统计定义变化、验证结果、风险与回退方案。
 - 数据源、公司行为、连续价格、PCVT 指标、事件规则、未来标签、对照组、交易成本等任何变化，均必须在决策记录中登记，并评估需要回退到哪个阶段。
 - 任何影响冻结状态定义的变更，必须创建新版本，不得修改旧版本。

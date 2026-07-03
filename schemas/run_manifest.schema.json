@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/run_manifest.schema.json",
+  "title": "Run Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "run_id",
+    "stage",
+    "step",
+    "data_version",
+    "code_commit",
+    "environment_lock_hash",
+    "config_path",
+    "config_hash",
+    "inputs",
+    "random_seed",
+    "parallel_mode",
+    "worker_count",
+    "started_at",
+    "ended_at",
+    "exit_code",
+    "peak_rss_mb",
+    "outputs",
+    "quality_checks",
+    "notes"
+  ],
+  "properties": {
+    "manifest_version": {"const": "1.0.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "stage": {"pattern": "^(D[0-3]|R[0-6])$"},
+    "step": {"type": "string", "minLength": 1},
+    "data_version": {"type": "string", "minLength": 1},
+    "state_definition_version": {"type": ["string", "null"]},
+    "code_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "environment_lock_hash": {"$ref": "#/$defs/sha256"},
+    "config_path": {"type": "string", "minLength": 1},
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "random_seed": {"type": ["integer", "null"]},
+    "parallel_mode": {"enum": ["single", "thread", "process"]},
+    "worker_count": {"type": "integer", "minimum": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "exit_code": {"type": "integer"},
+    "peak_rss_mb": {"type": "number", "minimum": 0},
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "quality_checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "status": {"enum": ["passed", "failed"]},
+          "details": {"type": "string"}
+        }
+      }
+    },
+    "notes": {"type": "string"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

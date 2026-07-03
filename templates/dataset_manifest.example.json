@@ -1,0 +1,36 @@
+{
+  "manifest_version": "1.0.0",
+  "dataset_id": "example_dataset",
+  "data_version": "example-v1",
+  "lifecycle": "draft",
+  "schema_version": "1.0.0",
+  "created_at": "2000-01-01T00:00:00Z",
+  "supersedes": null,
+  "sources": [
+    {
+      "source_id": "example_source",
+      "license": "REPLACE_BEFORE_USE",
+      "retrieved_at": "2000-01-01T00:00:00Z",
+      "snapshot_version": "example-snapshot",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "primary_key": ["security_id", "trading_date"],
+  "time_semantics": {
+    "timezone": "Asia/Shanghai",
+    "observed_at_rule": "observed_at <= decision_time",
+    "revision_policy": "point_in_time"
+  },
+  "files": [
+    {
+      "path": "REPLACE_BEFORE_USE.parquet",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "row_count": 0
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "reviewed_by": null,
+    "reviewed_at": null
+  }
+}

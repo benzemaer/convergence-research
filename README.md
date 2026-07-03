@@ -2,6 +2,13 @@
 
 本目录是从零启动的量化研究项目基础文档集。它定义研究目标、数据治理、研究工程、阶段路线、门禁和证据规则；在这些文件经审核冻结前，不开始任何正式数据处理、指标实现或回测。
 
+## 文档来源
+
+`README.md`、`AGENTS.md` 与 `docs/00_*.md` 至 `docs/05_*.md` 是基础文档的唯一权威来源。
+根目录的 `A股收敛状态量化交易研究_基础文档集_合订本.md` 是由
+`scripts/build_compendium.py` 按固定顺序生成的派生产物，不得手工编辑。CI 会重新生成并检查
+工作树是否产生差异。
+
 ## 必备文档
 
 | 文件 | 正式名称 | 用途 |
@@ -22,3 +29,16 @@
 3. 建立仓库目录、配置样板、manifest 和模板。
 4. 从 D0 开始执行；未通过门禁不得提前进入后续阶段。
 5. 任何正式产物均必须能追溯到本目录中定义的规则。
+
+## 治理校验
+
+```bash
+python scripts/build_compendium.py --check
+python scripts/validate_manifests.py
+ruff format --check scripts tests
+ruff check scripts tests
+python -m unittest discover -s tests -v
+git diff --check
+```
+
+上述命令只校验治理文件与示例，不执行数据处理、特征计算或研究运行。

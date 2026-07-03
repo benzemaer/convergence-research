@@ -1,0 +1,30 @@
+{
+  "manifest_version": "1.0.0",
+  "artifact_id": "example_artifact",
+  "artifact_version": "example-v1",
+  "lifecycle": "draft",
+  "evidence_level": "exploratory",
+  "schema_version": "1.0.0",
+  "run_id": "example-run",
+  "data_version": "example-v1",
+  "supersedes": null,
+  "input_hashes": [
+    {
+      "path": "manifests/REPLACE_BEFORE_USE.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "output_files": [
+    {
+      "path": "artifacts/REPLACE_BEFORE_USE",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "downstream_allowed_uses": [],
+  "review": {
+    "status": "pending",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "gate": "G0"
+  }
+}

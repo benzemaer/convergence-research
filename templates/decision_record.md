@@ -1,11 +1,11 @@
 # 决策记录
 
-> Decision ID：  
-> 日期：  
-> 状态：proposed / accepted / superseded  
-> 影响阶段：  
-> 作者：  
-> 审核人：  
+> Decision ID：
+> 日期：
+> 状态：proposed / accepted / superseded
+> 影响阶段：
+> 作者：
+> 审核人：
 
 ## 1. 决策问题
 

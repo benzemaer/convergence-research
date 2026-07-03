@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/artifact_manifest.schema.json",
+  "title": "Artifact Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "artifact_id",
+    "artifact_version",
+    "lifecycle",
+    "evidence_level",
+    "schema_version",
+    "run_id",
+    "data_version",
+    "input_hashes",
+    "output_files",
+    "downstream_allowed_uses",
+    "review"
+  ],
+  "properties": {
+    "manifest_version": {"const": "1.0.0"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "artifact_version": {"type": "string", "minLength": 1},
+    "lifecycle": {
+      "enum": ["draft", "candidate", "validated", "frozen", "released"]
+    },
+    "evidence_level": {
+      "enum": ["exploratory", "candidate", "validated", "frozen", "released"]
+    },
+    "schema_version": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "data_version": {"type": "string", "minLength": 1},
+    "supersedes": {"type": ["string", "null"]},
+    "input_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "output_files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "downstream_allowed_uses": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "review": {"$ref": "#/$defs/review"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"lifecycle": {"const": "draft"}}},
+      "then": {"properties": {"evidence_level": {"const": "exploratory"}}}
+    },
+    {
+      "if": {"properties": {"lifecycle": {"const": "candidate"}}},
+      "then": {"properties": {"evidence_level": {"const": "candidate"}}}
+    },
+    {
+      "if": {"properties": {"lifecycle": {"const": "validated"}}},
+      "then": {"properties": {"evidence_level": {"const": "validated"}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle": {"enum": ["validated", "frozen", "released"]}
+        }
+      },
+      "then": {
+        "properties": {
+          "review": {
+            "properties": {
+              "status": {"const": "approved"},
+              "reviewed_by": {"type": "string", "minLength": 1},
+              "reviewed_at": {"type": "string", "format": "date-time"}
+            }
+          },
+          "downstream_allowed_uses": {"minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"lifecycle": {"const": "frozen"}}},
+      "then": {"properties": {"evidence_level": {"const": "frozen"}}}
+    },
+    {
+      "if": {"properties": {"lifecycle": {"const": "released"}}},
+      "then": {"properties": {"evidence_level": {"const": "released"}}}
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewed_by", "reviewed_at", "gate"],
+      "properties": {
+        "status": {"enum": ["pending", "approved", "rejected"]},
+        "reviewed_by": {"type": ["string", "null"]},
+        "reviewed_at": {"type": ["string", "null"], "format": "date-time"},
+        "gate": {"pattern": "^G[0-7]$"}
+      }
+    }
+  }
+}

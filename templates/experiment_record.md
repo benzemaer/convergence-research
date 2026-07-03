@@ -1,11 +1,11 @@
 # 实验记录
 
-> Experiment ID：  
-> 关联 Step：  
-> 运行 ID：  
-> 证据等级：candidate / validated / frozen  
-> 作者：  
-> 审核人：  
+> Experiment ID：
+> 关联 Step：
+> 运行 ID：
+> 证据等级：candidate / validated / frozen
+> 作者：
+> 审核人：
 
 ## 1. 预设问题
 
