@@ -34,8 +34,10 @@ D1-T04 后续 PR 增加 aggregate evidence validation report，只记录 validat
 raw evidence SHA-256、observed member count、mapping readiness 汇总和 no-artifact
 边界。该报告不包含 raw evidence bytes，不包含 `source_symbol`、`ticker`、`exchange`
 或任何 member row 明细，不是 run manifest、dataset manifest 或 materialization
-manifest。本地严格 runner 已确认 approved raw evidence SHA-256 匹配 contract，但当前
-标准库 parser 无法解析二进制 Excel/OLE `.xls`，因此 report 状态为 `failed_parse`，
+manifest。PR #15 的 initial aggregate evidence validation report 已确认 approved raw
+evidence SHA-256 匹配 contract；由于当时 runner 尚未支持 binary Excel/OLE `.xls`，
+report 原状态为 `failed_parse`。后续 PR #16 增加 binary Excel/OLE parser support，
+PR #17 重新运行 validator 后将 aggregate report 刷新为 `failed_mapping_fields`。
 actual membership row materialization 仍然 blocked。
 
 ## Field alias diagnostics
@@ -47,6 +49,17 @@ materialization manifest，也不授权正式 row materialization。当前诊断
 SHA-256 匹配且 aggregate row count 为 800；`source_symbol` / `ticker` / `exchange`
 存在候选列，但 `security_id_mapping_reference` 仍缺失，因此 D1-T04 actual membership
 row materialization 继续 blocked。
+
+## Field alias contract
+
+D1-T04 后续 PR 增加 field alias contract，并让受控本地 validator 可选读取该契约来标准化
+raw evidence 列名。该契约只解决 `source_symbol` / `ticker` / `exchange` 的列别名：
+`成份券代码Constituent Code` 可作为 `source_symbol` 与六位 A 股 `ticker` 的来源，
+`交易所Exchange` 可作为交易所主来源，`交易所英文名称Exchange(Eng)` 仅作为 fallback。
+`security_id_mapping_reference` 不能从 CSINDEX raw evidence 取得，必须延后到 approved
+D1 security master mapping。该 PR 不提交 raw evidence bytes，不提交 member rows，不写
+DuckDB，不生成 manifest，不输出 `security_id` mapping，actual membership row materialization
+仍然 blocked。
 
 ## Binary Excel parser support
 
@@ -102,6 +115,9 @@ actual membership row materialization 仍然 blocked。
 - `configs/d1/csi800_static_2026_06_membership_field_diagnostics.v1.json`
 - `schemas/d1_csi800_static_membership_field_diagnostics.schema.json`
 - `tests/test_d1_csi800_static_membership_field_diagnostics.py`
+- `configs/d1/csi800_static_2026_06_membership_field_aliases.v1.json`
+- `schemas/d1_csi800_static_membership_field_aliases.schema.json`
+- `tests/test_d1_csi800_static_membership_field_aliases.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
