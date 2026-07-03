@@ -2,21 +2,24 @@
 
 ## 状态
 
-in progress via PR
+completed via completion PR
 
 ## 目标
 
 本任务为 `CSI800_STATIC_2026_06` universe membership / `d2.membership_alignment`
 建立 materialization contract 与受控边界。它只使用已通过 G0 配置审核的官方中证 800
-静态成分证据链，不重新抓取官网，不调用外部 API，不写 DuckDB，不生成正式成员实体行。
+静态成分证据链，不重新抓取官网，不调用外部 API，不写 DuckDB，不生成 run manifest 或
+dataset manifest。
 
 ## 当前结论
 
-本 PR 不生成 membership rows。实际 row materialization 仍被阻塞，直到 approved
-machine-readable G0 evidence 在受控运行环境中可用，并且 future materialization PR
-能验证 raw evidence SHA-256、成员数量、成员映射字段、manifest 与 run authorization。
-当前阻塞原因是 approved raw bytes / machine-readable evidence 位于 ignored `data/external/`
-路径；当前仓库没有可提交、可复核的 materialization input。
+D1-T04 已提交标准化 `CSI800_STATIC_2026_06` membership reference。该 reference
+由受控本地 runner 读取 ignored `data/external/` 下的 approved CSINDEX evidence 生成，
+并通过 raw evidence SHA-256、800 行成员数、field alias、D1 security master 映射引用、
+`CN.{exchange}.{ticker}` security_id 格式、唯一键和 no-artifact 边界校验。raw
+evidence bytes、raw CSINDEX payload、standalone security mapping output、DuckDB、run
+manifest、dataset manifest、CSV/Parquet artifact 均未提交。D1-T04 completed；D2-T01
+可在单独 PR 中启动，但本 PR 未执行 D2。
 
 ## 受控本地 runner
 
@@ -105,6 +108,19 @@ field alias contract、security mapping reference contract、security mapping ou
 不写 DuckDB，不创建 run manifest 或 dataset manifest，不进入 D2-T01。D1-T04 actual
 membership row materialization 仍然 blocked，等待单独 PR 授权。
 
+## 成员行物化与完成报告
+
+D1-T04 收尾 PR 提交标准化 membership reference 与 completion report。Membership
+reference 只包含 canonical row fields：`member_ordinal`、`universe_id`、
+`membership_effective_date`、`source_registry_id`、`source_snapshot_id`、
+`source_symbol`、`ticker`、`exchange`、`security_id`、
+`security_id_mapping_reference`、`mapping_method`、`mapping_status` 和
+`membership_status`。它不包含 CSINDEX 原始名称、英文名、权重、行情、价格、行业、
+财务、停复牌、公司行为或复权字段。Completion report 记录 D1-T04 completed、
+`member_count_observed=800`、security mapping output aggregate report 为 `passed`、
+所有 failure counts 为 0，并明确 D2 只能通过 committed D1-T04 membership reference
+使用该静态 cohort；D2 不得直接读取 G0 raw evidence 或 `data/external`。
+
 ## Binary Excel parser support
 
 D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。
@@ -131,12 +147,14 @@ actual membership row materialization 仍然 blocked。
 - 不调用任何外部 API。
 - 不新增行情 loader、API client 或 ETL worker。
 - 不导入行情、日历、公司行为、价格或复权因子数据。
-- 不导入真实数据或 market data。
+- 不导入 market data。
 - 不生成 `d1.security_master`、`d1.trading_calendar`、`d1.corporate_actions`、
   `d1.raw_market_prices` 或 `d2.adjusted_market_prices` 实体数据。
 - 不创建 committed DuckDB 文件。
 - 不生成 raw snapshot、dataset manifest、run manifest 或 run artifact。
-- 不 materialize membership rows。
+- 不提交 raw CSINDEX payload、standalone security mapping output、CSV/Parquet artifact
+  或 DuckDB。
+- 不在本 PR 中启动 D2-T01。
 
 ## 输入
 
@@ -173,6 +191,13 @@ actual membership row materialization 仍然 blocked。
 - `tests/test_d1_csi800_static_security_mapping_output_report.py`
 - `scripts/build_csi800_security_mapping_output.py`
 - `tests/test_build_csi800_security_mapping_output.py`
+- `configs/d1/csi800_static_2026_06_membership_reference.v1.json`
+- `schemas/d1_csi800_static_membership_reference.schema.json`
+- `tests/test_d1_csi800_static_membership_reference.py`
+- `configs/d1/csi800_static_2026_06_membership_completion_report.v1.json`
+- `schemas/d1_csi800_static_membership_completion_report.schema.json`
+- `tests/test_d1_csi800_static_membership_completion_report.py`
+- `scripts/build_csi800_static_membership_reference.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
@@ -195,11 +220,10 @@ declared `data_version` 使用对齐后的 membership reference。
 
 ## 阻塞条件
 
-- actual member row materialization 不在本 PR 授权范围内。
-- approved machine-readable evidence 未作为 Git 可复现输入提交。
-- security_id mapping reference 尚未 materialized。
-- run manifest 与 dataset manifest 未创建。
-- DuckDB materialization 未授权。
+- D1-T04 membership reference 已完成；raw evidence bytes 仍不提交。
+- D2-T01 尚未启动，后续 D2 membership alignment 必须在单独 PR 中读取 committed
+  D1-T04 membership reference，不得直接读取 G0 raw evidence 或 `data/external`。
+- run manifest、dataset manifest 与 DuckDB materialization 仍未在 D1-T04 中创建。
 
 ## 验收标准
 
@@ -210,6 +234,10 @@ declared `data_version` 使用对齐后的 membership reference。
 - contract 覆盖 `d2.membership_alignment` D0 required fields、primary key 与 nullable 规则。
 - tests 验证 source boundary、静态 cohort 偏差警告、D3 下游边界、no-network/no-loader/no-DuckDB
   约束和 negative cases。
+- membership reference 包含 800 行 canonical rows，`security_id` 唯一且满足
+  `CN.{exchange}.{ticker}`，不包含 raw CSINDEX payload 或 market/company-action fields。
+- completion report 标记 D1-T04 completed 与
+  `ready_for_d2_membership_alignment`，但不启动 D2-T01。
 
 ## 回退方式
 
