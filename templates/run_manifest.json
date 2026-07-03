@@ -1,0 +1,22 @@
+{
+  "run_id": "",
+  "stage": "",
+  "step": "",
+  "data_version": "",
+  "state_definition_version": null,
+  "code_commit": "",
+  "environment_lock_hash": "",
+  "config_path": "",
+  "config_hash": "",
+  "inputs": [],
+  "random_seed": null,
+  "parallel_mode": "single",
+  "worker_count": 1,
+  "started_at": "",
+  "ended_at": "",
+  "exit_code": null,
+  "peak_rss_mb": null,
+  "outputs": [],
+  "quality_checks": [],
+  "notes": ""
+}
