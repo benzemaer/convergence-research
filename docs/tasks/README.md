@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D1
-current_task: D1-T04
-next_planned_task: D2-T01
+current_stage: D2
+current_task: D2-T01
+next_planned_task: D2-T02
 ```
 
 ## G0：样本宇宙与时间边界
