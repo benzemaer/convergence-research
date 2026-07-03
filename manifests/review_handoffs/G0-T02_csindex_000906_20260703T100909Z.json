@@ -1,0 +1,86 @@
+{
+  "manifest_type": "g0_review_handoff_delivery",
+  "manifest_version": "1.0.0",
+  "task_id": "G0-T02",
+  "source_task_id": "G0-T01",
+  "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "created_at": "2026-07-03T11:05:57.4372994Z",
+  "delivery_mode": "local_read_only_artifact",
+  "package_path": "data/external/review_handoff/task=G0-T02/package=CSINDEX_000906_20260703T100909Z/G0-T02_CSINDEX_000906_20260703T100909Z.zip",
+  "package_size_bytes": 373560,
+  "package_sha256": "fab0950153e3a683e9590dc895533276e0092146d7774b4822442d00d45b369b",
+  "contents_manifest_path": "CSINDEX_000906_20260703T100909Z/handoff_contents.json",
+  "contents_manifest_sha256": "823d6d3ffe75730fb5789170d6539f65477b458c5cf70f9389af716f18c3412d",
+  "source_snapshot_manifest_sha256": "cda9cc11bdf0962610f960117f2451f2e9d264e3a3d534838723a3d38b11262e",
+  "package_members": [
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/000906_Index_Methodology_cn.pdf",
+      "size_bytes": 185201,
+      "sha256": "6109ad8390fdad70ed807c799309f7d5cabc1cd949d45754704c7a8acf4d1933"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/000906_Index_Methodology_cn.pdf.headers.json",
+      "size_bytes": 1134,
+      "sha256": "3a2b1c9e174068ea7b6e582b19291d2876ddfbc1207cd49ed0c33741f402dd2d"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/000906cons.xls",
+      "size_bytes": 169984,
+      "sha256": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/000906cons.xls.headers.json",
+      "size_bytes": 1057,
+      "sha256": "4764be5967d953fa9f98fffa979102a15fba079ccf4a5826aae345726b1b6a9d"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/2026-05-29_部分指数样本调整名单.pdf",
+      "size_bytes": 149582,
+      "sha256": "63301b60a2a2040c4bdd97c7db5021afc8425e1f0473b96dc0b472a39ba25d32"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/2026-05-29_部分指数样本调整名单.pdf.headers.json",
+      "size_bytes": 1050,
+      "sha256": "b25006cc1d7048b117425b445a44f14fe4a60b84041a5202d67cbc3e38d3ccd4"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/announcement_3006137.json",
+      "size_bytes": 2300,
+      "sha256": "e878da9770dd4b9697c019d46816ff6a110386ae2a65eac80294497b64737fe2"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/announcement_3006137.json.headers.json",
+      "size_bytes": 983,
+      "sha256": "4479fe8cb3a2d499ce960f759cdb6712bd1381f3baf251bd739f7c87d233b6fd"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/executor_validation.json",
+      "size_bytes": 2152,
+      "sha256": "5601fbfb8d8a6dd9c1031866d37e5c07463eceb0c075611f6b699abe192e0cdd"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/index-details-data_000906.json",
+      "size_bytes": 1946,
+      "sha256": "96a65f74f8d11430d5780239d18814bcd16c0ca4820d8af0add2d3d49ac268ad"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/index-details-data_000906.json.headers.json",
+      "size_bytes": 1009,
+      "sha256": "03066956fb49444ae8e14dc7bb6330ee42dc71d5ebc0bc3ce97e0a44f13ae6dc"
+    },
+    {
+      "path": "CSINDEX_000906_20260703T100909Z/source_snapshot_manifest.json",
+      "size_bytes": 6206,
+      "sha256": "cda9cc11bdf0962610f960117f2451f2e9d264e3a3d534838723a3d38b11262e"
+    }
+  ],
+  "access_scope": "Reviewer must have authorized access to this workspace or receive the package through an approved non-Git channel.",
+  "git_commit_policy": "Package and extracted raw bytes must not be committed to Git.",
+  "review_status": "pending",
+  "d0_status": "blocked_pending_official_membership_evidence",
+  "operational_effect": {
+    "membership_evidence_status": "pending",
+    "g0_review_status": "pending",
+    "eligible_for_d0": false
+  }
+}
