@@ -781,6 +781,32 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
         self.assertEqual(normalized[0]["exchange"], "SSE")
         self.assertNotIn("security_id_mapping_reference", normalized[0])
 
+    def test_cli_security_mapping_output_check_is_aggregate_blocked(self) -> None:
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            exit_code = validator.main(["--check-security-mapping-output"])
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(
+            payload["report_status"],
+            "blocked_missing_security_mapping_output",
+        )
+        self.assertEqual(payload["expected_row_count"], 800)
+        self.assertEqual(payload["observed_row_count"], 0)
+        self.assertEqual(payload["mapped_row_count"], 0)
+        self.assertEqual(
+            payload["downstream_decision"],
+            "materialization_remains_blocked",
+        )
+        self.assertFalse(payload["row_level_detail_included"])
+        self.assertFalse(payload["output_rows_committed"])
+        self.assertFalse(payload["security_id_mapping_output_committed"])
+        self.assertNotIn("000001", output.getvalue())
+        self.assertNotIn("000001.SZ", output.getvalue())
+        self.assertNotIn("SZSE", output.getvalue())
+        self.assertNotIn("SSE", output.getvalue())
+        self.assertNotIn("CN.SZSE.000001", output.getvalue())
+
     def test_validator_does_not_access_network(self) -> None:
         def fail_network(*args: object, **kwargs: object) -> None:
             raise AssertionError("network access attempted")

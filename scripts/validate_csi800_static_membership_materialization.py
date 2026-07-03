@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONTRACT_PATH = (
     ROOT / "configs/d1/csi800_static_2026_06_membership_contract.v1.json"
 )
+DEFAULT_SECURITY_MAPPING_OUTPUT_CONTRACT_PATH = (
+    ROOT / "configs/d1/csi800_static_2026_06_security_mapping_output_contract.v1.json"
+)
 
 STATUS_PASSED = "passed"
 STATUS_BLOCKED = "blocked_missing_evidence"
@@ -157,6 +160,30 @@ def load_security_mapping_reference_contract(path: Path) -> dict[str, Any]:
     shortcuts = contract["prohibited_mapping_shortcuts"]
     if any(shortcuts.values()):
         raise ValueError("security_id mapping shortcuts must remain disabled")
+    return contract
+
+
+def load_security_mapping_output_contract(path: Path) -> dict[str, Any]:
+    contract = load_json(path)
+    for field in (
+        "output_artifact_allowed_in_this_pr",
+        "output_rows_committed",
+        "security_id_mapping_output_committed",
+        "row_level_detail_included",
+        "raw_bytes_committed",
+        "member_rows_committed",
+        "duckdb_written",
+        "run_manifest_created",
+        "dataset_manifest_created",
+        "materialization_authorized",
+        "member_rows_materialized",
+    ):
+        if contract.get(field) is not False:
+            raise ValueError(
+                f"security mapping output contract must keep {field}=false"
+            )
+    if contract.get("expected_row_count") != 800:
+        raise ValueError("security mapping output contract must expect 800 rows")
     return contract
 
 
@@ -592,6 +619,41 @@ def diagnose_fields(contract_path: Path = DEFAULT_CONTRACT_PATH) -> dict[str, ob
     return diagnostics
 
 
+def check_security_mapping_output(
+    output_contract_path: Path = DEFAULT_SECURITY_MAPPING_OUTPUT_CONTRACT_PATH,
+) -> dict[str, object]:
+    output_contract = load_security_mapping_output_contract(output_contract_path)
+    return {
+        "report_status": "blocked_missing_security_mapping_output",
+        "reason": (
+            "security mapping output contract exists, but no approved row-level "
+            "security mapping output is available; no security_id was generated "
+            "or inferred"
+        ),
+        "security_mapping_output_contract_id": output_contract["contract_id"],
+        "expected_row_count": output_contract["expected_row_count"],
+        "observed_row_count": 0,
+        "mapped_row_count": 0,
+        "unmapped_row_count": 0,
+        "duplicate_membership_key_count": 0,
+        "duplicate_security_id_count": 0,
+        "invalid_security_id_format_count": 0,
+        "invalid_mapping_method_count": 0,
+        "invalid_mapping_status_count": 0,
+        "row_level_detail_included": False,
+        "output_rows_committed": False,
+        "security_id_mapping_output_committed": False,
+        "raw_bytes_committed": False,
+        "member_rows_committed": False,
+        "duckdb_written": False,
+        "run_manifest_created": False,
+        "dataset_manifest_created": False,
+        "materialization_authorized": False,
+        "member_rows_materialized": False,
+        "downstream_decision": "materialization_remains_blocked",
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -633,6 +695,20 @@ def build_parser() -> argparse.ArgumentParser:
             "This gates validation and never produces security_id mapping output."
         ),
     )
+    parser.add_argument(
+        "--check-security-mapping-output",
+        action="store_true",
+        help=(
+            "Emit aggregate security mapping output readiness JSON. "
+            "This never reads or writes row-level mapping output."
+        ),
+    )
+    parser.add_argument(
+        "--security-mapping-output-contract",
+        type=Path,
+        default=DEFAULT_SECURITY_MAPPING_OUTPUT_CONTRACT_PATH,
+        help="Path to the D1-T04 security mapping output contract.",
+    )
     return parser
 
 
@@ -655,6 +731,26 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         print(json.dumps(diagnostics, ensure_ascii=False, sort_keys=True))
+        return 0
+    if args.check_security_mapping_output:
+        try:
+            report = check_security_mapping_output(
+                output_contract_path=args.security_mapping_output_contract
+            )
+        except Exception as exc:
+            print(
+                json.dumps(
+                    {
+                        "report_status": "failed_contract_mismatch",
+                        "reason": str(exc),
+                        "row_level_detail_included": False,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 1
+        print(json.dumps(report, ensure_ascii=False, sort_keys=True))
         return 0
     result = validate_materialization_inputs(
         contract_path=args.contract,
