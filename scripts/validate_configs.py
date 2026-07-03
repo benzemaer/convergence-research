@@ -21,6 +21,12 @@ SECURITY_MAPPING_OUTPUT_CONTRACT_PATH = (
 SECURITY_MAPPING_OUTPUT_REPORT_PATH = (
     ROOT / "configs/d1" / "csi800_static_2026_06_security_mapping_output_report.v1.json"
 )
+MEMBERSHIP_REFERENCE_PATH = (
+    ROOT / "configs/d1/csi800_static_2026_06_membership_reference.v1.json"
+)
+MEMBERSHIP_COMPLETION_REPORT_PATH = (
+    ROOT / "configs/d1/csi800_static_2026_06_membership_completion_report.v1.json"
+)
 CONFIGS = (
     (
         ROOT / "schemas/g0_universe_time_boundaries.schema.json",
@@ -74,6 +80,14 @@ CONFIGS = (
     (
         ROOT / "schemas/d1_csi800_static_security_mapping_output_report.schema.json",
         SECURITY_MAPPING_OUTPUT_REPORT_PATH,
+    ),
+    (
+        ROOT / "schemas/d1_csi800_static_membership_reference.schema.json",
+        MEMBERSHIP_REFERENCE_PATH,
+    ),
+    (
+        ROOT / "schemas/d1_csi800_static_membership_completion_report.schema.json",
+        MEMBERSHIP_COMPLETION_REPORT_PATH,
     ),
 )
 

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_membership_reference.schema.json",
+  "title": "D1 CSI800 Static Membership Reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_id",
+    "artifact_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "index_alias",
+    "membership_mode",
+    "membership_effective_date",
+    "source_registry_id",
+    "source_snapshot_id",
+    "raw_evidence_sha256",
+    "field_alias_contract_id",
+    "security_mapping_reference_contract_id",
+    "security_mapping_output_contract_id",
+    "security_mapping_output_report_id",
+    "member_count",
+    "row_level_membership_reference_committed",
+    "raw_bytes_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "d2_usage_authorized",
+    "d2_usage_boundary",
+    "members"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "artifact_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"
+    },
+    "artifact_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "index_alias": {"const": "CSI800"},
+    "membership_mode": {"const": "static_cohort"},
+    "membership_effective_date": {"const": "2026-06-12"},
+    "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_sha256": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "field_alias_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1"
+    },
+    "security_mapping_reference_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1"
+    },
+    "security_mapping_output_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_CONTRACT_V1"
+    },
+    "security_mapping_output_report_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_REPORT_V1"
+    },
+    "member_count": {"const": 800},
+    "row_level_membership_reference_committed": {"const": true},
+    "raw_bytes_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "d2_usage_authorized": {"const": true},
+    "d2_usage_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "D2 may read this membership reference"},
+        {"pattern": "D2 must not read raw G0 evidence"},
+        {"pattern": "data/external"}
+      ]
+    },
+    "members": {
+      "type": "array",
+      "minItems": 800,
+      "maxItems": 800,
+      "items": {"$ref": "#/$defs/member"}
+    }
+  },
+  "$defs": {
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member_ordinal",
+        "universe_id",
+        "membership_effective_date",
+        "source_registry_id",
+        "source_snapshot_id",
+        "source_symbol",
+        "ticker",
+        "exchange",
+        "security_id",
+        "security_id_mapping_reference",
+        "mapping_method",
+        "mapping_status",
+        "membership_status"
+      ],
+      "properties": {
+        "member_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 800
+        },
+        "universe_id": {"const": "CSI800_STATIC_2026_06"},
+        "membership_effective_date": {"const": "2026-06-12"},
+        "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+        "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+        "source_symbol": {"type": "string", "minLength": 1},
+        "ticker": {"type": "string", "pattern": "^[0-9]{6}$"},
+        "exchange": {"enum": ["SSE", "SZSE"]},
+        "security_id": {"type": "string", "pattern": "^CN\\.(SSE|SZSE)\\.[0-9]{6}$"},
+        "security_id_mapping_reference": {
+          "const": "D1_SECURITY_MASTER_CONTRACT_V1:ticker_exchange_effective_date"
+        },
+        "mapping_method": {
+          "const": "ticker_exchange_effective_date_to_d1_security_master"
+        },
+        "mapping_status": {"const": "mapped"},
+        "membership_status": {"const": "active_static_member"}
+      }
+    }
+  }
+}

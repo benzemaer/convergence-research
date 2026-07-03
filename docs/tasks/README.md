@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D1
-current_task: D1-T04
-next_planned_task: D2-T01
+current_stage: D2
+current_task: D2-T01
+next_planned_task: D2-T02
 ```
 
 ## G0：样本宇宙与时间边界
@@ -68,13 +68,13 @@ next_planned_task: D2-T01
 
 ## D1：证券主数据、交易状态、公司行为与交易日历
 
-状态：planned
+状态：completed
 
 - `D1-T00` DuckDB 依赖、空 schema 与契约测试：completed via PR #9
 - `D1-T01` `security_master` 与代码映射：completed via PR #10
 - `D1-T02` 交易日历与交易状态主表：completed via PR #11
 - `D1-T03` 公司行为与复权因子主表：completed via PR #12
-- `D1-T04` `CSI800_STATIC_2026_06` universe membership materialization：in progress
+- `D1-T04` `CSI800_STATIC_2026_06` universe membership materialization：completed via completion PR
 
 ## D2：时点一致的原始价格、连续研究价格和跳空归因
 

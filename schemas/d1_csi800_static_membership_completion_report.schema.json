@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_membership_completion_report.schema.json",
+  "title": "D1 CSI800 Static Membership Completion Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "report_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "source_snapshot_id",
+    "raw_evidence_sha256",
+    "membership_reference_artifact_id",
+    "member_count_expected",
+    "member_count_observed",
+    "security_mapping_output_report_status",
+    "unmapped_member_count",
+    "duplicate_membership_key_count",
+    "duplicate_security_id_count",
+    "invalid_security_id_format_count",
+    "invalid_ticker_count",
+    "invalid_exchange_count",
+    "raw_bytes_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "d1_t04_status",
+    "d2_readiness_decision",
+    "d2_boundary",
+    "report_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "report_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_COMPLETION_REPORT_V1"
+    },
+    "report_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_sha256": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "membership_reference_artifact_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"
+    },
+    "member_count_expected": {"const": 800},
+    "member_count_observed": {"const": 800},
+    "security_mapping_output_report_status": {"const": "passed"},
+    "unmapped_member_count": {"const": 0},
+    "duplicate_membership_key_count": {"const": 0},
+    "duplicate_security_id_count": {"const": 0},
+    "invalid_security_id_format_count": {"const": 0},
+    "invalid_ticker_count": {"const": 0},
+    "invalid_exchange_count": {"const": 0},
+    "raw_bytes_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "d1_t04_status": {"const": "completed"},
+    "d2_readiness_decision": {"const": "ready_for_d2_membership_alignment"},
+    "d2_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "D2 may use the committed D1-T04 membership reference"},
+        {"pattern": "D2 must not read G0 raw evidence"},
+        {"pattern": "data/external"}
+      ]
+    },
+    "report_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "D1-T04 completion report only"},
+        {"pattern": "not D2 execution"},
+        {"pattern": "not DuckDB materialization"},
+        {"pattern": "not run manifest"},
+        {"pattern": "not dataset manifest"}
+      ]
+    }
+  }
+}
