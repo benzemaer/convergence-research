@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_security_master_contract.schema.json",
+  "title": "D1 Security Master Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "contract_id",
+    "contract_status",
+    "depends_on",
+    "table_name",
+    "base_data_product_contract",
+    "field_semantics",
+    "identifier_policy",
+    "exchange_policy",
+    "ticker_policy",
+    "security_type_policy",
+    "source_symbol_policy",
+    "lifecycle_policy",
+    "source_registry_requirements",
+    "quality_checks",
+    "implementation_exclusions",
+    "blocking_conditions",
+    "future_loader_requirements"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T01"},
+    "contract_id": {"const": "D1_SECURITY_MASTER_CONTRACT_V1"},
+    "contract_status": {
+      "enum": ["draft_for_g1_review", "accepted", "superseded"]
+    },
+    "depends_on": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "D0_SOURCE_REGISTRY_V1"}},
+        {"contains": {"const": "D1-T00"}}
+      ]
+    },
+    "table_name": {"const": "d1.security_master"},
+    "base_data_product_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "required_fields_source",
+        "primary_key_source"
+      ],
+      "properties": {
+        "contract_id": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"},
+        "required_fields_source": {
+          "const": "configs/d0/data_product_contracts.v1.json#d1.security_master.required_fields"
+        },
+        "primary_key_source": {
+          "const": "configs/d0/data_product_contracts.v1.json#d1.security_master.primary_key"
+        }
+      }
+    },
+    "field_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "ticker",
+        "exchange",
+        "security_name",
+        "listing_date",
+        "delisting_date",
+        "security_type",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "properties": {
+        "data_version": {"$ref": "#/$defs/field_rule"},
+        "universe_id": {"$ref": "#/$defs/field_rule"},
+        "time_segment_id": {"$ref": "#/$defs/field_rule"},
+        "security_id": {"$ref": "#/$defs/field_rule"},
+        "ticker": {"$ref": "#/$defs/field_rule"},
+        "exchange": {"$ref": "#/$defs/field_rule"},
+        "security_name": {"$ref": "#/$defs/field_rule"},
+        "listing_date": {"$ref": "#/$defs/field_rule"},
+        "delisting_date": {"$ref": "#/$defs/field_rule"},
+        "security_type": {"$ref": "#/$defs/field_rule"},
+        "source_registry_id": {"$ref": "#/$defs/field_rule"},
+        "source_snapshot_id": {"$ref": "#/$defs/field_rule"},
+        "run_id": {"$ref": "#/$defs/field_rule"}
+      }
+    },
+    "identifier_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "security_id_role",
+        "security_id_format",
+        "security_id_regex",
+        "not_equal_to_vendor_code_rule",
+        "stability_rule"
+      ],
+      "properties": {
+        "security_id_role": {"type": "string", "minLength": 1},
+        "security_id_format": {"const": "CN.{exchange}.{ticker}"},
+        "security_id_regex": {
+          "const": "^CN\\.(SSE|SZSE)\\.[0-9]{6}$"
+        },
+        "not_equal_to_vendor_code_rule": {"type": "string", "minLength": 1},
+        "stability_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "exchange_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_exchanges", "exchange_code_system"],
+      "properties": {
+        "allowed_exchanges": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["SSE", "SZSE"]},
+          "allOf": [
+            {"contains": {"const": "SSE"}},
+            {"contains": {"const": "SZSE"}}
+          ]
+        },
+        "exchange_code_system": {"type": "string", "minLength": 1}
+      }
+    },
+    "ticker_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalization_rule", "ticker_regex", "leading_zero_rule"],
+      "properties": {
+        "normalization_rule": {"type": "string", "minLength": 1},
+        "ticker_regex": {"const": "^[0-9]{6}$"},
+        "leading_zero_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "security_type_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_security_types", "type_code_system"],
+      "properties": {
+        "allowed_security_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"const": "A_SHARE_COMMON"},
+          "contains": {"const": "A_SHARE_COMMON"}
+        },
+        "type_code_system": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_symbol_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "traceability_rule",
+        "normalization_boundary",
+        "required_mapping_keys",
+        "prohibited_assumptions"
+      ],
+      "properties": {
+        "traceability_rule": {"type": "string", "minLength": 1},
+        "normalization_boundary": {"type": "string", "minLength": 1},
+        "required_mapping_keys": {"$ref": "#/$defs/non_empty_strings"},
+        "prohibited_assumptions": {"$ref": "#/$defs/non_empty_strings"}
+      }
+    },
+    "lifecycle_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "listing_date_rule",
+        "delisting_date_rule",
+        "date_timezone",
+        "revision_rule"
+      ],
+      "properties": {
+        "listing_date_rule": {"type": "string", "minLength": 1},
+        "delisting_date_rule": {"type": "string", "minLength": 1},
+        "date_timezone": {"const": "Asia/Shanghai"},
+        "revision_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_registry_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_source_registry_ids",
+        "prohibited_source_registry_ids",
+        "formal_ingestion_authorized",
+        "reason"
+      ],
+      "properties": {
+        "allowed_source_registry_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"const": "HITHINK_FINANCIAL_API"}
+        },
+        "prohibited_source_registry_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "CSINDEX_OFFICIAL"}},
+            {"contains": {"const": "A_STOCK_DATA_RECON"}}
+          ],
+          "items": {
+            "enum": [
+              "CSINDEX_OFFICIAL",
+              "A_STOCK_DATA_RECON",
+              "BAOSTOCK"
+            ]
+          }
+        },
+        "formal_ingestion_authorized": {"const": false},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "quality_checks": {"$ref": "#/$defs/non_empty_strings"},
+    "implementation_exclusions": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "no_loader",
+          "no_external_api_call",
+          "no_real_data_import",
+          "no_duckdb_entity_data",
+          "no_committed_duckdb_file",
+          "no_manifest"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "no_loader"}},
+        {"contains": {"const": "no_external_api_call"}},
+        {"contains": {"const": "no_real_data_import"}},
+        {"contains": {"const": "no_duckdb_entity_data"}},
+        {"contains": {"const": "no_committed_duckdb_file"}},
+        {"contains": {"const": "no_manifest"}}
+      ]
+    },
+    "blocking_conditions": {"$ref": "#/$defs/non_empty_strings"},
+    "future_loader_requirements": {"$ref": "#/$defs/non_empty_strings"}
+  },
+  "$defs": {
+    "non_empty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "field_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "nullable", "rule"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "nullable": {"type": "boolean"},
+        "rule": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
