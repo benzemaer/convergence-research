@@ -10,6 +10,13 @@
     "historical_membership_mode": "static_backfilled",
     "membership_evidence": {
       "status": "pending",
+      "source_registry_id": "CSINDEX_OFFICIAL",
+      "publisher_name": "中证指数有限公司",
+      "official_domain": "csindex.com.cn",
+      "document_type": "index_constituent_list",
+      "index_code": "000906",
+      "document_id": null,
+      "document_title": null,
       "effective_date": null,
       "source_url": null,
       "retrieved_at": null,
@@ -23,6 +30,14 @@
       "full A-share market generalization",
       "cross-market generalization"
     ]
+  },
+  "g0_review": {
+    "status": "pending",
+    "gate": "G0",
+    "reviewed_by": null,
+    "reviewed_at": null,
+    "review_commit": null,
+    "independence_attested": false
   },
   "time_partitions": {
     "boundary_semantics": "inclusive_calendar_dates",

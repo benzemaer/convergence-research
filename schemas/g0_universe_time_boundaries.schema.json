@@ -10,6 +10,7 @@
     "decision_status",
     "operational_status",
     "universe",
+    "g0_review",
     "time_partitions"
   ],
   "properties": {
@@ -49,6 +50,7 @@
         }
       }
     },
+    "g0_review": {"$ref": "#/$defs/g0_review"},
     "time_partitions": {
       "type": "object",
       "additionalProperties": false,
@@ -125,6 +127,19 @@
                 }
               }
             }
+          },
+          "g0_review": {
+            "properties": {
+              "status": {"const": "approved"},
+              "gate": {"const": "G0"},
+              "reviewed_by": {"type": "string", "minLength": 1},
+              "reviewed_at": {"type": "string", "format": "date-time"},
+              "review_commit": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "independence_attested": {"const": true}
+            }
           }
         }
       }
@@ -140,6 +155,13 @@
       "additionalProperties": false,
       "required": [
         "status",
+        "source_registry_id",
+        "publisher_name",
+        "official_domain",
+        "document_type",
+        "index_code",
+        "document_id",
+        "document_title",
         "effective_date",
         "source_url",
         "retrieved_at",
@@ -148,8 +170,19 @@
       ],
       "properties": {
         "status": {"enum": ["pending", "verified"]},
+        "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+        "publisher_name": {"const": "中证指数有限公司"},
+        "official_domain": {"const": "csindex.com.cn"},
+        "document_type": {"const": "index_constituent_list"},
+        "index_code": {"const": "000906"},
+        "document_id": {"type": ["string", "null"]},
+        "document_title": {"type": ["string", "null"]},
         "effective_date": {"type": ["string", "null"], "format": "date"},
-        "source_url": {"type": ["string", "null"], "format": "uri"},
+        "source_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "pattern": "^https://([a-z0-9-]+\\.)*csindex\\.com\\.cn/"
+        },
         "retrieved_at": {"type": ["string", "null"], "format": "date-time"},
         "file_path": {"type": ["string", "null"]},
         "file_sha256": {
@@ -164,8 +197,14 @@
           "if": {"properties": {"status": {"const": "verified"}}},
           "then": {
             "properties": {
+              "document_id": {"type": "string", "minLength": 1},
+              "document_title": {"type": "string", "minLength": 1},
               "effective_date": {"type": "string", "format": "date"},
-              "source_url": {"type": "string", "format": "uri"},
+              "source_url": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://([a-z0-9-]+\\.)*csindex\\.com\\.cn/"
+              },
               "retrieved_at": {"type": "string", "format": "date-time"},
               "file_path": {"type": "string", "minLength": 1},
               "file_sha256": {"$ref": "#/$defs/sha256"}
@@ -173,6 +212,31 @@
           }
         }
       ]
+    },
+    "g0_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "gate",
+        "reviewed_by",
+        "reviewed_at",
+        "review_commit",
+        "independence_attested"
+      ],
+      "properties": {
+        "status": {"enum": ["pending", "approved", "rejected"]},
+        "gate": {"const": "G0"},
+        "reviewed_by": {"type": ["string", "null"]},
+        "reviewed_at": {"type": ["string", "null"], "format": "date-time"},
+        "review_commit": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"}
+          ]
+        },
+        "independence_attested": {"type": "boolean"}
+      }
     },
     "fixed_partition": {
       "type": "object",

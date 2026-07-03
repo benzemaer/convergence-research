@@ -24,6 +24,35 @@ class G0ConfigTest(unittest.TestCase):
         cls.config = load(CONFIG_PATH)
         cls.validator = Draft202012Validator(cls.schema, format_checker=FormatChecker())
 
+    def eligible_config(self) -> object:
+        changed = deepcopy(self.config)
+        changed["decision_status"] = "accepted"
+        changed["operational_status"] = "eligible_for_d0"
+        changed["universe"]["membership_evidence"].update(
+            {
+                "status": "verified",
+                "document_id": "CSI800-CONSTITUENTS-2026-06",
+                "document_title": "中证800指数样本列表",
+                "effective_date": "2026-06-01",
+                "source_url": (
+                    "https://www.csindex.com.cn/official/indices/000906/constituents"
+                ),
+                "retrieved_at": "2026-07-03T00:00:00Z",
+                "file_path": "data/external/REPLACE_BEFORE_USE.csv",
+                "file_sha256": "0" * 64,
+            }
+        )
+        changed["g0_review"].update(
+            {
+                "status": "approved",
+                "reviewed_by": "independent-reviewer",
+                "reviewed_at": "2026-07-03T01:00:00Z",
+                "review_commit": "0" * 40,
+                "independence_attested": True,
+            }
+        )
+        return changed
+
     def test_proposed_config_is_valid(self) -> None:
         self.validator.validate(self.config)
 
@@ -45,6 +74,39 @@ class G0ConfigTest(unittest.TestCase):
         changed = deepcopy(self.config)
         changed["decision_status"] = "accepted"
         changed["operational_status"] = "eligible_for_d0"
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+    def test_complete_official_evidence_and_g0_review_allow_d0(self) -> None:
+        self.validator.validate(self.eligible_config())
+
+    def test_nonofficial_source_identity_rejects_d0(self) -> None:
+        changed = self.eligible_config()
+        changed["universe"]["membership_evidence"]["source_registry_id"] = (
+            "UNREGISTERED_SOURCE"
+        )
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+    def test_nonofficial_source_domain_rejects_d0(self) -> None:
+        changed = self.eligible_config()
+        changed["universe"]["membership_evidence"]["source_url"] = (
+            "https://example.com/constituents.csv"
+        )
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+    def test_missing_g0_approval_rejects_d0(self) -> None:
+        changed = self.eligible_config()
+        changed["g0_review"].update(
+            {
+                "status": "pending",
+                "reviewed_by": None,
+                "reviewed_at": None,
+                "review_commit": None,
+                "independence_attested": False,
+            }
+        )
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 
