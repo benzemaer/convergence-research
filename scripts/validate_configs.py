@@ -13,6 +13,11 @@ SECURITY_MAPPING_REFERENCE_CONTRACT_PATH = (
     / "configs/d1"
     / "csi800_static_2026_06_security_mapping_reference_contract.v1.json"
 )
+SECURITY_MAPPING_OUTPUT_CONTRACT_PATH = (
+    ROOT
+    / "configs/d1"
+    / "csi800_static_2026_06_security_mapping_output_contract.v1.json"
+)
 CONFIGS = (
     (
         ROOT / "schemas/g0_universe_time_boundaries.schema.json",
@@ -58,6 +63,10 @@ CONFIGS = (
         ROOT
         / "schemas/d1_csi800_static_security_mapping_reference_contract.schema.json",
         SECURITY_MAPPING_REFERENCE_CONTRACT_PATH,
+    ),
+    (
+        ROOT / "schemas/d1_csi800_static_security_mapping_output_contract.schema.json",
+        SECURITY_MAPPING_OUTPUT_CONTRACT_PATH,
     ),
 )
 
