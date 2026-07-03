@@ -13,6 +13,10 @@ CONFIGS = (
         ROOT / "schemas/g0_universe_time_boundaries.schema.json",
         ROOT / "configs/g0/universe_time_boundaries.v1.json",
     ),
+    (
+        ROOT / "schemas/d0_source_registry.schema.json",
+        ROOT / "configs/d0/source_registry.v1.json",
+    ),
 )
 
 
