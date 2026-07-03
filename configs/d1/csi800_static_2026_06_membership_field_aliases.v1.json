@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/d1_csi800_static_membership_field_aliases.schema.json",
+  "contract_id": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1",
+  "contract_version": "1.0.0",
+  "task_id": "D1-T04",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "index_code": "000906",
+  "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "raw_evidence_sha256_expected": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+  "observed_columns_hash": "39504708cdb7748084eed4f3898d3288c9d107a2fd2da206b72f76e67623c830",
+  "observed_column_count": 9,
+  "canonical_field_aliases": {
+    "source_symbol": {
+      "source_columns": ["成份券代码Constituent Code"],
+      "rule": "Use the raw constituent code from CSINDEX evidence as source_symbol for audit traceability."
+    },
+    "ticker": {
+      "source_columns": ["成份券代码Constituent Code"],
+      "rule": "Extract the six-digit A-share ticker from the CSINDEX constituent code; do not invent or pad ambiguous values."
+    },
+    "exchange": {
+      "primary_source_column": "交易所Exchange",
+      "fallback_source_columns": ["交易所英文名称Exchange(Eng)"],
+      "allowed_normalized_values": ["SSE", "SZSE"],
+      "rule": "normalize the approved exchange alias to SSE or SZSE only."
+    },
+    "security_id_mapping_reference": {
+      "source_columns": [],
+      "rule": "security_id_mapping_reference cannot be sourced from CSINDEX raw evidence and must come from approved D1 security master mapping before materialization.",
+      "status": "deferred_to_d1_security_master_mapping",
+      "cannot_be_sourced_from_csindex": true,
+      "deferred_to_d1_security_master_mapping": true,
+      "required_before_materialization": true
+    }
+  },
+  "row_level_detail_included": false,
+  "raw_bytes_committed": false,
+  "member_rows_committed": false,
+  "duckdb_written": false,
+  "run_manifest_created": false,
+  "dataset_manifest_created": false,
+  "materialization_authorized": false,
+  "member_rows_materialized": false,
+  "downstream_decision": "materialization_remains_blocked",
+  "report_boundary": "This is a field alias contract only, not membership rows, not materialization manifest, not run manifest, not dataset manifest, and not security_id mapping output."
+}

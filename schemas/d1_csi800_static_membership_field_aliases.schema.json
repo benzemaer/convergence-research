@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_membership_field_aliases.schema.json",
+  "title": "D1 CSI800 Static Membership Field Aliases",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "contract_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "source_snapshot_id",
+    "raw_evidence_sha256_expected",
+    "observed_columns_hash",
+    "observed_column_count",
+    "canonical_field_aliases",
+    "row_level_detail_included",
+    "raw_bytes_committed",
+    "member_rows_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "materialization_authorized",
+    "member_rows_materialized",
+    "downstream_decision",
+    "report_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1"
+    },
+    "contract_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_sha256_expected": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "observed_columns_hash": {
+      "const": "39504708cdb7748084eed4f3898d3288c9d107a2fd2da206b72f76e67623c830"
+    },
+    "observed_column_count": {"const": 9},
+    "canonical_field_aliases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_symbol",
+        "ticker",
+        "exchange",
+        "security_id_mapping_reference"
+      ],
+      "properties": {
+        "source_symbol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_columns", "rule"],
+          "properties": {
+            "source_columns": {
+              "type": "array",
+              "const": ["成份券代码Constituent Code"]
+            },
+            "rule": {"type": "string", "pattern": "raw constituent code"}
+          }
+        },
+        "ticker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_columns", "rule"],
+          "properties": {
+            "source_columns": {
+              "type": "array",
+              "const": ["成份券代码Constituent Code"]
+            },
+            "rule": {
+              "type": "string",
+              "allOf": [
+                {"pattern": "six-digit"},
+                {"pattern": "A-share ticker"}
+              ]
+            }
+          }
+        },
+        "exchange": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "primary_source_column",
+            "fallback_source_columns",
+            "allowed_normalized_values",
+            "rule"
+          ],
+          "properties": {
+            "primary_source_column": {"const": "交易所Exchange"},
+            "fallback_source_columns": {
+              "type": "array",
+              "const": ["交易所英文名称Exchange(Eng)"]
+            },
+            "allowed_normalized_values": {
+              "type": "array",
+              "const": ["SSE", "SZSE"]
+            },
+            "rule": {"type": "string", "pattern": "normalize"}
+          }
+        },
+        "security_id_mapping_reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_columns",
+            "rule",
+            "status",
+            "cannot_be_sourced_from_csindex",
+            "deferred_to_d1_security_master_mapping",
+            "required_before_materialization"
+          ],
+          "properties": {
+            "source_columns": {"type": "array", "const": []},
+            "rule": {"type": "string", "pattern": "cannot be sourced"},
+            "status": {"const": "deferred_to_d1_security_master_mapping"},
+            "cannot_be_sourced_from_csindex": {"const": true},
+            "deferred_to_d1_security_master_mapping": {"const": true},
+            "required_before_materialization": {"const": true}
+          }
+        }
+      }
+    },
+    "row_level_detail_included": {"const": false},
+    "raw_bytes_committed": {"const": false},
+    "member_rows_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "materialization_authorized": {"const": false},
+    "member_rows_materialized": {"const": false},
+    "downstream_decision": {"const": "materialization_remains_blocked"},
+    "report_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "field alias contract only"},
+        {"pattern": "not membership rows"},
+        {"pattern": "not materialization manifest"},
+        {"pattern": "not security_id mapping output"}
+      ]
+    }
+  }
+}

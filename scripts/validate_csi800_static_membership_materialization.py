@@ -111,6 +111,28 @@ def load_contract(path: Path) -> dict[str, Any]:
     return contract
 
 
+def load_field_aliases(path: Path) -> dict[str, Any]:
+    aliases = load_json(path)
+    for field in (
+        "row_level_detail_included",
+        "raw_bytes_committed",
+        "member_rows_committed",
+        "duckdb_written",
+        "run_manifest_created",
+        "dataset_manifest_created",
+        "materialization_authorized",
+        "member_rows_materialized",
+    ):
+        if aliases.get(field) is not False:
+            raise ValueError(f"field alias contract must keep {field}=false")
+    mapping_alias = aliases["canonical_field_aliases"]["security_id_mapping_reference"]
+    if mapping_alias.get("source_columns"):
+        raise ValueError(
+            "security_id_mapping_reference cannot be sourced from CSINDEX evidence"
+        )
+    return aliases
+
+
 def contract_inputs(contract: dict[str, Any]) -> dict[str, Any]:
     source = contract["source_evidence"]
     universe = contract["universe"]
@@ -265,6 +287,10 @@ def first_present(row: dict[str, str], names: tuple[str, ...]) -> str:
     return ""
 
 
+def first_present_list(row: dict[str, str], names: list[str]) -> str:
+    return first_present(row, tuple(names))
+
+
 def normalize_column_name(value: str) -> str:
     return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", value.lower())
 
@@ -356,6 +382,51 @@ def derive_exchange(source_symbol: str, explicit_exchange: str) -> str:
     return ""
 
 
+def normalize_members_with_field_aliases(
+    members: list[dict[str, str]],
+    field_aliases: dict[str, Any],
+) -> list[dict[str, str]]:
+    aliases = field_aliases["canonical_field_aliases"]
+    source_columns = aliases["source_symbol"]["source_columns"]
+    ticker_columns = aliases["ticker"]["source_columns"]
+    exchange_alias = aliases["exchange"]
+    exchange_columns = [
+        exchange_alias["primary_source_column"],
+        *exchange_alias.get("fallback_source_columns", []),
+    ]
+    normalized: list[dict[str, str]] = []
+    for member in members:
+        source_symbol = first_present_list(member, source_columns)
+        ticker = normalize_member_ticker(
+            first_present_list(member, ticker_columns),
+            source_symbol,
+        )
+        exchange = derive_exchange(
+            source_symbol,
+            first_present_list(member, exchange_columns),
+        )
+        normalized.append(
+            {
+                "source_symbol": source_symbol,
+                "ticker": ticker,
+                "exchange": exchange,
+            }
+        )
+    return normalized
+
+
+def is_deferred_security_mapping_alias(field_aliases: dict[str, Any]) -> bool:
+    mapping_alias = field_aliases["canonical_field_aliases"][
+        "security_id_mapping_reference"
+    ]
+    return (
+        mapping_alias.get("source_columns") == []
+        and mapping_alias.get("cannot_be_sourced_from_csindex") is True
+        and mapping_alias.get("deferred_to_d1_security_master_mapping") is True
+        and mapping_alias.get("required_before_materialization") is True
+    )
+
+
 def validate_members(
     members: list[dict[str, str]],
     expected_member_count: int,
@@ -398,8 +469,12 @@ def validate_members(
 def validate_materialization_inputs(
     contract_path: Path = DEFAULT_CONTRACT_PATH,
     allow_missing_evidence: bool = False,
+    field_aliases_path: Path | None = None,
 ) -> ValidationResult:
     contract = load_contract(contract_path)
+    field_aliases = (
+        load_field_aliases(field_aliases_path) if field_aliases_path else None
+    )
     inputs = contract_inputs(contract)
     evidence_path = inputs["raw_evidence_path"]
     if not evidence_path.exists():
@@ -421,6 +496,22 @@ def validate_materialization_inputs(
         members = parse_members(evidence_path)
     except Exception as exc:
         return ValidationResult(STATUS_FAILED, f"parse_failed: {exc}")
+    if field_aliases is not None:
+        members = normalize_members_with_field_aliases(members, field_aliases)
+        result = validate_members(members, int(inputs["expected_member_count"]))
+        if (
+            result.status == STATUS_FAILED
+            and "missing security_id_mapping_reference" in result.reason
+            and is_deferred_security_mapping_alias(field_aliases)
+        ):
+            return ValidationResult(
+                STATUS_FAILED,
+                "source/ticker/exchange_aliases_resolved; "
+                "security_id_mapping_reference_pending; "
+                "materialization_remains_blocked",
+                len(members),
+            )
+        return result
     return validate_members(members, int(inputs["expected_member_count"]))
 
 
@@ -475,6 +566,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit aggregate field diagnostics as JSON and do not validate rows.",
     )
+    parser.add_argument(
+        "--field-aliases",
+        type=Path,
+        default=None,
+        help=(
+            "Optional D1-T04 field alias contract used to normalize raw columns. "
+            "This never fabricates security_id mapping references."
+        ),
+    )
     return parser
 
 
@@ -501,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
     result = validate_materialization_inputs(
         contract_path=args.contract,
         allow_missing_evidence=args.allow_missing_evidence,
+        field_aliases_path=args.field_aliases,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True))
     if result.status == STATUS_PASSED:

@@ -92,6 +92,46 @@ def contract_for_bytes_fixture(
     return contract_path
 
 
+def field_aliases_for_fixture(tmp_path: Path) -> Path:
+    aliases = {
+        "canonical_field_aliases": {
+            "source_symbol": {
+                "source_columns": ["成份券代码Constituent Code"],
+                "rule": "Use the raw constituent code from CSINDEX evidence.",
+            },
+            "ticker": {
+                "source_columns": ["成份券代码Constituent Code"],
+                "rule": "Extract six-digit A-share ticker.",
+            },
+            "exchange": {
+                "primary_source_column": "交易所Exchange",
+                "fallback_source_columns": ["交易所英文名称Exchange(Eng)"],
+                "allowed_normalized_values": ["SSE", "SZSE"],
+                "rule": "normalize exchange aliases.",
+            },
+            "security_id_mapping_reference": {
+                "source_columns": [],
+                "rule": "cannot be sourced from CSINDEX raw evidence.",
+                "status": "deferred_to_d1_security_master_mapping",
+                "cannot_be_sourced_from_csindex": True,
+                "deferred_to_d1_security_master_mapping": True,
+                "required_before_materialization": True,
+            },
+        },
+        "row_level_detail_included": False,
+        "raw_bytes_committed": False,
+        "member_rows_committed": False,
+        "duckdb_written": False,
+        "run_manifest_created": False,
+        "dataset_manifest_created": False,
+        "materialization_authorized": False,
+        "member_rows_materialized": False,
+    }
+    alias_path = tmp_path / "field_aliases.json"
+    write_json(alias_path, aliases)
+    return alias_path
+
+
 class FakeSheet:
     def __init__(self, rows: list[list[object]]) -> None:
         self._rows = rows
@@ -551,6 +591,85 @@ class ValidateCSI800StaticMembershipMaterializationTest(unittest.TestCase):
             )
             self.assertNotIn("000001.SZ", output.getvalue())
             self.assertNotIn("SZSE", output.getvalue())
+
+    def test_field_aliases_resolve_raw_columns_but_not_security_mapping(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.csv"
+            evidence_text = (
+                "成份券代码Constituent Code,交易所Exchange\n000001.SZ,SZSE\n"
+            )
+            evidence.write_bytes(evidence_text.encode())
+            contract_path = contract_for_fixture(
+                tmp_path,
+                evidence,
+                evidence_text,
+                expected_count=1,
+            )
+            alias_path = field_aliases_for_fixture(tmp_path)
+            result = validator.validate_materialization_inputs(
+                contract_path,
+                field_aliases_path=alias_path,
+            )
+            self.assertEqual(result.status, validator.STATUS_FAILED)
+            self.assertEqual(result.member_count, 1)
+            self.assertIn("source/ticker/exchange_aliases_resolved", result.reason)
+            self.assertIn("security_id_mapping_reference_pending", result.reason)
+            self.assertIn("materialization_remains_blocked", result.reason)
+
+    def test_cli_field_aliases_emit_no_row_level_values(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            evidence = tmp_path / "members.csv"
+            evidence_text = (
+                "成份券代码Constituent Code,交易所Exchange\n000001.SZ,SZSE\n"
+            )
+            evidence.write_bytes(evidence_text.encode())
+            contract_path = contract_for_fixture(
+                tmp_path,
+                evidence,
+                evidence_text,
+                expected_count=1,
+            )
+            alias_path = field_aliases_for_fixture(tmp_path)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = validator.main(
+                    [
+                        "--contract",
+                        str(contract_path),
+                        "--field-aliases",
+                        str(alias_path),
+                    ]
+                )
+            self.assertEqual(exit_code, 1)
+            payload = json.loads(output.getvalue())
+            self.assertEqual(payload["status"], validator.STATUS_FAILED)
+            self.assertEqual(payload["member_count"], 1)
+            self.assertIn(
+                "security_id_mapping_reference_pending",
+                payload["reason"],
+            )
+            self.assertNotIn("000001", output.getvalue())
+            self.assertNotIn("000001.SZ", output.getvalue())
+            self.assertNotIn("SZSE", output.getvalue())
+
+    def test_field_aliases_do_not_fabricate_security_mapping_reference(self) -> None:
+        members = [
+            {
+                "成份券代码Constituent Code": "600000.SH",
+                "交易所Exchange": "SSE",
+            }
+        ]
+        alias_path = None
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp_dir:
+            alias_path = field_aliases_for_fixture(Path(tmp_dir))
+            aliases = validator.load_field_aliases(alias_path)
+        normalized = validator.normalize_members_with_field_aliases(members, aliases)
+        self.assertEqual(normalized[0]["source_symbol"], "600000.SH")
+        self.assertEqual(normalized[0]["ticker"], "600000")
+        self.assertEqual(normalized[0]["exchange"], "SSE")
+        self.assertNotIn("security_id_mapping_reference", normalized[0])
 
     def test_validator_does_not_access_network(self) -> None:
         def fail_network(*args: object, **kwargs: object) -> None:

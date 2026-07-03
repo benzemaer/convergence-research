@@ -48,6 +48,17 @@ SHA-256 匹配且 aggregate row count 为 800；`source_symbol` / `ticker` / `ex
 存在候选列，但 `security_id_mapping_reference` 仍缺失，因此 D1-T04 actual membership
 row materialization 继续 blocked。
 
+## Field alias contract
+
+D1-T04 后续 PR 增加 field alias contract，并让受控本地 validator 可选读取该契约来标准化
+raw evidence 列名。该契约只解决 `source_symbol` / `ticker` / `exchange` 的列别名：
+`成份券代码Constituent Code` 可作为 `source_symbol` 与六位 A 股 `ticker` 的来源，
+`交易所Exchange` 可作为交易所主来源，`交易所英文名称Exchange(Eng)` 仅作为 fallback。
+`security_id_mapping_reference` 不能从 CSINDEX raw evidence 取得，必须延后到 approved
+D1 security master mapping。该 PR 不提交 raw evidence bytes，不提交 member rows，不写
+DuckDB，不生成 manifest，不输出 `security_id` mapping，actual membership row materialization
+仍然 blocked。
+
 ## Binary Excel parser support
 
 D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。
@@ -102,6 +113,9 @@ actual membership row materialization 仍然 blocked。
 - `configs/d1/csi800_static_2026_06_membership_field_diagnostics.v1.json`
 - `schemas/d1_csi800_static_membership_field_diagnostics.schema.json`
 - `tests/test_d1_csi800_static_membership_field_diagnostics.py`
+- `configs/d1/csi800_static_2026_06_membership_field_aliases.v1.json`
+- `schemas/d1_csi800_static_membership_field_aliases.schema.json`
+- `tests/test_d1_csi800_static_membership_field_aliases.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
