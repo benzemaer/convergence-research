@@ -99,6 +99,9 @@ actual membership row materialization 仍然 blocked。
 - `configs/d1/csi800_static_2026_06_membership_validation_report.v1.json`
 - `schemas/d1_csi800_static_membership_validation_report.schema.json`
 - `tests/test_d1_csi800_static_membership_validation_report.py`
+- `configs/d1/csi800_static_2026_06_membership_field_diagnostics.v1.json`
+- `schemas/d1_csi800_static_membership_field_diagnostics.schema.json`
+- `tests/test_d1_csi800_static_membership_field_diagnostics.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
