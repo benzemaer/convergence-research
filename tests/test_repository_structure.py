@@ -17,6 +17,8 @@ REQUIRED_FILES = (
     "schemas/dataset_manifest.schema.json",
     "schemas/run_manifest.schema.json",
     "schemas/artifact_manifest.schema.json",
+    "schemas/g0_universe_time_boundaries.schema.json",
+    "configs/g0/universe_time_boundaries.v1.json",
 )
 MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
