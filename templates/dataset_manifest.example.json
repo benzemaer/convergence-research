@@ -4,8 +4,7 @@
   "data_version": "example-v1",
   "lifecycle": "draft",
   "schema_version": "1.0.0",
-  "created_at": "2000-01-01T00:00:00Z",
-  "supersedes": null,
+  "source_snapshot_id": "example-snapshot",
   "sources": [
     {
       "source_id": "example_source",
@@ -15,19 +14,31 @@
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     }
   ],
+  "input_hashes": [
+    {
+      "path": "data/raw/REPLACE_BEFORE_USE",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "transformation_code_commit": "0000000000000000000000000000000000000000",
+  "config_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "run_id": "example-run",
+  "created_at": "2000-01-01T00:00:00Z",
+  "quality_report_path": "artifacts/REPLACE_BEFORE_USE_quality_report.json",
+  "output_hashes": [
+    {
+      "path": "data/interim/REPLACE_BEFORE_USE.parquet",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "row_count": 0
+    }
+  ],
+  "supersedes": null,
   "primary_key": ["security_id", "trading_date"],
   "time_semantics": {
     "timezone": "Asia/Shanghai",
     "observed_at_rule": "observed_at <= decision_time",
     "revision_policy": "point_in_time"
   },
-  "files": [
-    {
-      "path": "REPLACE_BEFORE_USE.parquet",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "row_count": 0
-    }
-  ],
   "review": {
     "status": "pending",
     "reviewed_by": null,

@@ -13,6 +13,38 @@ CASES = (
     ("run_manifest", "run_manifest.json"),
     ("artifact_manifest", "artifact_manifest.example.json"),
 )
+ARTIFACT_TRACEABILITY_FIELDS = (
+    "artifact_id",
+    "artifact_type",
+    "evidence_status",
+    "stage",
+    "step",
+    "data_version",
+    "state_definition_version",
+    "code_commit",
+    "config_hash",
+    "environment_lock_hash",
+    "run_id",
+    "input_hashes",
+    "output_hashes",
+    "schema_version",
+    "created_at",
+    "owner",
+    "review_record",
+    "allowed_downstream_use",
+)
+DATASET_RELEASE_FIELDS = (
+    "data_version",
+    "schema_version",
+    "source_snapshot_id",
+    "input_hashes",
+    "transformation_code_commit",
+    "config_hash",
+    "run_id",
+    "created_at",
+    "quality_report_path",
+    "output_hashes",
+)
 
 
 def load(path: Path) -> object:
@@ -34,17 +66,30 @@ class ManifestContractTest(unittest.TestCase):
                     load(ROOT / f"templates/{example_name}")
                 )
 
-    def test_missing_required_field_is_rejected(self) -> None:
+    def test_missing_artifact_traceability_field_is_rejected(self) -> None:
         schema = load(ROOT / "schemas/artifact_manifest.schema.json")
-        example = deepcopy(load(ROOT / "templates/artifact_manifest.example.json"))
-        del example["artifact_id"]
-        with self.assertRaises(ValidationError):
-            self.validator(schema).validate(example)
+        source = load(ROOT / "templates/artifact_manifest.example.json")
+        for field in ARTIFACT_TRACEABILITY_FIELDS:
+            with self.subTest(field=field):
+                example = deepcopy(source)
+                del example[field]
+                with self.assertRaises(ValidationError):
+                    self.validator(schema).validate(example)
+
+    def test_missing_dataset_release_field_is_rejected(self) -> None:
+        schema = load(ROOT / "schemas/dataset_manifest.schema.json")
+        source = load(ROOT / "templates/dataset_manifest.example.json")
+        for field in DATASET_RELEASE_FIELDS:
+            with self.subTest(field=field):
+                example = deepcopy(source)
+                del example[field]
+                with self.assertRaises(ValidationError):
+                    self.validator(schema).validate(example)
 
     def test_invalid_hash_is_rejected(self) -> None:
         schema = load(ROOT / "schemas/dataset_manifest.schema.json")
         example = deepcopy(load(ROOT / "templates/dataset_manifest.example.json"))
-        example["files"][0]["sha256"] = "not-a-sha256"
+        example["output_hashes"][0]["sha256"] = "not-a-sha256"
         with self.assertRaises(ValidationError):
             self.validator(schema).validate(example)
 
@@ -59,14 +104,14 @@ class ManifestContractTest(unittest.TestCase):
         schema = load(ROOT / "schemas/artifact_manifest.schema.json")
         example = deepcopy(load(ROOT / "templates/artifact_manifest.example.json"))
         example["lifecycle"] = "frozen"
-        example["evidence_level"] = "frozen"
+        example["evidence_status"] = "frozen"
         with self.assertRaises(ValidationError):
             self.validator(schema).validate(example)
 
     def test_artifact_lifecycle_and_evidence_must_align(self) -> None:
         schema = load(ROOT / "schemas/artifact_manifest.schema.json")
         example = deepcopy(load(ROOT / "templates/artifact_manifest.example.json"))
-        example["evidence_level"] = "released"
+        example["evidence_status"] = "released"
         with self.assertRaises(ValidationError):
             self.validator(schema).validate(example)
 

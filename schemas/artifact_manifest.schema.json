@@ -8,58 +8,101 @@
     "manifest_version",
     "artifact_id",
     "artifact_version",
+    "artifact_type",
     "lifecycle",
-    "evidence_level",
-    "schema_version",
-    "run_id",
+    "evidence_status",
+    "stage",
+    "step",
     "data_version",
+    "state_definition_version",
+    "code_commit",
+    "config_hash",
+    "environment_lock_hash",
+    "run_id",
     "input_hashes",
-    "output_files",
-    "downstream_allowed_uses",
-    "review"
+    "output_hashes",
+    "schema_version",
+    "created_at",
+    "owner",
+    "review_record",
+    "allowed_downstream_use"
   ],
   "properties": {
     "manifest_version": {"const": "1.0.0"},
     "artifact_id": {"type": "string", "minLength": 1},
     "artifact_version": {"type": "string", "minLength": 1},
+    "artifact_type": {
+      "enum": [
+        "dataset",
+        "factor",
+        "state_day",
+        "confirmed_interval",
+        "event",
+        "risk_set",
+        "label",
+        "chart",
+        "statistical_summary",
+        "null_model_result",
+        "backtest_result",
+        "report",
+        "conclusion_record",
+        "other"
+      ]
+    },
     "lifecycle": {
       "enum": ["draft", "candidate", "validated", "frozen", "released"]
     },
-    "evidence_level": {
+    "evidence_status": {
       "enum": ["exploratory", "candidate", "validated", "frozen", "released"]
     },
-    "schema_version": {"type": "string", "minLength": 1},
-    "run_id": {"type": "string", "minLength": 1},
+    "stage": {"pattern": "^(D[0-3]|R[0-6])$"},
+    "step": {"type": "string", "minLength": 1},
     "data_version": {"type": "string", "minLength": 1},
-    "supersedes": {"type": ["string", "null"]},
+    "state_definition_version": {"type": ["string", "null"]},
+    "code_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "environment_lock_hash": {"$ref": "#/$defs/sha256"},
+    "run_id": {"type": "string", "minLength": 1},
     "input_hashes": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#/$defs/file"}
+      "items": {"$ref": "#/$defs/file_hash"}
     },
-    "output_files": {
+    "output_hashes": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#/$defs/file"}
+      "items": {"$ref": "#/$defs/file_hash"}
     },
-    "downstream_allowed_uses": {
+    "schema_version": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "owner": {"type": "string", "minLength": 1},
+    "supersedes": {"type": ["string", "null"]},
+    "review_record": {"$ref": "#/$defs/review_record"},
+    "allowed_downstream_use": {
       "type": "array",
       "items": {"type": "string", "minLength": 1}
-    },
-    "review": {"$ref": "#/$defs/review"}
+    }
   },
   "allOf": [
     {
       "if": {"properties": {"lifecycle": {"const": "draft"}}},
-      "then": {"properties": {"evidence_level": {"const": "exploratory"}}}
+      "then": {"properties": {"evidence_status": {"const": "exploratory"}}}
     },
     {
       "if": {"properties": {"lifecycle": {"const": "candidate"}}},
-      "then": {"properties": {"evidence_level": {"const": "candidate"}}}
+      "then": {"properties": {"evidence_status": {"const": "candidate"}}}
     },
     {
       "if": {"properties": {"lifecycle": {"const": "validated"}}},
-      "then": {"properties": {"evidence_level": {"const": "validated"}}}
+      "then": {"properties": {"evidence_status": {"const": "validated"}}}
+    },
+    {
+      "if": {"properties": {"lifecycle": {"const": "frozen"}}},
+      "then": {"properties": {"evidence_status": {"const": "frozen"}}}
+    },
+    {
+      "if": {"properties": {"lifecycle": {"const": "released"}}},
+      "then": {"properties": {"evidence_status": {"const": "released"}}}
     },
     {
       "if": {
@@ -69,24 +112,16 @@
       },
       "then": {
         "properties": {
-          "review": {
+          "review_record": {
             "properties": {
               "status": {"const": "approved"},
               "reviewed_by": {"type": "string", "minLength": 1},
               "reviewed_at": {"type": "string", "format": "date-time"}
             }
           },
-          "downstream_allowed_uses": {"minItems": 1}
+          "allowed_downstream_use": {"minItems": 1}
         }
       }
-    },
-    {
-      "if": {"properties": {"lifecycle": {"const": "frozen"}}},
-      "then": {"properties": {"evidence_level": {"const": "frozen"}}}
-    },
-    {
-      "if": {"properties": {"lifecycle": {"const": "released"}}},
-      "then": {"properties": {"evidence_level": {"const": "released"}}}
     }
   ],
   "$defs": {
@@ -94,7 +129,7 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
     },
-    "file": {
+    "file_hash": {
       "type": "object",
       "additionalProperties": false,
       "required": ["path", "sha256"],
@@ -103,7 +138,7 @@
         "sha256": {"$ref": "#/$defs/sha256"}
       }
     },
-    "review": {
+    "review_record": {
       "type": "object",
       "additionalProperties": false,
       "required": ["status", "reviewed_by", "reviewed_at", "gate"],
