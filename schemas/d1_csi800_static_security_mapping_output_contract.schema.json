@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_security_mapping_output_contract.schema.json",
+  "title": "D1 CSI800 Static Security Mapping Output Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "contract_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "source_snapshot_id",
+    "raw_evidence_sha256_expected",
+    "field_alias_contract_id",
+    "security_mapping_reference_contract_id",
+    "output_row_schema",
+    "expected_row_count",
+    "allowed_mapping_status",
+    "required_mapping_method",
+    "mapping_key_fields",
+    "security_id_format_rule",
+    "materialization_gate",
+    "failure_actions",
+    "output_artifact_allowed_in_this_pr",
+    "output_rows_committed",
+    "security_id_mapping_output_committed",
+    "row_level_detail_included",
+    "raw_bytes_committed",
+    "member_rows_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "materialization_authorized",
+    "member_rows_materialized",
+    "downstream_decision",
+    "report_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_CONTRACT_V1"
+    },
+    "contract_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_sha256_expected": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "field_alias_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1"
+    },
+    "security_mapping_reference_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1"
+    },
+    "output_row_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_output_fields"],
+      "properties": {
+        "required_output_fields": {
+          "type": "array",
+          "const": [
+            "universe_id",
+            "source_snapshot_id",
+            "membership_effective_date",
+            "source_symbol",
+            "ticker",
+            "exchange",
+            "security_id",
+            "security_id_mapping_reference",
+            "mapping_method",
+            "mapping_status"
+          ]
+        }
+      }
+    },
+    "expected_row_count": {"const": 800},
+    "allowed_mapping_status": {
+      "type": "array",
+      "const": ["mapped"]
+    },
+    "required_mapping_method": {
+      "const": "ticker_exchange_effective_date_to_d1_security_master"
+    },
+    "mapping_key_fields": {
+      "type": "array",
+      "const": ["ticker", "exchange", "membership_effective_date"]
+    },
+    "security_id_format_rule": {"const": "CN.{exchange}.{ticker}"},
+    "materialization_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_rows_must_map",
+        "no_unmapped_rows_allowed",
+        "no_duplicate_membership_key_allowed",
+        "no_duplicate_security_id_for_distinct_membership_key_allowed"
+      ],
+      "properties": {
+        "all_rows_must_map": {"const": true},
+        "no_unmapped_rows_allowed": {"const": true},
+        "no_duplicate_membership_key_allowed": {"const": true},
+        "no_duplicate_security_id_for_distinct_membership_key_allowed": {
+          "const": true
+        }
+      }
+    },
+    "failure_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inactive_or_delisted_ambiguity_action",
+        "missing_match_action",
+        "duplicate_match_action"
+      ],
+      "properties": {
+        "inactive_or_delisted_ambiguity_action": {
+          "const": "block_materialization"
+        },
+        "missing_match_action": {"const": "block_materialization"},
+        "duplicate_match_action": {"const": "block_materialization"}
+      }
+    },
+    "output_artifact_allowed_in_this_pr": {"const": false},
+    "output_rows_committed": {"const": false},
+    "security_id_mapping_output_committed": {"const": false},
+    "row_level_detail_included": {"const": false},
+    "raw_bytes_committed": {"const": false},
+    "member_rows_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "materialization_authorized": {"const": false},
+    "member_rows_materialized": {"const": false},
+    "downstream_decision": {"const": "materialization_remains_blocked"},
+    "report_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "security mapping output contract only"},
+        {"pattern": "not security_id mapping output"},
+        {"pattern": "not membership rows"},
+        {"pattern": "not materialization manifest"},
+        {"pattern": "not run manifest"},
+        {"pattern": "not dataset manifest"}
+      ]
+    }
+  }
+}

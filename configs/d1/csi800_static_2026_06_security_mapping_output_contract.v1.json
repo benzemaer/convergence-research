@@ -1,0 +1,55 @@
+{
+  "$schema": "../../schemas/d1_csi800_static_security_mapping_output_contract.schema.json",
+  "contract_id": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_OUTPUT_CONTRACT_V1",
+  "contract_version": "1.0.0",
+  "task_id": "D1-T04",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "index_code": "000906",
+  "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "raw_evidence_sha256_expected": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+  "field_alias_contract_id": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1",
+  "security_mapping_reference_contract_id": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1",
+  "output_row_schema": {
+    "required_output_fields": [
+      "universe_id",
+      "source_snapshot_id",
+      "membership_effective_date",
+      "source_symbol",
+      "ticker",
+      "exchange",
+      "security_id",
+      "security_id_mapping_reference",
+      "mapping_method",
+      "mapping_status"
+    ]
+  },
+  "expected_row_count": 800,
+  "allowed_mapping_status": ["mapped"],
+  "required_mapping_method": "ticker_exchange_effective_date_to_d1_security_master",
+  "mapping_key_fields": ["ticker", "exchange", "membership_effective_date"],
+  "security_id_format_rule": "CN.{exchange}.{ticker}",
+  "materialization_gate": {
+    "all_rows_must_map": true,
+    "no_unmapped_rows_allowed": true,
+    "no_duplicate_membership_key_allowed": true,
+    "no_duplicate_security_id_for_distinct_membership_key_allowed": true
+  },
+  "failure_actions": {
+    "inactive_or_delisted_ambiguity_action": "block_materialization",
+    "missing_match_action": "block_materialization",
+    "duplicate_match_action": "block_materialization"
+  },
+  "output_artifact_allowed_in_this_pr": false,
+  "output_rows_committed": false,
+  "security_id_mapping_output_committed": false,
+  "row_level_detail_included": false,
+  "raw_bytes_committed": false,
+  "member_rows_committed": false,
+  "duckdb_written": false,
+  "run_manifest_created": false,
+  "dataset_manifest_created": false,
+  "materialization_authorized": false,
+  "member_rows_materialized": false,
+  "downstream_decision": "materialization_remains_blocked",
+  "report_boundary": "This is a security mapping output contract only, not security_id mapping output, not membership rows, not materialization manifest, not run manifest, and not dataset manifest."
+}

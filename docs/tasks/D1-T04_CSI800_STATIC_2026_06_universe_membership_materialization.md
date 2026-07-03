@@ -72,6 +72,17 @@ D1-T04 后续 PR 增加 security mapping reference contract，只定义
 evidence、DuckDB、manifest 或 CSV/Parquet artifact。actual membership row materialization
 仍然 blocked。
 
+## 证券映射输出契约
+
+D1-T04 后续 PR 增加 security mapping output contract。PR #20 只定义
+`security_id_mapping_reference` 的合法来源；本契约只定义未来
+`CSI800_STATIC_2026_06` 成员代码到 D1 `security_id` 映射输出必须具备的 row schema、
+800 行计数、`mapped` 状态、`ticker + exchange + membership_effective_date` 映射键、
+`CN.{exchange}.{ticker}` security_id 格式和 materialization gate。本 PR 不实际生成
+security_id mapping output，不生成 membership rows，不提交 raw evidence、DuckDB、
+manifest、CSV/Parquet artifact 或任何行级 `source_symbol` / `ticker` / `exchange` /
+`security_id` 值。actual membership row materialization 仍然 blocked。
+
 ## Binary Excel parser support
 
 D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。
@@ -132,6 +143,9 @@ actual membership row materialization 仍然 blocked。
 - `configs/d1/csi800_static_2026_06_security_mapping_reference_contract.v1.json`
 - `schemas/d1_csi800_static_security_mapping_reference_contract.schema.json`
 - `tests/test_d1_csi800_static_security_mapping_reference_contract.py`
+- `configs/d1/csi800_static_2026_06_security_mapping_output_contract.v1.json`
+- `schemas/d1_csi800_static_security_mapping_output_contract.schema.json`
+- `tests/test_d1_csi800_static_security_mapping_output_contract.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
