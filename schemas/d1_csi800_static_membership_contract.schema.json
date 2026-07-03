@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_membership_contract.schema.json",
+  "title": "D1 CSI800 Static Membership Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "contract_id",
+    "contract_status",
+    "depends_on",
+    "materialization_status",
+    "blocked_reason",
+    "materialization_authorized",
+    "member_rows_materialized",
+    "universe",
+    "source_evidence",
+    "membership_alignment_contract",
+    "source_registry_requirements",
+    "bias_and_scope_warnings",
+    "downstream_boundary",
+    "implementation_exclusions",
+    "blocking_conditions",
+    "future_materialization_requirements"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "contract_id": {"const": "D1_CSI800_STATIC_MEMBERSHIP_CONTRACT_V1"},
+    "contract_status": {
+      "enum": ["draft_for_g1_review", "accepted", "superseded"]
+    },
+    "depends_on": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D1-T00"}},
+        {"contains": {"const": "D1-T01"}},
+        {"contains": {"const": "D1-T02"}},
+        {"contains": {"const": "D1-T03"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "DR-001"}}
+      ]
+    },
+    "materialization_status": {
+      "const": "blocked_until_approved_machine_readable_evidence_available_in_runtime"
+    },
+    "blocked_reason": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "ignored data/external"},
+        {"pattern": "no reviewable, reproducible materialization input"}
+      ]
+    },
+    "materialization_authorized": {"const": false},
+    "member_rows_materialized": {"const": false},
+    "universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "universe_id",
+        "index_code",
+        "index_alias",
+        "membership_mode",
+        "membership_effective_date",
+        "expected_member_count",
+        "historical_membership_claim_allowed"
+      ],
+      "properties": {
+        "universe_id": {"const": "CSI800_STATIC_2026_06"},
+        "index_code": {"const": "000906"},
+        "index_alias": {"const": "CSI800"},
+        "membership_mode": {"const": "static_cohort"},
+        "membership_effective_date": {"type": "string", "format": "date"},
+        "expected_member_count": {"const": 800},
+        "historical_membership_claim_allowed": {"const": false}
+      }
+    },
+    "source_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g0_config_path",
+        "source_snapshot_manifest_path",
+        "source_registry_id",
+        "source_snapshot_id",
+        "raw_evidence_path",
+        "raw_evidence_sha256",
+        "review_status",
+        "g0_operational_status",
+        "review_commit",
+        "run_id_policy"
+      ],
+      "properties": {
+        "g0_config_path": {"const": "configs/g0/universe_time_boundaries.v1.json"},
+        "source_snapshot_manifest_path": {
+          "const": "manifests/source_snapshots/G0-T01_csindex_000906_20260703T100909Z.json"
+        },
+        "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+        "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+        "raw_evidence_path": {"type": "string", "minLength": 1},
+        "raw_evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "review_status": {"const": "approved"},
+        "g0_operational_status": {"const": "eligible_for_d0"},
+        "review_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "run_id_policy": {"type": "string", "minLength": 1}
+      }
+    },
+    "membership_alignment_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_table",
+        "field_semantics",
+        "primary_key",
+        "required_mapping_fields",
+        "non_goals"
+      ],
+      "properties": {
+        "target_table": {"const": "d2.membership_alignment"},
+        "field_semantics": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/field_rule"},
+          "minProperties": 1
+        },
+        "primary_key": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        },
+        "required_mapping_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_symbol",
+              "ticker",
+              "exchange",
+              "security_id_mapping_reference"
+            ]
+          }
+        },
+        "non_goals": {"$ref": "#/$defs/non_empty_strings"}
+      }
+    },
+    "source_registry_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_source_registry_ids",
+        "prohibited_source_registry_ids",
+        "csindex_official_authorized_domains",
+        "prohibited_fact_domains",
+        "formal_ingestion_authorized",
+        "materialization_authorized",
+        "reason"
+      ],
+      "properties": {
+        "allowed_source_registry_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {"const": "CSINDEX_OFFICIAL"},
+          "contains": {"const": "CSINDEX_OFFICIAL"}
+        },
+        "prohibited_source_registry_ids": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+            {"contains": {"const": "BAOSTOCK"}},
+            {"contains": {"const": "A_STOCK_DATA_RECON"}}
+          ],
+          "items": {
+            "enum": [
+              "HITHINK_FINANCIAL_API",
+              "BAOSTOCK",
+              "A_STOCK_DATA_RECON"
+            ]
+          }
+        },
+        "csindex_official_authorized_domains": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "universe_membership_evidence"}},
+            {"contains": {"const": "d2.membership_alignment"}}
+          ],
+          "items": {
+            "enum": [
+              "universe_membership_evidence",
+              "d2.membership_alignment"
+            ]
+          }
+        },
+        "prohibited_fact_domains": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "market_prices"}},
+            {"contains": {"const": "trading_status"}},
+            {"contains": {"const": "corporate_actions"}},
+            {"contains": {"const": "adjustment_factors"}}
+          ],
+          "items": {"type": "string", "minLength": 1}
+        },
+        "formal_ingestion_authorized": {"const": false},
+        "materialization_authorized": {"const": false},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "bias_and_scope_warnings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "contains": {"pattern": "static research cohort"},
+      "items": {"type": "string", "minLength": 1}
+    },
+    "downstream_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["d3_entry_rule", "raw_evidence_rule"],
+      "properties": {
+        "d3_entry_rule": {"type": "string", "minLength": 1},
+        "raw_evidence_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "implementation_exclusions": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "no_loader",
+          "no_external_api_call",
+          "no_real_data_import",
+          "no_market_data_import",
+          "no_duckdb_entity_data",
+          "no_committed_duckdb_file",
+          "no_network_access",
+          "no_manifest",
+          "no_membership_rows_materialized"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "no_loader"}},
+        {"contains": {"const": "no_external_api_call"}},
+        {"contains": {"const": "no_real_data_import"}},
+        {"contains": {"const": "no_market_data_import"}},
+        {"contains": {"const": "no_duckdb_entity_data"}},
+        {"contains": {"const": "no_committed_duckdb_file"}},
+        {"contains": {"const": "no_network_access"}},
+        {"contains": {"const": "no_manifest"}},
+        {"contains": {"const": "no_membership_rows_materialized"}}
+      ]
+    },
+    "blocking_conditions": {"$ref": "#/$defs/non_empty_strings"},
+    "future_materialization_requirements": {"$ref": "#/$defs/non_empty_strings"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "non_empty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "field_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "nullable", "rule"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "nullable": {"type": "boolean"},
+        "rule": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

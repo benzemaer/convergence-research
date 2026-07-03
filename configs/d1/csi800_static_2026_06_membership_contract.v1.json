@@ -1,0 +1,177 @@
+{
+  "$schema": "../../schemas/d1_csi800_static_membership_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D1-T04",
+  "contract_id": "D1_CSI800_STATIC_MEMBERSHIP_CONTRACT_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D1-T00",
+    "D1-T01",
+    "D1-T02",
+    "D1-T03",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "DR-001"
+  ],
+  "materialization_status": "blocked_until_approved_machine_readable_evidence_available_in_runtime",
+  "blocked_reason": "Approved raw bytes and machine-readable evidence currently live under ignored data/external/ paths; the committed repository has no reviewable, reproducible materialization input, so this PR must not create membership rows.",
+  "materialization_authorized": false,
+  "member_rows_materialized": false,
+  "universe": {
+    "universe_id": "CSI800_STATIC_2026_06",
+    "index_code": "000906",
+    "index_alias": "CSI800",
+    "membership_mode": "static_cohort",
+    "membership_effective_date": "2026-06-12",
+    "expected_member_count": 800,
+    "historical_membership_claim_allowed": false
+  },
+  "source_evidence": {
+    "g0_config_path": "configs/g0/universe_time_boundaries.v1.json",
+    "source_snapshot_manifest_path": "manifests/source_snapshots/G0-T01_csindex_000906_20260703T100909Z.json",
+    "source_registry_id": "CSINDEX_OFFICIAL",
+    "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+    "raw_evidence_path": "data/external/source=csindex/index=000906/snapshot=20260703T100909Z/000906cons.xls",
+    "raw_evidence_sha256": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984",
+    "review_status": "approved",
+    "g0_operational_status": "eligible_for_d0",
+    "review_commit": "e6bae22f35653fdceedb0b671970e3b6ce3ac2ca",
+    "run_id_policy": "run_id is required for future formal materialization, but D1-T04 does not create a run manifest or formal run artifact."
+  },
+  "membership_alignment_contract": {
+    "target_table": "d2.membership_alignment",
+    "field_semantics": {
+      "data_version": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Versioned D2 membership alignment dataset identifier; D1-T04 does not create materialized rows."
+      },
+      "universe_id": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Must be CSI800_STATIC_2026_06."
+      },
+      "time_segment_id": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Configured time segment key; this static cohort must not imply historical point-in-time index membership."
+      },
+      "security_id": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Project-internal security id from reviewed D1 security mapping; D1-T04 must not invent security_id values."
+      },
+      "index_code": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Must be 000906 for the CSI 800 official index code."
+      },
+      "membership_effective_date": {
+        "type": "DATE",
+        "nullable": false,
+        "rule": "Must use the G0 approved effective date 2026-06-12, not current date or file modification time."
+      },
+      "membership_mode": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Must be static_cohort and must not claim historical_index_membership."
+      },
+      "membership_source": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Must identify the approved CSINDEX official static cohort evidence."
+      },
+      "source_registry_id": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Must be CSINDEX_OFFICIAL."
+      },
+      "source_snapshot_id": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Must reference CSINDEX_000906_20260703T100909Z for this contract version."
+      },
+      "run_id": {
+        "type": "TEXT",
+        "nullable": false,
+        "rule": "Future materialization run manifest id; this PR does not generate a run artifact."
+      }
+    },
+    "primary_key": [
+      "data_version",
+      "universe_id",
+      "security_id",
+      "index_code",
+      "membership_effective_date"
+    ],
+    "required_mapping_fields": [
+      "source_symbol",
+      "ticker",
+      "exchange",
+      "security_id_mapping_reference"
+    ],
+    "non_goals": [
+      "Do not expand the universe.",
+      "Do not fill missing securities.",
+      "Do not process security_master details.",
+      "Do not run market-data availability filters."
+    ]
+  },
+  "source_registry_requirements": {
+    "allowed_source_registry_ids": [
+      "CSINDEX_OFFICIAL"
+    ],
+    "prohibited_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK",
+      "A_STOCK_DATA_RECON"
+    ],
+    "csindex_official_authorized_domains": [
+      "universe_membership_evidence",
+      "d2.membership_alignment"
+    ],
+    "prohibited_fact_domains": [
+      "market_prices",
+      "trading_status",
+      "corporate_actions",
+      "adjustment_factors"
+    ],
+    "formal_ingestion_authorized": false,
+    "materialization_authorized": false,
+    "reason": "CSINDEX_OFFICIAL is allowed only for G0 universe membership evidence and d2.membership_alignment under DR-001; this PR does not materialize rows."
+  },
+  "bias_and_scope_warnings": [
+    "CSI800_STATIC_2026_06 is a static research cohort, not historical point-in-time CSI 800 membership.",
+    "The cohort must not be used to claim historical executable index membership on arbitrary trading dates.",
+    "Survivorship and static-backfill boundaries must be disclosed in every downstream use."
+  ],
+  "downstream_boundary": {
+    "d3_entry_rule": "R0/R stages must not read raw G0 evidence or D2 membership_alignment directly; later research may use membership only through D3 d3.daily_market_observations and a declared data_version.",
+    "raw_evidence_rule": "Raw G0 evidence remains under data/external and is referenced by path and SHA-256; raw bytes must not enter DuckDB."
+  },
+  "implementation_exclusions": [
+    "no_loader",
+    "no_external_api_call",
+    "no_real_data_import",
+    "no_market_data_import",
+    "no_duckdb_entity_data",
+    "no_committed_duckdb_file",
+    "no_network_access",
+    "no_manifest",
+    "no_membership_rows_materialized"
+  ],
+  "blocking_conditions": [
+    "actual_member_row_materialization_blocked_in_this_pr",
+    "approved_machine_readable_evidence_not_committed_to_git",
+    "security_id_mapping_reference_not_materialized",
+    "run_manifest_not_created",
+    "dataset_manifest_not_created",
+    "duckdb_materialization_not_authorized"
+  ],
+  "future_materialization_requirements": [
+    "Future materialization must read only approved raw evidence and manifests already present in the controlled runtime.",
+    "Future materialization must verify raw_evidence_sha256 before parsing.",
+    "Future materialization must validate expected_member_count=800 before writing any artifact.",
+    "Future materialization must retain source_symbol, ticker, exchange, or an approved security_id mapping reference for every member.",
+    "Future materialization must produce reviewable manifests and must not write a committed DuckDB file."
+  ]
+}
