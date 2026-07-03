@@ -4,7 +4,13 @@ __pycache__/
 .ruff_cache/
 .venv/
 .obsidian/
+*.duckdb
+*.duckdb.wal
 
 # Immutable source snapshots are retained locally and referenced by manifests.
 data/raw/
 data/external/
+
+# Local DuckDB scratch databases must not enter version control.
+data/interim/duckdb/*.duckdb
+data/interim/duckdb/*.duckdb.wal

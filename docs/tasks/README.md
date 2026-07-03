@@ -70,7 +70,7 @@ next_planned_task: D1-T01
 
 状态：planned
 
-- `D1-T00` DuckDB 依赖、空 schema 与契约测试：planned
+- `D1-T00` DuckDB 依赖、空 schema 与契约测试：planned via PR #9
 - `D1-T01` `security_master` 与代码映射
 - `D1-T02` 交易日历与交易状态主表
 - `D1-T03` 公司行为与复权因子主表
