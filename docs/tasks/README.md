@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D0
-current_task: D0-T03
-next_planned_task: D1-T00
+current_stage: D1
+current_task: D1-T00
+next_planned_task: D1-T01
 ```
 
 ## G0：样本宇宙与时间边界
@@ -39,7 +39,7 @@ next_planned_task: D1-T00
 
 ## D0：数据源资格审查、原始快照与基础审计
 
-状态：active
+状态：completed
 
 目标：
 
@@ -58,7 +58,7 @@ next_planned_task: D1-T00
 
 - `D0-T01` DuckDB 数据架构设计：completed via PR #6
 - `D0-T02` 数据源资格审查与 source registry：completed via PR #7
-- `D0-T03` D1 / D2 / D3 数据产品契约：PR #8
+- `D0-T03` D1 / D2 / D3 数据产品契约：completed via PR #8
 
 完成标准：
 

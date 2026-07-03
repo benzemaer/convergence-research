@@ -26,6 +26,9 @@ GLOBAL_FIELDS = {
     "data_version",
     "universe_id",
     "time_segment_id",
+    "source_registry_id",
+    "source_snapshot_id",
+    "run_id",
 }
 D3_REQUIRED_SOURCE_FIELDS = {
     "price_fact_source",
