@@ -109,6 +109,8 @@
             "rights_issue",
             "split",
             "reverse_split",
+            "merger_or_reorganization",
+            "delisting_related",
             "other",
             "unknown"
           ],
@@ -254,11 +256,11 @@
           "allowed_values": [
             "forward_adjusted",
             "backward_adjusted",
-            "total_return",
-            "none",
+            "total_return_adjusted",
+            "identity_no_adjustment",
             "unknown"
           ],
-          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it."
+          "unknown_value_rule": "unknown must remain explicit and blocks formal downstream release until quality review resolves it. identity_no_adjustment means adjustment_factor=1.0 and no corporate-action adjustment is required; it does not mean the adjustment method is missing."
         },
         "adjustment_revision": {
           "allowed_values": [

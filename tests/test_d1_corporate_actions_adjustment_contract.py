@@ -194,8 +194,36 @@ class D1CorporateActionsAdjustmentContractTest(unittest.TestCase):
         self.assertIn("cash_dividend", action_vocab["action_type"]["allowed_values"])
         self.assertIn("rights_issue", action_vocab["action_type"]["allowed_values"])
         self.assertIn(
+            "merger_or_reorganization",
+            action_vocab["action_type"]["allowed_values"],
+        )
+        self.assertIn(
+            "delisting_related",
+            action_vocab["action_type"]["allowed_values"],
+        )
+        self.assertIn(
             "forward_adjusted",
             adjusted_vocab["adjustment_method"]["allowed_values"],
+        )
+        self.assertIn(
+            "total_return_adjusted",
+            adjusted_vocab["adjustment_method"]["allowed_values"],
+        )
+        self.assertNotIn(
+            "total_return",
+            adjusted_vocab["adjustment_method"]["allowed_values"],
+        )
+        self.assertIn(
+            "identity_no_adjustment",
+            adjusted_vocab["adjustment_method"]["allowed_values"],
+        )
+        self.assertNotIn(
+            "none",
+            adjusted_vocab["adjustment_method"]["allowed_values"],
+        )
+        self.assertIn(
+            "adjustment_factor=1.0",
+            adjusted_vocab["adjustment_method"]["unknown_value_rule"],
         )
         self.assertIn("v1", adjusted_vocab["adjustment_revision"]["allowed_values"])
 
