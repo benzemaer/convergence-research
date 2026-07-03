@@ -28,6 +28,16 @@ DuckDB，不生成 manifest，不提交 membership rows，也不创建 `security
 它只验证 raw evidence SHA-256、可解析性、`expected_member_count=800` 和后续
 security_id mapping 所需字段是否存在。
 
+## 受控 evidence validation report
+
+D1-T04 后续 PR 增加 aggregate evidence validation report，只记录 validation status、
+raw evidence SHA-256、observed member count、mapping readiness 汇总和 no-artifact
+边界。该报告不包含 raw evidence bytes，不包含 `source_symbol`、`ticker`、`exchange`
+或任何 member row 明细，不是 run manifest、dataset manifest 或 materialization
+manifest。本地严格 runner 已确认 approved raw evidence SHA-256 匹配 contract，但当前
+标准库 parser 无法解析二进制 Excel/OLE `.xls`，因此 report 状态为 `failed_parse`，
+actual membership row materialization 仍然 blocked。
+
 ## 非目标
 
 - 不重新爬取中证指数官网。
@@ -56,6 +66,9 @@ security_id mapping 所需字段是否存在。
 - `tests/test_d1_csi800_static_membership_contract.py`
 - `scripts/validate_csi800_static_membership_materialization.py`
 - `tests/test_validate_csi800_static_membership_materialization.py`
+- `configs/d1/csi800_static_2026_06_membership_validation_report.v1.json`
+- `schemas/d1_csi800_static_membership_validation_report.schema.json`
+- `tests/test_d1_csi800_static_membership_validation_report.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
