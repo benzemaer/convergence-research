@@ -42,6 +42,9 @@ def create_empty_duckdb(
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if overwrite and db_path.exists():
         db_path.unlink()
+    wal_path = db_path.with_name(f"{db_path.name}.wal")
+    if overwrite and wal_path.exists():
+        wal_path.unlink()
 
     with duckdb.connect(str(db_path)) as connection:
         connection.execute(schema_sql)

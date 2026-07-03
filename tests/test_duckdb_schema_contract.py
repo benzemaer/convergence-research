@@ -17,14 +17,7 @@ from scripts.create_duckdb_schema import (
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "configs/d0/data_product_contracts.v1.json"
 SCHEMA_SQL_PATH = ROOT / "sql/duckdb/schema.sql"
-GLOBAL_FIELDS = {
-    "data_version",
-    "universe_id",
-    "time_segment_id",
-    "source_registry_id",
-    "source_snapshot_id",
-    "run_id",
-}
+EXPECTED_SCHEMAS = {"meta", "d0", "d1", "d2", "d3"}
 D3_SOURCE_FIELDS = {
     "price_fact_source",
     "corporate_action_source",
@@ -49,16 +42,21 @@ PROHIBITED_TABLE_TOKENS = {
 }
 
 
-def load_contract_tables() -> dict[str, dict[str, object]]:
+def load_contract() -> dict[str, object]:
     with CONTRACT_PATH.open(encoding="utf-8") as handle:
-        contract = json.load(handle)
-    return {table["table_name"]: table for table in contract["tables"]}
+        return json.load(handle)
 
 
 class DuckDBSchemaContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.contract_tables = load_contract_tables()
+        cls.contract = load_contract()
+        cls.contract_tables = {
+            table["table_name"]: table for table in cls.contract["tables"]
+        }
+        cls.global_fields = set(
+            cls.contract["global_requirements"]["required_in_all_formal_tables"]
+        )
         cls.schema_sql = load_schema_sql(SCHEMA_SQL_PATH)
 
     def setUp(self) -> None:
@@ -71,17 +69,20 @@ class DuckDBSchemaContractTest(unittest.TestCase):
         self.created_tables = set(tables)
 
     def table_columns(self, table_name: str) -> set[str]:
+        return set(self.table_column_nullability(table_name))
+
+    def table_column_nullability(self, table_name: str) -> dict[str, str]:
         schema, table = table_name.split(".", maxsplit=1)
         rows = self.connection.execute(
             """
-            SELECT column_name
+            SELECT column_name, is_nullable
             FROM information_schema.columns
             WHERE table_schema = ?
               AND table_name = ?
             """,
             [schema, table],
         ).fetchall()
-        return {row[0] for row in rows}
+        return {row[0]: row[1] for row in rows}
 
     def primary_key_columns(self, table_name: str) -> set[str]:
         schema, table = table_name.split(".", maxsplit=1)
@@ -107,6 +108,16 @@ class DuckDBSchemaContractTest(unittest.TestCase):
         self.assertEqual(self.created_tables, set(self.contract_tables))
         self.assertEqual(set(list_tables(self.connection)), set(self.contract_tables))
 
+    def test_required_schemas_exist(self) -> None:
+        rows = self.connection.execute(
+            """
+            SELECT schema_name
+            FROM information_schema.schemata
+            """
+        ).fetchall()
+        schemas = {row[0] for row in rows}
+        self.assertTrue(EXPECTED_SCHEMAS.issubset(schemas))
+
     def test_tables_cover_contract_required_fields_and_primary_keys(self) -> None:
         for table_name, contract in self.contract_tables.items():
             with self.subTest(table=table_name):
@@ -115,8 +126,29 @@ class DuckDBSchemaContractTest(unittest.TestCase):
                 primary_key = set(contract["primary_key"])
                 self.assertTrue(required_fields.issubset(columns))
                 self.assertTrue(primary_key.issubset(columns))
-                self.assertTrue(GLOBAL_FIELDS.issubset(columns))
+                self.assertTrue(self.global_fields.issubset(columns))
                 self.assertEqual(self.primary_key_columns(table_name), primary_key)
+
+    def test_tables_do_not_add_columns_outside_contract_required_fields(self) -> None:
+        for table_name, contract in self.contract_tables.items():
+            with self.subTest(table=table_name):
+                self.assertEqual(
+                    self.table_columns(table_name),
+                    set(contract["required_fields"]),
+                )
+
+    def test_required_non_nullable_contract_fields_are_not_null(self) -> None:
+        for table_name, contract in self.contract_tables.items():
+            with self.subTest(table=table_name):
+                nullability = self.table_column_nullability(table_name)
+                required_fields = set(contract["required_fields"])
+                nullable_fields = set(contract["nullable_fields"])
+                not_null_fields = required_fields - nullable_fields
+
+                for field in not_null_fields:
+                    self.assertEqual(nullability[field], "NO")
+                for field in nullable_fields:
+                    self.assertIn(nullability[field], {"YES", "NO"})
 
     def test_d3_daily_market_observations_has_r0_entry_source_fields(self) -> None:
         columns = self.table_columns("d3.daily_market_observations")
