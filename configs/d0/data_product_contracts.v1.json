@@ -1,0 +1,785 @@
+{
+  "$schema": "../../schemas/d0_data_product_contracts.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D0-T03",
+  "contract_id": "D0_DATA_PRODUCT_CONTRACTS_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D0-T01",
+    "D0-T02",
+    "D0_SOURCE_REGISTRY_V1",
+    "DR-001"
+  ],
+  "warehouse_boundary": {
+    "duckdb_role": "DuckDB only stores structured registries, normalized facts, reproducible derived layers, and research entry tables.",
+    "raw_bytes_rule": "Raw responses, raw files, vendor exports, and collection logs must remain under data/raw or data/external and enter DuckDB only through path, SHA-256, snapshot id, and manifest references.",
+    "implementation_exclusions": [
+      "no_duckdb_file",
+      "no_duckdb_dependency",
+      "no_ddl",
+      "no_loader",
+      "no_external_api_call",
+      "no_data_artifact"
+    ]
+  },
+  "global_requirements": {
+    "required_in_all_formal_tables": [
+      "data_version",
+      "universe_id",
+      "time_segment_id",
+      "source_registry_id",
+      "source_snapshot_id",
+      "run_id"
+    ],
+    "traceability_requirements": [
+      "input_hashes",
+      "dataset_manifest",
+      "source_snapshot_manifest",
+      "run_manifest"
+    ],
+    "contract_requirements": [
+      "grain",
+      "primary_key",
+      "required_fields",
+      "nullable_policy",
+      "quality_checks",
+      "as_of_policy",
+      "revision_policy"
+    ],
+    "research_entry_rule": "R0 must use d3.daily_market_observations as the only formal daily entry point and must not read D1/D2 tables directly."
+  },
+  "tables": [
+    {
+      "layer": "D1",
+      "table_name": "d1.security_master",
+      "table_role": "Security identity, listing lifecycle, exchange, and security type master data.",
+      "grain": "One security identity row per data_version, universe_id, time_segment_id, and security_id.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "ticker",
+        "exchange",
+        "security_name",
+        "listing_date",
+        "delisting_date",
+        "security_type",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "nullable_fields": [
+        "delisting_date"
+      ],
+      "nullable_policy": "Only fields listed in nullable_fields may be null; unknown source quality must not be silently converted to false.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "HiThink is a candidate master-data source, but terms/as-of/revision review remains pending."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Identity facts must be observed_at-bounded to the snapshot retrieval time or documented vendor effective time.",
+      "revision_policy": "Corrections or vendor restatements require a new source_snapshot_id or data_version; old snapshots remain immutable.",
+      "quality_checks": [
+        "primary_key_unique",
+        "security_id_not_null",
+        "ticker_exchange_mapping_unique_within_version",
+        "listing_date_not_after_delisting_date",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "source_terms_pending_for_formal_ingestion"
+      ],
+      "downstream_allowed_uses": [
+        "D1_identity_design",
+        "D2_join_key_validation"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input",
+        "trade_execution_input"
+      ]
+    },
+    {
+      "layer": "D1",
+      "table_name": "d1.trading_calendar",
+      "table_role": "Exchange trading-day and session calendar.",
+      "grain": "One exchange trading-date row per data_version, universe_id, time_segment_id, exchange, and trading_date.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "exchange",
+        "trading_date"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "exchange",
+        "trading_date",
+        "is_trading_day",
+        "calendar_session_type",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "nullable_fields": [],
+      "nullable_policy": "No required field may be null.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "Trading calendar is a candidate vendor fact and cannot be ingested until terms and revision behavior pass review."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Calendar facts must use retrieval observed_at and, where available, exchange-declared session effective dates.",
+      "revision_policy": "Calendar revisions require a new source snapshot and diff attribution.",
+      "quality_checks": [
+        "primary_key_unique",
+        "trading_date_valid",
+        "exchange_not_null",
+        "calendar_has_no_duplicate_sessions",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "calendar_revision_policy_unknown"
+      ],
+      "downstream_allowed_uses": [
+        "D1_calendar_design",
+        "D3_calendar_ref"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input"
+      ]
+    },
+    {
+      "layer": "D1",
+      "table_name": "d1.raw_market_prices",
+      "table_role": "Raw trading fact layer; no adjusted prices or research-return calculations.",
+      "grain": "One raw market observation per data_version, universe_id, security_id, trading_date, and source_snapshot_id.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "source_snapshot_id"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "raw_open",
+        "raw_high",
+        "raw_low",
+        "raw_close",
+        "volume",
+        "amount",
+        "trading_status",
+        "price_limit_status",
+        "source_registry_id",
+        "source_snapshot_id",
+        "observed_at",
+        "run_id"
+      ],
+      "nullable_fields": [],
+      "nullable_policy": "No required field may be null; unknown trading or limit status must remain unknown rather than false.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "HiThink is pending terms/as-of/revision review; BaoStock may be backup or cross-validation only."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Only information observed_at <= trading_date close-processing cutoff may feed point-in-time research versions.",
+      "revision_policy": "Historical vendor revisions require new source_snapshot_id and data_version comparison before downstream use.",
+      "quality_checks": [
+        "primary_key_unique",
+        "ohlc_price_order_valid",
+        "volume_amount_nonnegative",
+        "trading_status_not_silently_false",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "csindex_used_as_price_source",
+        "a_stock_data_used_as_formal_source",
+        "source_terms_pending_for_formal_ingestion"
+      ],
+      "downstream_allowed_uses": [
+        "D2_adjusted_price_input_design",
+        "D3_raw_price_ref"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input",
+        "adjusted_price_substitute"
+      ]
+    },
+    {
+      "layer": "D1",
+      "table_name": "d1.corporate_actions",
+      "table_role": "Corporate action event ledger for adjustment and gap attribution.",
+      "grain": "One corporate action per data_version, universe_id, security_id, action_id, and source_snapshot_id.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "action_id",
+        "source_snapshot_id"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "action_id",
+        "action_type",
+        "ex_date",
+        "record_date",
+        "pay_date",
+        "action_terms",
+        "source_registry_id",
+        "source_snapshot_id",
+        "observed_at",
+        "run_id"
+      ],
+      "nullable_fields": [
+        "record_date",
+        "pay_date"
+      ],
+      "nullable_policy": "Date fields may be null only when the source explicitly lacks them; action_type and action_terms are required.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "Corporate action source cannot be used until terms and event revision policy pass review."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Corporate action facts must record observed_at and effective dates separately; later corrections cannot rewrite old action rows.",
+      "revision_policy": "Restated action terms require new source_snapshot_id and action revision attribution.",
+      "quality_checks": [
+        "primary_key_unique",
+        "action_type_allowed",
+        "ex_date_present",
+        "observed_at_not_after_version_cutoff",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "corporate_action_revision_policy_unknown"
+      ],
+      "downstream_allowed_uses": [
+        "D2_adjustment_factor_design",
+        "D3_corporate_action_source_ref"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input",
+        "mechanical_gap_as_market_signal"
+      ]
+    },
+    {
+      "layer": "D1",
+      "table_name": "d1.trading_constraints",
+      "table_role": "Suspension, ST, limit price, and tradability fact layer.",
+      "grain": "One trading constraint row per data_version, universe_id, security_id, trading_date, and source_snapshot_id.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "source_snapshot_id"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "is_suspended",
+        "is_st",
+        "limit_up_price",
+        "limit_down_price",
+        "price_limit_status",
+        "tradable_flag",
+        "source_registry_id",
+        "source_snapshot_id",
+        "observed_at",
+        "run_id"
+      ],
+      "nullable_fields": [
+        "limit_up_price",
+        "limit_down_price"
+      ],
+      "nullable_policy": "Limit prices may be null only when the instrument has no applicable limit or the source explicitly reports unknown.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "Trading constraints require formal source terms and raw fact validation before use."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Constraint facts must be observed_at-bounded and aligned to raw trading facts for the same trading_date.",
+      "revision_policy": "Revised suspension/ST/limit facts require a new source snapshot and comparison report.",
+      "quality_checks": [
+        "primary_key_unique",
+        "tradable_flag_consistent_with_suspension",
+        "limit_prices_nonnegative_or_null",
+        "price_limit_status_not_silently_false",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "constraint_source_terms_pending"
+      ],
+      "downstream_allowed_uses": [
+        "D3_trading_constraint_ref",
+        "R5_execution_constraint_design"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input_without_D3"
+      ]
+    },
+    {
+      "layer": "D2",
+      "table_name": "d2.adjusted_market_prices",
+      "table_role": "Continuous research price layer with adjustment factor provenance.",
+      "grain": "One adjusted price row per data_version, universe_id, security_id, trading_date, and adjustment_revision.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "adjustment_revision"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "adj_open",
+        "adj_high",
+        "adj_low",
+        "adj_close",
+        "adjustment_factor",
+        "adjustment_method",
+        "factor_as_of_time",
+        "corporate_action_flag",
+        "adjustment_revision",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "nullable_fields": [],
+      "nullable_policy": "Adjusted price fields and factor timing fields must not be null in formal versions.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "BaoStock cannot be a formal adjusted-price source until factor as-of semantics pass review; HiThink remains pending terms and revision review."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Adjustment factors must use factor_as_of_time and may not use future corporate action knowledge relative to the observation date.",
+      "revision_policy": "Any factor or corporate-action attribution change creates a new adjustment_revision or data_version.",
+      "quality_checks": [
+        "primary_key_unique",
+        "adjusted_ohlc_order_valid",
+        "adjustment_factor_positive",
+        "factor_as_of_time_present",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "factor_as_of_policy_unknown",
+        "baostock_used_as_formal_adjusted_price_source"
+      ],
+      "downstream_allowed_uses": [
+        "D3_adjusted_price_ref",
+        "R0_via_D3_only"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input",
+        "trade_execution_price_source"
+      ]
+    },
+    {
+      "layer": "D2",
+      "table_name": "d2.market_price_quality_flags",
+      "table_role": "Quality flags for raw and adjusted market price observations.",
+      "grain": "One quality flag per data_version, universe_id, security_id, trading_date, and quality_flag_id.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "quality_flag_id"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "quality_flag_id",
+        "quality_flag_type",
+        "severity",
+        "rule_id",
+        "rule_result",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "nullable_fields": [],
+      "nullable_policy": "Quality flag records must be explicit; absence of a flag is not equivalent to pass unless rule_result says pass.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK"
+        ],
+        "prohibited_source_registry_ids": [
+          "CSINDEX_OFFICIAL",
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "Quality flags derive from reviewed source snapshots and cannot authorize their own source."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Quality flags must be computed using only facts available to the relevant data_version and source snapshot.",
+      "revision_policy": "Rule changes or source revisions require new rule_id or data_version.",
+      "quality_checks": [
+        "primary_key_unique",
+        "severity_allowed",
+        "rule_id_present",
+        "rule_result_present",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "quality_rule_unversioned"
+      ],
+      "downstream_allowed_uses": [
+        "D3_quality_screen_design"
+      ],
+      "downstream_prohibited_uses": [
+        "R0_direct_input"
+      ]
+    },
+    {
+      "layer": "D2",
+      "table_name": "d2.membership_alignment",
+      "table_role": "Universe membership alignment to security ids and time segments.",
+      "grain": "One aligned membership row per data_version, universe_id, security_id, index_code, and membership_effective_date.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "index_code",
+        "membership_effective_date"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "index_code",
+        "membership_effective_date",
+        "membership_mode",
+        "membership_source",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "nullable_fields": [],
+      "nullable_policy": "Membership rows must be explicit and cannot infer unknown membership as false.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "CSINDEX_OFFICIAL"
+        ],
+        "prohibited_source_registry_ids": [
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": true,
+        "reason": "CSINDEX_OFFICIAL is allowed only for membership evidence and alignment under DR-001 boundaries."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Use official evidence effective date and DR-001 static-backfill boundaries; do not claim historical index membership.",
+      "revision_policy": "Any official membership evidence replacement requires a new source_snapshot_id and review record.",
+      "quality_checks": [
+        "primary_key_unique",
+        "index_code_matches_universe",
+        "membership_mode_allowed",
+        "source_registry_is_csindex",
+        "dr001_boundary_respected"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "nonofficial_membership_source",
+        "historical_membership_claim_attempted"
+      ],
+      "downstream_allowed_uses": [
+        "D3_membership_ref"
+      ],
+      "downstream_prohibited_uses": [
+        "market_price_source",
+        "corporate_action_source"
+      ]
+    },
+    {
+      "layer": "D3",
+      "table_name": "d3.daily_market_observations",
+      "table_role": "R0 only formal daily research entry point combining references to D1/D2 facts.",
+      "grain": "One daily research-entry observation per data_version, universe_id, security_id, trading_date, and observation_revision.",
+      "primary_key": [
+        "data_version",
+        "universe_id",
+        "security_id",
+        "trading_date",
+        "observation_revision"
+      ],
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "observation_revision",
+        "observed_at",
+        "raw_price_ref",
+        "adjusted_price_ref",
+        "trading_constraint_ref",
+        "membership_ref",
+        "calendar_ref",
+        "price_fact_source",
+        "corporate_action_source",
+        "membership_source",
+        "calendar_source",
+        "revision_policy",
+        "observed_at_rule",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "nullable_fields": [],
+      "nullable_policy": "Entry observations must not hide unknown source quality or missing references.",
+      "source_registry_requirements": {
+        "allowed_source_registry_ids": [
+          "HITHINK_FINANCIAL_API",
+          "BAOSTOCK",
+          "CSINDEX_OFFICIAL"
+        ],
+        "prohibited_source_registry_ids": [
+          "A_STOCK_DATA_RECON"
+        ],
+        "formal_ingestion_authorized": false,
+        "sole_primary_source_allowed": false,
+        "reason": "D3 may reference reviewed upstream facts only after their source-specific terms, manifest, as-of, and revision gates pass."
+      },
+      "source_snapshot_requirements": {
+        "raw_snapshot_required": true,
+        "sha256_required": true,
+        "source_snapshot_id_required": true,
+        "immutable_snapshot_required": true
+      },
+      "manifest_requirements": {
+        "dataset_manifest_required": true,
+        "source_snapshot_manifest_required": true,
+        "run_manifest_required": true,
+        "input_hashes_required": true
+      },
+      "as_of_policy": "Every component reference must satisfy observed_at <= observation date decision time and must declare observed_at_rule.",
+      "revision_policy": "Any field definition, source join, quality rule, or observed_at rule change creates a new observation_revision or data_version.",
+      "quality_checks": [
+        "primary_key_unique",
+        "component_refs_resolve",
+        "observed_at_rule_present",
+        "no_future_information",
+        "source_registry_allowed"
+      ],
+      "blocking_conditions": [
+        "missing_raw_snapshot",
+        "missing_sha256",
+        "missing_manifest_reference",
+        "component_source_not_approved",
+        "d3_entity_data_generated_in_d0"
+      ],
+      "downstream_allowed_uses": [
+        "R0_formal_daily_entry"
+      ],
+      "downstream_prohibited_uses": [
+        "trade_execution_price_source",
+        "future_label_source",
+        "direct_D1_D2_bypass"
+      ],
+      "research_entry_contract": {
+        "r0_unique_formal_daily_entry": true,
+        "bypass_d1_d2_for_r0_prohibited": true
+      }
+    }
+  ],
+  "blocking_rules": [
+    "This PR must not create .duckdb files.",
+    "This PR must not install or introduce a duckdb dependency.",
+    "This PR must not add market-data collection, API calls, loaders, workers, or ETL code.",
+    "This PR must not commit data files, vendor responses, CSV, Parquet, DuckDB, pickle, or interim data artifacts.",
+    "This PR must not generate d3.daily_market_observations entity data.",
+    "d3.daily_market_observations is contract-only in D0-T03 and must not be implemented or populated.",
+    "R0 must not bypass D3 to read D1/D2 tables directly.",
+    "Any source without raw snapshot, SHA-256, as-of policy, revision policy, and manifest references is blocked from formal tables."
+  ]
+}

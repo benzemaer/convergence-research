@@ -17,6 +17,10 @@ CONFIGS = (
         ROOT / "schemas/d0_source_registry.schema.json",
         ROOT / "configs/d0/source_registry.v1.json",
     ),
+    (
+        ROOT / "schemas/d0_data_product_contracts.schema.json",
+        ROOT / "configs/d0/data_product_contracts.v1.json",
+    ),
 )
 
 
