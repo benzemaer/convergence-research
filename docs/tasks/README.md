@@ -57,7 +57,7 @@ next_planned_task: D0-T03
 任务列表：
 
 - `D0-T01` DuckDB 数据架构设计：completed via PR #6
-- `D0-T02` 数据源资格审查与 source registry：planned
+- `D0-T02` 数据源资格审查与 source registry：PR #7
 - `D0-T03` D1 / D2 / D3 数据产品契约：planned
 
 完成标准：

@@ -3,7 +3,7 @@
   "config_version": "1.0.0",
   "task_id": "D0-T02",
   "registry_id": "D0_SOURCE_REGISTRY_V1",
-  "registry_status": "draft_for_g1_review",
+  "registry_status": "accepted",
   "as_of_date": "2026-07-03",
   "source_identity_policy": "Wrapper libraries, mirrors, SDKs, and endpoint collections are not treated as primary publishers. Any formal data use must identify the original publisher, endpoint, license, snapshot rule, and revision/as-of semantics before D1/D2/D3 design can depend on it.",
   "sources": [

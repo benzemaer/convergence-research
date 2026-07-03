@@ -1,7 +1,7 @@
 # D0-T02：数据源资格审查与 source registry 初版
 
 > Task ID：D0-T02
-> 状态：draft
+> 状态：designed
 > 关联阶段：D0
 > 目标门禁：G1
 > 当前运行资格：eligible_for_d0
@@ -35,8 +35,8 @@ schemas/d0_source_registry.schema.json
 tests/test_d0_source_registry.py
 ```
 
-`source_registry.v1.json` 是 D0 source registry 初版配置，状态为
-`draft_for_g1_review`。后续任何 D1/D2/D3 任务若要引用来源，必须先检查该来源在
+`source_registry.v1.json` 是 D0 source registry 初版配置，状态为 `accepted`。
+后续任何 D1/D2/D3 任务若要引用来源，必须先检查该来源在
 registry 中的 `qualification_status`、`allowed_uses`、`prohibited_uses`、
 `as_of_policy` 和 `revision_policy`。
 
