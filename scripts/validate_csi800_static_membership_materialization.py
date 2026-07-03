@@ -133,6 +133,33 @@ def load_field_aliases(path: Path) -> dict[str, Any]:
     return aliases
 
 
+def load_security_mapping_reference_contract(path: Path) -> dict[str, Any]:
+    contract = load_json(path)
+    for field in (
+        "row_level_detail_included",
+        "raw_bytes_committed",
+        "member_rows_committed",
+        "duckdb_written",
+        "run_manifest_created",
+        "dataset_manifest_created",
+        "materialization_authorized",
+        "member_rows_materialized",
+    ):
+        if contract.get(field) is not False:
+            raise ValueError(
+                f"security mapping reference contract must keep {field}=false"
+            )
+    source = contract["security_mapping_source"]
+    if source.get("source_domain") != "D1_SECURITY_MASTER":
+        raise ValueError("security_id mapping reference must come from D1")
+    if source.get("mapping_key_fields") != ["ticker", "exchange"]:
+        raise ValueError("security_id mapping reference requires ticker+exchange")
+    shortcuts = contract["prohibited_mapping_shortcuts"]
+    if any(shortcuts.values()):
+        raise ValueError("security_id mapping shortcuts must remain disabled")
+    return contract
+
+
 def contract_inputs(contract: dict[str, Any]) -> dict[str, Any]:
     source = contract["source_evidence"]
     universe = contract["universe"]
@@ -470,10 +497,18 @@ def validate_materialization_inputs(
     contract_path: Path = DEFAULT_CONTRACT_PATH,
     allow_missing_evidence: bool = False,
     field_aliases_path: Path | None = None,
+    security_mapping_reference_contract_path: Path | None = None,
 ) -> ValidationResult:
     contract = load_contract(contract_path)
     field_aliases = (
         load_field_aliases(field_aliases_path) if field_aliases_path else None
+    )
+    security_mapping_reference_contract = (
+        load_security_mapping_reference_contract(
+            security_mapping_reference_contract_path
+        )
+        if security_mapping_reference_contract_path
+        else None
     )
     inputs = contract_inputs(contract)
     evidence_path = inputs["raw_evidence_path"]
@@ -499,6 +534,20 @@ def validate_materialization_inputs(
     if field_aliases is not None:
         members = normalize_members_with_field_aliases(members, field_aliases)
         result = validate_members(members, int(inputs["expected_member_count"]))
+        if (
+            security_mapping_reference_contract is not None
+            and result.status == STATUS_FAILED
+            and "missing security_id_mapping_reference" in result.reason
+            and is_deferred_security_mapping_alias(field_aliases)
+        ):
+            return ValidationResult(
+                STATUS_FAILED,
+                "source/ticker/exchange_aliases_resolved; "
+                "security_mapping_reference_contract_present; "
+                "security_id_mapping_output_pending; "
+                "materialization_remains_blocked",
+                len(members),
+            )
         if (
             result.status == STATUS_FAILED
             and "missing security_id_mapping_reference" in result.reason
@@ -575,6 +624,15 @@ def build_parser() -> argparse.ArgumentParser:
             "This never fabricates security_id mapping references."
         ),
     )
+    parser.add_argument(
+        "--security-mapping-reference-contract",
+        type=Path,
+        default=None,
+        help=(
+            "Optional D1-T04 security mapping reference contract. "
+            "This gates validation and never produces security_id mapping output."
+        ),
+    )
     return parser
 
 
@@ -602,6 +660,9 @@ def main(argv: list[str] | None = None) -> int:
         contract_path=args.contract,
         allow_missing_evidence=args.allow_missing_evidence,
         field_aliases_path=args.field_aliases,
+        security_mapping_reference_contract_path=(
+            args.security_mapping_reference_contract
+        ),
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True))
     if result.status == STATUS_PASSED:

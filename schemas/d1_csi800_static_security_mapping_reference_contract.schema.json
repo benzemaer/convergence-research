@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d1_csi800_static_security_mapping_reference_contract.schema.json",
+  "title": "D1 CSI800 Static Security Mapping Reference Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "contract_version",
+    "task_id",
+    "universe_id",
+    "index_code",
+    "source_snapshot_id",
+    "raw_evidence_sha256_expected",
+    "field_alias_contract_id",
+    "field_alias_contract_version",
+    "security_mapping_source",
+    "prohibited_mapping_shortcuts",
+    "unresolved_mapping_policy",
+    "materialization_gate",
+    "row_level_detail_included",
+    "raw_bytes_committed",
+    "member_rows_committed",
+    "duckdb_written",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "materialization_authorized",
+    "member_rows_materialized",
+    "downstream_decision",
+    "report_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_SECURITY_MAPPING_REFERENCE_CONTRACT_V1"
+    },
+    "contract_version": {"const": "1.0.0"},
+    "task_id": {"const": "D1-T04"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "raw_evidence_sha256_expected": {
+      "const": "f8e4aa8d28bec4871fe6f582d4e5fc490c79312524a568de8f23b73e22b2b984"
+    },
+    "field_alias_contract_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_FIELD_ALIASES_V1"
+    },
+    "field_alias_contract_version": {"const": "1.0.0"},
+    "security_mapping_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_domain",
+        "source_artifact",
+        "mapping_key_fields",
+        "effective_date",
+        "mapping_grain"
+      ],
+      "properties": {
+        "source_domain": {"const": "D1_SECURITY_MASTER"},
+        "source_artifact": {
+          "const": "configs/d1/security_master_contract.v1.json#D1_SECURITY_MASTER_CONTRACT_V1"
+        },
+        "mapping_key_fields": {
+          "type": "array",
+          "const": ["ticker", "exchange"]
+        },
+        "effective_date": {"const": "2026-06-12"},
+        "mapping_grain": {
+          "const": "one security_id per ticker/exchange/effective_date"
+        }
+      }
+    },
+    "prohibited_mapping_shortcuts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "using_csindex_raw_evidence_as_security_id_source",
+        "fabricate_security_id_mapping_reference",
+        "ticker_only_mapping_allowed",
+        "exchange_agnostic_mapping_allowed"
+      ],
+      "properties": {
+        "using_csindex_raw_evidence_as_security_id_source": {"const": false},
+        "fabricate_security_id_mapping_reference": {"const": false},
+        "ticker_only_mapping_allowed": {"const": false},
+        "exchange_agnostic_mapping_allowed": {"const": false}
+      }
+    },
+    "unresolved_mapping_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "missing_match_action",
+        "duplicate_match_action",
+        "inactive_or_delisted_ambiguity_action"
+      ],
+      "properties": {
+        "missing_match_action": {"const": "block_materialization"},
+        "duplicate_match_action": {"const": "block_materialization"},
+        "inactive_or_delisted_ambiguity_action": {
+          "const": "block_materialization"
+        }
+      }
+    },
+    "materialization_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "security_id_mapping_reference_required_before_membership_rows",
+        "all_800_rows_must_map",
+        "no_unmapped_rows_allowed",
+        "no_duplicate_security_id_for_same_membership_row"
+      ],
+      "properties": {
+        "security_id_mapping_reference_required_before_membership_rows": {
+          "const": true
+        },
+        "all_800_rows_must_map": {"const": true},
+        "no_unmapped_rows_allowed": {"const": true},
+        "no_duplicate_security_id_for_same_membership_row": {"const": true}
+      }
+    },
+    "row_level_detail_included": {"const": false},
+    "raw_bytes_committed": {"const": false},
+    "member_rows_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "materialization_authorized": {"const": false},
+    "member_rows_materialized": {"const": false},
+    "downstream_decision": {"const": "materialization_remains_blocked"},
+    "report_boundary": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "security mapping reference contract only"},
+        {"pattern": "not membership rows"},
+        {"pattern": "not security_id mapping output"},
+        {"pattern": "not materialization manifest"},
+        {"pattern": "not run manifest"},
+        {"pattern": "not dataset manifest"}
+      ]
+    }
+  }
+}

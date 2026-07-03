@@ -61,6 +61,17 @@ D1 security master mapping。该 PR 不提交 raw evidence bytes，不提交 mem
 DuckDB，不生成 manifest，不输出 `security_id` mapping，actual membership row materialization
 仍然 blocked。
 
+## 证券主表映射引用契约
+
+D1-T04 后续 PR 增加 security mapping reference contract，只定义
+`security_id_mapping_reference` 的来源和 materialization gate。Field alias contract
+只解决 CSINDEX 原始列到 canonical `source_symbol` / `ticker` / `exchange` 的转换；
+`security_id_mapping_reference` 必须来自 approved D1 security master / code mapping，
+并以 `ticker + exchange` 和 `2026-06-12` effective date 作为映射键语义。本 PR 不执行
+真实 800 行映射，不输出任何 `security_id` 或 mapping output，不提交 member rows、raw
+evidence、DuckDB、manifest 或 CSV/Parquet artifact。actual membership row materialization
+仍然 blocked。
+
 ## Binary Excel parser support
 
 D1-T04 后续 PR 为受控本地 validator 增加 binary Excel/OLE `.xls` parser support。
@@ -118,6 +129,9 @@ actual membership row materialization 仍然 blocked。
 - `configs/d1/csi800_static_2026_06_membership_field_aliases.v1.json`
 - `schemas/d1_csi800_static_membership_field_aliases.schema.json`
 - `tests/test_d1_csi800_static_membership_field_aliases.py`
+- `configs/d1/csi800_static_2026_06_security_mapping_reference_contract.v1.json`
+- `schemas/d1_csi800_static_security_mapping_reference_contract.schema.json`
+- `tests/test_d1_csi800_static_security_mapping_reference_contract.py`
 - 本任务文档与 `docs/tasks/README.md` 索引更新
 
 ## 契约边界
