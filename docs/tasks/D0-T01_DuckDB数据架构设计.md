@@ -49,6 +49,7 @@ DuckDB 只保存：
 4. 表分层必须区分 source registry、snapshot audit、normalized facts、research-ready observations。
 5. 所有正式表都必须可追溯到 `run_id`、`data_version`、`code_commit`、`config_hash`、`environment_lock_hash` 和输入哈希。
 6. `d3.daily_market_observations` 是 R0 唯一正式日频入口；不得绕过它直接从 D1/D2 表进入研究。
+7. D1–D3 正式表必须显式继承 `universe_id`、`data_version` 和时间分段字段；不得只依赖总原则或外部说明补足研究入口约束。
 
 ## 5. 目标文件布局
 
@@ -118,6 +119,14 @@ d3/        研究正式入口层
 
 用途：登记官方指数成分证据与审核结论，不存原始字节。
 
+粒度与键约束：
+
+```text
+grain: 一个 snapshot_id 下的一份指数成分证据文件或文档的一次审核版本
+primary key: (snapshot_id, index_code, document_id, review_revision)
+uniqueness rule: 同一 snapshot_id、index_code、document_id、review_revision 只能登记一条审核证据；若同一来源重新抓取或重新审核，必须生成新的 snapshot_id 或 review_revision。
+```
+
 至少包含：
 
 ```text
@@ -135,15 +144,27 @@ review_commit
 reviewed_by
 reviewed_at
 independence_attested
+review_revision
 ```
 
 ### `d1.raw_market_prices`
 
 用途：保存原始交易事实层，不混入复权结果。
 
+粒度与键约束：
+
+```text
+grain: 一个 data_version / universe_id / security_id / trading_date / source_snapshot_id 下的一条原始行情观测
+primary key: (data_version, universe_id, security_id, trading_date, source_snapshot_id)
+uniqueness rule: 同一 data_version 内，同一 universe_id、security_id、trading_date、source_snapshot_id 不得重复；供应商修订不得覆盖旧记录，必须形成新的 data_version 或 source_snapshot_id。
+```
+
 至少包含：
 
 ```text
+data_version
+universe_id
+time_segment_id
 security_id
 trading_date
 raw_open
@@ -157,19 +178,24 @@ price_limit_status
 source_snapshot_id
 ```
 
-主键建议：
-
-```text
-(security_id, trading_date, source_snapshot_id)
-```
-
 ### `d2.adjusted_market_prices`
 
 用途：保存连续研究价格层及其来源，不覆盖原始事实层。
 
+粒度与键约束：
+
+```text
+grain: 一个 data_version / universe_id / security_id / trading_date / adjustment_revision 下的一条连续研究价格观测
+primary key: (data_version, universe_id, security_id, trading_date, adjustment_revision)
+uniqueness rule: 同一 data_version 内，同一 universe_id、security_id、trading_date、adjustment_revision 不得重复；复权因子、公司行为归因或 as-of 规则变化必须生成新的 adjustment_revision 或 data_version。
+```
+
 至少包含：
 
 ```text
+data_version
+universe_id
+time_segment_id
 security_id
 trading_date
 adj_open
@@ -180,11 +206,32 @@ adjustment_factor
 factor_as_of_time
 corporate_action_flag
 source_snapshot_id
+adjustment_revision
 ```
 
 ### `d3.daily_market_observations`
 
 用途：作为 R0 唯一正式日频入口，统一承接研究所需的基础日频观测。
+
+粒度与键约束：
+
+```text
+grain: 一个 data_version / universe_id / security_id / trading_date / observation_revision 下的一条研究入口日频观测
+primary key: (data_version, universe_id, security_id, trading_date, observation_revision)
+uniqueness rule: 同一 data_version 内，同一 universe_id、security_id、trading_date、observation_revision 只能有一条正式入口观测；任何字段定义、来源拼接、质量规则或 observed_at 规则变化必须生成新的 observation_revision 或 data_version。
+```
+
+至少包含：
+
+```text
+data_version
+universe_id
+time_segment_id
+security_id
+trading_date
+observation_revision
+observed_at
+```
 
 必须显式区分：
 
@@ -218,6 +265,8 @@ observed_at_rule
 - schema 分层、表职责和主键策略明确；
 - 单 writer 约束明确；
 - `d3.daily_market_observations` 被定义为 R0 唯一正式日频入口；
+- D0/D1/D2/D3 核心表的 grain、primary key 和唯一性规则明确；
+- D1–D3 表级契约显式包含 `universe_id`、`data_version` 和时间分段继承要求；
 - 所有正式表的追溯字段要求明确；
 - PR 不包含 DuckDB 文件、采集代码、装载代码或正式运行结果。
 
@@ -225,5 +274,5 @@ observed_at_rule
 
 本任务通过后，后续实现应拆分为至少两个独立任务：
 
-1. `D0-T02`：DuckDB schema / manifest / contract implementation
-2. `D0-T03`：最小 D0→D1 装载链路实现
+1. `D0-T02`：数据源资格审查与 source registry
+2. `D0-T03`：D1 / D2 / D3 数据产品契约
