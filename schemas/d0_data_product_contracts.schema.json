@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d0_data_product_contracts.schema.json",
+  "title": "D0 Data Product Contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "contract_id",
+    "contract_status",
+    "depends_on",
+    "warehouse_boundary",
+    "global_requirements",
+    "tables",
+    "blocking_rules"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D0-T03"},
+    "contract_id": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"},
+    "contract_status": {
+      "enum": ["draft_for_g1_review", "accepted", "superseded"]
+    },
+    "depends_on": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "contains": {"const": "D0_SOURCE_REGISTRY_V1"}
+    },
+    "warehouse_boundary": {"$ref": "#/$defs/warehouse_boundary"},
+    "global_requirements": {"$ref": "#/$defs/global_requirements"},
+    "tables": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/table_contract"}
+    },
+    "blocking_rules": {"$ref": "#/$defs/non_empty_strings"}
+  },
+  "$defs": {
+    "non_empty_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "field_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "warehouse_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duckdb_role",
+        "raw_bytes_rule",
+        "implementation_exclusions"
+      ],
+      "properties": {
+        "duckdb_role": {"type": "string", "minLength": 1},
+        "raw_bytes_rule": {"type": "string", "minLength": 1},
+        "implementation_exclusions": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "no_duckdb_file",
+              "no_duckdb_dependency",
+              "no_ddl",
+              "no_loader",
+              "no_external_api_call",
+              "no_data_artifact"
+            ]
+          }
+        }
+      }
+    },
+    "global_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_in_all_formal_tables",
+        "traceability_requirements",
+        "contract_requirements",
+        "research_entry_rule"
+      ],
+      "properties": {
+        "required_in_all_formal_tables": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "data_version"}},
+            {"contains": {"const": "universe_id"}},
+            {"contains": {"const": "time_segment_id"}},
+            {"contains": {"const": "source_registry_id"}},
+            {"contains": {"const": "source_snapshot_id"}},
+            {"contains": {"const": "run_id"}}
+          ],
+          "items": {"type": "string", "minLength": 1}
+        },
+        "traceability_requirements": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "input_hashes"}},
+            {"contains": {"const": "dataset_manifest"}},
+            {"contains": {"const": "source_snapshot_manifest"}},
+            {"contains": {"const": "run_manifest"}}
+          ],
+          "items": {"type": "string", "minLength": 1}
+        },
+        "contract_requirements": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "grain"}},
+            {"contains": {"const": "primary_key"}},
+            {"contains": {"const": "required_fields"}},
+            {"contains": {"const": "quality_checks"}},
+            {"contains": {"const": "as_of_policy"}},
+            {"contains": {"const": "revision_policy"}}
+          ],
+          "items": {"type": "string", "minLength": 1}
+        },
+        "research_entry_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_registry_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_source_registry_ids",
+        "prohibited_source_registry_ids",
+        "formal_ingestion_authorized",
+        "sole_primary_source_allowed",
+        "reason"
+      ],
+      "properties": {
+        "allowed_source_registry_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "CSINDEX_OFFICIAL",
+              "HITHINK_FINANCIAL_API",
+              "BAOSTOCK"
+            ]
+          }
+        },
+        "prohibited_source_registry_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "contains": {"const": "A_STOCK_DATA_RECON"},
+          "items": {
+            "enum": [
+              "CSINDEX_OFFICIAL",
+              "A_STOCK_DATA_RECON",
+              "HITHINK_FINANCIAL_API",
+              "BAOSTOCK"
+            ]
+          }
+        },
+        "formal_ingestion_authorized": {"const": false},
+        "sole_primary_source_allowed": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_snapshot_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_snapshot_required",
+        "sha256_required",
+        "source_snapshot_id_required",
+        "immutable_snapshot_required"
+      ],
+      "properties": {
+        "raw_snapshot_required": {"const": true},
+        "sha256_required": {"const": true},
+        "source_snapshot_id_required": {"const": true},
+        "immutable_snapshot_required": {"const": true}
+      }
+    },
+    "manifest_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_manifest_required",
+        "source_snapshot_manifest_required",
+        "run_manifest_required",
+        "input_hashes_required"
+      ],
+      "properties": {
+        "dataset_manifest_required": {"const": true},
+        "source_snapshot_manifest_required": {"const": true},
+        "run_manifest_required": {"const": true},
+        "input_hashes_required": {"const": true}
+      }
+    },
+    "research_entry_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "r0_unique_formal_daily_entry",
+        "bypass_d1_d2_for_r0_prohibited"
+      ],
+      "properties": {
+        "r0_unique_formal_daily_entry": {"const": true},
+        "bypass_d1_d2_for_r0_prohibited": {"const": true}
+      }
+    },
+    "table_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "table_name",
+        "table_role",
+        "grain",
+        "primary_key",
+        "required_fields",
+        "nullable_fields",
+        "nullable_policy",
+        "source_registry_requirements",
+        "source_snapshot_requirements",
+        "manifest_requirements",
+        "as_of_policy",
+        "revision_policy",
+        "quality_checks",
+        "blocking_conditions",
+        "downstream_allowed_uses",
+        "downstream_prohibited_uses"
+      ],
+      "properties": {
+        "layer": {"enum": ["D1", "D2", "D3"]},
+        "table_name": {
+          "type": "string",
+          "pattern": "^d[123]\\.[a-z0-9_]+$"
+        },
+        "table_role": {"type": "string", "minLength": 1},
+        "grain": {"type": "string", "minLength": 1},
+        "primary_key": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        },
+        "required_fields": {"$ref": "#/$defs/field_list"},
+        "nullable_fields": {"$ref": "#/$defs/field_list"},
+        "nullable_policy": {"type": "string", "minLength": 1},
+        "source_registry_requirements": {
+          "$ref": "#/$defs/source_registry_requirements"
+        },
+        "source_snapshot_requirements": {
+          "$ref": "#/$defs/source_snapshot_requirements"
+        },
+        "manifest_requirements": {"$ref": "#/$defs/manifest_requirements"},
+        "as_of_policy": {"type": "string", "minLength": 1},
+        "revision_policy": {"type": "string", "minLength": 1},
+        "quality_checks": {"$ref": "#/$defs/non_empty_strings"},
+        "blocking_conditions": {"$ref": "#/$defs/non_empty_strings"},
+        "downstream_allowed_uses": {"$ref": "#/$defs/non_empty_strings"},
+        "downstream_prohibited_uses": {"$ref": "#/$defs/non_empty_strings"},
+        "research_entry_contract": {"$ref": "#/$defs/research_entry_contract"}
+      }
+    }
+  }
+}
