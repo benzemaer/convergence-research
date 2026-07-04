@@ -78,15 +78,22 @@ class D2CandidateMarketSnapshotProbeExecutionReportTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 
-    def test_default_report_is_environment_blocked_and_exploration_only(self) -> None:
-        self.assertEqual(
-            self.report["execution_status"], "not_executed_environment_blocked"
-        )
+    def test_report_is_redacted_execution_and_exploration_only(self) -> None:
+        self.assertEqual(self.report["execution_status"], "executed_small_sample")
         self.assertEqual(self.report["research_use_tier"], "exploration_only")
-        self.assertEqual(self.report["raw_response_sha256_count"], 0)
+        self.assertGreater(self.report["raw_response_sha256_count"], 0)
+        self.assertGreater(self.report["source_snapshot_id_count"], 0)
+        self.assertTrue(self.report["raw_snapshot_written_local"])
+        self.assertEqual(self.report["raw_ohlcv_coverage"], "pass")
+        self.assertEqual(self.report["qfq_coverage"], "pass")
+        self.assertEqual(self.report["hfq_coverage"], "pass")
+        self.assertEqual(self.report["implied_qfq_factor_check"]["status"], "pass")
+        self.assertGreater(self.report["implied_qfq_factor_check"]["checked_count"], 0)
+        self.assertEqual(self.report["implied_hfq_factor_check"]["status"], "pass")
+        self.assertGreater(self.report["implied_hfq_factor_check"]["checked_count"], 0)
         self.assertEqual(
             self.report["recommended_next_decision"],
-            "run_probe_locally_with_authorized_environment",
+            "review_redacted_probe_metrics_only",
         )
 
 

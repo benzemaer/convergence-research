@@ -1,56 +1,19 @@
 {
-  "$schema": "../../schemas/d2_candidate_market_snapshot_probe_execution_report.schema.json",
   "config_version": "1.0.0",
-  "report_id": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_REPORT_V1",
-  "task_id": "D2-T06",
-  "execution_status": "not_executed_environment_blocked",
-  "source_registry_id": "BAOSTOCK",
-  "sample_security_count": 3,
-  "sample_trading_day_window": {
-    "start": "2024-12-16",
-    "end": "2024-12-31",
-    "max_trading_day_count": 15
-  },
-  "raw_snapshot_written_local": false,
-  "raw_snapshot_committed": false,
-  "data_external_committed": false,
-  "duckdb_written": false,
-  "official_dataset_materialized": false,
-  "formal_ingestion_authorized": false,
   "d1_raw_market_prices_generated": false,
   "d2_adjusted_market_prices_generated": false,
   "d3_daily_observations_generated": false,
-  "run_manifest_created": false,
+  "data_external_committed": false,
   "dataset_manifest_created": false,
-  "source_snapshot_manifest_created": false,
-  "redacted_report_only": true,
-  "raw_response_sha256_count": 0,
-  "source_snapshot_id_count": 0,
-  "retrieved_at_min": null,
-  "retrieved_at_max": null,
+  "duckdb_written": false,
+  "execution_status": "executed_small_sample",
+  "factor_as_of_time_coverage": "fail",
   "field_coverage_summary": {
-    "status": "not_executed_environment_blocked",
+    "formal_point_in_time_supported": false,
     "row_level_prices_committed": false,
-    "formal_point_in_time_supported": false
+    "status": "executed_small_sample"
   },
-  "raw_ohlcv_coverage": "not_executed",
-  "qfq_coverage": "not_executed",
-  "hfq_coverage": "not_executed",
-  "vendor_adjustment_factor_coverage": "not_executed",
-  "factor_as_of_time_coverage": "not_executed",
-  "revision_timestamp_coverage": "not_executed",
-  "implied_qfq_factor_check": {
-    "status": "not_executed",
-    "checked_count": 0,
-    "mismatch_count": 0
-  },
-  "implied_hfq_factor_check": {
-    "status": "not_executed",
-    "checked_count": 0,
-    "mismatch_count": 0
-  },
-  "history_revision_class": "unknown",
-  "research_use_tier": "exploration_only",
+  "formal_ingestion_authorized": false,
   "formal_use_blocking_reasons": [
     "environment_not_authorized_for_external_api",
     "source_terms_pending_for_formal_ingestion",
@@ -59,5 +22,41 @@
     "formal_d1_d2_materialization_not_authorized",
     "d3_not_authorized"
   ],
-  "recommended_next_decision": "run_probe_locally_with_authorized_environment"
+  "hfq_coverage": "pass",
+  "history_revision_class": "final_revised_history",
+  "implied_hfq_factor_check": {
+    "checked_count": 36,
+    "mismatch_count": 0,
+    "status": "pass"
+  },
+  "implied_qfq_factor_check": {
+    "checked_count": 36,
+    "mismatch_count": 0,
+    "status": "pass"
+  },
+  "official_dataset_materialized": false,
+  "qfq_coverage": "pass",
+  "raw_ohlcv_coverage": "pass",
+  "raw_response_sha256_count": 3,
+  "raw_snapshot_committed": false,
+  "raw_snapshot_written_local": true,
+  "recommended_next_decision": "review_redacted_probe_metrics_only",
+  "redacted_report_only": true,
+  "report_id": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_REPORT_V1",
+  "research_use_tier": "exploration_only",
+  "retrieved_at_max": "2026-07-04T07:41:40.365042+00:00",
+  "retrieved_at_min": "2026-07-04T07:41:40.365042+00:00",
+  "revision_timestamp_coverage": "fail",
+  "run_manifest_created": false,
+  "sample_security_count": 3,
+  "sample_trading_day_window": {
+    "end": "2024-12-31",
+    "max_trading_day_count": 15,
+    "start": "2024-12-16"
+  },
+  "source_registry_id": "BAOSTOCK",
+  "source_snapshot_id_count": 3,
+  "source_snapshot_manifest_created": false,
+  "task_id": "D2-T06",
+  "vendor_adjustment_factor_coverage": "fail"
 }
