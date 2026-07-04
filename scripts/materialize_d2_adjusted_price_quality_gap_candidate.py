@@ -296,6 +296,18 @@ def _read_raw_candidate_frame(path: Path) -> Any:
     return frame
 
 
+def _read_raw_candidate_rows(path: Path) -> list[dict[str, Any]]:
+    rows = _load_json_rows(path)
+    missing = sorted(
+        {field for row in rows for field in RAW_REQUIRED_FIELDS if field not in row}
+    )
+    if missing:
+        raise AdjustedPriceQualityGapMaterializationError(
+            f"raw candidate rows missing fields: {', '.join(missing)}"
+        )
+    return rows
+
+
 def _date_series(values: Any) -> Any:
     import pandas as pd
 
@@ -380,6 +392,56 @@ def _read_adjustment_frame(path: Path) -> Any:
     return frame.drop_duplicates(["security_id", "trading_date"], keep="last")
 
 
+def _to_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _date_text(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    numeric = _to_float(value)
+    if numeric and numeric > 10_000_000_000:
+        return datetime.fromtimestamp(numeric / 1000, tz=UTC).date().isoformat()
+    text = str(value)
+    for fmt in ("%Y-%m-%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return text
+
+
+def _read_adjustment_rows(path: Path) -> dict[tuple[str, str], dict[str, Any]]:
+    normalized: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in _load_json_rows(path):
+        security_id = row.get("security_id")
+        date_value = (
+            row.get("trading_date")
+            or row.get("event_date")
+            or row.get("ex_date")
+            or row.get("ex_date_ms")
+        )
+        if not security_id or date_value in (None, ""):
+            continue
+        date_text = _date_text(date_value)
+        normalized[(str(security_id), date_text)] = {
+            "adjustment_factor": _to_float(
+                row.get("adjustment_factor", row.get("factor"))
+            ),
+            "factor_as_of_time": row.get("factor_as_of_time"),
+            "adjustment_revision": row.get("adjustment_revision"),
+            "corporate_action_event_ref": (
+                f"hithink_adjustment_event:{security_id}:{date_text}"
+            ),
+        }
+    return normalized
+
+
 def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         for row in rows:
@@ -397,6 +459,14 @@ def _write_frame_or_jsonl(
         jsonl_path = path_base.with_suffix(".jsonl")
         _write_jsonl(jsonl_path, frame[fields].to_dict("records"))
         return jsonl_path, "jsonl"
+
+
+def _write_rows_artifact(
+    path_base: Path, rows: list[dict[str, Any]], fields: list[str]
+) -> tuple[Path, str]:
+    jsonl_path = path_base.with_suffix(".jsonl")
+    _write_jsonl(jsonl_path, [{field: row[field] for field in fields} for row in rows])
+    return jsonl_path, "jsonl"
 
 
 def _append_reason_column(frame: Any, reason: str, mask: Any) -> None:
@@ -696,6 +766,375 @@ def _quality_frames(
     )
 
 
+def _has_ohlc_order_violation(row: dict[str, Any], prefix: str) -> bool:
+    open_value = row[f"{prefix}_open"]
+    high_value = row[f"{prefix}_high"]
+    low_value = row[f"{prefix}_low"]
+    close_value = row[f"{prefix}_close"]
+    values = [open_value, high_value, low_value, close_value]
+    if any(value is None for value in values):
+        return False
+    return high_value < max(open_value, close_value, low_value) or low_value > min(
+        open_value, close_value, high_value
+    )
+
+
+def _gap_rows_from_adjusted(
+    adjusted_rows: list[dict[str, Any]],
+    adjustment_rows: dict[tuple[str, str], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    by_security: dict[str, list[dict[str, Any]]] = {}
+    for row in adjusted_rows:
+        by_security.setdefault(str(row["security_id"]), []).append(row)
+    output: list[dict[str, Any]] = []
+    for rows in by_security.values():
+        rows.sort(key=lambda row: str(row["trading_date"]))
+        previous: dict[str, Any] | None = None
+        for row in rows:
+            raw_gap_ratio = None
+            adj_gap_ratio = None
+            factor_change = None
+            event = adjustment_rows.get(
+                (str(row["security_id"]), str(row["trading_date"])), {}
+            )
+            if previous and previous["raw_close"] not in (None, 0):
+                raw_gap_ratio = row["raw_open"] / previous["raw_close"] - 1
+            if previous and previous["adj_close"] not in (None, 0):
+                adj_gap_ratio = row["adj_open"] / previous["adj_close"] - 1
+            if previous:
+                factor_change = row["adjustment_factor"] - previous["adjustment_factor"]
+            raw_gap_large = raw_gap_ratio is not None and abs(raw_gap_ratio) >= 0.03
+            adj_gap_smaller = (
+                raw_gap_ratio is not None
+                and adj_gap_ratio is not None
+                and abs(adj_gap_ratio) < abs(raw_gap_ratio)
+            )
+            has_event = bool(event.get("corporate_action_event_ref"))
+            mechanical = (
+                raw_gap_large
+                and adj_gap_smaller
+                and factor_change is not None
+                and abs(factor_change) > 0
+                and has_event
+            )
+            status = "none"
+            reason = "none"
+            if mechanical:
+                status = "candidate_mechanical_gap"
+                reason = "candidate_mechanical_gap"
+            elif raw_gap_large and not has_event:
+                status = "unknown_or_unverified"
+                reason = "missing_adjustment_event_gap_unknown"
+            output.append(
+                {
+                    "data_version": row["data_version"],
+                    "security_id": row["security_id"],
+                    "trading_date": row["trading_date"],
+                    "previous_trading_date": None
+                    if previous is None
+                    else previous["trading_date"],
+                    "raw_prev_close": None
+                    if previous is None
+                    else previous["raw_close"],
+                    "raw_open": row["raw_open"],
+                    "raw_gap_ratio": raw_gap_ratio,
+                    "adj_prev_close": None
+                    if previous is None
+                    else previous["adj_close"],
+                    "adj_open": row["adj_open"],
+                    "adj_gap_ratio": adj_gap_ratio,
+                    "mechanical_gap_candidate_flag": mechanical,
+                    "mechanical_gap_reason": reason,
+                    "corporate_action_event_ref": event.get(
+                        "corporate_action_event_ref"
+                    ),
+                    "adjustment_factor_change": factor_change,
+                    "gap_attribution_status": status,
+                    "source_registry_id": row["source_registry_id"],
+                    "source_snapshot_id": row["source_snapshot_id"],
+                    "observed_at": row["observed_at"],
+                    "run_id": row["run_id"],
+                }
+            )
+            previous = row
+    return output
+
+
+def _materialize_rows(
+    raw_rows: list[dict[str, Any]],
+    adjustment_rows: dict[tuple[str, str], dict[str, Any]],
+    observed_at: str,
+    run_id: str,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    dict[str, Any],
+    dict[str, Any],
+]:
+    sorted_raw = sorted(
+        raw_rows, key=lambda row: (str(row["security_id"]), str(row["trading_date"]))
+    )
+    duplicate_keys: set[tuple[Any, ...]] = set()
+    seen_keys: set[tuple[Any, ...]] = set()
+    for raw in sorted_raw:
+        key = (
+            raw["data_version"],
+            raw["universe_id"],
+            raw["time_segment_id"],
+            raw["security_id"],
+            raw["trading_date"],
+            raw["source_snapshot_id"],
+        )
+        if key in seen_keys:
+            duplicate_keys.add(key)
+        seen_keys.add(key)
+
+    adjusted_rows: list[dict[str, Any]] = []
+    quality_rows: list[dict[str, Any]] = []
+    missing_factor_count = 0
+    factor_asof_missing_count = 0
+    revision_missing_count = 0
+    for raw in sorted_raw:
+        event = adjustment_rows.get(
+            (str(raw["security_id"]), str(raw["trading_date"])), {}
+        )
+        factor = _to_float(event.get("adjustment_factor"))
+        missing_factor = factor is None
+        if missing_factor:
+            factor = 1.0
+            missing_factor_count += 1
+        factor_asof = event.get("factor_as_of_time")
+        revision = event.get("adjustment_revision")
+        factor_asof_missing = factor_asof in (None, "")
+        revision_missing = revision in (None, "")
+        factor_asof_missing_count += int(factor_asof_missing)
+        revision_missing_count += int(revision_missing)
+        row = {field: raw[field] for field in RAW_REQUIRED_FIELDS if field in raw}
+        for field in [
+            "raw_open",
+            "raw_high",
+            "raw_low",
+            "raw_close",
+            "volume",
+            "amount",
+        ]:
+            row[field] = _to_float(row.get(field))
+        for raw_field, adj_field in [
+            ("raw_open", "adj_open"),
+            ("raw_high", "adj_high"),
+            ("raw_low", "adj_low"),
+            ("raw_close", "adj_close"),
+        ]:
+            row[adj_field] = None if row[raw_field] is None else row[raw_field] * factor
+
+        reasons: list[str] = []
+        if missing_factor:
+            reasons.append("adjustment_factor_missing_or_unresolved")
+        if factor_asof_missing:
+            reasons.append("factor_as_of_time_missing")
+        if revision_missing:
+            reasons.append("adjustment_revision_missing")
+        reasons.append("adjustment_factor_direction_unverified")
+        raw_ohlc = [
+            row[field] for field in ["raw_open", "raw_high", "raw_low", "raw_close"]
+        ]
+        adj_ohlc = [
+            row[field] for field in ["adj_open", "adj_high", "adj_low", "adj_close"]
+        ]
+        if any(value is None or value <= 0 for value in raw_ohlc):
+            reasons.append("raw_ohlc_null_or_nonpositive")
+        if any(value is None or value <= 0 for value in adj_ohlc):
+            reasons.append("adjusted_ohlc_null_or_nonpositive")
+        if _has_ohlc_order_violation(row, "raw"):
+            reasons.append("raw_ohlc_order_violation")
+        if _has_ohlc_order_violation(row, "adj"):
+            reasons.append("adjusted_ohlc_order_violation")
+        if row["volume"] is None:
+            reasons.append("null_volume")
+        elif row["volume"] < 0:
+            reasons.append("negative_volume")
+        if row["amount"] is None:
+            reasons.append("null_amount")
+        elif row["amount"] < 0:
+            reasons.append("negative_amount")
+        key = (
+            row["data_version"],
+            row["universe_id"],
+            row["time_segment_id"],
+            row["security_id"],
+            row["trading_date"],
+            row["source_snapshot_id"],
+        )
+        if key in duplicate_keys:
+            reasons.append("duplicate_key")
+        unknown_trading = (row.get("trading_status") or "unknown") == "unknown"
+        unknown_limit = (row.get("price_limit_status") or "unknown") == "unknown"
+        if unknown_trading:
+            reasons.append("trading_status_unknown_blocks_d2_acceptance")
+        if unknown_limit:
+            reasons.append("price_limit_status_unknown_blocks_d2_acceptance")
+        reasons.extend(
+            [
+                "suspension_status_unknown_blocks_d2_acceptance",
+                "st_status_unknown_blocks_d2_acceptance",
+                "amount_volume_unit_unknown_blocks_d2_acceptance",
+            ]
+        )
+        adjusted = {
+            **{field: row[field] for field in RAW_REQUIRED_FIELDS[:9]},
+            "adj_open": row["adj_open"],
+            "adj_high": row["adj_high"],
+            "adj_low": row["adj_low"],
+            "adj_close": row["adj_close"],
+            "adjustment_factor": factor,
+            "adjustment_method": "forward_adjusted_candidate",
+            "adjustment_event_source": "raw_equivalent_fallback"
+            if missing_factor
+            else "hithink_adjustment_events",
+            "factor_as_of_time": None if factor_asof_missing else factor_asof,
+            "adjustment_revision": None if revision_missing else revision,
+            "history_revision_class": "final_revised_history",
+            "source_registry_id": row["source_registry_id"],
+            "source_snapshot_id": row["source_snapshot_id"],
+            "observed_at": observed_at,
+            "run_id": run_id,
+            "quality_status": "candidate_blocked" if reasons else "candidate_passed",
+            "quality_blocking_flag": bool(reasons),
+            "quality_blocking_reasons": reasons,
+        }
+        adjusted_rows.append({field: adjusted[field] for field in ADJUSTED_FIELDS})
+        vwap = (
+            None
+            if row["amount"] is None or row["volume"] in (None, 0)
+            else row["amount"] / row["volume"]
+        )
+        quality_rows.append(
+            {
+                "data_version": row["data_version"],
+                "universe_id": row["universe_id"],
+                "time_segment_id": row["time_segment_id"],
+                "security_id": row["security_id"],
+                "trading_date": row["trading_date"],
+                "raw_ohlc_integrity_status": "blocked"
+                if any(reason.startswith("raw_ohlc") for reason in reasons)
+                else "passed",
+                "adjusted_ohlc_integrity_status": "blocked"
+                if any(reason.startswith("adjusted_ohlc") for reason in reasons)
+                else "passed",
+                "raw_adjusted_reconciliation_status": "candidate_requires_review",
+                "amount_volume_unit_status": "unknown",
+                "daily_vwap_range_status": "unknown_or_blocked"
+                if vwap is None
+                or row["raw_low"] is None
+                or row["raw_high"] is None
+                or vwap < row["raw_low"]
+                or vwap > row["raw_high"]
+                else "passed",
+                "trading_status_readiness": "unknown_blocking"
+                if unknown_trading
+                else "known",
+                "price_limit_status_readiness": "unknown_blocking"
+                if unknown_limit
+                else "known",
+                "suspension_status_readiness": "unknown_blocking",
+                "st_status_readiness": "unknown_blocking",
+                "duplicate_key_status": "blocked"
+                if key in duplicate_keys
+                else "passed",
+                "quality_blocking_flag": bool(reasons),
+                "quality_warning_flag": True,
+                "quality_blocking_reasons": reasons,
+                "quality_warning_reasons": [
+                    "amount_volume_unit_unknown",
+                    "factor_direction_candidate_requires_review",
+                ],
+                "source_registry_id": row["source_registry_id"],
+                "source_snapshot_id": row["source_snapshot_id"],
+                "observed_at": observed_at,
+                "run_id": run_id,
+            }
+        )
+
+    gap_rows = _gap_rows_from_adjusted(adjusted_rows, adjustment_rows)
+    dates = sorted(str(row["trading_date"]) for row in adjusted_rows)
+    reconciliation_reasons = sorted(
+        {
+            reason
+            for row in adjusted_rows
+            for reason in row["quality_blocking_reasons"]
+            if reason
+            in {
+                "adjustment_factor_missing_or_unresolved",
+                "factor_as_of_time_missing",
+                "adjustment_revision_missing",
+                "adjustment_factor_direction_unverified",
+            }
+        }
+    )
+    unknown_trading_count = sum(
+        1 for row in raw_rows if (row.get("trading_status") or "unknown") == "unknown"
+    )
+    unknown_limit_count = sum(
+        1
+        for row in raw_rows
+        if (row.get("price_limit_status") or "unknown") == "unknown"
+    )
+    readiness_reasons = []
+    if unknown_trading_count:
+        readiness_reasons.append("trading_status_unknown_blocks_d2_acceptance")
+    if unknown_limit_count:
+        readiness_reasons.append("price_limit_status_unknown_blocks_d2_acceptance")
+    readiness_reasons.extend(
+        [
+            "suspension_status_unknown_blocks_d2_acceptance",
+            "st_status_unknown_blocks_d2_acceptance",
+        ]
+    )
+    return (
+        adjusted_rows,
+        quality_rows,
+        gap_rows,
+        {
+            "row_count_raw_candidate": len(raw_rows),
+            "row_count_adjusted_candidate": len(adjusted_rows),
+            "security_count_raw_candidate": len(
+                {row["security_id"] for row in raw_rows}
+            ),
+            "security_count_adjusted_candidate": len(
+                {row["security_id"] for row in adjusted_rows}
+            ),
+            "trading_date_min": dates[0] if dates else None,
+            "trading_date_max": dates[-1] if dates else None,
+            "missing_adjustment_factor_count": missing_factor_count,
+            "factor_as_of_time_missing_count": factor_asof_missing_count,
+            "adjustment_revision_missing_count": revision_missing_count,
+            "adjustment_factor_direction_unverified_count": len(adjusted_rows),
+            "raw_adjusted_row_mismatch_count": len(raw_rows) - len(adjusted_rows),
+            "candidate_blocking_flag": True,
+            "candidate_blocking_reasons": reconciliation_reasons,
+        },
+        {
+            "trading_status_known_count": len(raw_rows) - unknown_trading_count,
+            "trading_status_unknown_count": unknown_trading_count,
+            "price_limit_status_known_count": len(raw_rows) - unknown_limit_count,
+            "price_limit_status_unknown_count": unknown_limit_count,
+            "suspension_status_known_count": 0,
+            "suspension_status_unknown_count": len(raw_rows),
+            "st_status_known_count": 0,
+            "st_status_unknown_count": len(raw_rows),
+            "limit_price_known_count": len(raw_rows) - unknown_limit_count,
+            "limit_price_unknown_count": unknown_limit_count,
+            "readiness_blocking_flag": True,
+            "readiness_blocking_reasons": readiness_reasons,
+            "recommended_next_source_probe": (
+                "D2-T11 source status resolution for trading calendar, suspension, "
+                "ST, and limit-price states"
+            ),
+        },
+    )
+
+
 def _file_hash_summary(paths: dict[str, Path]) -> dict[str, Any]:
     return {
         name: {
@@ -722,25 +1161,57 @@ def materialize_adjusted_price_quality_gap_candidate(
     output_dir.mkdir(parents=True, exist_ok=True)
     run_id = params.get("run_id") or _stable_run_id(raw_candidate_artifact, observed_at)
 
-    raw_frame = _read_raw_candidate_frame(raw_candidate_artifact)
-    for field in PROHIBITED_FIELDS:
-        if field in raw_frame.columns:
-            raise AdjustedPriceQualityGapMaterializationError(
-                f"raw candidate contains prohibited field: {field}"
-            )
-    adjustment_frame = _read_adjustment_frame(adjustment_events_path)
-    adjusted, quality, gap, reconciliation, readiness = _quality_frames(
-        raw_frame, adjustment_frame, observed_at, run_id
-    )
-    artifact_path, artifact_format = _write_frame_or_jsonl(
-        output_dir / "adjusted_market_prices_candidate", adjusted, ADJUSTED_FIELDS
-    )
-    quality_path, quality_format = _write_frame_or_jsonl(
-        output_dir / "market_price_quality_flags_candidate", quality, QUALITY_FIELDS
-    )
-    gap_path, gap_format = _write_frame_or_jsonl(
-        output_dir / "mechanical_gap_attribution_candidate", gap, GAP_FIELDS
-    )
+    if raw_candidate_artifact.suffix.lower() == ".parquet":
+        raw_frame = _read_raw_candidate_frame(raw_candidate_artifact)
+        for field in PROHIBITED_FIELDS:
+            if field in raw_frame.columns:
+                raise AdjustedPriceQualityGapMaterializationError(
+                    f"raw candidate contains prohibited field: {field}"
+                )
+        adjustment_frame = _read_adjustment_frame(adjustment_events_path)
+        adjusted, quality, gap, reconciliation, readiness = _quality_frames(
+            raw_frame, adjustment_frame, observed_at, run_id
+        )
+        artifact_path, artifact_format = _write_frame_or_jsonl(
+            output_dir / "adjusted_market_prices_candidate", adjusted, ADJUSTED_FIELDS
+        )
+        quality_path, quality_format = _write_frame_or_jsonl(
+            output_dir / "market_price_quality_flags_candidate", quality, QUALITY_FIELDS
+        )
+        gap_path, gap_format = _write_frame_or_jsonl(
+            output_dir / "mechanical_gap_attribution_candidate", gap, GAP_FIELDS
+        )
+        quality_blocking_reasons = sorted(
+            {
+                reason
+                for reasons in adjusted["quality_blocking_reasons"]
+                for reason in reasons
+            }
+        )
+    else:
+        raw_rows = _read_raw_candidate_rows(raw_candidate_artifact)
+        for row in raw_rows:
+            prohibited = set(row) & PROHIBITED_FIELDS
+            if prohibited:
+                raise AdjustedPriceQualityGapMaterializationError(
+                    f"raw candidate contains prohibited field: {sorted(prohibited)[0]}"
+                )
+        adjustment_rows = _read_adjustment_rows(adjustment_events_path)
+        adjusted, quality, gap, reconciliation, readiness = _materialize_rows(
+            raw_rows, adjustment_rows, observed_at, run_id
+        )
+        artifact_path, artifact_format = _write_rows_artifact(
+            output_dir / "adjusted_market_prices_candidate", adjusted, ADJUSTED_FIELDS
+        )
+        quality_path, quality_format = _write_rows_artifact(
+            output_dir / "market_price_quality_flags_candidate", quality, QUALITY_FIELDS
+        )
+        gap_path, gap_format = _write_rows_artifact(
+            output_dir / "mechanical_gap_attribution_candidate", gap, GAP_FIELDS
+        )
+        quality_blocking_reasons = sorted(
+            {reason for row in adjusted for reason in row["quality_blocking_reasons"]}
+        )
     readiness_path = output_dir / "trading_constraint_readiness_candidate.json"
     reconciliation_path = output_dir / "raw_adjusted_reconciliation_candidate.json"
     report_path = output_dir / "adjusted_price_quality_gap_materialization_report.json"
@@ -758,13 +1229,7 @@ def materialize_adjusted_price_quality_gap_candidate(
         "gap_format": gap_format,
         "row_count_adjusted_candidate": reconciliation["row_count_adjusted_candidate"],
         "quality_blocking_flag": True,
-        "quality_blocking_reasons": sorted(
-            {
-                reason
-                for reasons in adjusted["quality_blocking_reasons"]
-                for reason in reasons
-            }
-        ),
+        "quality_blocking_reasons": quality_blocking_reasons,
         "duckdb_written": False,
         "accepted_manifest_created": False,
         "data_version_published": False,
