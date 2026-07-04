@@ -97,6 +97,37 @@ class D2RawMarketPricesMaterializationContractTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.report_validator.validate(changed_report)
 
+    def test_schema_requires_exact_raw_market_price_fields(self) -> None:
+        for field in ["raw_close", "observed_at"]:
+            changed = copy.deepcopy(self.contract)
+            changed["required_fields"].remove(field)
+            with self.assertRaises(ValidationError):
+                self.contract_validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["required_fields"].append("ticker")
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
+    def test_schema_requires_exact_primary_key_fields(self) -> None:
+        changed = copy.deepcopy(self.contract)
+        changed["primary_key"].remove("source_snapshot_id")
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
+    def test_schema_requires_core_blocking_conditions(self) -> None:
+        for blocker in ["adjusted_price_used_as_raw_price", "duckdb_write_attempted"]:
+            changed = copy.deepcopy(self.contract)
+            changed["blocking_conditions"].remove(blocker)
+            with self.assertRaises(ValidationError):
+                self.contract_validator.validate(changed)
+
+    def test_schema_requires_core_prohibited_row_fields(self) -> None:
+        changed = copy.deepcopy(self.contract)
+        changed["prohibited_row_fields"].remove("adj_close")
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
     def test_readme_does_not_advance_to_d2_t04(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_task: D2-T03", readme)
