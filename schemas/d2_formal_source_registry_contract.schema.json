@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d2_formal_source_registry_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "formal_source_acceptance_authorized",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "real_data_materialization_authorized",
+    "manifest_creation_authorized",
+    "data_version_release_authorized",
+    "d3_generation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "depends_on",
+    "source_hierarchy",
+    "fallback_policy",
+    "secret_handling",
+    "a_stock_data_policy"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/d2_formal_source_registry_contract.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1"},
+    "task_id": {"const": "D2-T09"},
+    "contract_status": {"const": "accepted"},
+    "contract_scope": {"const": "formal_candidate_source_registry_and_fallback_policy"},
+    "formal_source_acceptance_authorized": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "manifest_creation_authorized": {"const": false},
+    "data_version_release_authorized": {"const": false},
+    "d3_generation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "depends_on": {"$ref": "#/$defs/dependsOn"},
+    "source_hierarchy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_source", "fallback_sources", "rejected_sources", "deprecated_sources"],
+      "properties": {
+        "primary_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_id", "role", "priority"],
+          "properties": {
+            "source_id": {"const": "hithink_financial_api"},
+            "role": {"const": "primary_formal_candidate"},
+            "priority": {"const": 0}
+          }
+        },
+        "fallback_sources": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_id", "role", "priority"],
+            "properties": {
+              "source_id": {"enum": ["baostock", "tushare"]},
+              "role": {"const": "fallback_repair_source"},
+              "priority": {"enum": [1, 2]}
+            },
+            "not": {"properties": {"source_id": {"const": "a-stock-data"}}, "required": ["source_id"]}
+          },
+          "allOf": [
+            {"contains": {"properties": {"source_id": {"const": "baostock"}, "priority": {"const": 1}}, "required": ["source_id", "priority"]}},
+            {"contains": {"properties": {"source_id": {"const": "tushare"}, "priority": {"const": 2}}, "required": ["source_id", "priority"]}}
+          ]
+        },
+        "rejected_sources": {"$ref": "#/$defs/aStockDataOnlyList"},
+        "deprecated_sources": {"$ref": "#/$defs/aStockDataOnlyList"}
+      }
+    },
+    "fallback_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_mode",
+        "fallback_must_not_silently_override_primary_price_conflicts",
+        "required_repair_fields",
+        "cross_source_conflict_requires_discrepancy_report"
+      ],
+      "properties": {
+        "fallback_mode": {"const": "missing_only_repair_only"},
+        "fallback_must_not_silently_override_primary_price_conflicts": {"const": true},
+        "required_repair_fields": {
+          "allOf": [
+            {"$ref": "#/$defs/stringArray"},
+            {"contains": {"const": "fallback_reason"}},
+            {"contains": {"const": "fallback_source"}},
+            {"contains": {"const": "fallback_field"}},
+            {"contains": {"const": "fallback_security_id"}},
+            {"contains": {"const": "fallback_trading_date"}},
+            {"contains": {"const": "repair_method"}},
+            {"contains": {"const": "repair_confidence"}}
+          ]
+        },
+        "cross_source_conflict_requires_discrepancy_report": {"const": true}
+      }
+    },
+    "secret_handling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hithink_financial_api",
+        "tushare",
+        "baostock",
+        "no_secret_may_be_committed_logged_printed_or_stored_in_config"
+      ],
+      "properties": {
+        "hithink_financial_api": {
+          "type": "object",
+          "required": ["api_key_env_var", "committed_secret_allowed", "log_secret_allowed"],
+          "properties": {
+            "api_key_env_var": {"const": "HITHINK_API_KEY"},
+            "committed_secret_allowed": {"const": false},
+            "log_secret_allowed": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "tushare": {
+          "type": "object",
+          "required": ["token_env_var", "committed_secret_allowed", "log_secret_allowed"],
+          "properties": {
+            "token_env_var": {"const": "TUSHARE_TOKEN"},
+            "committed_secret_allowed": {"const": false},
+            "log_secret_allowed": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "baostock": {
+          "type": "object",
+          "required": ["requires_committed_token", "committed_secret_allowed", "log_secret_allowed"],
+          "properties": {
+            "requires_committed_token": {"const": false},
+            "committed_secret_allowed": {"const": false},
+            "log_secret_allowed": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "no_secret_may_be_committed_logged_printed_or_stored_in_config": {"const": true}
+      }
+    },
+    "a_stock_data_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "a_stock_data_is_not_used_as_formal_source",
+        "a_stock_data_is_not_used_as_fallback_source",
+        "a_stock_data_must_not_appear_in_primary_source_or_fallback_sources",
+        "a_stock_data_allowed_only_under_rejected_or_deprecated_sources"
+      ],
+      "properties": {
+        "a_stock_data_is_not_used_as_formal_source": {"const": true},
+        "a_stock_data_is_not_used_as_fallback_source": {"const": true},
+        "a_stock_data_must_not_appear_in_primary_source_or_fallback_sources": {"const": true},
+        "a_stock_data_allowed_only_under_rejected_or_deprecated_sources": {"const": true}
+      }
+    }
+  },
+  "$defs": {
+    "stringArray": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "dependsOn": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1"}},
+        {"contains": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"}}
+      ]
+    },
+    "aStockDataOnlyList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "role", "reason"],
+        "properties": {
+          "source_id": {"const": "a-stock-data"},
+          "role": {"enum": ["rejected", "deprecated"]},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      },
+      "contains": {"properties": {"source_id": {"const": "a-stock-data"}}, "required": ["source_id"]}
+    }
+  }
+}

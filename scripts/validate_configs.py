@@ -8,6 +8,28 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
+D2_HITHINK_MATERIALIZATION_SCHEMA_PATH = (
+    ROOT
+    / "schemas"
+    / "d2_hithink_raw_market_prices_candidate_materialization_contract.schema.json"
+)
+D2_HITHINK_MATERIALIZATION_CONFIG_PATH = (
+    ROOT
+    / "configs"
+    / "d2"
+    / "hithink_raw_market_prices_candidate_materialization_contract.v1.json"
+)
+D2_HITHINK_ARTIFACT_SCHEMA_PATH = (
+    ROOT
+    / "schemas"
+    / "d2_hithink_raw_market_prices_candidate_artifact_contract.schema.json"
+)
+D2_HITHINK_ARTIFACT_CONFIG_PATH = (
+    ROOT
+    / "configs"
+    / "d2"
+    / "hithink_raw_market_prices_candidate_artifact_contract.v1.json"
+)
 SECURITY_MAPPING_REFERENCE_CONTRACT_PATH = (
     ROOT
     / "configs/d1"
@@ -112,6 +134,22 @@ CONFIGS = (
     (
         ROOT / "schemas/d3_data_version_quality_manifest_gate_contract.schema.json",
         ROOT / "configs/d3/data_version_quality_manifest_gate_contract.v1.json",
+    ),
+    (
+        ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
+        ROOT / "configs/d2/formal_source_registry_contract.v1.json",
+    ),
+    (
+        ROOT / "schemas/d2_hithink_raw_ohlcv_probe_contract.schema.json",
+        ROOT / "configs/d2/hithink_raw_ohlcv_probe_contract.v1.json",
+    ),
+    (
+        D2_HITHINK_MATERIALIZATION_SCHEMA_PATH,
+        D2_HITHINK_MATERIALIZATION_CONFIG_PATH,
+    ),
+    (
+        D2_HITHINK_ARTIFACT_SCHEMA_PATH,
+        D2_HITHINK_ARTIFACT_CONFIG_PATH,
     ),
 )
 

@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D3
-current_task: D3-T06
-next_planned_task: D3-T07
+current_stage: D2
+current_task: D2-T09
+next_planned_task: D2-T10
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -37,6 +37,15 @@ D2-T06 候选探针执行前的任务队列仍为：
 `D2-T07` 跳空归因与价格质量标记：planned。
 D2-T07 进入契约门禁前的任务队列仍为：
 `D2-T08` D2 阶段验收与 D3 交接：planned。
+D2-T08 完成后曾进入 D3 contract queue；D2 formal materialization 未完成前，
+`D3-T07` remains blocked pending D2 formal materialization，`R0` remains blocked。
+D3-T07 remains blocked pending D2 formal materialization. R0 remains blocked.
+D3-T06 发布门禁 PR 合并时的阶段索引仍为：
+```text
+current_stage: D3
+current_task: D3-T06
+next_planned_task: D3-T07
+```
 
 ## G0：样本宇宙与时间边界
 
@@ -118,6 +127,8 @@ D2-T07 进入契约门禁前的任务队列仍为：
 - `D2-T06` 候选行情快照探针：small-sample redacted execution report via PR #32; formal ingestion and D1/D2/D3 materialization remain blocked
 - `D2-T07` 价格质量、交易约束、机械缺口与 PCVT 底层依赖契约：contract-only via PR #33
 - `D2-T08` D2 阶段验收与 D3 交接契约：contract-only via PR #34; D3 contract work may proceed, but formal D3 generation remains blocked
+- `D2-T09` HiThink 主行情源、补充源与 raw OHLCV 探针契约：in_progress via PR #41 stage 3
+- `D2-T10` adjusted price、quality flags 与 mechanical gap formal materialization：planned
 
 完成标准：
 
@@ -134,6 +145,7 @@ D2-T07 进入契约门禁前的任务队列仍为：
 D2-T08 已完成 D2 acceptance 与 D3 handoff contract-only 验收，但 formal ingestion、
 真实 D2 raw price、真实 D2 adjusted price、真实 D2 quality flags、D3 generation 与
 R0 交接仍未授权。
+D2-T09 返回 D2 formal enablement 后，`D3-T07` remains blocked pending D2 formal materialization。
 
 - `D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35
 - `D3-T02` D3 标准数值观测 view/table 契约：completed via PR #36
