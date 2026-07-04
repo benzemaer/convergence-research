@@ -80,6 +80,44 @@ class RequestThrottle:
         self.next_allowed_at = time.monotonic() + self.interval
 
 
+def _empty_checkpoint() -> dict[str, Any]:
+    return {
+        "completed_trade_dates": [],
+        "failed_trade_dates": [],
+        "retry_counts": {},
+        "provider_error_categories": {},
+        "last_successful_trade_date": None,
+        "request_count": 0,
+        "rate_limit_count": 0,
+    }
+
+
+def _checkpoint_path(checkpoint_dir: Path | None) -> Path | None:
+    return (
+        None
+        if checkpoint_dir is None
+        else checkpoint_dir / "tnskhdata_fetch_checkpoint.json"
+    )
+
+
+def _load_checkpoint(checkpoint_dir: Path | None, resume: bool) -> dict[str, Any]:
+    path = _checkpoint_path(checkpoint_dir)
+    if not resume or path is None or not path.exists():
+        return _empty_checkpoint()
+    payload = _load_json(path)
+    checkpoint = _empty_checkpoint()
+    checkpoint.update(payload if isinstance(payload, dict) else {})
+    return checkpoint
+
+
+def _write_checkpoint(checkpoint_dir: Path | None, checkpoint: dict[str, Any]) -> None:
+    path = _checkpoint_path(checkpoint_dir)
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(path, checkpoint)
+
+
 def _is_rate_limit_error(exc: Exception) -> bool:
     text = f"{type(exc).__name__} {exc}".lower()
     return "rate" in text or "limit" in text or "频" in text
@@ -271,8 +309,15 @@ def fetch_provider_evidence(
     retry_max_attempts: int = 3,
     retry_backoff_seconds: float = 5.0,
     throttle_enabled: bool = False,
+    resume: bool = False,
+    checkpoint_dir: Path | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    request_count = 0
+    checkpoint = _load_checkpoint(checkpoint_dir, resume)
+    request_count = int(checkpoint.get("request_count", 0)) if resume else 0
+    completed_trade_dates = set(checkpoint.get("completed_trade_dates", []))
+    failed_trade_dates = set(checkpoint.get("failed_trade_dates", []))
+    retry_counts = dict(checkpoint.get("retry_counts", {}))
+    provider_error_categories = dict(checkpoint.get("provider_error_categories", {}))
     primary_throttle = RequestThrottle(requests_per_minute, enabled=throttle_enabled)
     pro_bar_throttle = RequestThrottle(
         pro_bar_requests_per_minute, enabled=throttle_enabled
@@ -309,6 +354,9 @@ def fetch_provider_evidence(
     pro_bar_reconciliation_warning_count = 0
     rate_limit_count = 0
     for trade_date in plan.trade_dates:
+        if resume and trade_date in completed_trade_dates:
+            continue
+        date_failed = False
         for name, method in (
             ("daily", lambda: client.daily(trade_date=trade_date)),
             ("stk_limit", lambda: client.stk_limit(trade_date=trade_date)),
@@ -334,7 +382,12 @@ def fetch_provider_evidence(
                 else:
                     suspend_d.extend(rows)
             except Exception as exc:
+                date_failed = True
                 primary_provider_error_count += 1
+                retry_counts[f"{trade_date}:{name}"] = retry_max_attempts
+                provider_error_categories[name] = (
+                    provider_error_categories.get(name, 0) + 1
+                )
                 if _is_rate_limit_error(exc):
                     rate_limit_count += 1
                 if name == "adj_factor":
@@ -354,10 +407,34 @@ def fetch_provider_evidence(
                             )
                             request_count += 1
                         except Exception as fallback_exc:
+                            date_failed = True
                             primary_provider_error_count += 1
+                            retry_counts[f"{trade_date}:adj_factor_ts_code"] = (
+                                retry_max_attempts
+                            )
+                            provider_error_categories["adj_factor"] = (
+                                provider_error_categories.get("adj_factor", 0) + 1
+                            )
                             if _is_rate_limit_error(fallback_exc):
                                 rate_limit_count += 1
             request_count += 1
+        if date_failed:
+            failed_trade_dates.add(trade_date)
+        else:
+            completed_trade_dates.add(trade_date)
+            failed_trade_dates.discard(trade_date)
+            checkpoint["last_successful_trade_date"] = trade_date
+        checkpoint.update(
+            {
+                "completed_trade_dates": sorted(completed_trade_dates),
+                "failed_trade_dates": sorted(failed_trade_dates),
+                "retry_counts": retry_counts,
+                "provider_error_categories": provider_error_categories,
+                "request_count": request_count,
+                "rate_limit_count": rate_limit_count,
+            }
+        )
+        _write_checkpoint(checkpoint_dir, checkpoint)
     pro_bar_qfq: list[dict[str, Any]] = []
     pro_bar_hfq: list[dict[str, Any]] = []
     for ts_code in plan.ts_codes[: min(5, len(plan.ts_codes))]:
@@ -421,6 +498,7 @@ def fetch_provider_evidence(
                     pro_bar_reconciliation_warning_count
                 ),
                 "rate_limit_count": rate_limit_count,
+                "resume_checkpoint_count": len(completed_trade_dates),
             }
         ],
     }
@@ -606,6 +684,8 @@ def build_quality_report(
     metrics = evidence.get("_metrics", [{}])[0]
     unresolved = {"unknown", "unresolved", "provider_empty_or_unclassified", None, ""}
     return {
+        "run_mode": plan.mode,
+        "sample_mode": plan.mode != "full",
         "candidate_universe_row_count": len(rows),
         "mapped_row_count": sum(
             1 for row in rows if row.get("mapping_status") == "resolved"
@@ -669,11 +749,13 @@ def build_quality_report(
             "pro_bar_reconciliation_warning_count", 0
         ),
         "rate_limit_count": metrics.get("rate_limit_count", 0),
-        "resume_checkpoint_count": 0,
+        "resume_checkpoint_count": metrics.get("resume_checkpoint_count", 0),
     }
 
 
 def acceptance_decision(quality: dict[str, Any]) -> str:
+    if quality.get("run_mode") != "full" or quality.get("sample_mode") is not False:
+        return "blocked_pending_tnskhdata_full_materialization_run"
     if quality["primary_provider_error_count"] or quality["rate_limit_count"]:
         return "blocked_pending_provider_coverage"
     if (
@@ -698,6 +780,15 @@ def acceptance_decision(quality: dict[str, Any]) -> str:
     if quality["adjusted_price_row_count"] < quality["daily_raw_row_count"]:
         return "blocked_pending_reconciliation"
     return "accepted_for_d3_candidate_generation"
+
+
+def sample_acceptance_decision(quality: dict[str, Any]) -> str | None:
+    if quality.get("run_mode") == "full":
+        return None
+    blocked = acceptance_decision({**quality, "run_mode": "full", "sample_mode": False})
+    if blocked == "accepted_for_d3_candidate_generation":
+        return "accepted_for_sample_candidate_generation"
+    return blocked.replace("blocked_pending_", "sample_blocked_pending_", 1)
 
 
 def materialize_full_candidate(
@@ -761,6 +852,8 @@ def materialize_full_candidate(
         retry_max_attempts=retry_max_attempts,
         retry_backoff_seconds=retry_backoff_seconds,
         throttle_enabled=enable_remote_fetch and client is not None,
+        resume=resume,
+        checkpoint_dir=checkpoint_dir,
     )
     source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
     artifact_sha256 = hashlib.sha256(
@@ -795,6 +888,7 @@ def materialize_full_candidate(
     for name, payload in write_sets.items():
         _write_jsonl(output_dir / name, payload)
     quality = build_quality_report(plan, outputs, evidence)
+    sample_decision = sample_acceptance_decision(quality)
     decision = acceptance_decision(quality)
     d3_decision = (
         "d3_candidate_generation_allowed"
@@ -823,6 +917,9 @@ def materialize_full_candidate(
         "run_id": source_snapshot_id,
         "source_snapshot_id": source_snapshot_id,
         "artifact_sha256": artifact_sha256,
+        "run_mode": plan.mode,
+        "sample_mode": plan.mode != "full",
+        "sample_acceptance_decision": sample_decision,
         "d2_acceptance_decision": decision,
         "quality_blockers": [
             key
@@ -870,6 +967,9 @@ def materialize_full_candidate(
     return {
         "run_id": source_snapshot_id,
         "source_snapshot_id": source_snapshot_id,
+        "run_mode": plan.mode,
+        "sample_mode": plan.mode != "full",
+        "sample_acceptance_decision": sample_decision,
         "d2_acceptance_decision": decision,
         "d3_handoff_decision": d3_decision,
         "r0_handoff_decision": "r0_blocked",
@@ -927,6 +1027,9 @@ def main() -> int:
     redacted = {
         "run_id": report["run_id"],
         "source_snapshot_id": report["source_snapshot_id"],
+        "run_mode": report["run_mode"],
+        "sample_mode": report["sample_mode"],
+        "sample_acceptance_decision": report["sample_acceptance_decision"],
         "d2_acceptance_decision": report["d2_acceptance_decision"],
         "d3_handoff_decision": report["d3_handoff_decision"],
         "r0_handoff_decision": report["r0_handoff_decision"],

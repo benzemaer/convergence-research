@@ -45,61 +45,66 @@ The provider fetch window follows DR-001:
 }
 ```
 
-## Local Scoped Run Summary
+## Full Run Attempt Summary
 
 The D2-T13 script supports full remote fetch, resume checkpoints, and scoped
-sample runs. A scoped remote sample run was executed locally with
-`--sample-securities 1 --sample-dates-per-security 1`, using the DR-001 full
-date boundary in CLI arguments. Generated outputs were written only under
-ignored `data/generated/d2/d2_t13_tnskhdata_full_candidate/`.
+sample runs. A full remote run was started locally with `--full`, using the
+DR-001 full date boundary in CLI arguments. The run exceeded the local execution
+window for this PR update and was stopped by the shell timeout before final
+candidate artifacts and full-run reports were written. The checkpoint can be
+used to resume without restarting completed trade-date fetches.
 
-The run resolved the main D1/D2 candidate evidence fields for the sampled row.
-`pro_bar` is reconciliation-only and was unavailable through the active client,
-so `pro_bar_reconciliation_status = failed_non_blocking`. The D2 acceptance
-candidate is not blocked by this reconciliation-only warning.
+Because the full run is incomplete, the D2 acceptance decision remains blocked.
+No sample run result is used as D2 acceptance evidence.
 
 ```json
 {
-  "run_id": "tnskhdata_d2_t13_20160101_20260630_sample",
-  "source_snapshot_id": "tnskhdata_d2_t13_20160101_20260630_sample",
+  "run_id": "tnskhdata_d2_t13_20160101_20260630_full",
+  "source_snapshot_id": "tnskhdata_d2_t13_20160101_20260630_full",
+  "run_mode": "full",
+  "sample_mode": false,
   "candidate_artifact_output_dir": "data/generated/d2/d2_t13_tnskhdata_full_candidate/",
-  "candidate_universe_row_count": 1,
-  "mapped_row_count": 1,
-  "unmapped_row_count": 0,
-  "daily_raw_row_count": 1,
-  "source_status_row_count": 1,
-  "factor_evidence_row_count": 1,
-  "adjusted_price_row_count": 1,
-  "security_count": 1,
-  "trading_date_min": "20260630",
+  "candidate_universe_row_count": 1671919,
+  "mapped_row_count": null,
+  "unmapped_row_count": null,
+  "daily_raw_row_count": null,
+  "source_status_row_count": null,
+  "factor_evidence_row_count": null,
+  "adjusted_price_row_count": null,
+  "security_count": 800,
+  "trading_date_min": "20160703",
   "trading_date_max": "20260630",
-  "missing_daily_count": 0,
-  "missing_stk_limit_count": 0,
-  "missing_adj_factor_count": 0,
-  "missing_trade_cal_count": 0,
-  "missing_stock_basic_count": 0,
-  "missing_stock_st_count": 0,
-  "missing_suspend_count": 0,
-  "unresolved_trading_status_count": 0,
-  "unresolved_suspension_status_count": 0,
-  "unresolved_st_status_count": 0,
-  "unresolved_price_limit_status_count": 0,
-  "unresolved_adjustment_factor_count": 0,
-  "amount_unit_status": "resolved_thousand_yuan",
-  "volume_unit_status": "resolved_lot",
-  "duplicate_key_count": 0,
-  "null_ohlc_count": 0,
-  "non_positive_price_count": 0,
-  "high_low_violation_count": 0,
+  "missing_daily_count": null,
+  "missing_stk_limit_count": null,
+  "missing_adj_factor_count": null,
+  "missing_trade_cal_count": null,
+  "missing_stock_basic_count": null,
+  "missing_stock_st_count": null,
+  "missing_suspend_count": null,
+  "unresolved_trading_status_count": null,
+  "unresolved_suspension_status_count": null,
+  "unresolved_st_status_count": null,
+  "unresolved_price_limit_status_count": null,
+  "unresolved_adjustment_factor_count": null,
+  "amount_unit_status": "not_evaluated_full_run_incomplete",
+  "volume_unit_status": "not_evaluated_full_run_incomplete",
+  "duplicate_key_count": null,
+  "null_ohlc_count": null,
+  "non_positive_price_count": null,
+  "high_low_violation_count": null,
   "primary_provider_error_count": 0,
-  "reconciliation_provider_error_count": 1,
-  "pro_bar_reconciliation_status": "failed_non_blocking",
-  "pro_bar_reconciliation_warning_count": 1,
+  "reconciliation_provider_error_count": 0,
+  "pro_bar_reconciliation_status": "not_reached_full_run_incomplete",
+  "pro_bar_reconciliation_warning_count": 0,
   "rate_limit_count": 0,
-  "resume_checkpoint_count": 0,
-  "request_count": 10,
-  "d2_acceptance_decision": "accepted_for_d3_candidate_generation",
-  "d3_handoff_decision": "d3_candidate_generation_allowed",
+  "resume_checkpoint_count": 111,
+  "last_successful_trade_date": "20161213",
+  "failed_trade_dates": [],
+  "request_count": 560,
+  "request_count_source": "derived_from_completed_trade_dates_after_counting_fix",
+  "sample_acceptance_decision": null,
+  "d2_acceptance_decision": "blocked_pending_tnskhdata_full_materialization_run",
+  "d3_handoff_decision": "d3_candidate_generation_blocked",
   "r0_handoff_decision": "r0_blocked",
   "duckdb_written": false,
   "data_version_published": false,
@@ -111,20 +116,15 @@ candidate is not blocked by this reconciliation-only warning.
 
 ## Artifact Hash Summary
 
-The following hashes are from ignored local generated artifacts. They are
-recorded here as aggregate evidence only; the artifacts themselves are not
-committed.
+The full run did not complete, so no full-run artifact hash summary is claimed
+in this committed redacted summary. Previously generated sample artifacts under
+the ignored output directory are superseded for D2 acceptance purposes and are
+not used as full-run evidence.
 
 ```json
 {
-  "tnskhdata_daily_raw_candidate": "3fae6a56006bc9d93f88a444f3ccdbdff170c60fc8c867f22c4f2c0a5dbc41b5",
-  "tnskhdata_source_status_candidate": "44a95fb619ec3b3bd7c8f22d7bd4dfddf849c407ee7a75c6c6a15df6d9df3193",
-  "tnskhdata_factor_evidence_candidate": "129797b7e1a4dca69a2be28dea1989909c2ce056b8cee1f6aad234ed0210cc4d",
-  "tnskhdata_adjusted_price_candidate": "30ca6fdf4f7755dfb5fbc0cae5ba6726b64bdcb62bc124bfb1ee36d1c1d51b15",
-  "tnskhdata_quality_report": "f30e953bf408c8b7c7e62751c679ccd2d53ed10f1fdf9c9dab5c9011e6ce468e",
-  "tnskhdata_reconciliation_report": "397584b111c80caf271de3d3a1b1c357181e23834bb9cd59154f24f2058f9bdc",
-  "tnskhdata_d2_acceptance_candidate_report": "208d0bd0fc4f18cc15b0939f095039da9a0e95c718db5145212f505fb79b86a3",
-  "tnskhdata_d3_handoff_candidate_report": "1c0c5e94425dddc8f8ea6f25bb91d24544ae5bd2c7bba74ae5628eed1f8b2379"
+  "full_run_artifact_hashes_complete": false,
+  "full_run_hash_summary_sha256": null
 }
 ```
 
@@ -137,6 +137,7 @@ adjusted price covers normal-trading rows with daily and factor evidence,
 price-limit status is resolved or not applicable, units are resolved, duplicate
 keys are zero, and no fatal quality blockers remain.
 
-D3 handoff may be allowed by the D2-T13 candidate decision, but D3 generation,
-D3 data version publication, PCVT, R0, labels, returns, backtests, and portfolio
-outputs remain outside this PR.
+Sample acceptance cannot promote D2. Until the full tnskhdata materialization run
+finishes and the full-run artifact hash summary is complete, D2 remains blocked,
+D3 candidate generation remains blocked, and D3 data version publication, PCVT,
+R0, labels, returns, backtests, and portfolio outputs remain outside this PR.
