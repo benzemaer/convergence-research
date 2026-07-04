@@ -103,7 +103,7 @@ D2-T03 进入阻塞门禁时的任务队列仍为：
 - `D2-T01` 价格来源与 raw OHLCV 探针契约：completed via PR #25
 - `D2-T02` 成员对齐层物化：completed via PR #26
 - `D2-T03` 原始行情价格落账：blocked pending source authorization via PR #27
-- `D2-T04` 复权因子与 `factor_as_of_time` 契约：blocked pending factor source authorization via PR TBD
+- `D2-T04` 复权因子与 `factor_as_of_time` 契约：blocked pending factor source authorization via PR #28
 - `D2-T05` 连续研究价格构建与反推校验：planned
 - `D2-T06` 跳空归因与价格质量标记：planned
 - `D2-T07` D2 阶段验收与 D3 交接：planned

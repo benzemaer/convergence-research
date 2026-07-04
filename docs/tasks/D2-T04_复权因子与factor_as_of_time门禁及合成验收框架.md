@@ -2,7 +2,7 @@
 
 状态：
 
-blocked pending factor source authorization via PR TBD
+blocked pending factor source authorization via PR #28
 
 ## 目标
 
