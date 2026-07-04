@@ -7,10 +7,12 @@
     "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_CONTRACT_V1"
   ],
   "execution_mode": "small_sample_probe",
+  "default_mode": "dry_run",
   "formal_ingestion_authorized": false,
   "official_dataset_materialization_authorized": false,
   "duckdb_write_authorized": false,
   "raw_data_commit_authorized": false,
+  "row_level_price_commit_authorized": false,
   "candidate_sources": [
     "BAOSTOCK"
   ],

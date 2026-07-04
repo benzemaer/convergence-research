@@ -4,7 +4,7 @@
   "title": "D2 Candidate Market Snapshot Probe Execution Plan",
   "type": "object",
   "additionalProperties": false,
-  "required": ["config_version", "plan_id", "task_id", "depends_on", "execution_mode", "formal_ingestion_authorized", "official_dataset_materialization_authorized", "duckdb_write_authorized", "raw_data_commit_authorized", "candidate_sources", "hithink_execution_authorized", "sample_security_ids", "sample_date_start", "sample_date_end", "max_security_count", "max_trading_day_count", "adjustment_modes_requested", "baostock_adjustment_flag_mapping", "required_probe_checks", "raw_output_root", "committed_report_path", "redaction_policy", "history_revision_class_default", "research_use_tier_default", "formal_use_policy"],
+  "required": ["config_version", "plan_id", "task_id", "depends_on", "execution_mode", "default_mode", "formal_ingestion_authorized", "official_dataset_materialization_authorized", "duckdb_write_authorized", "raw_data_commit_authorized", "row_level_price_commit_authorized", "candidate_sources", "hithink_execution_authorized", "sample_security_ids", "sample_date_start", "sample_date_end", "max_security_count", "max_trading_day_count", "adjustment_modes_requested", "baostock_adjustment_flag_mapping", "required_probe_checks", "raw_output_root", "committed_report_path", "redaction_policy", "history_revision_class_default", "research_use_tier_default", "formal_use_policy"],
   "properties": {
     "$schema": {"type": "string"},
     "config_version": {"const": "1.0.0"},
@@ -18,10 +18,12 @@
       "contains": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_CONTRACT_V1"}
     },
     "execution_mode": {"const": "small_sample_probe"},
+    "default_mode": {"const": "dry_run"},
     "formal_ingestion_authorized": {"const": false},
     "official_dataset_materialization_authorized": {"const": false},
     "duckdb_write_authorized": {"const": false},
     "raw_data_commit_authorized": {"const": false},
+    "row_level_price_commit_authorized": {"const": false},
     "candidate_sources": {
       "type": "array",
       "minItems": 1,

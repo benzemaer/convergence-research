@@ -40,8 +40,10 @@ class D2CandidateMarketSnapshotProbeExecutionPlanTest(unittest.TestCase):
             "official_dataset_materialization_authorized",
             "duckdb_write_authorized",
             "raw_data_commit_authorized",
+            "row_level_price_commit_authorized",
         ]:
             self.assertFalse(self.plan[key])
+        self.assertEqual(self.plan["default_mode"], "dry_run")
 
     def test_schema_rejects_promoted_authorization_or_missing_baostock(self) -> None:
         changed = copy.deepcopy(self.plan)
@@ -51,6 +53,22 @@ class D2CandidateMarketSnapshotProbeExecutionPlanTest(unittest.TestCase):
 
         changed = copy.deepcopy(self.plan)
         changed["candidate_sources"] = []
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+    def test_schema_rejects_non_dry_run_default_or_row_level_commit(self) -> None:
+        changed = copy.deepcopy(self.plan)
+        del changed["default_mode"]
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.plan)
+        changed["default_mode"] = "execute"
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.plan)
+        changed["row_level_price_commit_authorized"] = True
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 

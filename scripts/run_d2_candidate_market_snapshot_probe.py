@@ -82,6 +82,78 @@ def source_snapshot_id(
     return f"{source_registry_id}:{security_id}:{adjustment_mode}:{digest}"
 
 
+def _required_close(row: dict[str, Any], mode: str, security_id: str) -> float:
+    close = row.get("close")
+    if close is None or str(close).strip() == "":
+        raise ProbeExecutionError(
+            f"BAOSTOCK {mode} row is missing close for {security_id}."
+        )
+    try:
+        return float(close)
+    except (TypeError, ValueError) as exc:
+        raise ProbeExecutionError(
+            f"BAOSTOCK {mode} row has non-numeric close for {security_id}: {close}"
+        ) from exc
+
+
+def normalize_baostock_rows(
+    mode: str, security_id: str, rows: Sequence[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    close_key_by_mode = {
+        "raw": "raw_close",
+        "qfq": "qfq_close",
+        "hfq": "hfq_close",
+    }
+    if mode not in close_key_by_mode:
+        raise ProbeExecutionError(f"Unsupported BAOSTOCK adjustment mode: {mode}")
+    close_key = close_key_by_mode[mode]
+    normalized = []
+    for row in rows:
+        trading_date = row.get("date")
+        if trading_date is None or str(trading_date).strip() == "":
+            raise ProbeExecutionError(
+                f"BAOSTOCK {mode} row is missing date for {security_id}."
+            )
+        normalized.append(
+            {
+                "security_id": security_id,
+                "trading_date": str(trading_date),
+                close_key: _required_close(row, mode, security_id),
+            }
+        )
+    return normalized
+
+
+def attach_implied_factors(
+    raw_rows: Sequence[dict[str, Any]],
+    qfq_rows: Sequence[dict[str, Any]],
+    hfq_rows: Sequence[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
+    raw_by_key = _rows_by_key(raw_rows)
+    adjusted_specs = [
+        (qfq_rows, "qfq_close", "implied_qfq_factor"),
+        (hfq_rows, "hfq_close", "implied_hfq_factor"),
+    ]
+    normalized_adjusted: list[list[dict[str, Any]]] = []
+    for adjusted_rows, close_key, factor_key in adjusted_specs:
+        with_factors = []
+        for row in adjusted_rows:
+            key = (str(row.get("security_id")), str(row.get("trading_date")))
+            raw_row = raw_by_key.get(key)
+            adjusted_row = dict(row)
+            if raw_row is not None:
+                raw_close = float(raw_row["raw_close"])
+                if raw_close > 0:
+                    adjusted_row[factor_key] = float(row[close_key]) / raw_close
+            with_factors.append(adjusted_row)
+        normalized_adjusted.append(with_factors)
+    return {
+        "raw": list(raw_rows),
+        "qfq": normalized_adjusted[0],
+        "hfq": normalized_adjusted[1],
+    }
+
+
 def build_environment_blocked_report(
     plan: dict[str, Any], source_registry_id: str = "BAOSTOCK"
 ) -> dict[str, Any]:
@@ -168,18 +240,32 @@ def _factor_check(
     raw_by_key = _rows_by_key(raw_rows)
     checked_count = 0
     mismatch_count = 0
-    for key, adjusted_row in _rows_by_key(adjusted_rows).items():
+    adjusted_by_key = _rows_by_key(adjusted_rows)
+    if not adjusted_rows:
+        return {"status": "fail", "checked_count": 0, "mismatch_count": 0}
+    if not adjusted_by_key:
+        return {
+            "status": "fail",
+            "checked_count": 0,
+            "mismatch_count": len(adjusted_rows),
+        }
+    for key, adjusted_row in adjusted_by_key.items():
         raw_row = raw_by_key.get(key)
         if raw_row is None:
+            mismatch_count += 1
             continue
         raw_close = float(raw_row["raw_close"])
         adjusted_close = float(adjusted_row[adjusted_close_key])
-        implied_factor = float(adjusted_row[implied_factor_key])
         checked_count += 1
-        if raw_close <= 0 or abs(adjusted_close / raw_close - implied_factor) > 1e-10:
+        if raw_close <= 0 or implied_factor_key not in adjusted_row:
             mismatch_count += 1
+            continue
+        implied_factor = float(adjusted_row[implied_factor_key])
+        if abs(adjusted_close / raw_close - implied_factor) > 1e-10:
+            mismatch_count += 1
+    status = "pass" if checked_count > 0 and mismatch_count == 0 else "fail"
     return {
-        "status": "fail" if mismatch_count else "pass",
+        "status": status,
         "checked_count": checked_count,
         "mismatch_count": mismatch_count,
     }
@@ -252,6 +338,11 @@ def execute_baostock_probe(plan: dict[str, Any]) -> dict[str, Any]:
     run_id = "d2_t06_candidate_probe_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     output_root = ROOT / plan["raw_output_root"] / run_id
     rows_by_mode: dict[str, list[dict[str, Any]]] = {"raw": [], "qfq": [], "hfq": []}
+    normalized_by_mode: dict[str, list[dict[str, Any]]] = {
+        "raw": [],
+        "qfq": [],
+        "hfq": [],
+    }
     login = bs.login()
     if login.error_code != "0":
         raise ProbeExecutionError(f"BAOSTOCK login failed: {login.error_msg}")
@@ -273,6 +364,9 @@ def execute_baostock_probe(plan: dict[str, Any]) -> dict[str, Any]:
                     values = result.get_row_data()
                     mode_rows.append(dict(zip(result.fields, values, strict=True)))
                 rows_by_mode[mode].extend(mode_rows)
+                normalized_by_mode[mode].extend(
+                    normalize_baostock_rows(mode, security_id, mode_rows)
+                )
                 _write_raw_snapshot(
                     mode_rows,
                     output_root / mode / f"{security_id}.csv",
@@ -281,8 +375,13 @@ def execute_baostock_probe(plan: dict[str, Any]) -> dict[str, Any]:
     finally:
         bs.logout()
     retrieved_at = datetime.now(UTC).isoformat()
+    check_rows = attach_implied_factors(
+        normalized_by_mode["raw"],
+        normalized_by_mode["qfq"],
+        normalized_by_mode["hfq"],
+    )
     return build_redacted_report_from_synthetic_responses(
-        plan, "BAOSTOCK", rows_by_mode, [retrieved_at]
+        plan, "BAOSTOCK", check_rows, [retrieved_at]
     )
 
 
