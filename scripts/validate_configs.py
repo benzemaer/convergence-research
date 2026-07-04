@@ -93,6 +93,10 @@ CONFIGS = (
         ROOT / "schemas/d3_daily_market_observations_contract.schema.json",
         ROOT / "configs/d3/daily_market_observations_contract.v1.json",
     ),
+    (
+        ROOT / "schemas/d3_daily_market_observation_values_contract.schema.json",
+        ROOT / "configs/d3/daily_market_observation_values_contract.v1.json",
+    ),
 )
 
 

@@ -1,0 +1,278 @@
+{
+  "$schema": "../../schemas/d3_daily_market_observation_values_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1",
+  "task_id": "D3-T02",
+  "contract_status": "accepted",
+  "contract_scope": "contract_only_standardized_value_view_table_for_r0_input",
+  "target_object": "d3.daily_market_observation_values",
+  "object_kind": "view_or_materialized_table_contract",
+  "canonical_ref_table": "d3.daily_market_observations",
+  "canonical_ref_contract": "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1",
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "ddl_authorized": false,
+  "real_data_materialization_authorized": false,
+  "data_version_release_authorized": false,
+  "pcvt_indicator_calculation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "grain": {
+    "description": "one row per data_version, universe_id, security_id, trading_date, observation_revision",
+    "fields": [
+      "data_version",
+      "universe_id",
+      "security_id",
+      "trading_date",
+      "observation_revision"
+    ]
+  },
+  "primary_key": [
+    "data_version",
+    "universe_id",
+    "security_id",
+    "trading_date",
+    "observation_revision"
+  ],
+  "required_identity_lineage_fields": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "observation_revision",
+    "canonical_observation_ref",
+    "observed_at",
+    "observed_at_rule",
+    "revision_policy",
+    "history_revision_class",
+    "research_use_tier",
+    "source_registry_id",
+    "source_snapshot_id",
+    "run_id"
+  ],
+  "value_field_groups": {
+    "raw_trading_value_fields": [
+      "raw_open",
+      "raw_high",
+      "raw_low",
+      "raw_close",
+      "volume",
+      "amount",
+      "daily_vwap"
+    ],
+    "continuous_research_price_fields": [
+      "adj_open",
+      "adj_high",
+      "adj_low",
+      "adj_close",
+      "adjustment_factor",
+      "adjustment_method",
+      "factor_as_of_time",
+      "corporate_action_flag",
+      "adjustment_revision"
+    ],
+    "participation_value_fields": [
+      "volume",
+      "amount",
+      "amount_unit",
+      "volume_unit",
+      "amount_volume_unit_status"
+    ],
+    "trading_constraint_value_fields": [
+      "trading_status",
+      "price_limit_status",
+      "tradable_flag",
+      "is_suspended",
+      "is_st",
+      "limit_up_price",
+      "limit_down_price",
+      "trading_constraint_status"
+    ],
+    "quality_summary_fields": [
+      "raw_ohlcv_integrity_status",
+      "continuous_ohlc_integrity_status",
+      "raw_vs_continuous_reconciliation_status",
+      "amount_volume_unit_status",
+      "daily_vwap_range_status",
+      "mechanical_gap_attribution",
+      "quality_severity_max",
+      "quality_blocking_flag"
+    ],
+    "pcvt_input_readiness_fields": [
+      "pcvt_input_readiness_status",
+      "p_layer_input_ready",
+      "c_layer_input_ready",
+      "t_layer_input_ready",
+      "v_layer_input_ready",
+      "pcvt_blocking_reasons"
+    ],
+    "lineage_ref_fields": [
+      "canonical_observation_ref",
+      "raw_price_ref",
+      "adjusted_price_ref",
+      "trading_constraint_ref",
+      "market_price_quality_ref",
+      "mechanical_gap_ref",
+      "pcvt_input_readiness_ref",
+      "membership_ref",
+      "calendar_ref",
+      "source_snapshot_ref",
+      "run_ref"
+    ]
+  },
+  "derived_candidate_fields": {
+    "daily_vwap": {
+      "formula": "amount_yuan / volume_shares",
+      "calculated_by_this_pr": false,
+      "formal_readiness_requires": [
+        "amount_volume_unit_status_valid",
+        "daily_vwap_range_status_valid"
+      ]
+    }
+  },
+  "continuous_price_formal_use_policy": {
+    "depends_on_d2_adjusted_price_layer": true,
+    "missing_factor_as_of_time_blocks_formal_use": true,
+    "unverified_revision_semantics_block_formal_use": true
+  },
+  "unknown_policy": {
+    "unknown_trading_status_not_normal": true,
+    "unknown_price_limit_status_not_none": true,
+    "unknown_boolean_flags_not_false": true
+  },
+  "pcvt_readiness_semantics": {
+    "readiness_fields_are_pcvt_inputs_only": true,
+    "not_pcvt_values": true,
+    "not_pcvt_score": true,
+    "not_state_machine_result": true
+  },
+  "pcvt_dependency_mapping": {
+    "source_contract": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "candidate_dependencies": [
+      {
+        "indicator_id": "P1_NATR14",
+        "required_inputs": [
+          "adj_high",
+          "adj_low",
+          "adj_close",
+          "previous_adj_close",
+          "valid_trading_window"
+        ]
+      },
+      {
+        "indicator_id": "P2_LogRange20",
+        "required_inputs": [
+          "adj_high",
+          "adj_low",
+          "valid_trading_window"
+        ]
+      },
+      {
+        "indicator_id": "C1_LogMASpread_5_60",
+        "required_inputs": [
+          "adj_close",
+          "valid_trading_window"
+        ]
+      },
+      {
+        "indicator_id": "C2_AdjVWAPSpread_5_60",
+        "required_inputs": [
+          "amount",
+          "volume",
+          "raw_low",
+          "raw_high",
+          "adj_close",
+          "adjusted_vwap_policy",
+          "unit_checks"
+        ]
+      },
+      {
+        "indicator_id": "T1_ER20",
+        "required_inputs": [
+          "adj_close",
+          "valid_trading_window"
+        ]
+      },
+      {
+        "indicator_id": "T2_AbsTrendT20",
+        "required_inputs": [
+          "adj_close",
+          "valid_trading_window",
+          "SE_0_rule"
+        ]
+      },
+      {
+        "indicator_id": "V1_VolShrink20_60",
+        "required_inputs": [
+          "volume",
+          "volume_unit",
+          "corporate_action_volume_comparability_policy"
+        ]
+      },
+      {
+        "indicator_id": "V2_AmountLevel20Pct",
+        "required_inputs": [
+          "amount",
+          "amount_unit",
+          "strict_past_percentile_history"
+        ]
+      }
+    ],
+    "pcvt_values_calculated_by_this_pr": false,
+    "q_or_threshold_defined_by_this_pr": false,
+    "state_machine_defined_by_this_pr": false
+  },
+  "r0_source_policy": {
+    "future_policy_only_r0_currently_blocked": true,
+    "allowed_sources": [
+      "d3.daily_market_observations",
+      "d3.daily_market_observation_values"
+    ],
+    "prohibited_direct_sources": [
+      "d1.raw_market_prices",
+      "d2.adjusted_market_prices",
+      "d2.market_price_quality_flags",
+      "d2.membership_alignment",
+      "D1/D2 raw component tables directly"
+    ],
+    "d1_d2_direct_read_prohibited": true
+  },
+  "future_or_blocked_fields": {
+    "turnover": "blocked_pending_source_contract",
+    "float_shares": "blocked_pending_source_contract"
+  },
+  "prohibited_fields": [
+    "pcvt_value",
+    "pcvt_score",
+    "pcvt_state",
+    "state",
+    "q_threshold",
+    "state_machine_version",
+    "future_return",
+    "future_max_return",
+    "label",
+    "breakout_direction",
+    "outcome",
+    "target",
+    "holding_period_return",
+    "backtest_signal",
+    "portfolio_return",
+    "position",
+    "trade",
+    "order",
+    "execution_price",
+    "vendor_payload",
+    "raw_vendor_payload",
+    "raw_rows",
+    "qfq_rows",
+    "hfq_rows"
+  ],
+  "depends_on": [
+    "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "sql/duckdb/schema.sql"
+  ]
+}

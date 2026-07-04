@@ -137,10 +137,14 @@ class D3DailyMarketObservationsContractTest(unittest.TestCase):
         self.assertTrue(policy["r0_must_not_read_d1_d2_directly"])
         self.assertIn("d3.daily_market_observations", policy["allowed_r0_entry_tables"])
 
-    def test_readme_advances_to_d3_t01_and_d3_t02_next(self) -> None:
+    def test_readme_advances_to_d3_t02_and_keeps_d3_t01_completed(self) -> None:
         self.assertIn("current_stage: D3", self.readme)
-        self.assertIn("current_task: D3-T01", self.readme)
-        self.assertIn("next_planned_task: D3-T02", self.readme)
+        self.assertIn("current_task: D3-T02", self.readme)
+        self.assertIn("next_planned_task: D3-T03", self.readme)
+        self.assertIn(
+            "D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35",
+            self.readme,
+        )
         self.assertIn(
             "D3-T07` 标准日频观测表正式生成与 candidate data_version 发布",
             self.readme,
