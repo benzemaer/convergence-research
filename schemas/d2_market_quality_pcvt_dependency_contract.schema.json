@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_market_quality_pcvt_dependency_contract.schema.json",
+  "title": "D2 Market Quality PCVT Dependency Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "contract_id", "task_id", "contract_status", "depends_on", "contract_scope", "formal_ingestion_authorized", "duckdb_write_authorized", "real_data_materialization_authorized", "d3_generation_authorized", "r0_indicator_calculation_authorized", "synthetic_test_only", "target_future_tables", "source_boundary", "required_input_layers", "required_quality_domains", "required_flag_groups", "pcvt_dependency_matrix", "unknown_policy", "trading_constraint_policy", "mechanical_gap_policy", "amount_volume_policy", "vwap_policy", "continuous_price_policy", "d3_handoff_requirements", "prohibited_fields"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"},
+    "task_id": {"const": "D2-T07"},
+    "contract_status": {"const": "accepted"},
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D2_RAW_MARKET_PRICES_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1"}},
+        {"contains": {"const": "D2_ADJUSTMENT_FACTOR_ASOF_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1"}},
+        {"contains": {"const": "D2_CONTINUOUS_PRICE_CONSTRUCTION_CONTRACT_V1"}},
+        {"contains": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_CONTRACT_V1"}},
+        {"contains": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_REPORT_V1"}},
+        {"contains": {"const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"}}
+      ]
+    },
+    "contract_scope": {"type": "string", "minLength": 1},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "d3_generation_authorized": {"const": false},
+    "r0_indicator_calculation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "target_future_tables": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "d2.market_price_quality_flags"}},
+        {"contains": {"const": "d2.trading_constraint_flags"}},
+        {"contains": {"const": "d2.mechanical_gap_attribution"}},
+        {"contains": {"const": "d2.pcvt_input_readiness"}},
+        {"contains": {"const": "d3.daily_market_observations"}}
+      ]
+    },
+    "source_boundary": {"type": "object"},
+    "required_input_layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_price_layer", "continuous_price_layer", "membership_layer", "corporate_action_mechanical_gap_evidence_layer"],
+      "properties": {
+        "raw_price_layer": {"$ref": "#/$defs/string_array"},
+        "continuous_price_layer": {"$ref": "#/$defs/string_array"},
+        "membership_layer": {"const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"},
+        "corporate_action_mechanical_gap_evidence_layer": {"$ref": "#/$defs/string_array"}
+      }
+    },
+    "required_quality_domains": {"$ref": "#/$defs/string_array"},
+    "required_flag_groups": {"$ref": "#/$defs/string_array"},
+    "pcvt_dependency_matrix": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/pcvt_indicator"},
+      "allOf": [
+        {"contains": {"properties": {"indicator_id": {"const": "P1_NATR14"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "P2_LogRange20"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "C1_LogMASpread_5_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "C2_AdjVWAPSpread_5_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "T1_ER20"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "T2_AbsTrendT20"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "V1_VolShrink20_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "V2_AmountLevel20Pct"}}, "required": ["indicator_id"]}}
+      ]
+    },
+    "unknown_policy": {"type": "object"},
+    "trading_constraint_policy": {"type": "object"},
+    "mechanical_gap_policy": {"type": "object"},
+    "amount_volume_policy": {"type": "object"},
+    "vwap_policy": {"type": "object"},
+    "continuous_price_policy": {"type": "object"},
+    "d3_handoff_requirements": {
+      "type": "object",
+      "required": ["d3_generation_authorized_by_this_pr"],
+      "properties": {"d3_generation_authorized_by_this_pr": {"const": false}}
+    },
+    "prohibited_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string"},
+      "allOf": [
+        {"contains": {"const": "future_return"}},
+        {"contains": {"const": "label"}},
+        {"contains": {"const": "breakout_direction"}},
+        {"contains": {"const": "target"}},
+        {"contains": {"const": "outcome"}}
+      ]
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "pcvt_indicator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indicator_id", "pcvt_layer", "r0_status", "minimum_window_valid_trading_days", "required_price_basis", "required_fields", "required_quality_domains", "required_trading_constraint_handling", "required_corporate_action_handling", "unknown_conditions", "exploration_readiness", "formal_readiness", "d3_required_fields"],
+      "properties": {
+        "indicator_id": {"enum": ["P1_NATR14", "P2_LogRange20", "C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60", "T1_ER20", "T2_AbsTrendT20", "V1_VolShrink20_60", "V2_AmountLevel20Pct"]},
+        "pcvt_layer": {"enum": ["P", "C", "T", "V"]},
+        "r0_status": {"const": "pcvt_candidate_not_r0_finalized"},
+        "minimum_window_valid_trading_days": {"type": "integer", "minimum": 1},
+        "required_price_basis": {"type": "string", "minLength": 1},
+        "required_fields": {"$ref": "#/$defs/string_array"},
+        "required_quality_domains": {"$ref": "#/$defs/string_array"},
+        "required_trading_constraint_handling": {"type": "string", "minLength": 1},
+        "required_corporate_action_handling": {"type": "string", "minLength": 1},
+        "unknown_conditions": {"$ref": "#/$defs/string_array"},
+        "exploration_readiness": {"type": "string", "minLength": 1},
+        "formal_readiness": {"pattern": "^blocked_"},
+        "d3_required_fields": {"$ref": "#/$defs/string_array"}
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schemas/d2_market_quality_pcvt_dependency_blocking_report.schema.json",
+  "config_version": "1.0.0",
+  "report_id": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_BLOCKING_REPORT_V1",
+  "task_id": "D2-T07",
+  "contract_id": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+  "materialization_status": "contract_only_no_real_data",
+  "real_data_read": false,
+  "external_api_called": false,
+  "raw_data_committed": false,
+  "duckdb_written": false,
+  "formal_ingestion_authorized": false,
+  "d3_generated": false,
+  "r0_indicator_generated": false,
+  "pcvt_values_generated": false,
+  "returns_or_labels_generated": false,
+  "blocking_reasons": [
+    "formal_ingestion_not_authorized",
+    "real_d1_d2_price_layers_not_materialized",
+    "factor_as_of_time_coverage_not_verified",
+    "revision_timestamp_coverage_not_verified",
+    "amount_volume_unit_policy_not_formally_validated",
+    "mechanical_gap_evidence_not_materialized",
+    "d3_handoff_not_authorized",
+    "r0_thresholds_not_defined"
+  ],
+  "pcvt_dependency_readiness_summary": {
+    "price_based_indicators_exploration_ready_after_full_window_pull": true,
+    "amount_volume_indicators_partial_pending_unit_and_adjustment_policy": true,
+    "formal_pcvt_indicator_generation_authorized": false,
+    "r0_indicator_thresholds_defined": false,
+    "d3_handoff_required_before_r0": true
+  },
+  "recommended_next_task": "D2-T08_D2_acceptance_and_D3_handoff_contract"
+}
