@@ -114,7 +114,7 @@ D2-T06 候选探针执行前的任务队列仍为：
 - `D2-T04` 复权因子与 `factor_as_of_time` 契约：blocked pending factor source authorization via PR #28
 - `D2-T05` 连续研究价格构建与反推校验：blocked pending raw and factor authorization via PR #29
 - `D2-T06` 候选行情快照探针：small-sample redacted execution report via PR #32; formal ingestion still blocked
-- `D2-T07` 价格质量、交易约束、机械缺口与 PCVT 底层依赖契约：contract-only via PR TBD
+- `D2-T07` 价格质量、交易约束、机械缺口与 PCVT 底层依赖契约：contract-only via PR #33
 - `D2-T08` D2 阶段验收与 D3 交接：planned
 
 完成标准：

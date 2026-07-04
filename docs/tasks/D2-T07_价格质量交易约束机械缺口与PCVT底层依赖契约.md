@@ -2,7 +2,7 @@
 
 ## 状态
 
-contract-only; no real data materialization via PR TBD。
+contract-only; no real data materialization via PR #33。
 
 D2-T06 已完成 BAOSTOCK 候选源小样本探针并提交脱敏报告，但 formal ingestion still blocked。D2-T07 不做 D2-T06R，不新增 repeated snapshot / revision stability task，不调用外部 API，不读取真实 raw data，不写 DuckDB，不生成 D1/D2/D3 正式数据。
 
