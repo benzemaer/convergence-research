@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d3_component_lineage_no_bypass_contract.schema.json",
+  "title": "D3 Component Lineage No Bypass Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "canonical_ref_table",
+    "value_layer_object",
+    "canonical_ref_contract",
+    "value_layer_contract",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "ddl_authorized",
+    "real_data_materialization_authorized",
+    "data_version_release_authorized",
+    "pcvt_indicator_calculation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "component_refs",
+    "primary_key",
+    "lineage_inheritance_fields",
+    "observed_at_revision_policy",
+    "no_bypass_policy",
+    "validator_behavior",
+    "prohibited_fields",
+    "depends_on"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1"},
+    "task_id": {"const": "D3-T03"},
+    "contract_status": {"const": "accepted"},
+    "contract_scope": {"const": "contract_only_component_ref_lineage_and_no_bypass_validation"},
+    "canonical_ref_table": {"const": "d3.daily_market_observations"},
+    "value_layer_object": {"const": "d3.daily_market_observation_values"},
+    "canonical_ref_contract": {"const": "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1"},
+    "value_layer_contract": {"const": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "ddl_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "data_version_release_authorized": {"const": false},
+    "pcvt_indicator_calculation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "component_refs": {"$ref": "#/$defs/component_refs"},
+    "primary_key": {"$ref": "#/$defs/primary_key_fields"},
+    "lineage_inheritance_fields": {"$ref": "#/$defs/lineage_fields"},
+    "observed_at_revision_policy": {
+      "type": "object",
+      "required": [
+        "observed_at_required",
+        "observed_at_rule_required",
+        "revision_policy_required",
+        "history_revision_class_required",
+        "research_use_tier_required",
+        "final_revised_history_cannot_claim_point_in_time_support",
+        "unknown_observed_at_blocks_formal_use",
+        "missing_factor_as_of_time_blocks_formal_continuous_price_use",
+        "unverified_revision_semantics_blocks_formal_use"
+      ],
+      "properties": {
+        "observed_at_required": {"const": true},
+        "observed_at_rule_required": {"const": true},
+        "revision_policy_required": {"const": true},
+        "history_revision_class_required": {"const": true},
+        "research_use_tier_required": {"const": true},
+        "final_revised_history_cannot_claim_point_in_time_support": {"const": true},
+        "unknown_observed_at_blocks_formal_use": {"const": true},
+        "missing_factor_as_of_time_blocks_formal_continuous_price_use": {"const": true},
+        "unverified_revision_semantics_blocks_formal_use": {"const": true}
+      }
+    },
+    "no_bypass_policy": {
+      "type": "object",
+      "required": [
+        "future_policy_only_r0_currently_blocked",
+        "allowed_r0_sources",
+        "prohibited_r0_sources",
+        "d1_d2_direct_read_prohibited"
+      ],
+      "properties": {
+        "future_policy_only_r0_currently_blocked": {"const": true},
+        "allowed_r0_sources": {
+          "allOf": [
+            {"$ref": "#/$defs/string_array"},
+            {"contains": {"const": "d3.daily_market_observations"}},
+            {"contains": {"const": "d3.daily_market_observation_values"}}
+          ]
+        },
+        "prohibited_r0_sources": {
+          "allOf": [
+            {"$ref": "#/$defs/string_array"},
+            {"contains": {"const": "d1.raw_market_prices"}},
+            {"contains": {"const": "d1.corporate_actions"}},
+            {"contains": {"const": "d1.trading_constraints"}},
+            {"contains": {"const": "d2.adjusted_market_prices"}},
+            {"contains": {"const": "d2.market_price_quality_flags"}},
+            {"contains": {"const": "d2.membership_alignment"}},
+            {"contains": {"const": "D1/D2 raw component tables directly"}},
+            {"contains": {"const": "vendor payloads"}},
+            {"contains": {"const": "raw/qfq/hfq row payloads"}}
+          ]
+        },
+        "d1_d2_direct_read_prohibited": {"const": true}
+      }
+    },
+    "validator_behavior": {
+      "type": "object",
+      "required": [
+        "accept_synthetic_payload_only",
+        "real_data_read_authorized",
+        "duckdb_connection_authorized",
+        "external_api_call_authorized",
+        "manifest_creation_authorized"
+      ],
+      "properties": {
+        "accept_synthetic_payload_only": {"const": true},
+        "real_data_read_authorized": {"const": false},
+        "duckdb_connection_authorized": {"const": false},
+        "external_api_call_authorized": {"const": false},
+        "manifest_creation_authorized": {"const": false}
+      }
+    },
+    "prohibited_fields": {"$ref": "#/$defs/prohibited_fields"},
+    "depends_on": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1"}},
+        {"contains": {"const": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"}},
+        {"contains": {"const": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1"}},
+        {"contains": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}}
+      ]
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "component_refs": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "raw_price_ref"}},
+        {"contains": {"const": "adjusted_price_ref"}},
+        {"contains": {"const": "trading_constraint_ref"}},
+        {"contains": {"const": "market_price_quality_ref"}},
+        {"contains": {"const": "mechanical_gap_ref"}},
+        {"contains": {"const": "pcvt_input_readiness_ref"}},
+        {"contains": {"const": "membership_ref"}},
+        {"contains": {"const": "calendar_ref"}},
+        {"contains": {"const": "source_snapshot_ref"}},
+        {"contains": {"const": "run_ref"}}
+      ]
+    },
+    "primary_key_fields": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "allOf": [
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "observation_revision"}}
+      ]
+    },
+    "lineage_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "time_segment_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "observation_revision"}},
+        {"contains": {"const": "canonical_observation_ref"}},
+        {"contains": {"const": "observed_at"}},
+        {"contains": {"const": "observed_at_rule"}},
+        {"contains": {"const": "revision_policy"}},
+        {"contains": {"const": "history_revision_class"}},
+        {"contains": {"const": "research_use_tier"}},
+        {"contains": {"const": "source_registry_id"}},
+        {"contains": {"const": "source_snapshot_id"}},
+        {"contains": {"const": "run_id"}},
+        {"contains": {"const": "source_snapshot_ref"}},
+        {"contains": {"const": "run_ref"}}
+      ]
+    },
+    "prohibited_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "raw_rows"}},
+        {"contains": {"const": "qfq_rows"}},
+        {"contains": {"const": "hfq_rows"}},
+        {"contains": {"const": "vendor_payload"}},
+        {"contains": {"const": "raw_vendor_payload"}},
+        {"contains": {"const": "future_return"}},
+        {"contains": {"const": "future_max_return"}},
+        {"contains": {"const": "label"}},
+        {"contains": {"const": "breakout_direction"}},
+        {"contains": {"const": "outcome"}},
+        {"contains": {"const": "target"}},
+        {"contains": {"const": "holding_period_return"}},
+        {"contains": {"const": "backtest_signal"}},
+        {"contains": {"const": "portfolio_return"}},
+        {"contains": {"const": "position"}},
+        {"contains": {"const": "trade"}},
+        {"contains": {"const": "order"}},
+        {"contains": {"const": "execution_price"}},
+        {"contains": {"const": "pcvt_value"}},
+        {"contains": {"const": "pcvt_score"}},
+        {"contains": {"const": "pcvt_state"}},
+        {"contains": {"const": "state"}},
+        {"contains": {"const": "q_threshold"}},
+        {"contains": {"const": "state_machine_version"}}
+      ]
+    }
+  }
+}
