@@ -152,14 +152,19 @@ class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
 
     def test_readme_advances_to_d3_t03_and_preserves_later_blocks(self) -> None:
         self.assertIn("current_stage: D3", self.readme)
-        self.assertIn("current_task: D3-T03", self.readme)
-        self.assertIn("next_planned_task: D3-T04", self.readme)
+        self.assertIn("current_task: D3-T04", self.readme)
+        self.assertIn("next_planned_task: D3-T05", self.readme)
         self.assertIn(
             "D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35",
             self.readme,
         )
         self.assertIn(
             "D3-T02` D3 标准数值观测 view/table 契约：completed via PR #36",
+            self.readme,
+        )
+        self.assertIn(
+            "D3-T03` 组件引用、source lineage 与 no-bypass 校验器："
+            "completed via PR #37",
             self.readme,
         )
         self.assertIn(

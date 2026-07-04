@@ -1,0 +1,285 @@
+{
+  "$schema": "../../schemas/d3_quality_readiness_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D3_QUALITY_READINESS_CONTRACT_V1",
+  "task_id": "D3-T04",
+  "contract_status": "accepted",
+  "contract_scope": "contract_only_quality_metrics_and_pcvt_input_readiness",
+  "canonical_ref_table": "d3.daily_market_observations",
+  "value_layer_object": "d3.daily_market_observation_values",
+  "component_lineage_contract": "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1",
+  "pcvt_dependency_source_contract": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "ddl_authorized": false,
+  "real_data_materialization_authorized": false,
+  "data_version_release_authorized": false,
+  "pcvt_indicator_calculation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "quality_domains": [
+    "raw_ohlcv_integrity",
+    "continuous_ohlc_integrity",
+    "raw_vs_continuous_reconciliation",
+    "amount_volume_unit_validation",
+    "daily_vwap_range_validation",
+    "trading_constraint_diagnostics",
+    "mechanical_gap_attribution",
+    "window_validity",
+    "pcvt_input_readiness"
+  ],
+  "quality_summary_fields": [
+    "raw_ohlcv_integrity_status",
+    "continuous_ohlc_integrity_status",
+    "raw_vs_continuous_reconciliation_status",
+    "amount_volume_unit_status",
+    "daily_vwap_range_status",
+    "trading_constraint_status",
+    "mechanical_gap_attribution",
+    "window_validity_status",
+    "quality_severity_max",
+    "quality_blocking_flag",
+    "quality_blocking_reasons"
+  ],
+  "status_vocabulary": [
+    "pass",
+    "warn",
+    "fail",
+    "unknown",
+    "not_applicable",
+    "diagnostic_required",
+    "blocked"
+  ],
+  "severity_vocabulary": ["none", "info", "warn", "error", "blocking"],
+  "raw_ohlcv_quality_rules": [
+    "raw_open/raw_high/raw_low/raw_close must be positive when trading_status indicates trading",
+    "raw_high >= max(raw_open, raw_close, raw_low)",
+    "raw_low <= min(raw_open, raw_close, raw_high)",
+    "volume >= 0",
+    "amount >= 0",
+    "trading_status must not be silently converted from unknown to normal",
+    "price_limit_status must not be silently converted from unknown to none",
+    "suspended rows are not valid indicator-window observations",
+    "zero_volume rows are not ordinary low-participation observations"
+  ],
+  "continuous_price_quality_rules": [
+    "adj_open/adj_high/adj_low/adj_close must be positive when formal continuous price is used",
+    "adj_high >= max(adj_open, adj_close, adj_low)",
+    "adj_low <= min(adj_open, adj_close, adj_high)",
+    "adjustment_factor must be positive",
+    "factor_as_of_time must be present for formal use",
+    "adjustment_revision must be present",
+    "unverified revision semantics blocks formal use",
+    "qfq/hfq vendor rows must not substitute raw trading facts",
+    "implied factors must not be treated as vendor official factors"
+  ],
+  "raw_vs_continuous_reconciliation_rules": {
+    "price_reconciliation_abs_tolerance": 0.000001,
+    "price_reconciliation_rel_tolerance": 0.000001,
+    "rules": [
+      "identity_no_adjustment requires adjustment_factor == 1 and adj_* == raw_*",
+      "multiplicative_adjustment requires adj_* == raw_* * adjustment_factor within declared tolerance",
+      "reverse_check requires adj_* / adjustment_factor reconstructs raw_* within declared tolerance",
+      "corporate_action_flag or mechanical_gap_attribution must explain material discontinuities when applicable",
+      "unknown corporate action evidence makes mechanical_gap_attribution unknown or diagnostic_required"
+    ]
+  },
+  "amount_volume_daily_vwap_readiness": {
+    "amount_unit_allowed_values": ["yuan", "thousand_yuan", "ten_thousand_yuan", "unknown"],
+    "volume_unit_allowed_values": ["share", "lot", "unknown"],
+    "rules": [
+      "unknown amount_unit or volume_unit blocks full readiness",
+      "daily_vwap = amount_yuan / volume_shares",
+      "daily_vwap must be within raw_low/raw_high after unit normalization",
+      "daily_vwap_range_status fail or unknown blocks C2 full readiness",
+      "amount_volume_unit_status fail or unknown blocks C2/V1/V2 full readiness"
+    ],
+    "daily_vwap_calculated_by_this_pr": false
+  },
+  "trading_constraint_vocabulary": [
+    "normal_trading",
+    "suspended",
+    "zero_volume",
+    "limit_up",
+    "limit_down",
+    "one_price_limit_up",
+    "one_price_limit_down",
+    "reopen_after_suspension",
+    "unknown"
+  ],
+  "mechanical_gap_vocabulary": [
+    "none",
+    "market_gap",
+    "corporate_action_mechanical_gap",
+    "suspension_reopen_gap",
+    "limit_constraint_gap",
+    "code_mapping_gap",
+    "unknown",
+    "diagnostic_required"
+  ],
+  "trading_constraint_and_gap_policy": [
+    "unknown trading_status must not become normal_trading",
+    "unknown price_limit_status must not become none",
+    "unknown mechanical_gap_attribution must not become none",
+    "corporate_action_mechanical_gap must not be interpreted as ordinary market_gap",
+    "suspension_reopen_gap is diagnostic, not ordinary release evidence",
+    "limit_constraint_gap is diagnostic, not ordinary release evidence"
+  ],
+  "window_validity_policy": {
+    "fields": [
+      "valid_observation_for_price_window",
+      "valid_observation_for_participation_window",
+      "valid_observation_for_trend_window",
+      "valid_observation_for_vwap_window",
+      "window_blocking_reasons"
+    ],
+    "rules": [
+      "suspended rows are invalid for all indicator windows",
+      "zero_volume rows are invalid or diagnostic for participation windows, not low participation",
+      "nonpositive price makes log indicators unknown",
+      "missing previous close blocks NATR / gap-related readiness",
+      "window_not_full blocks ready status",
+      "unknown trading constraint downgrades readiness to diagnostic_required or blocked"
+    ]
+  },
+  "pcvt_readiness_policy": {
+    "readiness_status_vocabulary": [
+      "ready",
+      "partial",
+      "blocked",
+      "unknown",
+      "diagnostic_required",
+      "not_applicable"
+    ],
+    "readiness_fields_are_not_pcvt_values": true,
+    "readiness_fields_are_not_pcvt_scores": true,
+    "readiness_fields_are_not_state_labels": true,
+    "d3_t04_does_not_define_q": true,
+    "d3_t04_does_not_define_thresholds": true,
+    "d3_t04_does_not_define_state_machine": true
+  },
+  "pcvt_input_readiness_matrix": [
+    {
+      "indicator_id": "P1_NATR14",
+      "pcvt_layer": "P",
+      "required_value_fields": ["adj_high", "adj_low", "adj_close", "previous_adj_close"],
+      "required_quality_domains": ["continuous_ohlc_integrity", "window_validity"],
+      "minimum_window_valid_trading_days": 15,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["missing previous adj_close", "window_not_full", "nonpositive adjusted price"],
+      "formal_readiness": "requires adj_high, adj_low, adj_close, previous adj_close, valid 15 trading-day window",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "P2_LogRange20",
+      "pcvt_layer": "P",
+      "required_value_fields": ["adj_high", "adj_low"],
+      "required_quality_domains": ["continuous_ohlc_integrity", "window_validity"],
+      "minimum_window_valid_trading_days": 20,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["window_not_full", "nonpositive adjusted price"],
+      "formal_readiness": "requires adj_high, adj_low, valid 20 trading-day window",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "C1_LogMASpread_5_60",
+      "pcvt_layer": "C",
+      "required_value_fields": ["adj_close"],
+      "required_quality_domains": ["continuous_ohlc_integrity", "window_validity"],
+      "minimum_window_valid_trading_days": 60,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["window_not_full", "nonpositive adjusted close"],
+      "formal_readiness": "requires adj_close, valid 60 trading-day window",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "C2_AdjVWAPSpread_5_60",
+      "pcvt_layer": "C",
+      "required_value_fields": ["amount", "volume", "raw_low", "raw_high", "adj_close"],
+      "required_quality_domains": ["amount_volume_unit_validation", "daily_vwap_range_validation", "raw_ohlcv_integrity", "continuous_ohlc_integrity"],
+      "minimum_window_valid_trading_days": 60,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["unit validation fail or unknown", "daily_vwap range fail or unknown", "missing adjusted VWAP policy"],
+      "formal_readiness": "requires amount, volume, raw_low, raw_high, adj_close, unit validation and adjusted VWAP policy",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "T1_ER20",
+      "pcvt_layer": "T",
+      "required_value_fields": ["adj_close"],
+      "required_quality_domains": ["continuous_ohlc_integrity", "window_validity"],
+      "minimum_window_valid_trading_days": 21,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["window_not_full", "nonpositive adjusted close"],
+      "formal_readiness": "requires adj_close, valid 21 trading-day window",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "T2_AbsTrendT20",
+      "pcvt_layer": "T",
+      "required_value_fields": ["adj_close"],
+      "required_quality_domains": ["continuous_ohlc_integrity", "window_validity"],
+      "minimum_window_valid_trading_days": 20,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["window_not_full", "nonpositive adjusted close", "SE=0 rule missing"],
+      "formal_readiness": "requires adj_close, valid 20 trading-day window and SE=0 rule",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "V1_VolShrink20_60",
+      "pcvt_layer": "V",
+      "required_value_fields": ["volume"],
+      "required_quality_domains": ["amount_volume_unit_validation", "window_validity"],
+      "minimum_window_valid_trading_days": 80,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["volume unit fail or unknown", "window_not_full", "corporate-action volume comparability policy missing"],
+      "formal_readiness": "requires volume, valid 80 trading-day window, volume unit and corporate-action volume comparability policy",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    },
+    {
+      "indicator_id": "V2_AmountLevel20Pct",
+      "pcvt_layer": "V",
+      "required_value_fields": ["amount"],
+      "required_quality_domains": ["amount_volume_unit_validation", "window_validity"],
+      "minimum_window_valid_trading_days": 20,
+      "readiness_status_vocabulary": ["ready", "partial", "blocked", "unknown", "diagnostic_required", "not_applicable"],
+      "blocking_conditions": ["amount unit fail or unknown", "strict-past history missing"],
+      "formal_readiness": "requires amount, valid strict-past history, amount unit validation",
+      "exploration_readiness": "partial allowed only with explicit blocking reasons"
+    }
+  ],
+  "prohibited_fields": [
+    "pcvt_value",
+    "pcvt_score",
+    "pcvt_state",
+    "state",
+    "q_threshold",
+    "state_machine_version",
+    "future_return",
+    "future_max_return",
+    "label",
+    "breakout_direction",
+    "outcome",
+    "target",
+    "holding_period_return",
+    "backtest_signal",
+    "portfolio_return",
+    "position",
+    "trade",
+    "order",
+    "execution_price",
+    "vendor_payload",
+    "raw_vendor_payload",
+    "raw_rows",
+    "qfq_rows",
+    "hfq_rows"
+  ],
+  "depends_on": [
+    "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1",
+    "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1",
+    "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1"
+  ]
+}
