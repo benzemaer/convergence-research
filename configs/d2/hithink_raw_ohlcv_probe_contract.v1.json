@@ -38,13 +38,13 @@
   ],
   "raw_ohlcv_field_aliases": {
     "security_code_or_thscode": ["security_code", "thscode", "ts_code", "code"],
-    "trading_date": ["trading_date", "trade_date", "date"],
-    "raw_open": ["raw_open", "open"],
-    "raw_high": ["raw_high", "high"],
-    "raw_low": ["raw_low", "low"],
-    "raw_close": ["raw_close", "close"],
+    "trading_date": ["trading_date", "trade_date", "date", "date_ms"],
+    "raw_open": ["raw_open", "open", "open_price"],
+    "raw_high": ["raw_high", "high", "high_price"],
+    "raw_low": ["raw_low", "low", "low_price"],
+    "raw_close": ["raw_close", "close", "close_price"],
     "volume": ["volume", "vol"],
-    "amount": ["amount", "turnover_amount"]
+    "amount": ["amount", "turnover_amount", "turnover"]
   },
   "candidate_optional_fields": [
     "trading_status",
@@ -77,15 +77,15 @@
   ],
   "adjustment_event_field_aliases": {
     "security_code_or_thscode": ["security_code", "thscode", "ts_code", "code"],
-    "event_date": ["event_date"],
-    "ex_date": ["ex_date", "exright_date"],
+    "event_date": ["event_date", "ex_date_ms"],
+    "ex_date": ["ex_date", "exright_date", "ex_date_ms"],
     "record_date": ["record_date"],
     "announcement_date": ["announcement_date", "ann_date"],
-    "cash_dividend": ["cash_dividend"],
-    "share_bonus": ["share_bonus"],
+    "cash_dividend": ["cash_dividend", "dividend_per_share"],
+    "share_bonus": ["share_bonus", "per_share_bonus"],
     "share_transfer": ["share_transfer"],
-    "rights_issue": ["rights_issue"],
-    "rights_price": ["rights_price"],
+    "rights_issue": ["rights_issue", "allotment_ratio"],
+    "rights_price": ["rights_price", "allotment_price"],
     "adjustment_factor": ["adjustment_factor", "factor"],
     "factor_as_of_time": ["factor_as_of_time"],
     "adjustment_revision": ["adjustment_revision"]

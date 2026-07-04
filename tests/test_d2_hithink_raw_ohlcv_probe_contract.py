@@ -71,6 +71,22 @@ class D2HiThinkRawOhlcvProbeContractTest(unittest.TestCase):
             },
         )
 
+    def test_hithink_observed_aliases_are_declared(self) -> None:
+        raw_aliases = self.contract["raw_ohlcv_field_aliases"]
+        self.assertIn("date_ms", raw_aliases["trading_date"])
+        self.assertIn("open_price", raw_aliases["raw_open"])
+        self.assertIn("high_price", raw_aliases["raw_high"])
+        self.assertIn("low_price", raw_aliases["raw_low"])
+        self.assertIn("close_price", raw_aliases["raw_close"])
+        self.assertIn("turnover", raw_aliases["amount"])
+
+        adjustment_aliases = self.contract["adjustment_event_field_aliases"]
+        self.assertIn("ex_date_ms", adjustment_aliases["event_date"])
+        self.assertIn("dividend_per_share", adjustment_aliases["cash_dividend"])
+        self.assertIn("per_share_bonus", adjustment_aliases["share_bonus"])
+        self.assertIn("allotment_ratio", adjustment_aliases["rights_issue"])
+        self.assertIn("allotment_price", adjustment_aliases["rights_price"])
+
     def test_probe_output_sections_are_complete(self) -> None:
         self.assertGreaterEqual(
             set(self.contract["probe_output_sections"]),

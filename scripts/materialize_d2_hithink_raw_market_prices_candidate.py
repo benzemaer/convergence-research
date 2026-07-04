@@ -283,6 +283,9 @@ def _to_float(value: Any) -> float | None:
 def _date_text(value: Any) -> str:
     if isinstance(value, datetime):
         return value.date().isoformat()
+    numeric = _to_float(value)
+    if numeric and numeric > 10_000_000_000:
+        return datetime.fromtimestamp(numeric / 1000, tz=UTC).date().isoformat()
     text = str(value)
     for fmt in ("%Y-%m-%d", "%Y%m%d"):
         try:
@@ -296,9 +299,13 @@ def _date_series(values: Any) -> Any:
     import pandas as pd
 
     text = values.astype(str)
+    numeric = pd.to_numeric(values, errors="coerce")
+    parsed_ms = pd.to_datetime(
+        numeric.where(numeric > 10_000_000_000), unit="ms", errors="coerce"
+    )
     parsed_yyyymmdd = pd.to_datetime(text, format="%Y%m%d", errors="coerce")
     parsed_general = pd.to_datetime(text, errors="coerce")
-    parsed = parsed_yyyymmdd.fillna(parsed_general)
+    parsed = parsed_ms.fillna(parsed_yyyymmdd).fillna(parsed_general)
     return parsed.dt.strftime("%Y-%m-%d").fillna(text)
 
 
