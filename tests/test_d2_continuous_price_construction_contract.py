@@ -144,8 +144,8 @@ class D2ContinuousPriceConstructionContractTest(unittest.TestCase):
 
     def test_readme_keeps_d2_t05_blocked_without_advancing(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
-        self.assertIn("current_task: D2-T03", readme)
-        self.assertIn("next_planned_task: D2-T04", readme)
+        self.assertIn("current_task: D3-T01", readme)
+        self.assertIn("next_planned_task: D3-T02", readme)
         self.assertIn("D2-T05` 连续研究价格构建与反推校验", readme)
         self.assertIn("blocked pending raw and factor authorization", readme)
         self.assertIn("D2-T06` 跳空归因与价格质量标记：planned", readme)

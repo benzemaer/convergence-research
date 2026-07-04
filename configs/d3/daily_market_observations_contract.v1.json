@@ -1,0 +1,175 @@
+{
+  "$schema": "../../schemas/d3_daily_market_observations_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1",
+  "task_id": "D3-T01",
+  "contract_status": "accepted",
+  "contract_scope": "contract_only_refs_only_canonical_daily_market_observations",
+  "target_table": "d3.daily_market_observations",
+  "canonical_table_mode": "refs_only",
+  "value_view_or_table_defined_by_this_pr": false,
+  "future_value_view_or_table_task": "D3-T02",
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "real_data_materialization_authorized": false,
+  "data_version_release_authorized": false,
+  "pcvt_indicator_calculation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "grain": {
+    "description": "one row per data_version, universe_id, security_id, trading_date, observation_revision",
+    "fields": [
+      "data_version",
+      "universe_id",
+      "security_id",
+      "trading_date",
+      "observation_revision"
+    ]
+  },
+  "primary_key": [
+    "data_version",
+    "universe_id",
+    "security_id",
+    "trading_date",
+    "observation_revision"
+  ],
+  "required_fields": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "observation_revision",
+    "observed_at",
+    "raw_price_ref",
+    "adjusted_price_ref",
+    "trading_constraint_ref",
+    "market_price_quality_ref",
+    "mechanical_gap_ref",
+    "pcvt_input_readiness_ref",
+    "membership_ref",
+    "calendar_ref",
+    "source_snapshot_ref",
+    "run_ref",
+    "price_fact_source",
+    "corporate_action_source",
+    "membership_source",
+    "calendar_source",
+    "revision_policy",
+    "observed_at_rule",
+    "history_revision_class",
+    "research_use_tier",
+    "source_registry_id",
+    "source_snapshot_id",
+    "run_id"
+  ],
+  "component_refs": [
+    "raw_price_ref",
+    "adjusted_price_ref",
+    "trading_constraint_ref",
+    "market_price_quality_ref",
+    "mechanical_gap_ref",
+    "pcvt_input_readiness_ref",
+    "membership_ref",
+    "calendar_ref",
+    "source_snapshot_ref",
+    "run_ref"
+  ],
+  "source_lineage_fields": [
+    "price_fact_source",
+    "corporate_action_source",
+    "membership_source",
+    "calendar_source",
+    "source_registry_id",
+    "source_snapshot_id",
+    "source_snapshot_ref",
+    "run_id",
+    "run_ref"
+  ],
+  "observed_at_revision_policy": {
+    "observed_at_required": true,
+    "observed_at_rule_required": true,
+    "revision_policy_required": true,
+    "history_revision_class_required": true,
+    "unknown_observed_at_blocks_formal_use": true,
+    "final_revised_history_cannot_claim_point_in_time_support": true
+  },
+  "research_use_tier": {
+    "required": true,
+    "allowed_values": [
+      "formal",
+      "exploration_only",
+      "blocked"
+    ],
+    "unknown_or_missing_blocks_r0": true
+  },
+  "no_bypass_policy": {
+    "enabled": true,
+    "r0_must_read_d3_formal_entry_only": true,
+    "r0_must_not_read_d1_d2_directly": true,
+    "allowed_r0_entry_tables": [
+      "d3.daily_market_observations"
+    ],
+    "value_fields_available_to_r0_in_this_contract": false
+  },
+  "ddl_alignment": {
+    "duckdb_schema_checked": "sql/duckdb/schema.sql",
+    "ddl_modified_by_this_pr": false,
+    "missing_from_current_duckdb_d3_table": [
+      "market_price_quality_ref",
+      "mechanical_gap_ref",
+      "pcvt_input_readiness_ref",
+      "source_snapshot_ref",
+      "run_ref",
+      "history_revision_class",
+      "research_use_tier"
+    ],
+    "alignment_deferred_to_future_task": true
+  },
+  "prohibited_fields": [
+    "raw_open",
+    "raw_high",
+    "raw_low",
+    "raw_close",
+    "adj_open",
+    "adj_high",
+    "adj_low",
+    "adj_close",
+    "volume",
+    "amount",
+    "turnover",
+    "float_shares",
+    "pcvt_value",
+    "pcvt_score",
+    "state",
+    "future_return",
+    "future_max_return",
+    "label",
+    "breakout_direction",
+    "outcome",
+    "target",
+    "holding_period_return",
+    "backtest_signal",
+    "portfolio_return",
+    "raw_rows",
+    "qfq_rows",
+    "hfq_rows",
+    "vendor_payload",
+    "raw_vendor_payload"
+  ],
+  "depends_on": [
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "sql/duckdb/schema.sql:d3.daily_market_observations"
+  ],
+  "blocking_conditions": [
+    "formal_ingestion_not_authorized",
+    "real_d2_raw_price_not_materialized",
+    "real_d2_adjusted_price_not_materialized",
+    "real_d2_quality_flags_not_materialized",
+    "factor_as_of_time_coverage_not_verified",
+    "revision_timestamp_coverage_not_verified",
+    "d3_generation_not_authorized"
+  ]
+}

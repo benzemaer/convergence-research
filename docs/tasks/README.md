@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D2
-current_task: D2-T03
-next_planned_task: D2-T04
+current_stage: D3
+current_task: D3-T01
+next_planned_task: D3-T02
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -131,12 +131,21 @@ D2-T07 进入契约门禁前的任务队列仍为：
 
 状态：planned
 
-- `D3-T01` `daily_market_observations` contract：planned
-- `D3-T02` 数据质量报告与 `data_version` 发布
+D2-T08 已完成 D2 acceptance 与 D3 handoff contract-only 验收，但 formal ingestion、
+真实 D2 raw price、真实 D2 adjusted price、真实 D2 quality flags、D3 generation 与
+R0 交接仍未授权。
+
+- `D3-T01` `daily_market_observations` 语义与字段契约：in_progress
+- `D3-T02` D3 标准数值观测 view/table 契约：planned
+- `D3-T03` 组件引用、source lineage 与 no-bypass 校验器：planned
+- `D3-T04` 基础质量指标与 PCVT input readiness 契约：planned
+- `D3-T05` 标准日频观测合成构建与最小集成测试：planned
+- `D3-T06` `data_version`、quality report 与 manifest 发布门禁：planned
+- `D3-T07` D3 阶段验收与 R0 交接契约：planned
 
 ## R0：PCVT 候选观测量与候选状态定义
 
-状态：blocked until D3
+状态：blocked until D3 contract and later D3 data_version gates are accepted
 
 - `R0-T01` PCVT 候选指标定义
 - `R0-T02` `q = 10 / 20 / 30` 结构检验

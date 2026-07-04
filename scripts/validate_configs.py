@@ -89,6 +89,10 @@ CONFIGS = (
         ROOT / "schemas/d1_csi800_static_membership_completion_report.schema.json",
         MEMBERSHIP_COMPLETION_REPORT_PATH,
     ),
+    (
+        ROOT / "schemas/d3_daily_market_observations_contract.schema.json",
+        ROOT / "configs/d3/daily_market_observations_contract.v1.json",
+    ),
 )
 
 

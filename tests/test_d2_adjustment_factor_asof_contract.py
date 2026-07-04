@@ -137,8 +137,8 @@ class D2AdjustmentFactorAsOfContractTest(unittest.TestCase):
 
     def test_readme_keeps_d2_t04_blocked_without_advancing(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
-        self.assertIn("current_task: D2-T03", readme)
-        self.assertIn("next_planned_task: D2-T04", readme)
+        self.assertIn("current_task: D3-T01", readme)
+        self.assertIn("next_planned_task: D3-T02", readme)
         self.assertIn("D2-T04` 复权因子与 `factor_as_of_time` 契约", readme)
         self.assertIn("blocked pending factor source authorization", readme)
         self.assertIn("D2-T05` 连续研究价格构建与反推校验：planned", readme)
