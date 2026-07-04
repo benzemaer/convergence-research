@@ -2,7 +2,7 @@
 
 ## 状态
 
-in_progress via PR TBD；stage 1 contract-only / local-schema-probe only。
+in_progress via PR #41；stage 1 contract-only / local-schema-probe only。
 
 本 PR 第一阶段定义 HiThink Financial-API 本地 dump 作为 primary formal candidate source，BAOSTOCK 和 Tushare 作为 fallback / repair source，并废弃 `a-stock-data` formal source 路径。第一阶段只建立 source registry、schema/coverage probe contract 和 synthetic/local-only probe，不生成正式 raw price artifact。
 

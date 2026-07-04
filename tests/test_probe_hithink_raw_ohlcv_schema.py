@@ -122,6 +122,28 @@ class ProbeHiThinkRawOhlcvSchemaTest(unittest.TestCase):
         }
         self.assertGreaterEqual(missing, {"raw_close", "amount"})
 
+    def test_volume_and_amount_aliases_feed_unit_report(self) -> None:
+        report = self._run_probe(
+            raw_rows=[
+                {
+                    "thscode": "600000.SH",
+                    "trade_date": "2026-07-01",
+                    "open": 10.0,
+                    "high": 11.0,
+                    "low": 9.5,
+                    "close": 10.5,
+                    "vol": 1000,
+                    "turnover_amount": 10500,
+                }
+            ]
+        )
+        self.assertEqual(report["raw_k_schema_report"]["status"], "passed")
+        unit_report = report["unit_inference_report"]
+        self.assertTrue(unit_report["amount_present"])
+        self.assertTrue(unit_report["volume_present"])
+        self.assertEqual(unit_report["amount_source_column"], "turnover_amount")
+        self.assertEqual(unit_report["volume_source_column"], "vol")
+
     def test_missing_adjustment_time_fields_enters_reports(self) -> None:
         report = self._run_probe(
             adjustment_rows=[
