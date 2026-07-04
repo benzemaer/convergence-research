@@ -2,7 +2,7 @@
 
 状态：
 
-contract-only pending separately authorized probe execution via PR TBD
+contract-only pending separately authorized probe execution via PR #30
 
 ## 目标
 
