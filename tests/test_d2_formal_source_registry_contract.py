@@ -117,10 +117,10 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 
-    def test_readme_advances_to_d2_t10_without_unlocking_d3_or_r0(self) -> None:
+    def test_readme_records_d2_t10_done_without_unlocking_d3_or_r0(self) -> None:
         self.assertIn("current_stage: D2", self.readme)
-        self.assertIn("current_task: D2-T10", self.readme)
-        self.assertIn("next_planned_task: D2-T11", self.readme)
+        self.assertIn("current_task: D2-T11", self.readme)
+        self.assertIn("next_planned_task: D3-T07", self.readme)
         self.assertIn("D2-T09` HiThink 主行情源", self.readme)
         self.assertIn(
             "D2-T09` HiThink 主行情源、补充源与 raw OHLCV "
@@ -128,17 +128,15 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
             self.readme,
         )
         self.assertIn(
-            "D2-T10` adjusted price、质量标记与机械缺口正式候选物化：in_progress",
+            "D2-T10` adjusted price、质量标记与机械缺口正式候选物化："
+            "completed via PR #42",
             self.readme,
         )
         self.assertIn(
-            "D2-T11` D2 acceptance、source status resolution "
-            "与 D3 handoff candidate：planned",
+            "D2-T11` 来源状态与复权证据补齐、D2验收与D3交接候选：in_progress",
             self.readme,
         )
-        self.assertIn(
-            "D3-T07 remains blocked pending D2 formal materialization", self.readme
-        )
+        self.assertIn("D3-T07 remains blocked unless D2-T11", self.readme)
         self.assertIn("R0 remains blocked", self.readme)
 
 
