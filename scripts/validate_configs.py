@@ -19,6 +19,17 @@ D2_HITHINK_MATERIALIZATION_CONFIG_PATH = (
     / "d2"
     / "hithink_raw_market_prices_candidate_materialization_contract.v1.json"
 )
+D2_HITHINK_ARTIFACT_SCHEMA_PATH = (
+    ROOT
+    / "schemas"
+    / "d2_hithink_raw_market_prices_candidate_artifact_contract.schema.json"
+)
+D2_HITHINK_ARTIFACT_CONFIG_PATH = (
+    ROOT
+    / "configs"
+    / "d2"
+    / "hithink_raw_market_prices_candidate_artifact_contract.v1.json"
+)
 SECURITY_MAPPING_REFERENCE_CONTRACT_PATH = (
     ROOT
     / "configs/d1"
@@ -135,6 +146,10 @@ CONFIGS = (
     (
         D2_HITHINK_MATERIALIZATION_SCHEMA_PATH,
         D2_HITHINK_MATERIALIZATION_CONFIG_PATH,
+    ),
+    (
+        D2_HITHINK_ARTIFACT_SCHEMA_PATH,
+        D2_HITHINK_ARTIFACT_CONFIG_PATH,
     ),
 )
 

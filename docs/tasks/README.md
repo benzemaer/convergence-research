@@ -127,7 +127,7 @@ next_planned_task: D3-T07
 - `D2-T06` 候选行情快照探针：small-sample redacted execution report via PR #32; formal ingestion and D1/D2/D3 materialization remain blocked
 - `D2-T07` 价格质量、交易约束、机械缺口与 PCVT 底层依赖契约：contract-only via PR #33
 - `D2-T08` D2 阶段验收与 D3 交接契约：contract-only via PR #34; D3 contract work may proceed, but formal D3 generation remains blocked
-- `D2-T09` HiThink 主行情源、补充源与 raw OHLCV 探针契约：in_progress via PR #41 stage 2
+- `D2-T09` HiThink 主行情源、补充源与 raw OHLCV 探针契约：in_progress via PR #41 stage 3
 - `D2-T10` adjusted price、quality flags 与 mechanical gap formal materialization：planned
 
 完成标准：

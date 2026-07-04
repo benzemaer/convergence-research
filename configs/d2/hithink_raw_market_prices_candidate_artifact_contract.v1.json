@@ -1,0 +1,145 @@
+{
+  "$schema": "../../schemas/d2_hithink_raw_market_prices_candidate_artifact_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_ARTIFACT_CONTRACT_V1",
+  "task_id": "D2-T09",
+  "contract_status": "accepted",
+  "contract_scope": "stage_3_formal_candidate_raw_market_prices_artifact_materialization",
+  "stage": "stage_3",
+  "target_table": "d1.raw_market_prices",
+  "primary_source": "hithink_financial_api",
+  "formal_source_registry_contract": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1",
+  "raw_ohlcv_probe_contract": "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1",
+  "candidate_materialization_plan_contract": "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_MATERIALIZATION_CONTRACT_V1",
+  "formal_source_acceptance_authorized": false,
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "real_data_materialization_authorized": false,
+  "manifest_creation_authorized": false,
+  "data_version_release_authorized": false,
+  "d3_generation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "local_candidate_artifact_write_authorized": true,
+  "synthetic_test_only": false,
+  "default_output_dir": "data/generated/d2/d2_t09_candidate_raw_market_prices/",
+  "depends_on": [
+    "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1",
+    "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1",
+    "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_MATERIALIZATION_CONTRACT_V1",
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"
+  ],
+  "candidate_output_sections": [
+    "candidate_raw_market_prices_artifact",
+    "candidate_quality_summary",
+    "candidate_materialization_report",
+    "candidate_file_hash_summary"
+  ],
+  "candidate_row_schema": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "raw_open",
+    "raw_high",
+    "raw_low",
+    "raw_close",
+    "volume",
+    "amount",
+    "trading_status",
+    "price_limit_status",
+    "source_registry_id",
+    "source_snapshot_id",
+    "observed_at",
+    "run_id"
+  ],
+  "prohibited_row_fields": [
+    "source_symbol",
+    "thscode",
+    "ts_code",
+    "code",
+    "vendor_payload",
+    "raw_vendor_payload",
+    "raw_rows",
+    "qfq_rows",
+    "hfq_rows",
+    "future_return",
+    "label",
+    "pcvt_value",
+    "backtest_signal",
+    "portfolio_return"
+  ],
+  "security_mapping_policy": {
+    "mapping_file_required": true,
+    "required_fields": ["source_symbol", "security_id", "mapping_status"],
+    "accepted_mapping_status": "accepted",
+    "unmapped_source_symbol_policy": "drop_and_count",
+    "source_symbol_must_not_be_written_to_candidate_rows": true
+  },
+  "lineage_policy": {
+    "data_version_prefix": "D2_T09_HITHINK_RAW_CANDIDATE_",
+    "source_registry_id": "hithink_financial_api",
+    "source_snapshot_id_prefix": "candidate_local_snapshot_",
+    "run_id_prefix": "d2_t09_candidate_",
+    "observed_at_requires_cli_source_observed_at": true,
+    "observed_at_must_not_be_derived_from_trading_date": true
+  },
+  "quality_summary_fields": [
+    "row_count_input",
+    "row_count_output",
+    "dropped_unmapped_security_count",
+    "security_count_output",
+    "trading_date_min",
+    "trading_date_max",
+    "null_ohlc_count",
+    "nonpositive_ohlc_count",
+    "ohlc_order_violation_count",
+    "negative_volume_count",
+    "negative_amount_count",
+    "unknown_trading_status_count",
+    "unknown_price_limit_status_count",
+    "duplicate_key_count",
+    "candidate_blocking_flag",
+    "candidate_blocking_reasons"
+  ],
+  "blocking_rules": [
+    "nonpositive_ohlc_blocks_candidate_acceptance",
+    "high_below_open_close_or_low_blocks_candidate_acceptance",
+    "low_above_open_close_or_high_blocks_candidate_acceptance",
+    "negative_volume_blocks_candidate_acceptance",
+    "negative_amount_blocks_candidate_acceptance",
+    "duplicate_key_blocks_candidate_acceptance",
+    "missing_observed_at_blocks_materialization",
+    "unmapped_securities_must_be_counted",
+    "unknown_status_blocks_future_d2_acceptance_until_resolved_or_accepted"
+  ],
+  "fallback_repair_plan_policy": {
+    "fallback_sources": [
+      {
+        "source_id": "baostock",
+        "priority": 1,
+        "role": "fallback_repair_source"
+      },
+      {
+        "source_id": "tushare",
+        "priority": 2,
+        "role": "fallback_repair_source"
+      }
+    ],
+    "missing_raw_required_fields_fail_materialization": true,
+    "fallback_api_call_authorized": false,
+    "silent_mixed_source_override_allowed": false
+  },
+  "forbidden_actions": {
+    "default_scan_data_raw": false,
+    "call_external_api": false,
+    "write_duckdb": false,
+    "create_accepted_manifest": false,
+    "publish_data_version": false,
+    "generate_adjusted_price": false,
+    "generate_d3_artifact": false,
+    "generate_r0_state": false,
+    "emit_row_level_payload_in_return_report": false
+  }
+}
