@@ -1,0 +1,351 @@
+{
+  "$schema": "../../schemas/d2_raw_ohlcv_source_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D2-T01",
+  "contract_id": "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D0_SOURCE_REGISTRY_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D1-T02",
+    "D1-T03",
+    "D1-T04"
+  ],
+  "target_table": "d1.raw_market_prices",
+  "readiness_scope": {
+    "purpose": "Define source readiness, raw OHLCV field mapping, source snapshot, observed_at, as-of/revision, quality checks, and blocking boundaries before any D2 raw price ingestion.",
+    "formal_ingestion_authorized": false,
+    "minimum_probe_only": true,
+    "full_market_collection_authorized": false,
+    "duckdb_write_authorized": false,
+    "data_artifact_generation_authorized": false
+  },
+  "source_registry_requirements": {
+    "allowed_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "candidate_only_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "prohibited_source_registry_ids": [
+      "CSINDEX_OFFICIAL",
+      "A_STOCK_DATA_RECON",
+      "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"
+    ],
+    "formal_ingestion_authorized": false,
+    "reason": "HiThink and BaoStock remain candidate sources only; terms, license, endpoint identity, raw snapshot retention, observed_at, as-of, revision, and repeated snapshot behavior are not accepted for formal ingestion."
+  },
+  "source_snapshot_requirements": {
+    "raw_snapshot_required": true,
+    "raw_snapshot_storage_roots": [
+      "data/raw",
+      "data/external"
+    ],
+    "sha256_required": true,
+    "source_snapshot_id_required": true,
+    "immutable_snapshot_required": true,
+    "source_snapshot_manifest_required_before_ingestion": true,
+    "raw_response_metadata_required": [
+      "source_registry_id",
+      "publisher_or_vendor",
+      "endpoint_or_export_name",
+      "endpoint_version",
+      "request_parameters",
+      "retrieved_at",
+      "account_context",
+      "client_version",
+      "row_count",
+      "raw_bytes_sha256"
+    ],
+    "prohibited_snapshot_substitutes": [
+      "vendor_cache_without_raw_bytes",
+      "local_marketdb_without_source_snapshot",
+      "wrapper_dataframe_without_publisher_endpoint",
+      "manually_edited_csv",
+      "unhashed_export"
+    ]
+  },
+  "manifest_requirements": {
+    "dataset_manifest_required_before_validated": true,
+    "source_snapshot_manifest_required_before_ingestion": true,
+    "run_manifest_required_for_any_probe_run": true,
+    "input_hashes_required": true,
+    "no_manifest_generated_by_this_contract": true
+  },
+  "observed_at_rule": {
+    "required": true,
+    "rule": "Every future raw OHLCV row must carry observed_at derived from source retrieval or documented vendor availability time; observed_at must remain distinct from trading_date and must not be inferred from trading_date alone.",
+    "prohibited_defaults": [
+      "trading_date",
+      "session_close_without_source_evidence",
+      "file_mtime_without_retrieval_log",
+      "current_runtime_timestamp_without_raw_snapshot"
+    ],
+    "point_in_time_gate": "A future row may feed point-in-time research only when observed_at is not later than the declared observation cutoff for that trading_date."
+  },
+  "as_of_policy": {
+    "policy": "Treat candidate raw OHLCV histories as final-revised until endpoint documentation and repeated snapshot comparisons prove point-in-time availability.",
+    "endpoint_timestamp_required": true,
+    "retrieval_timestamp_required": true,
+    "vendor_revision_behavior_required": true,
+    "future_information_prohibited": true
+  },
+  "revision_policy": {
+    "policy": "Any historical value change across repeated snapshots requires a new source_snapshot_id or data_version and a diff attribution before downstream use.",
+    "repeated_snapshot_comparison_required": true,
+    "old_snapshots_immutable": true,
+    "revision_reason_required": true,
+    "silent_overwrite_prohibited": true
+  },
+  "required_raw_fields": [
+    {
+      "field_name": "data_version",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [],
+      "rule": "Versioned dataset identifier assigned only after readiness and manifest gates pass."
+    },
+    {
+      "field_name": "universe_id",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [],
+      "rule": "Must match the approved D2 universe boundary."
+    },
+    {
+      "field_name": "time_segment_id",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [],
+      "rule": "Must match the approved time segment boundary."
+    },
+    {
+      "field_name": "security_id",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [
+        "code",
+        "symbol",
+        "ts_code",
+        "证券代码"
+      ],
+      "rule": "Must resolve through D1 security identity and D2 membership alignment; raw source symbol alone is insufficient."
+    },
+    {
+      "field_name": "trading_date",
+      "type": "DATE",
+      "nullable": false,
+      "unit": "Asia/Shanghai exchange date",
+      "alias_candidates": [
+        "date",
+        "trade_date",
+        "交易日期"
+      ],
+      "rule": "Must be an exchange trading date and remain distinct from observed_at."
+    },
+    {
+      "field_name": "raw_open",
+      "type": "DOUBLE",
+      "nullable": false,
+      "unit": "CNY per share",
+      "alias_candidates": [
+        "open",
+        "开盘价"
+      ],
+      "rule": "Unadjusted exchange trading price; adjusted or pre-adjusted prices are prohibited substitutes."
+    },
+    {
+      "field_name": "raw_high",
+      "type": "DOUBLE",
+      "nullable": false,
+      "unit": "CNY per share",
+      "alias_candidates": [
+        "high",
+        "最高价"
+      ],
+      "rule": "Unadjusted session high; must satisfy raw_high >= max(raw_open, raw_low, raw_close) when traded."
+    },
+    {
+      "field_name": "raw_low",
+      "type": "DOUBLE",
+      "nullable": false,
+      "unit": "CNY per share",
+      "alias_candidates": [
+        "low",
+        "最低价"
+      ],
+      "rule": "Unadjusted session low; must satisfy raw_low <= min(raw_open, raw_high, raw_close) when traded."
+    },
+    {
+      "field_name": "raw_close",
+      "type": "DOUBLE",
+      "nullable": false,
+      "unit": "CNY per share",
+      "alias_candidates": [
+        "close",
+        "收盘价"
+      ],
+      "rule": "Unadjusted exchange close; adjusted or pre-adjusted close is prohibited."
+    },
+    {
+      "field_name": "volume",
+      "type": "BIGINT",
+      "nullable": false,
+      "unit": "shares",
+      "alias_candidates": [
+        "volume",
+        "成交量"
+      ],
+      "rule": "Must declare whether source reports shares or lots; lots must be converted with an auditable unit rule before use."
+    },
+    {
+      "field_name": "amount",
+      "type": "DOUBLE",
+      "nullable": false,
+      "unit": "CNY",
+      "alias_candidates": [
+        "amount",
+        "turnover",
+        "成交额"
+      ],
+      "rule": "Must declare currency and scale; ten-thousand-yuan or other scaled values require explicit conversion."
+    },
+    {
+      "field_name": "trading_status",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "controlled vocabulary",
+      "alias_candidates": [
+        "tradestatus",
+        "交易状态"
+      ],
+      "rule": "Unknown or missing source status must remain unknown and must not be converted to active or false."
+    },
+    {
+      "field_name": "price_limit_status",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "controlled vocabulary",
+      "alias_candidates": [
+        "limit_status",
+        "涨跌停状态"
+      ],
+      "rule": "Must distinguish limit-up, limit-down, not-at-limit, and unknown where source evidence allows."
+    },
+    {
+      "field_name": "source_registry_id",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [],
+      "rule": "Must be an allowed candidate source id and remain blocked from formal ingestion until readiness gates close."
+    },
+    {
+      "field_name": "source_snapshot_id",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [],
+      "rule": "Must identify immutable raw source bytes or vendor export evidence."
+    },
+    {
+      "field_name": "observed_at",
+      "type": "TIMESTAMP",
+      "nullable": false,
+      "unit": "Asia/Shanghai timestamp or explicit UTC offset",
+      "alias_candidates": [
+        "retrieved_at",
+        "vendor_timestamp"
+      ],
+      "rule": "Must record source availability or retrieval time and cannot be derived only from trading_date."
+    },
+    {
+      "field_name": "run_id",
+      "type": "TEXT",
+      "nullable": false,
+      "unit": "identifier",
+      "alias_candidates": [],
+      "rule": "Required for any future probe or ingestion run; this contract does not create one."
+    }
+  ],
+  "field_alias_policy": {
+    "alias_mapping_required": true,
+    "source_column_retention_required": true,
+    "ambiguous_alias_blocking": true,
+    "adjusted_price_aliases_prohibited_for_raw_fields": true,
+    "security_id_requires_d1_mapping": true
+  },
+  "unit_policy": {
+    "price_unit": "CNY per share",
+    "volume_unit": "shares; lots require explicit conversion",
+    "amount_unit": "CNY; scaled source amounts require explicit conversion",
+    "timezone": "Asia/Shanghai unless source supplies explicit UTC offset",
+    "missing_or_unknown_policy": "Unknown, pending, blocked, missing, or low-quality values must not be silently converted to false, zero, approved, or pass."
+  },
+  "quality_checks": [
+    "required_fields_present",
+    "source_registry_allowed_candidate_only",
+    "formal_ingestion_authorized_false",
+    "raw_snapshot_id_present",
+    "raw_snapshot_sha256_present",
+    "observed_at_present_and_distinct_from_trading_date",
+    "as_of_policy_documented",
+    "revision_policy_documented",
+    "ohlc_order_valid_when_traded",
+    "volume_amount_nonnegative",
+    "trading_status_not_silently_false",
+    "price_limit_status_not_silently_false",
+    "adjusted_price_not_used_as_raw_price",
+    "manifest_prerequisites_declared"
+  ],
+  "blocking_conditions": [
+    "source_terms_pending_for_formal_ingestion",
+    "license_or_redistribution_not_reviewed",
+    "underlying_publisher_or_endpoint_unknown",
+    "missing_raw_snapshot",
+    "missing_sha256",
+    "missing_source_snapshot_id",
+    "missing_source_snapshot_manifest",
+    "missing_dataset_manifest_before_validated",
+    "missing_run_manifest_for_probe",
+    "missing_observed_at",
+    "observed_at_derived_only_from_trading_date",
+    "as_of_policy_unknown",
+    "revision_policy_unknown",
+    "repeated_snapshot_comparison_missing",
+    "unknown_status_silently_converted",
+    "adjusted_price_used_as_raw_price",
+    "full_market_collection_attempted_in_d2_t01",
+    "duckdb_write_attempted_in_d2_t01",
+    "data_artifact_generated_in_d2_t01"
+  ],
+  "implementation_exclusions": [
+    "no_external_api_call",
+    "no_local_marketdb_read",
+    "no_tdx_day_file_read",
+    "no_market_data_collection",
+    "no_source_snapshot_generation",
+    "no_run_manifest_generation",
+    "no_dataset_manifest_generation",
+    "no_source_snapshot_manifest_generation",
+    "no_duckdb_write",
+    "no_committed_duckdb_file",
+    "no_d1_raw_market_prices_entity_data",
+    "no_d2_adjusted_market_prices_entity_data",
+    "no_adjustment_factor_calculation",
+    "no_gap_calculation",
+    "no_d3_daily_market_observations",
+    "no_pcvt_state_event_label_return_or_backtest"
+  ],
+  "downstream_boundary": {
+    "next_task": "D2-T02",
+    "allowed_after_acceptance": "Use this readiness contract to design membership alignment and later small-sample raw price materialization gates.",
+    "prohibited_after_acceptance": "Do not treat this contract as source approval, data ingestion authorization, manifest creation, or formal D2 data evidence."
+  }
+}
