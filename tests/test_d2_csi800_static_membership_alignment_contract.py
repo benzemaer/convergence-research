@@ -133,8 +133,8 @@ class D2CSI800StaticMembershipAlignmentContractTest(unittest.TestCase):
     def test_task_index_is_advanced_without_starting_d2_t03(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         task_doc = TASK_PATH.read_text(encoding="utf-8")
-        self.assertIn("current_task: D3-T02", readme)
-        self.assertIn("next_planned_task: D3-T03", readme)
+        self.assertIn("current_task: D3-T03", readme)
+        self.assertIn("next_planned_task: D3-T04", readme)
         self.assertIn("D2-T02` 成员对齐层物化：completed via PR #26", readme)
         self.assertIn("D2-T03` 原始行情价格落账：planned", readme)
         self.assertIn("completed via PR #26", task_doc)

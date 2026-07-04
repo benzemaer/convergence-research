@@ -89,7 +89,7 @@ class D2CandidateMarketSnapshotProbeContractTest(unittest.TestCase):
     def test_readme_renumbers_d2_queue_without_advancing_d3(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: D3", readme)
-        self.assertIn("current_task: D3-T02", readme)
+        self.assertIn("current_task: D3-T03", readme)
         self.assertIn("D2-T06` 候选行情快照探针", readme)
         self.assertIn(
             "contract-only pending separately authorized probe execution", readme
