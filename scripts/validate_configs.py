@@ -41,6 +41,28 @@ D2_T11_CONFIG_PATH = (
     / "d2"
     / "source_status_factor_evidence_acceptance_handoff_contract.v1.json"
 )
+D2_T12_SCHEMA_PATH = (
+    ROOT
+    / "schemas"
+    / "d2_tnskhdata_tushare_hithink_provider_remediation_contract.schema.json"
+)
+D2_T12_CONFIG_PATH = (
+    ROOT
+    / "configs"
+    / "d2"
+    / "tnskhdata_tushare_hithink_provider_remediation_contract.v1.json"
+)
+D2_T12_ASOF_SCHEMA_PATH = (
+    ROOT
+    / "schemas"
+    / "d2_tnskhdata_source_level_asof_snapshot_revision_policy.schema.json"
+)
+D2_T12_ASOF_CONFIG_PATH = (
+    ROOT
+    / "configs"
+    / "d2"
+    / "tnskhdata_source_level_asof_snapshot_revision_policy.v1.json"
+)
 SECURITY_MAPPING_REFERENCE_CONTRACT_PATH = (
     ROOT
     / "configs/d1"
@@ -167,6 +189,8 @@ CONFIGS = (
         ROOT / "configs/d2/adjusted_price_quality_gap_candidate_contract.v1.json",
     ),
     (D2_T11_SCHEMA_PATH, D2_T11_CONFIG_PATH),
+    (D2_T12_SCHEMA_PATH, D2_T12_CONFIG_PATH),
+    (D2_T12_ASOF_SCHEMA_PATH, D2_T12_ASOF_CONFIG_PATH),
 )
 
 

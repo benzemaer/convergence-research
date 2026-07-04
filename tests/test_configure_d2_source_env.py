@@ -18,14 +18,16 @@ SCRIPT = ROOT / "scripts/configure_d2_source_env.py"
 class ConfigureD2SourceEnvTest(unittest.TestCase):
     def test_env_example_has_no_secret_values(self) -> None:
         text = (ROOT / ".env.example").read_text(encoding="utf-8")
-        self.assertEqual(text, "HITHINK_API_KEY=\nTUSHARE_TOKEN=\n")
+        self.assertEqual(text, "HITHINK_API_KEY=\nTUSHARE_TOKEN=\nTNSKHDATA_TOKEN=\n")
         self.assertNotIn("sk-", text)
 
     def test_write_fake_values_without_printing_secret(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / ".env.local"
             with mock.patch.object(sys.stdin, "isatty", return_value=True):
-                with mock.patch("getpass.getpass", side_effect=["fake-h", "fake-t"]):
+                with mock.patch(
+                    "getpass.getpass", side_effect=["fake-h", "fake-t", "fake-n"]
+                ):
                     with mock.patch("sys.stdout", new_callable=io.StringIO) as out:
                         self.assertEqual(configure_env_file(path), 0)
             self.assertIn("HITHINK_API_KEY=fake-h", path.read_text())
@@ -34,13 +36,17 @@ class ConfigureD2SourceEnvTest(unittest.TestCase):
     def test_default_no_overwrite_and_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / ".env.local"
-            path.write_text("HITHINK_API_KEY=old\nTUSHARE_TOKEN=old\n")
+            path.write_text(
+                "HITHINK_API_KEY=old\nTUSHARE_TOKEN=old\nTNSKHDATA_TOKEN=old\n"
+            )
             with mock.patch.object(sys.stdin, "isatty", return_value=True):
                 with mock.patch("getpass.getpass", side_effect=AssertionError):
                     self.assertEqual(configure_env_file(path), 0)
             self.assertIn("old", path.read_text())
             with mock.patch.object(sys.stdin, "isatty", return_value=True):
-                with mock.patch("getpass.getpass", side_effect=["new-h", "new-t"]):
+                with mock.patch(
+                    "getpass.getpass", side_effect=["new-h", "new-t", "new-n"]
+                ):
                     self.assertEqual(configure_env_file(path, overwrite=True), 0)
             self.assertIn("new-h", path.read_text())
 

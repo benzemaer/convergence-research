@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/d2_tnskhdata_source_level_asof_snapshot_revision_policy.schema.json",
+  "config_version": "1.0.0",
+  "policy_id": "D2_TNSKHDATA_SOURCE_LEVEL_ASOF_SNAPSHOT_REVISION_POLICY_V1",
+  "task_id": "D2-T12",
+  "source_id": "tnskhdata",
+  "as_of_policy": {
+    "adj_factor_source_level_as_of_time": "trade_date 09:20:00 Asia/Shanghai",
+    "basis": "tnskhdata/Tushare adj_factor documented daily pre-market ingestion window 09:15-09:20",
+    "granularity": "source_level_policy",
+    "row_level_factor_as_of_time_available": false
+  },
+  "revision_policy": {
+    "provider_row_level_revision_available": false,
+    "snapshot_level_revision_required": true,
+    "revision_id_source": "source_snapshot_id + artifact_sha256 + run_id",
+    "revision_class": "snapshot_level_revision"
+  },
+  "point_in_time_policy": {
+    "eligibility_class": "source_level_asof_snapshot_revision",
+    "eligible_for_eod_research_after_close": true,
+    "eligible_for_strict_provider_row_level_revision": false
+  }
+}

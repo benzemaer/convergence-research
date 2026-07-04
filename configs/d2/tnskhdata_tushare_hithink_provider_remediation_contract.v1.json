@@ -1,0 +1,123 @@
+{
+  "$schema": "../../schemas/d2_tnskhdata_tushare_hithink_provider_remediation_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D2_TNSKHDATA_TUSHARE_HITHINK_PROVIDER_REMEDIATION_CONTRACT_V1",
+  "task_id": "D2-T12",
+  "contract_status": "candidate_probe",
+  "contract_scope": "tnskhdata_tushare_baostock_hithink_provider_remediation",
+  "stage": "D2-T12",
+  "depends_on": [
+    "D2_SOURCE_STATUS_FACTOR_EVIDENCE_ACCEPTANCE_HANDOFF_CONTRACT_V1",
+    "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_ARTIFACT_CONTRACT_V1",
+    "D2_ADJUSTED_PRICE_QUALITY_GAP_CANDIDATE_CONTRACT_V1"
+  ],
+  "primary_remediation_targets": [
+    "code_mapping",
+    "tnskhdata_provider_probe",
+    "tushare_provider_probe",
+    "baostock_provider_probe",
+    "hithink_rest_provider_probe",
+    "source_status_field_coverage",
+    "factor_evidence_field_coverage"
+  ],
+  "provider_priority": [
+    {"source_id": "tnskhdata", "priority": 0, "mode": "primary_candidate_source"},
+    {"source_id": "baostock", "priority": 1, "mode": "fallback_diagnostic_only"},
+    {"source_id": "tushare", "priority": 2, "mode": "fallback_diagnostic_only"},
+    {"source_id": "hithink_financial_api", "priority": 3, "mode": "diagnostic_probe_only"}
+  ],
+  "source_decision": {
+    "hithink_raw_source_path": "deprecated_for_d1_d2_candidate_materialization_after_D2-T12",
+    "hithink_rest_path": "diagnostic_probe_only",
+    "tnskhdata_raw_factor_status_path": "primary_candidate_source",
+    "baostock_path": "fallback_diagnostic_only",
+    "tushare_path": "fallback_diagnostic_only",
+    "d1_raw_candidate_source": "tnskhdata daily",
+    "d2_adjustment_factor_candidate_source": "tnskhdata adj_factor",
+    "d2_status_constraint_candidate_sources": [
+      "tnskhdata stk_limit",
+      "tnskhdata trade_cal",
+      "tnskhdata stock_basic",
+      "tnskhdata stock_st",
+      "tnskhdata suspend_d"
+    ]
+  },
+  "credential_env_keys": ["HITHINK_API_KEY", "TNSKHDATA_TOKEN", "TUSHARE_TOKEN"],
+  "tnskhdata_token_policy": {
+    "primary_env_key": "TNSKHDATA_TOKEN",
+    "fallback_env_key": "TUSHARE_TOKEN",
+    "fallback_requires_explicit_cli_flag": true
+  },
+  "tushare_compatible_required_apis": [
+    "stock_basic",
+    "trade_cal",
+    "daily",
+    "stk_limit",
+    "adj_factor",
+    "stock_st",
+    "suspend_d",
+    "pro_bar",
+    "namechange"
+  ],
+  "hithink_rest_required_endpoint_probes": [
+    "/api/meta/tickers/search",
+    "/api/meta/tickers/list",
+    "/api/a-share/prices/historical",
+    "/api/a-share/corporate-actions/adjustment-factors",
+    "/api/a-share/calendar/trading-days",
+    "/api/a-share/special-data/limit-up-pool"
+  ],
+  "required_mapping_outputs": [
+    "security_id",
+    "exchange",
+    "local_symbol",
+    "hithink_thscode",
+    "baostock_code",
+    "tushare_ts_code",
+    "tnskhdata_ts_code",
+    "mapping_status",
+    "mapping_blocking_reasons"
+  ],
+  "source_status_target_fields": [
+    "trading_status",
+    "price_limit_status",
+    "suspension_status",
+    "st_status",
+    "limit_up_price",
+    "limit_down_price",
+    "is_trading_day",
+    "trading_calendar_status"
+  ],
+  "factor_evidence_target_fields": [
+    "adjustment_factor",
+    "factor_as_of_time",
+    "adjustment_revision",
+    "adjustment_factor_direction",
+    "point_in_time_eligible"
+  ],
+  "formal_source_acceptance_authorized": false,
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "manifest_creation_authorized": false,
+  "data_version_release_authorized": false,
+  "d3_generation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "local_candidate_report_write_authorized": true,
+  "default_output_dir": "data/generated/d2/d2_t12_provider_remediation/",
+  "forbidden_outputs": [
+    "raw_parquet",
+    "generated_evidence_artifacts_committed",
+    "row_level_prices",
+    "source_symbols",
+    "security_mapping_rows",
+    "vendor_payload",
+    "api_token",
+    "duckdb",
+    "accepted_manifest",
+    "published_data_version",
+    "d3_rows",
+    "pcvt_values",
+    "r0_state",
+    "labels_returns_backtests_portfolio"
+  ]
+}
