@@ -1,0 +1,133 @@
+{
+  "$schema": "../../schemas/d2_adjustment_factor_asof_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D2-T04",
+  "contract_id": "D2_ADJUSTMENT_FACTOR_ASOF_CONTRACT_V1",
+  "contract_status": "accepted",
+  "target_table": "d2.adjusted_market_prices",
+  "data_version": "D2_ADJUSTMENT_FACTOR_ASOF_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "time_segment_id": "DR001_STATIC_BACKFILL_20160101_20260630",
+  "depends_on": [
+    "D1_CORPORATE_ACTIONS_ADJUSTMENT_CONTRACT_V1",
+    "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
+    "D2_RAW_MARKET_PRICES_MATERIALIZATION_CONTRACT_V1",
+    "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D0_SOURCE_REGISTRY_V1",
+    "DR-001"
+  ],
+  "required_fields": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "adj_open",
+    "adj_high",
+    "adj_low",
+    "adj_close",
+    "adjustment_factor",
+    "adjustment_method",
+    "factor_as_of_time",
+    "corporate_action_flag",
+    "adjustment_revision",
+    "source_registry_id",
+    "source_snapshot_id",
+    "run_id"
+  ],
+  "primary_key": [
+    "data_version",
+    "universe_id",
+    "security_id",
+    "trading_date",
+    "adjustment_revision"
+  ],
+  "authorization": {
+    "adjustment_factor_materialization_authorized": false,
+    "adjusted_price_generation_authorized": false,
+    "formal_ingestion_authorized": false,
+    "duckdb_write_authorized": false,
+    "real_factor_artifact_authorized": false,
+    "real_adjusted_price_artifact_authorized": false,
+    "synthetic_test_only": true
+  },
+  "candidate_source_boundary": {
+    "allowed_candidate_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "candidate_only_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "prohibited_source_registry_ids": [
+      "CSINDEX_OFFICIAL",
+      "A_STOCK_DATA_RECON",
+      "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"
+    ],
+    "hithink_candidate_only": true,
+    "baostock_formal_adjusted_price_source_allowed": false,
+    "csindex_membership_only": true
+  },
+  "controlled_vocabularies": {
+    "adjustment_method": {
+      "allowed_values": [
+        "forward_adjusted",
+        "backward_adjusted",
+        "total_return_adjusted",
+        "identity_no_adjustment",
+        "unknown"
+      ],
+      "unknown_blocks_validated_outputs": true
+    },
+    "adjustment_revision": {
+      "allowed_values": [
+        "v1",
+        "candidate",
+        "unknown"
+      ],
+      "unknown_blocks_validated_outputs": true
+    }
+  },
+  "blocking_conditions": [
+    "source_terms_pending_for_formal_ingestion",
+    "factor_as_of_policy_unknown",
+    "corporate_action_as_of_policy_unknown",
+    "revision_policy_not_verified",
+    "missing_raw_snapshot",
+    "missing_sha256",
+    "missing_source_snapshot_manifest",
+    "missing_run_manifest",
+    "missing_dataset_manifest_before_validated",
+    "missing_factor_as_of_time",
+    "factor_as_of_time_after_observation_cutoff",
+    "future_corporate_action_knowledge_used",
+    "adjustment_factor_nonpositive",
+    "adjustment_method_unknown",
+    "adjustment_revision_unknown",
+    "corporate_action_flag_silently_false",
+    "baostock_used_as_formal_adjusted_price_source",
+    "adjusted_price_generated_before_raw_price_materialization",
+    "duckdb_write_attempted",
+    "real_factor_artifact_generated",
+    "real_adjusted_price_artifact_generated"
+  ],
+  "prohibited_row_fields": [
+    "raw_open",
+    "raw_high",
+    "raw_low",
+    "raw_close",
+    "raw_gap",
+    "adjusted_gap",
+    "gap_attribution",
+    "ticker",
+    "exchange",
+    "source_symbol",
+    "vendor_payload"
+  ],
+  "as_of_policy": "factor_as_of_time must be present and must not be after the observation cutoff for the trading_date being adjusted.",
+  "revision_policy": "Any correction to adjustment_factor, adjustment_method, factor_as_of_time, corporate_action_flag, source_snapshot_id, or attribution requires a new adjustment_revision, source_snapshot_id, or data_version rather than overwriting old evidence.",
+  "mechanical_gap_boundary": "Corporate-action mechanical gaps must be attributed separately and must not be interpreted as market gap, release, or trend evidence by D2-T04.",
+  "d2_t05_boundary": "D2-T04 gates do not authorize D2-T05 continuous research price construction."
+}
