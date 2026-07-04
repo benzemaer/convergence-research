@@ -1,0 +1,374 @@
+{
+  "$schema": "../../schemas/d3_data_version_quality_manifest_gate_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1",
+  "task_id": "D3-T06",
+  "contract_status": "accepted",
+  "contract_scope": "contract_only_data_version_quality_manifest_release_gates",
+  "canonical_ref_table": "d3.daily_market_observations",
+  "value_layer_object": "d3.daily_market_observation_values",
+  "component_lineage_contract": "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1",
+  "quality_readiness_contract": "D3_QUALITY_READINESS_CONTRACT_V1",
+  "synthetic_build_contract": "D3_SYNTHETIC_DAILY_OBSERVATION_BUILD_CONTRACT_V1",
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "ddl_authorized": false,
+  "real_data_materialization_authorized": false,
+  "manifest_creation_authorized": false,
+  "data_version_release_authorized": false,
+  "pcvt_indicator_calculation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "release_gate_status_vocabulary": [
+    "not_evaluated",
+    "passed",
+    "failed",
+    "blocked",
+    "waived_for_exploration_only",
+    "not_applicable"
+  ],
+  "release_decision_vocabulary": [
+    "release_allowed",
+    "release_blocked",
+    "exploration_only_allowed",
+    "formal_release_blocked"
+  ],
+  "current_formal_release_decision": "formal_release_blocked",
+  "data_version_status_vocabulary": [
+    "candidate",
+    "accepted",
+    "rejected",
+    "revoked",
+    "exploration_only"
+  ],
+  "data_version_fields": [
+    "data_version",
+    "data_version_status",
+    "data_version_created_at",
+    "data_version_created_by",
+    "universe_id",
+    "time_segment_id",
+    "observation_revision",
+    "history_revision_class",
+    "research_use_tier",
+    "source_snapshot_id",
+    "run_id",
+    "candidate_manifest_ref",
+    "quality_report_ref",
+    "row_count",
+    "security_count",
+    "trading_date_min",
+    "trading_date_max",
+    "sha256"
+  ],
+  "data_version_rules": [
+    "data_version must be immutable after acceptance",
+    "candidate data_version cannot be accepted if any blocking gate fails",
+    "formal data_version cannot be accepted when history_revision_class = final_revised_history and point-in-time support is claimed",
+    "formal data_version cannot be accepted when research_use_tier != formal",
+    "data_version id must include D3 layer, universe_id, date range or run id, and observation revision",
+    "sha256 must cover the published logical dataset or deterministic manifest payload",
+    "D3-T06 must not create a real data_version"
+  ],
+  "manifest_fields": [
+    "manifest_id",
+    "manifest_type",
+    "manifest_version",
+    "manifest_created_at",
+    "data_version",
+    "dataset_name",
+    "dataset_layer",
+    "canonical_table",
+    "value_layer_object",
+    "universe_id",
+    "time_segment_id",
+    "row_count",
+    "security_count",
+    "trading_date_min",
+    "trading_date_max",
+    "observation_revision",
+    "source_snapshot_refs",
+    "run_refs",
+    "contract_refs",
+    "quality_report_ref",
+    "sha256"
+  ],
+  "manifest_type_vocabulary": [
+    "d3_candidate_dataset_manifest",
+    "d3_quality_report_manifest",
+    "d3_source_snapshot_manifest",
+    "d3_run_manifest"
+  ],
+  "manifest_rules": [
+    "manifest must not contain raw vendor payload",
+    "manifest must not contain row-level OHLCV payload",
+    "manifest must reference source_snapshot_refs and run_refs",
+    "manifest must reference D3-T01 through D3-T06 contract ids",
+    "manifest sha256 must be present",
+    "manifest row_count/security_count/date range must match quality report summary",
+    "manifest creation is not authorized by D3-T06 except synthetic validation payloads"
+  ],
+  "quality_report_fields": [
+    "quality_report_id",
+    "quality_report_version",
+    "data_version",
+    "quality_report_created_at",
+    "quality_summary",
+    "quality_domain_summaries",
+    "pcvt_input_readiness_summary",
+    "blocking_reasons",
+    "warning_reasons",
+    "row_count",
+    "security_count",
+    "trading_date_min",
+    "trading_date_max",
+    "quality_blocking_row_count",
+    "quality_warning_row_count",
+    "unknown_status_count",
+    "diagnostic_required_count",
+    "release_gate_status"
+  ],
+  "quality_domains_required": [
+    "raw_ohlcv_integrity",
+    "continuous_ohlc_integrity",
+    "raw_vs_continuous_reconciliation",
+    "amount_volume_unit_validation",
+    "daily_vwap_range_validation",
+    "trading_constraint_diagnostics",
+    "mechanical_gap_attribution",
+    "window_validity",
+    "pcvt_input_readiness"
+  ],
+  "pcvt_readiness_indicators_required": [
+    "P1_NATR14",
+    "P2_LogRange20",
+    "C1_LogMASpread_5_60",
+    "C2_AdjVWAPSpread_5_60",
+    "T1_ER20",
+    "T2_AbsTrendT20",
+    "V1_VolShrink20_60",
+    "V2_AmountLevel20Pct"
+  ],
+  "quality_report_rules": [
+    "quality report must not contain PCVT values",
+    "quality report must not contain future labels or returns",
+    "quality report must not contain backtest or portfolio results",
+    "any blocking quality gate blocks formal release",
+    "unknown statuses must be counted, not silently converted",
+    "diagnostic_required statuses must be counted, not silently passed",
+    "quality report must distinguish blocking, warning, unknown, and diagnostic_required"
+  ],
+  "release_gates": [
+    {
+      "gate_id": "d2_formal_materialization_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["d1_raw_materialized", "d2_adjusted_materialized", "d2_quality_flags_materialized"],
+      "failure_message": "D2 formal materialization remains blocked"
+    },
+    {
+      "gate_id": "source_authorization_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["formal_source_authorization"],
+      "failure_message": "formal market data source authorization remains blocked"
+    },
+    {
+      "gate_id": "factor_as_of_time_coverage_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["factor_as_of_time_coverage"],
+      "failure_message": "factor_as_of_time coverage is not verified"
+    },
+    {
+      "gate_id": "revision_timestamp_coverage_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["revision_timestamp_coverage"],
+      "failure_message": "revision timestamp coverage is not verified"
+    },
+    {
+      "gate_id": "canonical_contract_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1"],
+      "failure_message": "canonical contract is incomplete"
+    },
+    {
+      "gate_id": "value_layer_contract_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"],
+      "failure_message": "value layer contract is incomplete"
+    },
+    {
+      "gate_id": "component_lineage_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1"],
+      "failure_message": "component lineage validation is incomplete"
+    },
+    {
+      "gate_id": "no_bypass_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["r0_allowed_sources"],
+      "failure_message": "R0 no-bypass policy is not satisfied"
+    },
+    {
+      "gate_id": "quality_readiness_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["D3_QUALITY_READINESS_CONTRACT_V1"],
+      "failure_message": "quality/readiness gates are incomplete"
+    },
+    {
+      "gate_id": "manifest_completeness_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["manifest_candidate"],
+      "failure_message": "manifest candidate is incomplete"
+    },
+    {
+      "gate_id": "quality_report_completeness_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["quality_report_candidate"],
+      "failure_message": "quality report candidate is incomplete"
+    },
+    {
+      "gate_id": "row_count_reconciliation_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["row_count", "security_count", "trading_date_min", "trading_date_max"],
+      "failure_message": "row count or coverage reconciliation failed"
+    },
+    {
+      "gate_id": "hash_integrity_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["sha256"],
+      "failure_message": "hash integrity evidence is incomplete"
+    },
+    {
+      "gate_id": "prohibited_field_absence_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["prohibited_fields"],
+      "failure_message": "prohibited fields are present"
+    },
+    {
+      "gate_id": "forbidden_path_absence_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["forbidden_path_policy"],
+      "failure_message": "forbidden path references are present"
+    },
+    {
+      "gate_id": "r0_locked_until_release_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["r0_lock_status"],
+      "failure_message": "R0 remains locked until release gates are accepted"
+    },
+    {
+      "gate_id": "formal_d3_generation_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["D3-T07"],
+      "failure_message": "formal D3 generation is not authorized"
+    },
+    {
+      "gate_id": "r0_release_gate",
+      "required_for_formal_release": true,
+      "status_vocabulary": ["not_evaluated", "passed", "failed", "blocked", "waived_for_exploration_only", "not_applicable"],
+      "blocking_when": ["failed", "blocked", "not_evaluated"],
+      "evidence_fields": ["R0"],
+      "failure_message": "R0 release remains blocked"
+    }
+  ],
+  "current_blocking_gates": {
+    "d2_formal_materialization_gate": "blocked",
+    "source_authorization_gate": "blocked",
+    "factor_as_of_time_coverage_gate": "blocked",
+    "revision_timestamp_coverage_gate": "blocked",
+    "formal_d3_generation_gate": "blocked",
+    "r0_release_gate": "blocked"
+  },
+  "prohibited_fields": [
+    "pcvt_value",
+    "pcvt_score",
+    "pcvt_state",
+    "state",
+    "q_threshold",
+    "state_machine_version",
+    "future_return",
+    "future_max_return",
+    "label",
+    "breakout_direction",
+    "outcome",
+    "target",
+    "holding_period_return",
+    "backtest_signal",
+    "portfolio_return",
+    "position",
+    "trade",
+    "order",
+    "execution_price",
+    "vendor_payload",
+    "raw_vendor_payload",
+    "raw_rows",
+    "qfq_rows",
+    "hfq_rows"
+  ],
+  "forbidden_path_policy": {
+    "reject_payload_path_before_open": true,
+    "reject_payload_content_paths": true,
+    "duckdb_connection_authorized": false,
+    "external_api_call_authorized": false,
+    "manifest_write_authorized": false,
+    "data_version_write_authorized": false,
+    "repository_data_artifact_write_authorized": false,
+    "forbidden_patterns": [
+      "data/raw",
+      "data\\raw",
+      "data/external",
+      "data\\external",
+      "MarketDB",
+      "marketdb",
+      ".duckdb",
+      ".day",
+      "vendor_payload",
+      "raw_rows",
+      "qfq_rows",
+      "hfq_rows"
+    ]
+  },
+  "depends_on": [
+    "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1",
+    "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1",
+    "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1",
+    "D3_QUALITY_READINESS_CONTRACT_V1",
+    "D3_SYNTHETIC_DAILY_OBSERVATION_BUILD_CONTRACT_V1",
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1"
+  ]
+}

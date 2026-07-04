@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d3_data_version_quality_manifest_gate_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "canonical_ref_table",
+    "value_layer_object",
+    "component_lineage_contract",
+    "quality_readiness_contract",
+    "synthetic_build_contract",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "ddl_authorized",
+    "real_data_materialization_authorized",
+    "manifest_creation_authorized",
+    "data_version_release_authorized",
+    "pcvt_indicator_calculation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "release_gate_status_vocabulary",
+    "release_decision_vocabulary",
+    "current_formal_release_decision",
+    "data_version_status_vocabulary",
+    "data_version_fields",
+    "data_version_rules",
+    "manifest_fields",
+    "manifest_type_vocabulary",
+    "manifest_rules",
+    "quality_report_fields",
+    "quality_domains_required",
+    "pcvt_readiness_indicators_required",
+    "quality_report_rules",
+    "release_gates",
+    "current_blocking_gates",
+    "prohibited_fields",
+    "forbidden_path_policy",
+    "depends_on"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/d3_data_version_quality_manifest_gate_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"
+    },
+    "task_id": { "const": "D3-T06" },
+    "contract_status": { "const": "accepted" },
+    "contract_scope": {
+      "const": "contract_only_data_version_quality_manifest_release_gates"
+    },
+    "canonical_ref_table": { "const": "d3.daily_market_observations" },
+    "value_layer_object": { "const": "d3.daily_market_observation_values" },
+    "component_lineage_contract": {
+      "const": "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1"
+    },
+    "quality_readiness_contract": {
+      "const": "D3_QUALITY_READINESS_CONTRACT_V1"
+    },
+    "synthetic_build_contract": {
+      "const": "D3_SYNTHETIC_DAILY_OBSERVATION_BUILD_CONTRACT_V1"
+    },
+    "formal_ingestion_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "ddl_authorized": { "const": false },
+    "real_data_materialization_authorized": { "const": false },
+    "manifest_creation_authorized": { "const": false },
+    "data_version_release_authorized": { "const": false },
+    "pcvt_indicator_calculation_authorized": { "const": false },
+    "r0_state_generation_authorized": { "const": false },
+    "synthetic_test_only": { "const": true },
+    "release_gate_status_vocabulary": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "not_evaluated" } },
+        { "contains": { "const": "passed" } },
+        { "contains": { "const": "failed" } },
+        { "contains": { "const": "blocked" } },
+        { "contains": { "const": "waived_for_exploration_only" } },
+        { "contains": { "const": "not_applicable" } }
+      ]
+    },
+    "release_decision_vocabulary": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "release_allowed" } },
+        { "contains": { "const": "release_blocked" } },
+        { "contains": { "const": "exploration_only_allowed" } },
+        { "contains": { "const": "formal_release_blocked" } }
+      ]
+    },
+    "current_formal_release_decision": { "const": "formal_release_blocked" },
+    "data_version_status_vocabulary": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "candidate" } },
+        { "contains": { "const": "accepted" } },
+        { "contains": { "const": "rejected" } },
+        { "contains": { "const": "revoked" } },
+        { "contains": { "const": "exploration_only" } }
+      ]
+    },
+    "data_version_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "data_version" } },
+        { "contains": { "const": "data_version_status" } },
+        { "contains": { "const": "data_version_created_at" } },
+        { "contains": { "const": "data_version_created_by" } },
+        { "contains": { "const": "universe_id" } },
+        { "contains": { "const": "time_segment_id" } },
+        { "contains": { "const": "observation_revision" } },
+        { "contains": { "const": "history_revision_class" } },
+        { "contains": { "const": "research_use_tier" } },
+        { "contains": { "const": "source_snapshot_id" } },
+        { "contains": { "const": "run_id" } },
+        { "contains": { "const": "candidate_manifest_ref" } },
+        { "contains": { "const": "quality_report_ref" } },
+        { "contains": { "const": "row_count" } },
+        { "contains": { "const": "security_count" } },
+        { "contains": { "const": "trading_date_min" } },
+        { "contains": { "const": "trading_date_max" } },
+        { "contains": { "const": "sha256" } }
+      ]
+    },
+    "data_version_rules": { "$ref": "#/$defs/stringArray" },
+    "manifest_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "manifest_id" } },
+        { "contains": { "const": "manifest_type" } },
+        { "contains": { "const": "manifest_version" } },
+        { "contains": { "const": "manifest_created_at" } },
+        { "contains": { "const": "data_version" } },
+        { "contains": { "const": "dataset_name" } },
+        { "contains": { "const": "dataset_layer" } },
+        { "contains": { "const": "canonical_table" } },
+        { "contains": { "const": "value_layer_object" } },
+        { "contains": { "const": "universe_id" } },
+        { "contains": { "const": "time_segment_id" } },
+        { "contains": { "const": "row_count" } },
+        { "contains": { "const": "security_count" } },
+        { "contains": { "const": "trading_date_min" } },
+        { "contains": { "const": "trading_date_max" } },
+        { "contains": { "const": "observation_revision" } },
+        { "contains": { "const": "source_snapshot_refs" } },
+        { "contains": { "const": "run_refs" } },
+        { "contains": { "const": "contract_refs" } },
+        { "contains": { "const": "quality_report_ref" } },
+        { "contains": { "const": "sha256" } }
+      ]
+    },
+    "manifest_type_vocabulary": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d3_candidate_dataset_manifest" } },
+        { "contains": { "const": "d3_quality_report_manifest" } },
+        { "contains": { "const": "d3_source_snapshot_manifest" } },
+        { "contains": { "const": "d3_run_manifest" } }
+      ]
+    },
+    "manifest_rules": { "$ref": "#/$defs/stringArray" },
+    "quality_report_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "quality_report_id" } },
+        { "contains": { "const": "quality_report_version" } },
+        { "contains": { "const": "data_version" } },
+        { "contains": { "const": "quality_report_created_at" } },
+        { "contains": { "const": "quality_summary" } },
+        { "contains": { "const": "quality_domain_summaries" } },
+        { "contains": { "const": "pcvt_input_readiness_summary" } },
+        { "contains": { "const": "blocking_reasons" } },
+        { "contains": { "const": "warning_reasons" } },
+        { "contains": { "const": "row_count" } },
+        { "contains": { "const": "security_count" } },
+        { "contains": { "const": "trading_date_min" } },
+        { "contains": { "const": "trading_date_max" } },
+        { "contains": { "const": "quality_blocking_row_count" } },
+        { "contains": { "const": "quality_warning_row_count" } },
+        { "contains": { "const": "unknown_status_count" } },
+        { "contains": { "const": "diagnostic_required_count" } },
+        { "contains": { "const": "release_gate_status" } }
+      ]
+    },
+    "quality_domains_required": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "raw_ohlcv_integrity" } },
+        { "contains": { "const": "continuous_ohlc_integrity" } },
+        { "contains": { "const": "raw_vs_continuous_reconciliation" } },
+        { "contains": { "const": "amount_volume_unit_validation" } },
+        { "contains": { "const": "daily_vwap_range_validation" } },
+        { "contains": { "const": "trading_constraint_diagnostics" } },
+        { "contains": { "const": "mechanical_gap_attribution" } },
+        { "contains": { "const": "window_validity" } },
+        { "contains": { "const": "pcvt_input_readiness" } }
+      ]
+    },
+    "pcvt_readiness_indicators_required": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "P1_NATR14" } },
+        { "contains": { "const": "P2_LogRange20" } },
+        { "contains": { "const": "C1_LogMASpread_5_60" } },
+        { "contains": { "const": "C2_AdjVWAPSpread_5_60" } },
+        { "contains": { "const": "T1_ER20" } },
+        { "contains": { "const": "T2_AbsTrendT20" } },
+        { "contains": { "const": "V1_VolShrink20_60" } },
+        { "contains": { "const": "V2_AmountLevel20Pct" } }
+      ]
+    },
+    "quality_report_rules": { "$ref": "#/$defs/stringArray" },
+    "release_gates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/releaseGate" },
+      "minItems": 18
+    },
+    "current_blocking_gates": {
+      "type": "object",
+      "required": [
+        "d2_formal_materialization_gate",
+        "source_authorization_gate",
+        "factor_as_of_time_coverage_gate",
+        "revision_timestamp_coverage_gate",
+        "formal_d3_generation_gate",
+        "r0_release_gate"
+      ],
+      "properties": {
+        "d2_formal_materialization_gate": { "const": "blocked" },
+        "source_authorization_gate": { "const": "blocked" },
+        "factor_as_of_time_coverage_gate": { "const": "blocked" },
+        "revision_timestamp_coverage_gate": { "const": "blocked" },
+        "formal_d3_generation_gate": { "const": "blocked" },
+        "r0_release_gate": { "const": "blocked" }
+      },
+      "additionalProperties": false
+    },
+    "prohibited_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "pcvt_value" } },
+        { "contains": { "const": "pcvt_score" } },
+        { "contains": { "const": "pcvt_state" } },
+        { "contains": { "const": "state" } },
+        { "contains": { "const": "q_threshold" } },
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "label" } },
+        { "contains": { "const": "backtest_signal" } },
+        { "contains": { "const": "portfolio_return" } },
+        { "contains": { "const": "vendor_payload" } },
+        { "contains": { "const": "raw_rows" } },
+        { "contains": { "const": "qfq_rows" } },
+        { "contains": { "const": "hfq_rows" } }
+      ]
+    },
+    "forbidden_path_policy": {
+      "type": "object",
+      "required": [
+        "reject_payload_path_before_open",
+        "reject_payload_content_paths",
+        "duckdb_connection_authorized",
+        "external_api_call_authorized",
+        "manifest_write_authorized",
+        "data_version_write_authorized",
+        "repository_data_artifact_write_authorized",
+        "forbidden_patterns"
+      ],
+      "properties": {
+        "reject_payload_path_before_open": { "const": true },
+        "reject_payload_content_paths": { "const": true },
+        "duckdb_connection_authorized": { "const": false },
+        "external_api_call_authorized": { "const": false },
+        "manifest_write_authorized": { "const": false },
+        "data_version_write_authorized": { "const": false },
+        "repository_data_artifact_write_authorized": { "const": false },
+        "forbidden_patterns": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "data/raw" } },
+            { "contains": { "const": "data\\raw" } },
+            { "contains": { "const": "data/external" } },
+            { "contains": { "const": "data\\external" } },
+            { "contains": { "const": "MarketDB" } },
+            { "contains": { "const": "marketdb" } },
+            { "contains": { "const": ".duckdb" } },
+            { "contains": { "const": ".day" } },
+            { "contains": { "const": "vendor_payload" } },
+            { "contains": { "const": "raw_rows" } },
+            { "contains": { "const": "qfq_rows" } },
+            { "contains": { "const": "hfq_rows" } }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "depends_on": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1" } },
+        {
+          "contains": {
+            "const": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"
+          }
+        },
+        { "contains": { "const": "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1" } },
+        { "contains": { "const": "D3_QUALITY_READINESS_CONTRACT_V1" } },
+        {
+          "contains": {
+            "const": "D3_SYNTHETIC_DAILY_OBSERVATION_BUILD_CONTRACT_V1"
+          }
+        },
+        { "contains": { "const": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1" } },
+        { "contains": { "const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1" } },
+        { "contains": { "const": "D0_DATA_PRODUCT_CONTRACTS_V1" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "releaseGate": {
+      "type": "object",
+      "required": [
+        "gate_id",
+        "required_for_formal_release",
+        "status_vocabulary",
+        "blocking_when",
+        "evidence_fields",
+        "failure_message"
+      ],
+      "properties": {
+        "gate_id": { "type": "string" },
+        "required_for_formal_release": { "type": "boolean" },
+        "status_vocabulary": { "$ref": "#/$defs/stringArray" },
+        "blocking_when": { "$ref": "#/$defs/stringArray" },
+        "evidence_fields": { "$ref": "#/$defs/stringArray" },
+        "failure_message": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

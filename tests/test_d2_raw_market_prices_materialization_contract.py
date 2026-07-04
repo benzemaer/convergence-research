@@ -130,8 +130,8 @@ class D2RawMarketPricesMaterializationContractTest(unittest.TestCase):
 
     def test_readme_does_not_advance_to_d2_t04(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
-        self.assertIn("current_task: D3-T05", readme)
-        self.assertIn("next_planned_task: D3-T06", readme)
+        self.assertIn("current_task: D3-T06", readme)
+        self.assertIn("next_planned_task: D3-T07", readme)
         self.assertIn(
             "D2-T03` 原始行情价格落账：blocked pending source authorization",
             readme,
