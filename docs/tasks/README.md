@@ -115,9 +115,9 @@ D2-T07 进入契约门禁前的任务队列仍为：
 - `D2-T03` 原始行情价格落账：blocked pending source authorization via PR #27
 - `D2-T04` 复权因子与 `factor_as_of_time` 契约：blocked pending factor source authorization via PR #28
 - `D2-T05` 连续研究价格构建与反推校验：blocked pending raw and factor authorization via PR #29
-- `D2-T06` 候选行情快照探针：small-sample redacted execution report via PR #32; formal ingestion still blocked
+- `D2-T06` 候选行情快照探针：small-sample redacted execution report via PR #32; formal ingestion and D1/D2/D3 materialization remain blocked
 - `D2-T07` 价格质量、交易约束、机械缺口与 PCVT 底层依赖契约：contract-only via PR #33
-- `D2-T08` D2 阶段验收与 D3 交接契约：contract-only via PR #34; D3 generation still blocked
+- `D2-T08` D2 阶段验收与 D3 交接契约：contract-only via PR #34; D3 contract work may proceed, but formal D3 generation remains blocked
 
 完成标准：
 
@@ -141,7 +141,8 @@ R0 交接仍未授权。
 - `D3-T04` 基础质量指标与 PCVT input readiness 契约：planned
 - `D3-T05` 标准日频观测合成构建与最小集成测试：planned
 - `D3-T06` `data_version`、quality report 与 manifest 发布门禁：planned
-- `D3-T07` D3 阶段验收与 R0 交接契约：planned
+- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布：blocked pending D2 formal materialization
+- `D3-T08` D3 阶段验收与 R0 交接契约：planned
 
 ## R0：PCVT 候选观测量与候选状态定义
 

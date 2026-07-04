@@ -141,6 +141,22 @@ class D3DailyMarketObservationsContractTest(unittest.TestCase):
         self.assertIn("current_stage: D3", self.readme)
         self.assertIn("current_task: D3-T01", self.readme)
         self.assertIn("next_planned_task: D3-T02", self.readme)
+        self.assertIn(
+            "D3-T07` 标准日频观测表正式生成与 candidate data_version 发布",
+            self.readme,
+        )
+        self.assertIn("blocked pending D2 formal materialization", self.readme)
+        self.assertIn("D3-T08` D3 阶段验收与 R0 交接契约", self.readme)
+
+    def test_readme_preserves_d2_formal_blocking_semantics(self) -> None:
+        self.assertIn(
+            "formal ingestion and D1/D2/D3 materialization remain blocked",
+            self.readme,
+        )
+        self.assertIn(
+            "D3 contract work may proceed, but formal D3 generation remains blocked",
+            self.readme,
+        )
 
     def test_readme_does_not_mark_d3_generation_or_r0_unlocked(self) -> None:
         forbidden_phrases = [
