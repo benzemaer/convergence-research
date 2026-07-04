@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d3_daily_market_observations_contract.schema.json",
+  "title": "D3 Daily Market Observations Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "target_table",
+    "canonical_table_mode",
+    "value_view_or_table_defined_by_this_pr",
+    "future_value_view_or_table_task",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "real_data_materialization_authorized",
+    "data_version_release_authorized",
+    "pcvt_indicator_calculation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "grain",
+    "primary_key",
+    "required_fields",
+    "component_refs",
+    "source_lineage_fields",
+    "observed_at_revision_policy",
+    "research_use_tier",
+    "no_bypass_policy",
+    "ddl_alignment",
+    "prohibited_fields",
+    "depends_on",
+    "blocking_conditions"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1"},
+    "task_id": {"const": "D3-T01"},
+    "contract_status": {"const": "accepted"},
+    "contract_scope": {"const": "contract_only_refs_only_canonical_daily_market_observations"},
+    "target_table": {"const": "d3.daily_market_observations"},
+    "canonical_table_mode": {"const": "refs_only"},
+    "value_view_or_table_defined_by_this_pr": {"const": false},
+    "future_value_view_or_table_task": {"const": "D3-T02"},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "data_version_release_authorized": {"const": false},
+    "pcvt_indicator_calculation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "grain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "fields"],
+      "properties": {
+        "description": {"type": "string"},
+        "fields": {"$ref": "#/$defs/primary_key_fields"}
+      }
+    },
+    "primary_key": {"$ref": "#/$defs/primary_key_fields"},
+    "required_fields": {"$ref": "#/$defs/required_fields"},
+    "component_refs": {"$ref": "#/$defs/component_refs"},
+    "source_lineage_fields": {"$ref": "#/$defs/source_lineage_fields"},
+    "observed_at_revision_policy": {
+      "type": "object",
+      "required": [
+        "observed_at_required",
+        "observed_at_rule_required",
+        "revision_policy_required",
+        "history_revision_class_required",
+        "unknown_observed_at_blocks_formal_use",
+        "final_revised_history_cannot_claim_point_in_time_support"
+      ],
+      "properties": {
+        "observed_at_required": {"const": true},
+        "observed_at_rule_required": {"const": true},
+        "revision_policy_required": {"const": true},
+        "history_revision_class_required": {"const": true},
+        "unknown_observed_at_blocks_formal_use": {"const": true},
+        "final_revised_history_cannot_claim_point_in_time_support": {"const": true}
+      }
+    },
+    "research_use_tier": {
+      "type": "object",
+      "required": ["required", "allowed_values", "unknown_or_missing_blocks_r0"],
+      "properties": {
+        "required": {"const": true},
+        "allowed_values": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            {"contains": {"const": "formal"}},
+            {"contains": {"const": "exploration_only"}},
+            {"contains": {"const": "blocked"}}
+          ]
+        },
+        "unknown_or_missing_blocks_r0": {"const": true}
+      }
+    },
+    "no_bypass_policy": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "r0_must_read_d3_formal_entry_only",
+        "r0_must_not_read_d1_d2_directly",
+        "allowed_r0_entry_tables",
+        "value_fields_available_to_r0_in_this_contract"
+      ],
+      "properties": {
+        "enabled": {"const": true},
+        "r0_must_read_d3_formal_entry_only": {"const": true},
+        "r0_must_not_read_d1_d2_directly": {"const": true},
+        "allowed_r0_entry_tables": {
+          "type": "array",
+          "contains": {"const": "d3.daily_market_observations"}
+        },
+        "value_fields_available_to_r0_in_this_contract": {"const": false}
+      }
+    },
+    "ddl_alignment": {"type": "object"},
+    "prohibited_fields": {"$ref": "#/$defs/prohibited_fields"},
+    "depends_on": {"type": "array", "minItems": 4, "items": {"type": "string"}},
+    "blocking_conditions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string"},
+      "allOf": [
+        {"contains": {"const": "formal_ingestion_not_authorized"}},
+        {"contains": {"const": "real_d2_raw_price_not_materialized"}},
+        {"contains": {"const": "real_d2_adjusted_price_not_materialized"}},
+        {"contains": {"const": "real_d2_quality_flags_not_materialized"}},
+        {"contains": {"const": "factor_as_of_time_coverage_not_verified"}},
+        {"contains": {"const": "revision_timestamp_coverage_not_verified"}},
+        {"contains": {"const": "d3_generation_not_authorized"}}
+      ]
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "primary_key_fields": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "allOf": [
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "observation_revision"}}
+      ]
+    },
+    "required_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "time_segment_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "observation_revision"}},
+        {"contains": {"const": "observed_at"}},
+        {"contains": {"const": "raw_price_ref"}},
+        {"contains": {"const": "adjusted_price_ref"}},
+        {"contains": {"const": "trading_constraint_ref"}},
+        {"contains": {"const": "market_price_quality_ref"}},
+        {"contains": {"const": "mechanical_gap_ref"}},
+        {"contains": {"const": "pcvt_input_readiness_ref"}},
+        {"contains": {"const": "membership_ref"}},
+        {"contains": {"const": "calendar_ref"}},
+        {"contains": {"const": "source_snapshot_ref"}},
+        {"contains": {"const": "run_ref"}},
+        {"contains": {"const": "price_fact_source"}},
+        {"contains": {"const": "corporate_action_source"}},
+        {"contains": {"const": "membership_source"}},
+        {"contains": {"const": "calendar_source"}},
+        {"contains": {"const": "revision_policy"}},
+        {"contains": {"const": "observed_at_rule"}},
+        {"contains": {"const": "history_revision_class"}},
+        {"contains": {"const": "research_use_tier"}},
+        {"contains": {"const": "source_registry_id"}},
+        {"contains": {"const": "source_snapshot_id"}},
+        {"contains": {"const": "run_id"}}
+      ]
+    },
+    "component_refs": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "raw_price_ref"}},
+        {"contains": {"const": "adjusted_price_ref"}},
+        {"contains": {"const": "trading_constraint_ref"}},
+        {"contains": {"const": "market_price_quality_ref"}},
+        {"contains": {"const": "mechanical_gap_ref"}},
+        {"contains": {"const": "pcvt_input_readiness_ref"}},
+        {"contains": {"const": "membership_ref"}},
+        {"contains": {"const": "calendar_ref"}},
+        {"contains": {"const": "source_snapshot_ref"}},
+        {"contains": {"const": "run_ref"}}
+      ]
+    },
+    "source_lineage_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "price_fact_source"}},
+        {"contains": {"const": "corporate_action_source"}},
+        {"contains": {"const": "membership_source"}},
+        {"contains": {"const": "calendar_source"}},
+        {"contains": {"const": "source_registry_id"}},
+        {"contains": {"const": "source_snapshot_id"}},
+        {"contains": {"const": "source_snapshot_ref"}},
+        {"contains": {"const": "run_id"}},
+        {"contains": {"const": "run_ref"}}
+      ]
+    },
+    "prohibited_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/string_array"},
+        {"contains": {"const": "raw_open"}},
+        {"contains": {"const": "raw_high"}},
+        {"contains": {"const": "raw_low"}},
+        {"contains": {"const": "raw_close"}},
+        {"contains": {"const": "adj_open"}},
+        {"contains": {"const": "adj_high"}},
+        {"contains": {"const": "adj_low"}},
+        {"contains": {"const": "adj_close"}},
+        {"contains": {"const": "volume"}},
+        {"contains": {"const": "amount"}},
+        {"contains": {"const": "turnover"}},
+        {"contains": {"const": "float_shares"}},
+        {"contains": {"const": "pcvt_value"}},
+        {"contains": {"const": "pcvt_score"}},
+        {"contains": {"const": "state"}},
+        {"contains": {"const": "future_return"}},
+        {"contains": {"const": "future_max_return"}},
+        {"contains": {"const": "label"}},
+        {"contains": {"const": "breakout_direction"}},
+        {"contains": {"const": "outcome"}},
+        {"contains": {"const": "target"}},
+        {"contains": {"const": "holding_period_return"}},
+        {"contains": {"const": "backtest_signal"}},
+        {"contains": {"const": "portfolio_return"}},
+        {"contains": {"const": "raw_rows"}},
+        {"contains": {"const": "qfq_rows"}},
+        {"contains": {"const": "hfq_rows"}},
+        {"contains": {"const": "vendor_payload"}},
+        {"contains": {"const": "raw_vendor_payload"}}
+      ]
+    }
+  }
+}
