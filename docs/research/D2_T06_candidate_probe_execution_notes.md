@@ -2,7 +2,7 @@
 
 ## Status
 
-The BAOSTOCK small-sample probe execution remains blocked in the current local environment. PR TBD records the attempted execution workflow without changing the committed execution report to an executed status.
+The BAOSTOCK small-sample probe execution remains blocked in the current local environment. PR #32 records the attempted execution workflow without changing the committed execution report to an executed status.
 
 ## Commands
 
