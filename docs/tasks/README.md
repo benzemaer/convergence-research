@@ -29,6 +29,8 @@ D2-T03 进入阻塞门禁时的任务队列仍为：
 `D2-T04` 复权因子与 `factor_as_of_time` 契约：planned。
 D2-T04 进入阻塞门禁时的任务队列仍为：
 `D2-T05` 连续研究价格构建与反推校验：planned。
+D2-T05 进入阻塞门禁时的任务队列仍为：
+`D2-T06` 跳空归因与价格质量标记：planned。
 
 ## G0：样本宇宙与时间边界
 
@@ -107,12 +109,13 @@ D2-T04 进入阻塞门禁时的任务队列仍为：
 - `D2-T03` 原始行情价格落账：blocked pending source authorization via PR #27
 - `D2-T04` 复权因子与 `factor_as_of_time` 契约：blocked pending factor source authorization via PR #28
 - `D2-T05` 连续研究价格构建与反推校验：blocked pending raw and factor authorization via PR #29
-- `D2-T06` 跳空归因与价格质量标记：planned
-- `D2-T07` D2 阶段验收与 D3 交接：planned
+- `D2-T06` 候选行情快照探针：contract-only pending separately authorized probe execution via PR TBD
+- `D2-T07` 跳空归因与价格质量标记：planned
+- `D2-T08` D2 阶段验收与 D3 交接：planned
 
 完成标准：
 
-- D2-T01 至 D2-T07 均完成对应 PR 级验收；
+- D2-T01 至 D2-T08 均完成对应 PR 级验收；
 - `d1.raw_market_prices`、`d2.adjusted_market_prices`、`d2.market_price_quality_flags` 和
   `d2.membership_alignment` 的来源、as-of、snapshot、manifest 和 revision 边界均通过审核；
 - 原始交易事实层、连续研究价格层、交易约束引用和公司行为/机械缺口归因之间的使用边界可测试、可追溯；
