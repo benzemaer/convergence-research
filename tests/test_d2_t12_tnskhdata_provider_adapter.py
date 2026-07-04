@@ -2,12 +2,25 @@ from __future__ import annotations
 
 import unittest
 
-import pandas as pd
-
 from scripts.run_d2_t12_provider_remediation_probe import (
     TnskhdataProviderAdapter,
     TushareCompatibleProviderAdapter,
 )
+
+
+class FakeFrame:
+    def __init__(self, rows=None, columns=None) -> None:
+        self.rows = rows or []
+        self.columns = columns or []
+
+    @property
+    def empty(self) -> bool:
+        return not self.rows
+
+    def to_dict(self, orient: str):
+        if orient != "records":
+            raise ValueError("FakeFrame only supports records")
+        return self.rows
 
 
 class FakeProClient:
@@ -16,15 +29,15 @@ class FakeProClient:
 
     def stock_basic(self, **kwargs):
         self.calls.append(("stock_basic", kwargs))
-        return pd.DataFrame([{"ts_code": "000001.SZ", "name": "Ping An"}])
+        return FakeFrame([{"ts_code": "000001.SZ", "name": "Ping An"}])
 
     def trade_cal(self, **kwargs):
         self.calls.append(("trade_cal", kwargs))
-        return pd.DataFrame([{"cal_date": "20260702", "is_open": 1}])
+        return FakeFrame([{"cal_date": "20260702", "is_open": 1}])
 
     def daily(self, **kwargs):
         self.calls.append(("daily", kwargs))
-        return pd.DataFrame(
+        return FakeFrame(
             [
                 {
                     "ts_code": "000001.SZ",
@@ -37,13 +50,9 @@ class FakeProClient:
             ]
         )
 
-    def daily_basic(self, **kwargs):
-        self.calls.append(("daily_basic", kwargs))
-        return pd.DataFrame([{"ts_code": "000001.SZ", "trade_date": "20260702"}])
-
     def stk_limit(self, **kwargs):
         self.calls.append(("stk_limit", kwargs))
-        return pd.DataFrame(
+        return FakeFrame(
             [
                 {
                     "ts_code": "000001.SZ",
@@ -56,17 +65,27 @@ class FakeProClient:
 
     def adj_factor(self, **kwargs):
         self.calls.append(("adj_factor", kwargs))
-        return pd.DataFrame(
+        return FakeFrame(
             [{"ts_code": "000001.SZ", "trade_date": "20260702", "adj_factor": 1.23}]
         )
 
+    def stock_st(self, **kwargs):
+        self.calls.append(("stock_st", kwargs))
+        return FakeFrame([{"ts_code": "000001.SZ", "trade_date": "20260702"}])
+
     def suspend_d(self, **kwargs):
         self.calls.append(("suspend_d", kwargs))
-        return pd.DataFrame(columns=["ts_code", "suspend_date"])
+        return FakeFrame(columns=["ts_code", "suspend_date"])
+
+    def pro_bar(self, **kwargs):
+        self.calls.append(("pro_bar", kwargs))
+        return FakeFrame(
+            [{"ts_code": "000001.SZ", "trade_date": "20260702", "close": 10.5}]
+        )
 
     def namechange(self, **kwargs):
         self.calls.append(("namechange", kwargs))
-        return pd.DataFrame(
+        return FakeFrame(
             [{"ts_code": "000001.SZ", "name": "ST sample", "start_date": "20260101"}]
         )
 
@@ -93,10 +112,11 @@ class D2T12TnskhdataProviderAdapterTest(unittest.TestCase):
                 "stock_basic",
                 "trade_cal",
                 "daily",
-                "daily_basic",
                 "stk_limit",
                 "adj_factor",
+                "stock_st",
                 "suspend_d",
+                "pro_bar",
                 "namechange",
             },
         )
@@ -105,9 +125,14 @@ class D2T12TnskhdataProviderAdapterTest(unittest.TestCase):
         self.assertTrue(result["capability_matrix"])
         factor_row = result["factor_rows"][0]
         self.assertEqual(factor_row["adjustment_factor"], 1.23)
-        self.assertIsNone(factor_row["factor_as_of_time"])
-        self.assertIsNone(factor_row["adjustment_revision"])
-        self.assertFalse(factor_row["point_in_time_eligible"])
+        self.assertEqual(
+            factor_row["factor_as_of_time"], "20260702 09:20:00 Asia/Shanghai"
+        )
+        self.assertEqual(
+            factor_row["adjustment_revision"], "candidate_snapshot_revision"
+        )
+        self.assertTrue(factor_row["point_in_time_eligible"])
+        self.assertFalse(factor_row["strict_provider_row_level_revision_eligible"])
 
     def test_tushare_adapter_shares_ts_code_mapping(self) -> None:
         client = FakeProClient()

@@ -45,12 +45,19 @@ TUSHARE_COMPATIBLE_APIS = [
     "stock_basic",
     "trade_cal",
     "daily",
-    "daily_basic",
     "stk_limit",
     "adj_factor",
+    "stock_st",
     "suspend_d",
+    "pro_bar",
     "namechange",
 ]
+TNSKHDATA_FACTOR_AS_OF_POLICY = (
+    "tnskhdata_adj_factor_source_level_daily_ingestion_window"
+)
+TNSKHDATA_FACTOR_AS_OF_CLOCK = "09:20:00 Asia/Shanghai"
+SNAPSHOT_REVISION_CLASS = "snapshot_level_revision"
+PIT_ELIGIBILITY_CLASS = "source_level_asof_snapshot_revision"
 FORBIDDEN_OUTPUT_TOKENS = ("data/raw", "data/external", "marketdb", ".duckdb", ".day")
 
 
@@ -373,10 +380,11 @@ class TushareCompatibleProviderAdapter:
             "stock_basic": ["ts_code", "name"],
             "trade_cal": ["cal_date", "is_open"],
             "daily": ["ts_code", "trade_date", "open", "high", "low", "close"],
-            "daily_basic": ["ts_code", "trade_date"],
             "stk_limit": ["ts_code", "trade_date", "up_limit", "down_limit"],
             "adj_factor": ["ts_code", "trade_date", "adj_factor"],
+            "stock_st": ["ts_code"],
             "suspend_d": ["ts_code", "suspend_date"],
+            "pro_bar": ["ts_code", "trade_date", "close"],
             "namechange": ["ts_code", "name", "start_date"],
         }.get(api_name, [])
 
@@ -393,23 +401,32 @@ class TushareCompatibleProviderAdapter:
             return _frame_records(client.trade_cal(exchange="", cal_date=trade_date))
         if api_name == "daily":
             return _frame_records(client.daily(ts_code=ts_code, trade_date=trade_date))
-        if api_name == "daily_basic":
-            return _frame_records(
-                client.daily_basic(ts_code=ts_code, trade_date=trade_date)
-            )
         if api_name == "stk_limit":
             return _frame_records(
                 client.stk_limit(ts_code=ts_code, trade_date=trade_date)
             )
         if api_name == "adj_factor":
-            return _frame_records(
-                client.adj_factor(ts_code=ts_code, trade_date=trade_date)
-            )
+            records = _frame_records(client.adj_factor(trade_date=trade_date))
+            if records:
+                return records
+            return _frame_records(client.adj_factor(ts_code=ts_code, trade_date=""))
+        if api_name == "stock_st":
+            fn = getattr(client, "stock_st", None)
+            if fn is None:
+                raise AttributeError("stock_st")
+            return _frame_records(fn(ts_code=ts_code, trade_date=trade_date))
         if api_name == "suspend_d":
             fn = getattr(client, "suspend_d", None) or getattr(client, "suspend", None)
             if fn is None:
                 raise AttributeError("suspend_d")
             return _frame_records(fn(ts_code=ts_code, suspend_date=trade_date))
+        if api_name == "pro_bar":
+            fn = getattr(client, "pro_bar", None)
+            if fn is None:
+                raise AttributeError("pro_bar")
+            return _frame_records(
+                fn(ts_code=ts_code, start_date=trade_date, end_date=trade_date)
+            )
         if api_name == "namechange":
             return _frame_records(client.namechange(ts_code=ts_code))
         return []
@@ -459,6 +476,9 @@ class TushareCompatibleProviderAdapter:
                 base["limit_down_price"] = _to_float(match.get("down_limit"))
             if api_name == "suspend_d":
                 base["suspension_status"] = "suspended"
+            if api_name == "stock_st":
+                base["st_status"] = "st"
+                base["st_status_evidence_method"] = "stock_st"
             if api_name == "namechange":
                 base["st_status"] = "st_candidate"
                 base["st_status_evidence_method"] = "namechange_derived_candidate"
@@ -484,17 +504,39 @@ class TushareCompatibleProviderAdapter:
                 ),
                 records[0],
             )
+            factor = _to_float(record.get("adj_factor"))
+            snapshot_id = sample.get("source_snapshot_id") or sample.get(
+                "run_id", "candidate_snapshot_revision"
+            )
+            artifact_hash = sample.get("artifact_sha256") or sample.get(
+                "source_snapshot_sha256", "candidate_artifact_sha256_pending"
+            )
             output.append(
                 {
                     **sample,
                     "provider_id": self.provider_id,
-                    "adjustment_factor": _to_float(record.get("adj_factor")),
-                    "factor_as_of_time": None,
-                    "adjustment_revision": None,
-                    "adjustment_factor_direction": (
-                        "provider_adj_factor_no_asof_revision"
-                    ),
-                    "point_in_time_eligible": False,
+                    "adjustment_factor": factor,
+                    "adjustment_factor_status": "resolved"
+                    if factor is not None
+                    else "unresolved",
+                    "factor_as_of_time": source_level_factor_as_of_time(
+                        sample["trading_date"]
+                    )
+                    if factor is not None
+                    else None,
+                    "factor_as_of_time_policy": TNSKHDATA_FACTOR_AS_OF_POLICY,
+                    "row_level_factor_as_of_time_available": False,
+                    "adjustment_revision": snapshot_id if factor is not None else None,
+                    "adjustment_revision_class": SNAPSHOT_REVISION_CLASS,
+                    "adjustment_revision_hash": artifact_hash
+                    if factor is not None
+                    else None,
+                    "provider_row_level_revision_available": False,
+                    "adjustment_factor_direction": "provider_adj_factor",
+                    "point_in_time_eligible": factor is not None,
+                    "point_in_time_eligibility_class": PIT_ELIGIBILITY_CLASS,
+                    "point_in_time_eligible_for_eod_research": factor is not None,
+                    "strict_provider_row_level_revision_eligible": False,
                 }
             )
         return output
@@ -750,6 +792,147 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def source_level_factor_as_of_time(trading_date: Any) -> str:
+    return f"{_date_yyyymmdd(trading_date)} {TNSKHDATA_FACTOR_AS_OF_CLOCK}"
+
+
+def classify_trading_status(
+    *,
+    trading_date: Any,
+    stock_basic: dict[str, Any] | None,
+    trade_cal: dict[str, Any] | None,
+    daily_row: dict[str, Any] | None,
+    suspend_row: dict[str, Any] | None,
+) -> str:
+    trade_date = _date_yyyymmdd(trading_date)
+    stock_basic = stock_basic or {}
+    list_date = _date_yyyymmdd(stock_basic.get("list_date"))
+    delist_date = _date_yyyymmdd(stock_basic.get("delist_date"))
+    if list_date and trade_date < list_date:
+        return "not_listed_yet"
+    if delist_date and trade_date > delist_date:
+        return "after_delist"
+    if str((trade_cal or {}).get("is_open")) == "0":
+        return "market_closed"
+    if str((suspend_row or {}).get("suspend_type")) == "S":
+        return "suspended"
+    if daily_row:
+        return "normal_trading"
+    return "provider_empty_or_unclassified"
+
+
+def classify_suspension_status(
+    *,
+    trading_status: str,
+    daily_row: dict[str, Any] | None,
+    suspend_row: dict[str, Any] | None,
+) -> str:
+    suspend_type = str((suspend_row or {}).get("suspend_type", ""))
+    if suspend_type == "S":
+        return "suspended"
+    if suspend_type == "R":
+        return "resumed"
+    if daily_row and suspend_type != "S":
+        return "not_suspended"
+    if trading_status in {"not_listed_yet", "market_closed", "after_delist"}:
+        return "not_applicable"
+    return "unresolved"
+
+
+def classify_st_status(
+    *,
+    trading_status: str,
+    stock_st_row: dict[str, Any] | None,
+    namechange_row: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    if trading_status in {"not_listed_yet", "after_delist", "market_closed"}:
+        return {"st_status": "not_applicable", "st_status_evidence_method": "calendar"}
+    if stock_st_row:
+        return {"st_status": "st", "st_status_evidence_method": "stock_st"}
+    if namechange_row:
+        return {
+            "st_status": "st_candidate",
+            "st_status_evidence_method": "namechange_derived_candidate",
+        }
+    return {"st_status": "not_st", "st_status_evidence_method": "stock_st_absence"}
+
+
+def derive_price_limit_status(
+    *,
+    trading_status: str,
+    daily_row: dict[str, Any] | None,
+    stk_limit_row: dict[str, Any] | None,
+    epsilon: float = 0.001,
+) -> dict[str, Any]:
+    if trading_status in {
+        "not_listed_yet",
+        "after_delist",
+        "market_closed",
+        "suspended",
+    }:
+        return {
+            "price_limit_status": "not_applicable",
+            "limit_up_price": None,
+            "limit_down_price": None,
+            "price_limit_status_evidence_method": "provider_stk_limit_plus_daily_ohlc",
+        }
+    up_limit = _to_float((stk_limit_row or {}).get("up_limit"))
+    down_limit = _to_float((stk_limit_row or {}).get("down_limit"))
+    if not daily_row or up_limit is None or down_limit is None:
+        return {
+            "price_limit_status": "unresolved",
+            "limit_up_price": up_limit,
+            "limit_down_price": down_limit,
+            "price_limit_status_evidence_method": "provider_stk_limit_plus_daily_ohlc",
+        }
+    high = _to_float(daily_row.get("high"))
+    low = _to_float(daily_row.get("low"))
+    close = _to_float(daily_row.get("close"))
+    if any(
+        value is not None and value >= up_limit - epsilon for value in (high, close)
+    ):
+        status = "limit_up_touched_or_closed"
+    elif any(
+        value is not None and value <= down_limit + epsilon for value in (low, close)
+    ):
+        status = "limit_down_touched_or_closed"
+    else:
+        status = "not_limited"
+    return {
+        "price_limit_status": status,
+        "limit_up_price": up_limit,
+        "limit_down_price": down_limit,
+        "price_limit_status_evidence_method": "provider_stk_limit_plus_daily_ohlc",
+    }
+
+
+def build_adj_factor_snapshot_revision(
+    *,
+    trading_date: Any,
+    adj_factor_row: dict[str, Any],
+    source_snapshot_id: str,
+    artifact_sha256: str,
+) -> dict[str, Any]:
+    factor = _to_float(adj_factor_row.get("adj_factor"))
+    return {
+        "adjustment_factor": factor,
+        "adjustment_factor_status": "resolved" if factor is not None else "unresolved",
+        "factor_as_of_time": source_level_factor_as_of_time(trading_date)
+        if factor is not None
+        else None,
+        "factor_as_of_time_policy": TNSKHDATA_FACTOR_AS_OF_POLICY,
+        "row_level_factor_as_of_time_available": False,
+        "adjustment_revision": source_snapshot_id if factor is not None else None,
+        "adjustment_revision_class": SNAPSHOT_REVISION_CLASS,
+        "adjustment_revision_hash": artifact_sha256 if factor is not None else None,
+        "provider_row_level_revision_available": False,
+        "point_in_time_eligibility_class": PIT_ELIGIBILITY_CLASS,
+        "point_in_time_eligible_for_eod_research": factor is not None,
+        "strict_provider_row_level_revision_eligible": False,
+        "point_in_time_eligible": factor is not None,
+    }
 
 
 def _is_known(value: Any) -> bool:

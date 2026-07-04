@@ -48,10 +48,24 @@ class D2T12ProviderRemediationContractTest(unittest.TestCase):
             item["source_id"]: item["priority"]
             for item in self.contract["provider_priority"]
         }
-        self.assertEqual(priorities["hithink_financial_api"], 0)
-        self.assertEqual(priorities["tnskhdata"], 1)
-        self.assertEqual(priorities["baostock"], 2)
-        self.assertEqual(priorities["tushare"], 3)
+        modes = {
+            item["source_id"]: item["mode"]
+            for item in self.contract["provider_priority"]
+        }
+        self.assertEqual(priorities["tnskhdata"], 0)
+        self.assertEqual(priorities["baostock"], 1)
+        self.assertEqual(priorities["tushare"], 2)
+        self.assertEqual(priorities["hithink_financial_api"], 3)
+        self.assertEqual(modes["tnskhdata"], "primary_candidate_source")
+        self.assertEqual(modes["hithink_financial_api"], "diagnostic_probe_only")
+        decision = self.contract["source_decision"]
+        self.assertEqual(
+            decision["hithink_raw_source_path"],
+            "deprecated_for_d1_d2_candidate_materialization_after_D2-T12",
+        )
+        self.assertEqual(
+            decision["tnskhdata_raw_factor_status_path"], "primary_candidate_source"
+        )
 
     def test_schema_rejects_removed_tnskhdata_or_d3_unlock(self) -> None:
         changed = copy.deepcopy(self.contract)

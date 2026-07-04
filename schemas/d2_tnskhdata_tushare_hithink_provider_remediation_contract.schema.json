@@ -14,6 +14,7 @@
     "depends_on",
     "primary_remediation_targets",
     "provider_priority",
+    "source_decision",
     "credential_env_keys",
     "tnskhdata_token_policy",
     "tushare_compatible_required_apis",
@@ -71,15 +72,48 @@
         "properties": {
           "source_id": {"enum": ["hithink_financial_api", "tnskhdata", "baostock", "tushare"]},
           "priority": {"type": "integer", "minimum": 0, "maximum": 3},
-          "mode": {"enum": ["primary_candidate_source", "missing_only_repair_only"]}
+          "mode": {"enum": ["primary_candidate_source", "fallback_diagnostic_only", "diagnostic_probe_only"]}
         }
       },
       "allOf": [
-        {"contains": {"properties": {"source_id": {"const": "hithink_financial_api"}, "priority": {"const": 0}}, "required": ["source_id", "priority"]}},
-        {"contains": {"properties": {"source_id": {"const": "tnskhdata"}, "priority": {"const": 1}}, "required": ["source_id", "priority"]}},
-        {"contains": {"properties": {"source_id": {"const": "baostock"}, "priority": {"const": 2}}, "required": ["source_id", "priority"]}},
-        {"contains": {"properties": {"source_id": {"const": "tushare"}, "priority": {"const": 3}}, "required": ["source_id", "priority"]}}
+        {"contains": {"properties": {"source_id": {"const": "tnskhdata"}, "priority": {"const": 0}, "mode": {"const": "primary_candidate_source"}}, "required": ["source_id", "priority", "mode"]}},
+        {"contains": {"properties": {"source_id": {"const": "baostock"}, "priority": {"const": 1}, "mode": {"const": "fallback_diagnostic_only"}}, "required": ["source_id", "priority", "mode"]}},
+        {"contains": {"properties": {"source_id": {"const": "tushare"}, "priority": {"const": 2}, "mode": {"const": "fallback_diagnostic_only"}}, "required": ["source_id", "priority", "mode"]}},
+        {"contains": {"properties": {"source_id": {"const": "hithink_financial_api"}, "priority": {"const": 3}, "mode": {"const": "diagnostic_probe_only"}}, "required": ["source_id", "priority", "mode"]}}
       ]
+    },
+    "source_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hithink_raw_source_path",
+        "hithink_rest_path",
+        "tnskhdata_raw_factor_status_path",
+        "baostock_path",
+        "tushare_path",
+        "d1_raw_candidate_source",
+        "d2_adjustment_factor_candidate_source",
+        "d2_status_constraint_candidate_sources"
+      ],
+      "properties": {
+        "hithink_raw_source_path": {"const": "deprecated_for_d1_d2_candidate_materialization_after_D2-T12"},
+        "hithink_rest_path": {"const": "diagnostic_probe_only"},
+        "tnskhdata_raw_factor_status_path": {"const": "primary_candidate_source"},
+        "baostock_path": {"const": "fallback_diagnostic_only"},
+        "tushare_path": {"const": "fallback_diagnostic_only"},
+        "d1_raw_candidate_source": {"const": "tnskhdata daily"},
+        "d2_adjustment_factor_candidate_source": {"const": "tnskhdata adj_factor"},
+        "d2_status_constraint_candidate_sources": {
+          "allOf": [
+            {"$ref": "#/$defs/strings"},
+            {"contains": {"const": "tnskhdata stk_limit"}},
+            {"contains": {"const": "tnskhdata trade_cal"}},
+            {"contains": {"const": "tnskhdata stock_basic"}},
+            {"contains": {"const": "tnskhdata stock_st"}},
+            {"contains": {"const": "tnskhdata suspend_d"}}
+          ]
+        }
+      }
     },
     "credential_env_keys": {
       "type": "array",
@@ -103,7 +137,19 @@
         "fallback_requires_explicit_cli_flag": {"const": true}
       }
     },
-    "tushare_compatible_required_apis": {"$ref": "#/$defs/strings"},
+    "tushare_compatible_required_apis": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "stock_basic"}},
+        {"contains": {"const": "trade_cal"}},
+        {"contains": {"const": "daily"}},
+        {"contains": {"const": "stk_limit"}},
+        {"contains": {"const": "adj_factor"}},
+        {"contains": {"const": "stock_st"}},
+        {"contains": {"const": "suspend_d"}},
+        {"contains": {"const": "pro_bar"}}
+      ]
+    },
     "hithink_rest_required_endpoint_probes": {"$ref": "#/$defs/strings"},
     "required_mapping_outputs": {
       "allOf": [

@@ -21,11 +21,27 @@
     "factor_evidence_field_coverage"
   ],
   "provider_priority": [
-    {"source_id": "hithink_financial_api", "priority": 0, "mode": "primary_candidate_source"},
-    {"source_id": "tnskhdata", "priority": 1, "mode": "missing_only_repair_only"},
-    {"source_id": "baostock", "priority": 2, "mode": "missing_only_repair_only"},
-    {"source_id": "tushare", "priority": 3, "mode": "missing_only_repair_only"}
+    {"source_id": "tnskhdata", "priority": 0, "mode": "primary_candidate_source"},
+    {"source_id": "baostock", "priority": 1, "mode": "fallback_diagnostic_only"},
+    {"source_id": "tushare", "priority": 2, "mode": "fallback_diagnostic_only"},
+    {"source_id": "hithink_financial_api", "priority": 3, "mode": "diagnostic_probe_only"}
   ],
+  "source_decision": {
+    "hithink_raw_source_path": "deprecated_for_d1_d2_candidate_materialization_after_D2-T12",
+    "hithink_rest_path": "diagnostic_probe_only",
+    "tnskhdata_raw_factor_status_path": "primary_candidate_source",
+    "baostock_path": "fallback_diagnostic_only",
+    "tushare_path": "fallback_diagnostic_only",
+    "d1_raw_candidate_source": "tnskhdata daily",
+    "d2_adjustment_factor_candidate_source": "tnskhdata adj_factor",
+    "d2_status_constraint_candidate_sources": [
+      "tnskhdata stk_limit",
+      "tnskhdata trade_cal",
+      "tnskhdata stock_basic",
+      "tnskhdata stock_st",
+      "tnskhdata suspend_d"
+    ]
+  },
   "credential_env_keys": ["HITHINK_API_KEY", "TNSKHDATA_TOKEN", "TUSHARE_TOKEN"],
   "tnskhdata_token_policy": {
     "primary_env_key": "TNSKHDATA_TOKEN",
@@ -36,10 +52,11 @@
     "stock_basic",
     "trade_cal",
     "daily",
-    "daily_basic",
     "stk_limit",
     "adj_factor",
+    "stock_st",
     "suspend_d",
+    "pro_bar",
     "namechange"
   ],
   "hithink_rest_required_endpoint_probes": [
