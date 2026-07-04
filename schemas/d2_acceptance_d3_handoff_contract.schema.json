@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_acceptance_d3_handoff_contract.schema.json",
+  "title": "D2 Acceptance D3 Handoff Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "acceptance_status",
+    "depends_on",
+    "contract_scope",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "real_data_materialization_authorized",
+    "d3_generation_authorized",
+    "r0_generation_authorized",
+    "synthetic_test_only",
+    "d2_contracts_under_review",
+    "d2_acceptance_gates",
+    "d3_handoff_target",
+    "d3_required_component_refs",
+    "d3_required_fact_groups",
+    "d3_required_quality_flags",
+    "d3_required_source_fields",
+    "d3_observed_at_and_revision_policy",
+    "d3_no_bypass_policy",
+    "pcvt_handoff_policy",
+    "blocking_policy",
+    "prohibited_fields",
+    "recommended_next_phase"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1"},
+    "task_id": {"const": "D2-T08"},
+    "contract_status": {"const": "accepted"},
+    "acceptance_status": {"const": "contract_only_blocked_pending_real_d2_materialization"},
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D2_RAW_MARKET_PRICES_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1"}},
+        {"contains": {"const": "D2_ADJUSTMENT_FACTOR_ASOF_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1"}},
+        {"contains": {"const": "D2_CONTINUOUS_PRICE_CONSTRUCTION_CONTRACT_V1"}},
+        {"contains": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_REPORT_V1"}},
+        {"contains": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"}},
+        {"contains": {"const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"}}
+      ]
+    },
+    "contract_scope": {"type": "string", "minLength": 1},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "d3_generation_authorized": {"const": false},
+    "r0_generation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "d2_contracts_under_review": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "summary", "status"],
+        "properties": {
+          "task_id": {"enum": ["D2-T01", "D2-T02", "D2-T03", "D2-T04", "D2-T05", "D2-T06", "D2-T07"]},
+          "summary": {"type": "string", "minLength": 1},
+          "status": {"type": "string", "minLength": 1}
+        }
+      },
+      "allOf": [
+        {"contains": {"properties": {"task_id": {"const": "D2-T01"}}, "required": ["task_id"]}},
+        {"contains": {"properties": {"task_id": {"const": "D2-T02"}}, "required": ["task_id"]}},
+        {"contains": {"properties": {"task_id": {"const": "D2-T03"}}, "required": ["task_id"]}},
+        {"contains": {"properties": {"task_id": {"const": "D2-T04"}}, "required": ["task_id"]}},
+        {"contains": {"properties": {"task_id": {"const": "D2-T05"}}, "required": ["task_id"]}},
+        {"contains": {"properties": {"task_id": {"const": "D2-T06"}}, "required": ["task_id"]}},
+        {"contains": {"properties": {"task_id": {"const": "D2-T07"}}, "required": ["task_id"]}}
+      ]
+    },
+    "d2_acceptance_gates": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "membership_alignment_accepted",
+        "raw_price_layer_gate",
+        "continuous_price_layer_gate",
+        "quality_flags_gate",
+        "source_snapshot_gate",
+        "observed_at_gate",
+        "no_future_information_gate",
+        "trading_constraint_gate",
+        "mechanical_gap_gate",
+        "pcvt_dependency_gate"
+      ]
+    },
+    "d3_handoff_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_table", "d3_generation_authorized_by_this_pr"],
+      "properties": {
+        "target_table": {"const": "d3.daily_market_observations"},
+        "d3_generation_authorized_by_this_pr": {"const": false}
+      }
+    },
+    "d3_required_component_refs": {"$ref": "#/$defs/component_refs"},
+    "d3_required_fact_groups": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "identity"}},
+        {"contains": {"const": "raw_trading_facts"}},
+        {"contains": {"const": "continuous_research_prices"}},
+        {"contains": {"const": "trading_constraints"}},
+        {"contains": {"const": "market_quality_flags"}},
+        {"contains": {"const": "mechanical_gap_attribution"}},
+        {"contains": {"const": "pcvt_input_readiness"}},
+        {"contains": {"const": "membership_alignment"}},
+        {"contains": {"const": "calendar_alignment"}},
+        {"contains": {"const": "source_lineage"}},
+        {"contains": {"const": "observed_at_revision"}}
+      ]
+    },
+    "d3_required_quality_flags": {"$ref": "#/$defs/string_array"},
+    "d3_required_source_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "source_registry_id"}},
+        {"contains": {"const": "source_snapshot_id"}},
+        {"contains": {"const": "observed_at"}},
+        {"contains": {"const": "retrieved_at"}},
+        {"contains": {"const": "run_id"}},
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "revision_policy"}},
+        {"contains": {"const": "history_revision_class"}},
+        {"contains": {"const": "research_use_tier"}}
+      ]
+    },
+    "d3_observed_at_and_revision_policy": {"type": "object"},
+    "d3_no_bypass_policy": {
+      "type": "object",
+      "required": ["r0_allowed_sources"],
+      "properties": {
+        "r0_allowed_sources": {
+          "type": "array",
+          "items": {"type": "string"},
+          "contains": {"const": "d3.daily_market_observations"}
+        }
+      }
+    },
+    "pcvt_handoff_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pcvt_candidate_set_status",
+        "pcvt_values_generated_by_this_pr",
+        "r0_thresholds_defined_by_this_pr",
+        "r0_state_machine_defined_by_this_pr",
+        "candidate_dependencies"
+      ],
+      "properties": {
+        "pcvt_candidate_set_status": {"const": "proposed_not_r0_finalized"},
+        "pcvt_values_generated_by_this_pr": {"const": false},
+        "r0_thresholds_defined_by_this_pr": {"const": false},
+        "r0_state_machine_defined_by_this_pr": {"const": false},
+        "candidate_dependencies": {"$ref": "#/$defs/pcvt_candidates"}
+      }
+    },
+    "blocking_policy": {"type": "object"},
+    "prohibited_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string"},
+      "allOf": [
+        {"contains": {"const": "future_return"}},
+        {"contains": {"const": "label"}},
+        {"contains": {"const": "breakout_direction"}},
+        {"contains": {"const": "outcome"}},
+        {"contains": {"const": "target"}}
+      ]
+    },
+    "recommended_next_phase": {"const": "D3_daily_market_observations_contract"}
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "component_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string"},
+      "allOf": [
+        {"contains": {"const": "raw_price_ref"}},
+        {"contains": {"const": "adjusted_price_ref"}},
+        {"contains": {"const": "trading_constraint_ref"}},
+        {"contains": {"const": "market_price_quality_ref"}},
+        {"contains": {"const": "mechanical_gap_ref"}},
+        {"contains": {"const": "pcvt_input_readiness_ref"}},
+        {"contains": {"const": "membership_ref"}},
+        {"contains": {"const": "calendar_ref"}},
+        {"contains": {"const": "source_snapshot_ref"}},
+        {"contains": {"const": "run_ref"}}
+      ]
+    },
+    "pcvt_candidates": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["indicator_id", "readiness"],
+        "properties": {
+          "indicator_id": {"enum": ["P1_NATR14", "P2_LogRange20", "C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60", "T1_ER20", "T2_AbsTrendT20", "V1_VolShrink20_60", "V2_AmountLevel20Pct"]},
+          "readiness": {"type": "string", "minLength": 1}
+        }
+      },
+      "allOf": [
+        {"contains": {"properties": {"indicator_id": {"const": "P1_NATR14"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "P2_LogRange20"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "C1_LogMASpread_5_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "C2_AdjVWAPSpread_5_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "T1_ER20"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "T2_AbsTrendT20"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "V1_VolShrink20_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "V2_AmountLevel20Pct"}}, "required": ["indicator_id"]}}
+      ]
+    }
+  }
+}
