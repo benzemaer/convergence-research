@@ -135,9 +135,9 @@ class D2CSI800StaticMembershipAlignmentContractTest(unittest.TestCase):
         task_doc = TASK_PATH.read_text(encoding="utf-8")
         self.assertIn("current_task: D2-T03", readme)
         self.assertIn("next_planned_task: D2-T04", readme)
-        self.assertIn("D2-T02` 成员对齐层物化：completed via PR TBD", readme)
+        self.assertIn("D2-T02` 成员对齐层物化：completed via PR #26", readme)
         self.assertIn("D2-T03` 原始行情价格落账：planned", readme)
-        self.assertIn("completed via PR TBD", task_doc)
+        self.assertIn("completed via PR #26", task_doc)
         self.assertIn("不采集行情", task_doc)
         self.assertIn("不写 DuckDB", task_doc)
 

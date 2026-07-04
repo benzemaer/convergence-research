@@ -98,7 +98,7 @@ next_planned_task: D2-T04
 任务列表：
 
 - `D2-T01` 价格来源与 raw OHLCV 探针契约：completed via PR #25
-- `D2-T02` 成员对齐层物化：completed via PR TBD
+- `D2-T02` 成员对齐层物化：completed via PR #26
 - `D2-T03` 原始行情价格落账：planned
 - `D2-T04` 复权因子与 `factor_as_of_time` 契约：planned
 - `D2-T05` 连续研究价格构建与反推校验：planned
