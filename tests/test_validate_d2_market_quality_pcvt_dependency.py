@@ -86,6 +86,38 @@ class ValidateD2MarketQualityPCVTDependencyTest(unittest.TestCase):
         )
         self.assertEqual(limited["readiness"], "diagnostic_required")
 
+    def test_price_limit_status_unknown_downgrades_readiness(self) -> None:
+        result = classify_trading_constraint(
+            valid_raw_row()
+            | {"trading_status": "normal_trading", "price_limit_status": "unknown"}
+        )
+        self.assertEqual(result["readiness"], "diagnostic_required")
+        self.assertEqual(result["constraint"], "unknown_price_limit_status")
+
+    def test_price_limit_status_invalid_rejected(self) -> None:
+        with self.assertRaises(MarketQualityPCVTValidationError):
+            classify_trading_constraint(
+                valid_raw_row() | {"price_limit_status": "bad_status"}
+            )
+
+    def test_normal_trading_with_none_price_limit_is_ready(self) -> None:
+        result = classify_trading_constraint(
+            valid_raw_row()
+            | {"trading_status": "normal_trading", "price_limit_status": "none"}
+        )
+        self.assertEqual(result["readiness"], "ready")
+        self.assertEqual(result["constraint"], "normal_trading")
+
+    def test_normal_trading_with_limit_price_status_is_diagnostic_required(
+        self,
+    ) -> None:
+        result = classify_trading_constraint(
+            valid_raw_row()
+            | {"trading_status": "normal_trading", "price_limit_status": "limit_up"}
+        )
+        self.assertEqual(result["readiness"], "diagnostic_required")
+        self.assertEqual(result["constraint"], "limit_up")
+
     def test_amount_volume_units_and_vwap_range(self) -> None:
         self.assertEqual(
             validate_amount_volume_units(

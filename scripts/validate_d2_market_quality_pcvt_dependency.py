@@ -39,6 +39,14 @@ TRADING_CONSTRAINTS = {
     "reopen_after_suspension",
     "unknown",
 }
+PRICE_LIMIT_STATUSES = {
+    "none",
+    "limit_up",
+    "limit_down",
+    "one_price_limit_up",
+    "one_price_limit_down",
+    "unknown",
+}
 GAP_ATTRIBUTIONS = {
     "none",
     "market_gap",
@@ -154,6 +162,14 @@ def classify_trading_constraint(row: dict[str, Any]) -> dict[str, Any]:
         raise MarketQualityPCVTValidationError("unknown trading status as normal")
     if status not in TRADING_CONSTRAINTS:
         raise MarketQualityPCVTValidationError("invalid trading status")
+    if limit_status not in PRICE_LIMIT_STATUSES:
+        raise MarketQualityPCVTValidationError("invalid price_limit_status")
+    if limit_status == "unknown":
+        return {
+            "constraint": "unknown_price_limit_status",
+            "valid_indicator_day": True,
+            "readiness": "diagnostic_required",
+        }
     if status == "suspended":
         return {
             "constraint": "suspended",
@@ -188,6 +204,8 @@ def classify_trading_constraint(row: dict[str, Any]) -> dict[str, Any]:
             "valid_indicator_day": True,
             "readiness": "diagnostic_required",
         }
+    if status != "normal_trading" or limit_status != "none":
+        raise MarketQualityPCVTValidationError("inconsistent trading constraint state")
     return {
         "constraint": "normal_trading",
         "valid_indicator_day": True,
