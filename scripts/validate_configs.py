@@ -109,6 +109,10 @@ CONFIGS = (
         ROOT / "schemas/d3_synthetic_daily_observation_build_contract.schema.json",
         ROOT / "configs/d3/synthetic_daily_observation_build_contract.v1.json",
     ),
+    (
+        ROOT / "schemas/d3_data_version_quality_manifest_gate_contract.schema.json",
+        ROOT / "configs/d3/data_version_quality_manifest_gate_contract.v1.json",
+    ),
 )
 
 
