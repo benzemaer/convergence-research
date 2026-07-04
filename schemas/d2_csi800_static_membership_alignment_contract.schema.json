@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_csi800_static_membership_alignment_contract.schema.json",
+  "title": "D2 CSI800 Static Membership Alignment Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "contract_id",
+    "contract_status",
+    "depends_on",
+    "target_table",
+    "source_registry_id",
+    "source_snapshot_id",
+    "universe_id",
+    "index_code",
+    "membership_effective_date",
+    "membership_mode",
+    "data_version",
+    "time_segment_id",
+    "run_id",
+    "membership_source",
+    "required_fields",
+    "primary_key",
+    "source_boundary",
+    "quality_checks",
+    "blocking_conditions",
+    "implementation_exclusions",
+    "downstream_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D2-T02"},
+    "contract_id": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_CONTRACT_V1"
+    },
+    "contract_status": {"const": "accepted"},
+    "depends_on": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D2_RAW_OHLCV_SOURCE_CONTRACT_V1"}},
+        {"contains": {"const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"}},
+        {"contains": {"const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_COMPLETION_REPORT_V1"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "DR-001"}}
+      ]
+    },
+    "target_table": {"const": "d2.membership_alignment"},
+    "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "index_code": {"const": "000906"},
+    "membership_effective_date": {"const": "2026-06-12"},
+    "membership_mode": {"const": "static_cohort"},
+    "data_version": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"
+    },
+    "time_segment_id": {"const": "DR001_STATIC_BACKFILL_20160101_20260630"},
+    "run_id": {
+      "const": "D2_T02_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_BUILD_V1"
+    },
+    "membership_source": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"
+    },
+    "required_fields": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "prefixItems": [
+        {"const": "data_version"},
+        {"const": "universe_id"},
+        {"const": "time_segment_id"},
+        {"const": "security_id"},
+        {"const": "index_code"},
+        {"const": "membership_effective_date"},
+        {"const": "membership_mode"},
+        {"const": "membership_source"},
+        {"const": "source_registry_id"},
+        {"const": "source_snapshot_id"},
+        {"const": "run_id"}
+      ],
+      "items": false
+    },
+    "primary_key": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "prefixItems": [
+        {"const": "data_version"},
+        {"const": "universe_id"},
+        {"const": "security_id"},
+        {"const": "index_code"},
+        {"const": "membership_effective_date"}
+      ],
+      "items": false
+    },
+    "source_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alignment_scope",
+        "historical_membership_claim_allowed",
+        "market_price_source_allowed",
+        "corporate_action_source_allowed",
+        "trading_status_source_allowed",
+        "raw_evidence_read_allowed",
+        "data_external_read_allowed"
+      ],
+      "properties": {
+        "alignment_scope": {"type": "string", "minLength": 1},
+        "historical_membership_claim_allowed": {"const": false},
+        "market_price_source_allowed": {"const": false},
+        "corporate_action_source_allowed": {"const": false},
+        "trading_status_source_allowed": {"const": false},
+        "raw_evidence_read_allowed": {"const": false},
+        "data_external_read_allowed": {"const": false}
+      }
+    },
+    "quality_checks": {"$ref": "#/$defs/non_empty_unique_strings"},
+    "blocking_conditions": {"$ref": "#/$defs/non_empty_unique_strings"},
+    "implementation_exclusions": {
+      "type": "array",
+      "minItems": 14,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "no_raw_evidence_read"}},
+        {"contains": {"const": "no_data_external_read"}},
+        {"contains": {"const": "no_external_api_call"}},
+        {"contains": {"const": "no_market_data_collection"}},
+        {"contains": {"const": "no_duckdb_write"}},
+        {"contains": {"const": "no_run_manifest_generation"}},
+        {"contains": {"const": "no_dataset_manifest_generation"}},
+        {"contains": {"const": "no_source_snapshot_manifest_generation"}}
+      ]
+    },
+    "downstream_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["next_task", "allowed_use", "prohibited_use"],
+      "properties": {
+        "next_task": {"const": "D2-T03"},
+        "allowed_use": {"type": "string", "minLength": 1},
+        "prohibited_use": {
+          "type": "string",
+          "allOf": [
+            {"pattern": "market data"},
+            {"pattern": "corporate action"},
+            {"pattern": "trading status"},
+            {"pattern": "historical point-in-time index membership"}
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "non_empty_unique_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}
