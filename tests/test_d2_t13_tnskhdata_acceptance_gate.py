@@ -95,6 +95,11 @@ class CompleteFakeClient:
         return FakeFrame([])
 
 
+class ProBarFailingFakeClient(CompleteFakeClient):
+    def pro_bar(self, **kwargs):
+        raise RuntimeError("No such method: pro_bar")
+
+
 class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
     def _candidate_path(self, tmp: Path, rows=None) -> Path:
         path = tmp / "candidate.json"
@@ -136,6 +141,40 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
             self.assertFalse(result["duckdb_written"])
             self.assertFalse(result["d3_rows_generated"])
             self.assertFalse(result["r0_state_generated"])
+            self.assertEqual(
+                result["quality_report"]["pro_bar_reconciliation_status"],
+                "passed_or_not_requested",
+            )
+
+    def test_pro_bar_failure_is_non_blocking_for_d2_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            result = materialize_full_candidate(
+                contract=CONTRACT,
+                candidate_universe=self._candidate_path(tmp),
+                output_dir=tmp / "generated",
+                start_date="20160101",
+                end_date="20260630",
+                enable_remote_fetch=False,
+                client=ProBarFailingFakeClient(),
+                full=True,
+            )
+            self.assertEqual(
+                result["d2_acceptance_decision"], "accepted_for_d3_candidate_generation"
+            )
+            self.assertEqual(
+                result["quality_report"]["primary_provider_error_count"], 0
+            )
+            self.assertEqual(
+                result["quality_report"]["reconciliation_provider_error_count"], 1
+            )
+            self.assertEqual(
+                result["quality_report"]["pro_bar_reconciliation_status"],
+                "failed_non_blocking",
+            )
+            self.assertGreater(
+                result["quality_report"]["pro_bar_reconciliation_warning_count"], 0
+            )
 
     def test_missing_adj_factor_blocks_provider_coverage(self) -> None:
         plan = build_fetch_plan(
@@ -177,7 +216,13 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
             "adj_factor": [],
             "stock_st": [],
             "suspend_d": [],
-            "_metrics": [{"provider_error_count": 0, "rate_limit_count": 0}],
+            "_metrics": [
+                {
+                    "primary_provider_error_count": 0,
+                    "reconciliation_provider_error_count": 0,
+                    "rate_limit_count": 0,
+                }
+            ],
         }
         outputs = build_candidate_outputs(
             plan, evidence, source_snapshot_id="s", artifact_sha256="h"
@@ -233,7 +278,13 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
             ],
             "stock_st": [],
             "suspend_d": [],
-            "_metrics": [{"provider_error_count": 0, "rate_limit_count": 0}],
+            "_metrics": [
+                {
+                    "primary_provider_error_count": 0,
+                    "reconciliation_provider_error_count": 0,
+                    "rate_limit_count": 0,
+                }
+            ],
         }
         outputs = build_candidate_outputs(
             plan, copy.deepcopy(evidence), source_snapshot_id="s", artifact_sha256="h"

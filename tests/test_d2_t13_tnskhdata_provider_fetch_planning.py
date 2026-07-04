@@ -23,9 +23,12 @@ class FakeFrame:
 
 
 class FakeProviderClient:
-    def __init__(self, fail_date_adj_factor: bool = False) -> None:
+    def __init__(
+        self, fail_date_adj_factor: bool = False, fail_pro_bar: bool = False
+    ) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
         self.fail_date_adj_factor = fail_date_adj_factor
+        self.fail_pro_bar = fail_pro_bar
 
     def stock_basic(self, **kwargs):
         self.calls.append(("stock_basic", kwargs))
@@ -74,6 +77,8 @@ class FakeProviderClient:
 
     def pro_bar(self, **kwargs):
         self.calls.append(("pro_bar", kwargs))
+        if self.fail_pro_bar:
+            raise RuntimeError("No such method: pro_bar")
         return FakeFrame(
             [{"ts_code": kwargs["ts_code"], "trade_date": "20260630", "close": 10}]
         )
@@ -124,6 +129,35 @@ class D2T13TnskhdataProviderFetchPlanningTest(unittest.TestCase):
                 for call in client.calls
             )
         )
+        self.assertEqual(evidence["_metrics"][0]["primary_provider_error_count"], 1)
+
+    def test_pro_bar_failure_is_reconciliation_warning_not_primary_error(self) -> None:
+        rows = [
+            {
+                "security_id": "XSHE.000001",
+                "trading_date": "20260630",
+                "universe_id": "u",
+                "time_segment_id": "t",
+            }
+        ]
+        plan = build_fetch_plan(
+            rows, full=True, sample_securities=None, sample_dates_per_security=None
+        )
+        evidence = fetch_provider_evidence(
+            FakeProviderClient(fail_pro_bar=True),
+            plan,
+            requests_per_minute=200,
+            pro_bar_requests_per_minute=60,
+            retry_max_attempts=1,
+            retry_backoff_seconds=0,
+        )
+        metrics = evidence["_metrics"][0]
+        self.assertEqual(metrics["primary_provider_error_count"], 0)
+        self.assertEqual(metrics["reconciliation_provider_error_count"], 1)
+        self.assertEqual(
+            metrics["pro_bar_reconciliation_status"], "failed_non_blocking"
+        )
+        self.assertEqual(metrics["pro_bar_reconciliation_warning_count"], 1)
 
 
 if __name__ == "__main__":

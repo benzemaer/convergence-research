@@ -55,7 +55,8 @@ ignored `data/generated/d2/d2_t13_tnskhdata_full_candidate/`.
 
 The run resolved the main D1/D2 candidate evidence fields for the sampled row.
 `pro_bar` is reconciliation-only and was unavailable through the active client,
-so `provider_error_count = 1` and the D2 acceptance candidate remains blocked.
+so `pro_bar_reconciliation_status = failed_non_blocking`. The D2 acceptance
+candidate is not blocked by this reconciliation-only warning.
 
 ```json
 {
@@ -90,12 +91,15 @@ so `provider_error_count = 1` and the D2 acceptance candidate remains blocked.
   "null_ohlc_count": 0,
   "non_positive_price_count": 0,
   "high_low_violation_count": 0,
-  "provider_error_count": 1,
+  "primary_provider_error_count": 0,
+  "reconciliation_provider_error_count": 1,
+  "pro_bar_reconciliation_status": "failed_non_blocking",
+  "pro_bar_reconciliation_warning_count": 1,
   "rate_limit_count": 0,
   "resume_checkpoint_count": 0,
   "request_count": 10,
-  "d2_acceptance_decision": "blocked_pending_provider_coverage",
-  "d3_handoff_decision": "d3_candidate_generation_blocked",
+  "d2_acceptance_decision": "accepted_for_d3_candidate_generation",
+  "d3_handoff_decision": "d3_candidate_generation_allowed",
   "r0_handoff_decision": "r0_blocked",
   "duckdb_written": false,
   "data_version_published": false,
@@ -117,10 +121,10 @@ committed.
   "tnskhdata_source_status_candidate": "44a95fb619ec3b3bd7c8f22d7bd4dfddf849c407ee7a75c6c6a15df6d9df3193",
   "tnskhdata_factor_evidence_candidate": "129797b7e1a4dca69a2be28dea1989909c2ce056b8cee1f6aad234ed0210cc4d",
   "tnskhdata_adjusted_price_candidate": "30ca6fdf4f7755dfb5fbc0cae5ba6726b64bdcb62bc124bfb1ee36d1c1d51b15",
-  "tnskhdata_quality_report": "c3fc5216ce7fea62980e0fadf602e0dd199b7e66d17d964c618caa4175370c85",
-  "tnskhdata_reconciliation_report": "1758e7384ea0739b559b1778de9e39ba1228da0f0fa0610bd5ec4a3c022e745a",
-  "tnskhdata_d2_acceptance_candidate_report": "83546bf140c69942ca73aed968fa87be653ac8ac98bf17079dd06aebe922c245",
-  "tnskhdata_d3_handoff_candidate_report": "6f798bc0b03ddab419b359971c612bc3b35b45a94b56f74eff5376050b864b20"
+  "tnskhdata_quality_report": "f30e953bf408c8b7c7e62751c679ccd2d53ed10f1fdf9c9dab5c9011e6ce468e",
+  "tnskhdata_reconciliation_report": "397584b111c80caf271de3d3a1b1c357181e23834bb9cd59154f24f2058f9bdc",
+  "tnskhdata_d2_acceptance_candidate_report": "208d0bd0fc4f18cc15b0939f095039da9a0e95c718db5145212f505fb79b86a3",
+  "tnskhdata_d3_handoff_candidate_report": "1c0c5e94425dddc8f8ea6f25bb91d24544ae5bd2c7bba74ae5628eed1f8b2379"
 }
 ```
 
@@ -133,5 +137,6 @@ adjusted price covers normal-trading rows with daily and factor evidence,
 price-limit status is resolved or not applicable, units are resolved, duplicate
 keys are zero, and no fatal quality blockers remain.
 
-D3 generation, D3 data version publication, PCVT, R0, labels, returns, backtests,
-and portfolio outputs remain outside this PR.
+D3 handoff may be allowed by the D2-T13 candidate decision, but D3 generation,
+D3 data version publication, PCVT, R0, labels, returns, backtests, and portfolio
+outputs remain outside this PR.

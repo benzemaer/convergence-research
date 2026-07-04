@@ -65,6 +65,46 @@ class FetchPlan:
     mode: str
 
 
+class RequestThrottle:
+    def __init__(self, requests_per_minute: int, enabled: bool) -> None:
+        self.enabled = enabled
+        self.interval = 60.0 / requests_per_minute if requests_per_minute > 0 else 0.0
+        self.next_allowed_at = 0.0
+
+    def wait(self) -> None:
+        if not self.enabled or self.interval <= 0:
+            return
+        now = time.monotonic()
+        if now < self.next_allowed_at:
+            time.sleep(self.next_allowed_at - now)
+        self.next_allowed_at = time.monotonic() + self.interval
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    text = f"{type(exc).__name__} {exc}".lower()
+    return "rate" in text or "limit" in text or "频" in text
+
+
+def _call_with_retry(
+    fn: Any,
+    *,
+    throttle: RequestThrottle,
+    retry_max_attempts: int,
+    retry_backoff_seconds: float,
+) -> list[dict[str, Any]]:
+    attempts = max(1, retry_max_attempts)
+    for attempt in range(attempts):
+        throttle.wait()
+        try:
+            return _frame_records(fn())
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            if retry_backoff_seconds > 0 and throttle.enabled:
+                time.sleep(retry_backoff_seconds)
+    return []
+
+
 def _load_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
@@ -223,19 +263,40 @@ def _client_from_token(token: str) -> Any:
 
 
 def fetch_provider_evidence(
-    client: Any, plan: FetchPlan
+    client: Any,
+    plan: FetchPlan,
+    *,
+    requests_per_minute: int = 200,
+    pro_bar_requests_per_minute: int = 60,
+    retry_max_attempts: int = 3,
+    retry_backoff_seconds: float = 5.0,
+    throttle_enabled: bool = False,
 ) -> dict[str, list[dict[str, Any]]]:
     request_count = 0
+    primary_throttle = RequestThrottle(requests_per_minute, enabled=throttle_enabled)
+    pro_bar_throttle = RequestThrottle(
+        pro_bar_requests_per_minute, enabled=throttle_enabled
+    )
     stock_basic = []
     for status in ("L", "D", "P", "G"):
         stock_basic.extend(
-            _frame_records(client.stock_basic(exchange="", list_status=status))
+            _call_with_retry(
+                lambda status=status: client.stock_basic(
+                    exchange="", list_status=status
+                ),
+                throttle=primary_throttle,
+                retry_max_attempts=retry_max_attempts,
+                retry_backoff_seconds=retry_backoff_seconds,
+            )
         )
         request_count += 1
     start_date = min(plan.trade_dates) if plan.trade_dates else DEFAULT_START_DATE
     end_date = max(plan.trade_dates) if plan.trade_dates else DEFAULT_END_DATE
-    trade_cal = _frame_records(
-        client.trade_cal(exchange="", start_date=start_date, end_date=end_date)
+    trade_cal = _call_with_retry(
+        lambda: client.trade_cal(exchange="", start_date=start_date, end_date=end_date),
+        throttle=primary_throttle,
+        retry_max_attempts=retry_max_attempts,
+        retry_backoff_seconds=retry_backoff_seconds,
     )
     request_count += 1
     daily: list[dict[str, Any]] = []
@@ -243,7 +304,9 @@ def fetch_provider_evidence(
     adj_factor: list[dict[str, Any]] = []
     stock_st: list[dict[str, Any]] = []
     suspend_d: list[dict[str, Any]] = []
-    provider_error_count = 0
+    primary_provider_error_count = 0
+    reconciliation_provider_error_count = 0
+    pro_bar_reconciliation_warning_count = 0
     rate_limit_count = 0
     for trade_date in plan.trade_dates:
         for name, method in (
@@ -254,7 +317,12 @@ def fetch_provider_evidence(
             ("suspend_d", lambda: client.suspend_d(trade_date=trade_date)),
         ):
             try:
-                rows = _frame_records(method())
+                rows = _call_with_retry(
+                    method,
+                    throttle=primary_throttle,
+                    retry_max_attempts=retry_max_attempts,
+                    retry_backoff_seconds=retry_backoff_seconds,
+                )
                 if name == "daily":
                     daily.extend(rows)
                 elif name == "stk_limit":
@@ -266,24 +334,29 @@ def fetch_provider_evidence(
                 else:
                     suspend_d.extend(rows)
             except Exception as exc:
-                provider_error_count += 1
-                if "rate" in type(exc).__name__.lower() or "limit" in str(exc).lower():
+                primary_provider_error_count += 1
+                if _is_rate_limit_error(exc):
                     rate_limit_count += 1
                 if name == "adj_factor":
                     for ts_code in plan.ts_codes:
                         try:
                             adj_factor.extend(
-                                _frame_records(
-                                    client.adj_factor(
+                                _call_with_retry(
+                                    lambda ts_code=ts_code: client.adj_factor(
                                         ts_code=ts_code,
                                         start_date=start_date,
                                         end_date=end_date,
-                                    )
+                                    ),
+                                    throttle=primary_throttle,
+                                    retry_max_attempts=retry_max_attempts,
+                                    retry_backoff_seconds=retry_backoff_seconds,
                                 )
                             )
                             request_count += 1
-                        except Exception:
-                            provider_error_count += 1
+                        except Exception as fallback_exc:
+                            primary_provider_error_count += 1
+                            if _is_rate_limit_error(fallback_exc):
+                                rate_limit_count += 1
             request_count += 1
     pro_bar_qfq: list[dict[str, Any]] = []
     pro_bar_hfq: list[dict[str, Any]] = []
@@ -293,29 +366,36 @@ def fetch_provider_evidence(
             continue
         try:
             pro_bar_qfq.extend(
-                _frame_records(
-                    pro_bar(
+                _call_with_retry(
+                    lambda ts_code=ts_code: pro_bar(
                         ts_code=ts_code,
                         adj="qfq",
                         start_date=start_date,
                         end_date=end_date,
-                    )
+                    ),
+                    throttle=pro_bar_throttle,
+                    retry_max_attempts=retry_max_attempts,
+                    retry_backoff_seconds=retry_backoff_seconds,
                 )
             )
             pro_bar_hfq.extend(
-                _frame_records(
-                    pro_bar(
+                _call_with_retry(
+                    lambda ts_code=ts_code: pro_bar(
                         ts_code=ts_code,
                         adj="hfq",
                         start_date=start_date,
                         end_date=end_date,
-                    )
+                    ),
+                    throttle=pro_bar_throttle,
+                    retry_max_attempts=retry_max_attempts,
+                    retry_backoff_seconds=retry_backoff_seconds,
                 )
             )
             request_count += 2
         except Exception as exc:
-            provider_error_count += 1
-            if "rate" in type(exc).__name__.lower() or "limit" in str(exc).lower():
+            reconciliation_provider_error_count += 1
+            pro_bar_reconciliation_warning_count += 1
+            if _is_rate_limit_error(exc):
                 rate_limit_count += 1
     return {
         "stock_basic": stock_basic,
@@ -330,7 +410,16 @@ def fetch_provider_evidence(
         "_metrics": [
             {
                 "request_count": request_count,
-                "provider_error_count": provider_error_count,
+                "primary_provider_error_count": primary_provider_error_count,
+                "reconciliation_provider_error_count": (
+                    reconciliation_provider_error_count
+                ),
+                "pro_bar_reconciliation_status": "failed_non_blocking"
+                if pro_bar_reconciliation_warning_count
+                else "passed_or_not_requested",
+                "pro_bar_reconciliation_warning_count": (
+                    pro_bar_reconciliation_warning_count
+                ),
                 "rate_limit_count": rate_limit_count,
             }
         ],
@@ -569,14 +658,23 @@ def build_quality_report(
         "null_ohlc_count": null_ohlc,
         "non_positive_price_count": non_positive,
         "high_low_violation_count": high_low,
-        "provider_error_count": metrics.get("provider_error_count", 0),
+        "primary_provider_error_count": metrics.get("primary_provider_error_count", 0),
+        "reconciliation_provider_error_count": metrics.get(
+            "reconciliation_provider_error_count", 0
+        ),
+        "pro_bar_reconciliation_status": metrics.get(
+            "pro_bar_reconciliation_status", "passed_or_not_requested"
+        ),
+        "pro_bar_reconciliation_warning_count": metrics.get(
+            "pro_bar_reconciliation_warning_count", 0
+        ),
         "rate_limit_count": metrics.get("rate_limit_count", 0),
         "resume_checkpoint_count": 0,
     }
 
 
 def acceptance_decision(quality: dict[str, Any]) -> str:
-    if quality["provider_error_count"] or quality["rate_limit_count"]:
+    if quality["primary_provider_error_count"] or quality["rate_limit_count"]:
         return "blocked_pending_provider_coverage"
     if (
         quality["duplicate_key_count"]
@@ -617,6 +715,10 @@ def materialize_full_candidate(
     sample_dates_per_security: int | None = None,
     resume: bool = False,
     checkpoint_dir: Path | None = None,
+    requests_per_minute: int = 200,
+    pro_bar_requests_per_minute: int = 60,
+    retry_max_attempts: int = 3,
+    retry_backoff_seconds: float = 5.0,
 ) -> dict[str, Any]:
     started = time.time()
     if (
@@ -651,7 +753,15 @@ def materialize_full_candidate(
     if client is None:
         token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
         client = _client_from_token(token)
-    evidence = fetch_provider_evidence(client, plan)
+    evidence = fetch_provider_evidence(
+        client,
+        plan,
+        requests_per_minute=requests_per_minute,
+        pro_bar_requests_per_minute=pro_bar_requests_per_minute,
+        retry_max_attempts=retry_max_attempts,
+        retry_backoff_seconds=retry_backoff_seconds,
+        throttle_enabled=enable_remote_fetch and client is not None,
+    )
     source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
     artifact_sha256 = hashlib.sha256(
         json.dumps(
@@ -700,6 +810,10 @@ def materialize_full_candidate(
         "qfq_formula": "raw_price * adj_factor / anchor_adj_factor",
         "qfq_anchor_policy": "explicit_end_date_anchor",
         "pro_bar_usage": "reconciliation_only",
+        "pro_bar_reconciliation_status": quality["pro_bar_reconciliation_status"],
+        "pro_bar_reconciliation_warning_count": quality[
+            "pro_bar_reconciliation_warning_count"
+        ],
         "amount_unit": "thousand_yuan",
         "volume_unit": "lot",
         "source_snapshot_id": source_snapshot_id,
@@ -724,7 +838,7 @@ def materialize_full_candidate(
                 "null_ohlc_count",
                 "non_positive_price_count",
                 "high_low_violation_count",
-                "provider_error_count",
+                "primary_provider_error_count",
                 "rate_limit_count",
             )
             if quality.get(key)
@@ -783,6 +897,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-securities", type=int)
     parser.add_argument("--sample-dates-per-security", type=int)
     parser.add_argument("--full", action="store_true")
+    parser.add_argument("--requests-per-minute", default=200, type=int)
+    parser.add_argument("--pro-bar-requests-per-minute", default=60, type=int)
+    parser.add_argument("--retry-max-attempts", default=3, type=int)
+    parser.add_argument("--retry-backoff-seconds", default=5.0, type=float)
     return parser.parse_args()
 
 
@@ -801,6 +919,10 @@ def main() -> int:
         sample_dates_per_security=args.sample_dates_per_security,
         resume=args.resume,
         checkpoint_dir=args.checkpoint_dir,
+        requests_per_minute=args.requests_per_minute,
+        pro_bar_requests_per_minute=args.pro_bar_requests_per_minute,
+        retry_max_attempts=args.retry_max_attempts,
+        retry_backoff_seconds=args.retry_backoff_seconds,
     )
     redacted = {
         "run_id": report["run_id"],
