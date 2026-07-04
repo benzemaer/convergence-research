@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_raw_market_prices_materialization_contract.schema.json",
+  "title": "D2 Raw Market Prices Materialization Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "task_id", "contract_id", "contract_status", "target_table", "data_version", "universe_id", "time_segment_id", "depends_on", "required_fields", "primary_key", "authorization", "candidate_source_boundary", "blocking_conditions", "prohibited_row_fields"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D2-T03"},
+    "contract_id": {"const": "D2_RAW_MARKET_PRICES_MATERIALIZATION_CONTRACT_V1"},
+    "contract_status": {"const": "accepted"},
+    "target_table": {"const": "d1.raw_market_prices"},
+    "data_version": {"const": "D2_RAW_MARKET_PRICES_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1"},
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "time_segment_id": {"const": "DR001_STATIC_BACKFILL_20160101_20260630"},
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        {"contains": {"const": "D2_RAW_OHLCV_SOURCE_CONTRACT_V1"}},
+        {"contains": {"const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_CONTRACT_V1"}},
+        {"contains": {"const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "D0_SOURCE_REGISTRY_V1"}},
+        {"contains": {"const": "DR-001"}}
+      ],
+      "items": {"type": "string"}
+    },
+    "required_fields": {"$ref": "#/$defs/raw_market_prices_required_fields"},
+    "primary_key": {"$ref": "#/$defs/raw_market_prices_primary_key"},
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["materialization_authorized", "formal_ingestion_authorized", "full_market_collection_authorized", "duckdb_write_authorized", "real_market_data_artifact_authorized", "synthetic_test_only"],
+      "properties": {
+        "materialization_authorized": {"const": false},
+        "formal_ingestion_authorized": {"const": false},
+        "full_market_collection_authorized": {"const": false},
+        "duckdb_write_authorized": {"const": false},
+        "real_market_data_artifact_authorized": {"const": false},
+        "synthetic_test_only": {"const": true}
+      }
+    },
+    "candidate_source_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_candidate_source_registry_ids", "candidate_only_source_registry_ids", "prohibited_source_registry_ids", "csindex_membership_only", "a_stock_data_recon_formal_source_allowed", "baostock_adjusted_price_formal_source_allowed"],
+      "properties": {
+        "allowed_candidate_source_registry_ids": {"type": "array", "items": {"enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]}, "minItems": 2, "maxItems": 2, "uniqueItems": true},
+        "candidate_only_source_registry_ids": {"type": "array", "items": {"enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]}, "minItems": 2, "maxItems": 2, "uniqueItems": true},
+        "prohibited_source_registry_ids": {"type": "array", "items": {"enum": ["CSINDEX_OFFICIAL", "A_STOCK_DATA_RECON", "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"]}, "minItems": 3, "uniqueItems": true},
+        "csindex_membership_only": {"const": true},
+        "a_stock_data_recon_formal_source_allowed": {"const": false},
+        "baostock_adjusted_price_formal_source_allowed": {"const": false}
+      }
+    },
+    "blocking_conditions": {"$ref": "#/$defs/blocking_conditions"},
+    "prohibited_row_fields": {"$ref": "#/$defs/prohibited_row_fields"}
+  },
+  "$defs": {
+    "raw_market_prices_required_fields": {
+      "type": "array",
+      "minItems": 17,
+      "maxItems": 17,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "data_version",
+          "universe_id",
+          "time_segment_id",
+          "security_id",
+          "trading_date",
+          "raw_open",
+          "raw_high",
+          "raw_low",
+          "raw_close",
+          "volume",
+          "amount",
+          "trading_status",
+          "price_limit_status",
+          "source_registry_id",
+          "source_snapshot_id",
+          "observed_at",
+          "run_id"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "time_segment_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "raw_open"}},
+        {"contains": {"const": "raw_high"}},
+        {"contains": {"const": "raw_low"}},
+        {"contains": {"const": "raw_close"}},
+        {"contains": {"const": "volume"}},
+        {"contains": {"const": "amount"}},
+        {"contains": {"const": "trading_status"}},
+        {"contains": {"const": "price_limit_status"}},
+        {"contains": {"const": "source_registry_id"}},
+        {"contains": {"const": "source_snapshot_id"}},
+        {"contains": {"const": "observed_at"}},
+        {"contains": {"const": "run_id"}}
+      ]
+    },
+    "raw_market_prices_primary_key": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "data_version",
+          "universe_id",
+          "time_segment_id",
+          "security_id",
+          "trading_date",
+          "source_snapshot_id"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "time_segment_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "source_snapshot_id"}}
+      ]
+    },
+    "blocking_conditions": {
+      "type": "array",
+      "minItems": 17,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "source_terms_pending_for_formal_ingestion"}},
+        {"contains": {"const": "license_or_redistribution_not_reviewed"}},
+        {"contains": {"const": "missing_raw_snapshot"}},
+        {"contains": {"const": "missing_sha256"}},
+        {"contains": {"const": "missing_source_snapshot_manifest"}},
+        {"contains": {"const": "missing_dataset_manifest_before_validated"}},
+        {"contains": {"const": "missing_run_manifest_for_probe"}},
+        {"contains": {"const": "missing_observed_at"}},
+        {"contains": {"const": "observed_at_derived_only_from_trading_date"}},
+        {"contains": {"const": "as_of_policy_unknown"}},
+        {"contains": {"const": "revision_policy_unknown"}},
+        {"contains": {"const": "repeated_snapshot_comparison_missing"}},
+        {"contains": {"const": "unknown_status_silently_converted"}},
+        {"contains": {"const": "adjusted_price_used_as_raw_price"}},
+        {"contains": {"const": "full_market_collection_attempted"}},
+        {"contains": {"const": "duckdb_write_attempted"}},
+        {"contains": {"const": "real_market_data_artifact_generated"}}
+      ]
+    },
+    "prohibited_row_fields": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "ticker"}},
+        {"contains": {"const": "exchange"}},
+        {"contains": {"const": "source_symbol"}},
+        {"contains": {"const": "adj_open"}},
+        {"contains": {"const": "adj_high"}},
+        {"contains": {"const": "adj_low"}},
+        {"contains": {"const": "adj_close"}},
+        {"contains": {"const": "adjustment_factor"}},
+        {"contains": {"const": "gap_attribution"}}
+      ]
+    }
+  }
+}
