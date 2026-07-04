@@ -18,6 +18,27 @@ DEFAULT_SOURCE_REGISTRY_PATH = (
 DEFAULT_PROBE_CONTRACT_PATH = (
     ROOT / "configs/d2/hithink_raw_ohlcv_probe_contract.v1.json"
 )
+PROHIBITED_PROBE_REPORT_PATH_TOKENS = (
+    "data/raw",
+    "data/external",
+    "marketdb",
+    ".parquet",
+    ".duckdb",
+    ".day",
+)
+PROHIBITED_REPORT_FIELDS = {
+    "raw_rows",
+    "row_level_prices",
+    "vendor_payload",
+    "raw_vendor_payload",
+    "qfq_rows",
+    "hfq_rows",
+    "future_return",
+    "label",
+    "pcvt_value",
+    "backtest_signal",
+    "portfolio_return",
+}
 
 
 class CandidateMaterializationPlanError(ValueError):
@@ -27,6 +48,28 @@ class CandidateMaterializationPlanError(ValueError):
 def _load_json(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def _validate_probe_report_path(path: Path) -> None:
+    normalized = str(path).replace("\\", "/").lower()
+    for token in PROHIBITED_PROBE_REPORT_PATH_TOKENS:
+        if token in normalized:
+            raise CandidateMaterializationPlanError(
+                f"probe report path is forbidden for stage 2: {path}"
+            )
+
+
+def _scan_prohibited_report_fields(value: Any, path: str = "$") -> None:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in PROHIBITED_REPORT_FIELDS:
+                raise CandidateMaterializationPlanError(
+                    f"probe report contains prohibited field {key!r} at {path}"
+                )
+            _scan_prohibited_report_fields(nested, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            _scan_prohibited_report_fields(nested, f"{path}[{index}]")
 
 
 def _require_false(config: dict[str, Any], keys: list[str], label: str) -> None:
@@ -109,14 +152,17 @@ def _validate_probe_report(
             f"probe report missing required sections: {joined}"
         )
     diagnostics = probe_report["probe_diagnostics"]
-    if diagnostics.get("raw_rows_emitted") is not False:
-        raise CandidateMaterializationPlanError("probe report must not emit raw rows")
-    if diagnostics.get("duckdb_written") is not False:
-        raise CandidateMaterializationPlanError("probe report must not write DuckDB")
-    if diagnostics.get("manifest_created") is not False:
-        raise CandidateMaterializationPlanError(
-            "probe report must not create manifests"
-        )
+    required_false_diagnostics = {
+        "default_scan_data_raw": "probe report must not scan data/raw by default",
+        "data_version_published": "probe report must not publish data_version",
+        "raw_rows_emitted": "probe report must not emit raw rows",
+        "duckdb_written": "probe report must not write DuckDB",
+        "manifest_created": "probe report must not create manifests",
+    }
+    for key, message in required_false_diagnostics.items():
+        if diagnostics.get(key) is not False:
+            raise CandidateMaterializationPlanError(message)
+    _scan_prohibited_report_fields(probe_report)
 
 
 def _price_field_mapping(probe_report: dict[str, Any]) -> dict[str, str]:
@@ -186,8 +232,17 @@ def _target_field_status(
     return rows
 
 
-def _missing_semantic_fields(probe_report: dict[str, Any]) -> list[dict[str, Any]]:
-    return list(probe_report["missing_field_report"].get("missing_fields", []))
+def _missing_semantic_fields_by_section(
+    probe_report: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    missing_fields = list(
+        probe_report["missing_field_report"].get("missing_fields", [])
+    )
+    raw_missing = [item for item in missing_fields if item.get("section") == "raw_k"]
+    adjustment_missing = [
+        item for item in missing_fields if item.get("section") == "adjustment_events"
+    ]
+    return raw_missing, adjustment_missing
 
 
 def build_candidate_materialization_plan(
@@ -200,13 +255,17 @@ def build_candidate_materialization_plan(
     _validate_probe_report(probe_report, materialization_contract)
 
     price_mapping = _price_field_mapping(probe_report)
-    missing_fields = _missing_semantic_fields(probe_report)
+    raw_missing_fields, adjustment_missing_fields = _missing_semantic_fields_by_section(
+        probe_report
+    )
     fallback_sources = materialization_contract["fallback_repair_policy"][
         "fallback_sources"
     ]
     active_blockers = list(materialization_contract["blocking_conditions"])
-    if missing_fields:
+    if raw_missing_fields:
         active_blockers.append("primary_candidate_missing_required_semantic_fields")
+    if adjustment_missing_fields:
+        active_blockers.append("adjustment_event_readiness_deferred_to_d2_t10")
 
     raw_schema_status = probe_report["raw_k_schema_report"]["status"]
     coverage = probe_report["coverage_report"]
@@ -236,8 +295,15 @@ def build_candidate_materialization_plan(
             "status": "passed" if raw_schema_status == "passed" else "warning",
             "primary_source": materialization_contract["primary_source"],
             "resolved_price_fields": price_mapping,
-            "missing_semantic_fields": missing_fields,
+            "missing_semantic_fields": raw_missing_fields,
             "raw_rows_emitted": False,
+        },
+        "adjustment_event_readiness_report": {
+            "status": "deferred_to_d2_t10"
+            if adjustment_missing_fields
+            else "not_applicable_for_raw_price_materialization",
+            "missing_semantic_fields": adjustment_missing_fields,
+            "deferred_to_d2_t10": True,
         },
         "target_field_readiness_report": {
             "status": "blocked" if blocked_target_fields else "passed",
@@ -253,7 +319,7 @@ def build_candidate_materialization_plan(
             ],
             "fallback_sources": fallback_sources,
             "missing_only_repair_only": True,
-            "missing_semantic_fields_to_probe": missing_fields,
+            "missing_semantic_fields_to_probe": raw_missing_fields,
             "conflict_policy": "discrepancy_report_required_no_silent_override",
             "fallback_rows_generated": False,
         },
@@ -297,6 +363,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = _parse_args()
+    _validate_probe_report_path(args.probe_report)
     report = build_candidate_materialization_plan(
         probe_report=_load_json(args.probe_report),
         materialization_contract=_load_json(args.materialization_contract),

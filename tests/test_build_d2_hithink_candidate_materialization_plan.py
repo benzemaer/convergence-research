@@ -204,6 +204,84 @@ class BuildD2HiThinkCandidateMaterializationPlanTest(unittest.TestCase):
                 self.probe_contract,
             )
 
+        changed = copy.deepcopy(self.probe_report)
+        changed["probe_diagnostics"]["data_version_published"] = True
+        with self.assertRaises(CandidateMaterializationPlanError):
+            build_candidate_materialization_plan(
+                changed,
+                self.materialization_contract,
+                self.source_registry,
+                self.probe_contract,
+            )
+
+        changed = copy.deepcopy(self.probe_report)
+        changed["probe_diagnostics"]["default_scan_data_raw"] = True
+        with self.assertRaises(CandidateMaterializationPlanError):
+            build_candidate_materialization_plan(
+                changed,
+                self.materialization_contract,
+                self.source_registry,
+                self.probe_contract,
+            )
+
+    def test_probe_report_with_prohibited_nested_payload_fields_fails(self) -> None:
+        for field in [
+            "raw_rows",
+            "vendor_payload",
+            "qfq_rows",
+            "future_return",
+            "row_level_prices",
+            "raw_vendor_payload",
+            "hfq_rows",
+            "label",
+            "pcvt_value",
+            "backtest_signal",
+            "portfolio_return",
+        ]:
+            changed = copy.deepcopy(self.probe_report)
+            changed["nested"] = {"payload": [{field: []}]}
+            with self.subTest(field=field):
+                with self.assertRaises(CandidateMaterializationPlanError):
+                    build_candidate_materialization_plan(
+                        changed,
+                        self.materialization_contract,
+                        self.source_registry,
+                        self.probe_contract,
+                    )
+
+    def test_adjustment_event_missing_fields_are_deferred_not_raw_fallback(
+        self,
+    ) -> None:
+        changed = copy.deepcopy(self.probe_report)
+        changed["missing_field_report"]["status"] = "warning"
+        changed["missing_field_report"]["missing_fields"] = [
+            {"section": "adjustment_events", "semantic_field": "factor_as_of_time"},
+            {"section": "adjustment_events", "semantic_field": "adjustment_revision"},
+        ]
+        plan = build_candidate_materialization_plan(
+            probe_report=changed,
+            materialization_contract=self.materialization_contract,
+            source_registry=self.source_registry,
+            probe_contract=self.probe_contract,
+        )
+        self.assertEqual(
+            plan["fallback_repair_probe_plan"]["missing_semantic_fields_to_probe"],
+            [],
+        )
+        self.assertEqual(
+            {
+                item["semantic_field"]
+                for item in plan["adjustment_event_readiness_report"][
+                    "missing_semantic_fields"
+                ]
+            },
+            {"factor_as_of_time", "adjustment_revision"},
+        )
+        self.assertIn(
+            "adjustment_event_readiness_deferred_to_d2_t10",
+            plan["blocking_report"]["active_blocking_conditions"],
+        )
+
     def test_cli_reads_explicit_probe_report_and_outputs_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             probe_report_path = Path(tmpdir) / "probe_report.json"
@@ -225,18 +303,42 @@ class BuildD2HiThinkCandidateMaterializationPlanTest(unittest.TestCase):
         self.assertIn("fallback_repair_probe_plan", result.stdout)
         self.assertNotIn('"raw_rows":', result.stdout)
 
+    def test_cli_forbidden_probe_report_path_fails_before_opening(self) -> None:
+        forbidden_paths = [
+            ROOT / "data/raw/missing_probe_report.json",
+            ROOT / "data/external/missing_probe_report.json",
+            ROOT / "MarketDB/missing_probe_report.json",
+            ROOT / "synthetic_probe_report.parquet",
+            ROOT / "synthetic_probe_report.duckdb",
+            ROOT / "SH000001.day",
+        ]
+        for path in forbidden_paths:
+            with self.subTest(path=path):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPT_PATH),
+                        "--probe-report",
+                        str(path),
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("forbidden", result.stderr.lower())
+                self.assertNotIn("no such file", result.stderr.lower())
+
     def test_script_does_not_scan_data_raw_or_use_forbidden_storage(self) -> None:
         source = SCRIPT_PATH.read_text(encoding="utf-8").lower()
         for token in [
             "import duckdb",
-            ".duckdb",
             "duckdb.connect",
             "glob(",
-            "data/raw",
-            "data\\raw",
             "requests.",
         ]:
             self.assertNotIn(token, source)
+        self.assertIn("prohibited_probe_report_path_tokens", source)
 
 
 if __name__ == "__main__":

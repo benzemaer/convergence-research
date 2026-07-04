@@ -198,6 +198,7 @@
         {"contains": {"const": "contract_readiness_report"}},
         {"contains": {"const": "source_boundary_report"}},
         {"contains": {"const": "raw_field_mapping_report"}},
+        {"contains": {"const": "adjustment_event_readiness_report"}},
         {"contains": {"const": "target_field_readiness_report"}},
         {"contains": {"const": "fallback_repair_probe_plan"}},
         {"contains": {"const": "blocking_report"}},

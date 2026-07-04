@@ -68,6 +68,14 @@ class D2HiThinkRawMarketPricesCandidateMaterializationContractTest(unittest.Test
         }
         self.assertEqual(priorities, {"baostock": 1, "tushare": 2})
 
+    def test_candidate_plan_output_sections_include_adjustment_defer_report(
+        self,
+    ) -> None:
+        self.assertIn(
+            "adjustment_event_readiness_report",
+            self.contract["candidate_plan_output_sections"],
+        )
+
     def test_release_decisions_and_authorizations_remain_blocked(self) -> None:
         for key in [
             "formal_source_acceptance_authorized",

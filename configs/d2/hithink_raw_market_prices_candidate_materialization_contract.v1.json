@@ -93,6 +93,7 @@
     "contract_readiness_report",
     "source_boundary_report",
     "raw_field_mapping_report",
+    "adjustment_event_readiness_report",
     "target_field_readiness_report",
     "fallback_repair_probe_plan",
     "blocking_report",
