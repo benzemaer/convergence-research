@@ -1,0 +1,102 @@
+{
+  "$schema": "../../schemas/d2_raw_market_prices_materialization_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D2-T03",
+  "contract_id": "D2_RAW_MARKET_PRICES_MATERIALIZATION_CONTRACT_V1",
+  "contract_status": "accepted",
+  "target_table": "d1.raw_market_prices",
+  "data_version": "D2_RAW_MARKET_PRICES_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "time_segment_id": "DR001_STATIC_BACKFILL_20160101_20260630",
+  "depends_on": [
+    "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
+    "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_CONTRACT_V1",
+    "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D0_SOURCE_REGISTRY_V1",
+    "DR-001"
+  ],
+  "required_fields": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "raw_open",
+    "raw_high",
+    "raw_low",
+    "raw_close",
+    "volume",
+    "amount",
+    "trading_status",
+    "price_limit_status",
+    "source_registry_id",
+    "source_snapshot_id",
+    "observed_at",
+    "run_id"
+  ],
+  "primary_key": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "source_snapshot_id"
+  ],
+  "authorization": {
+    "materialization_authorized": false,
+    "formal_ingestion_authorized": false,
+    "full_market_collection_authorized": false,
+    "duckdb_write_authorized": false,
+    "real_market_data_artifact_authorized": false,
+    "synthetic_test_only": true
+  },
+  "candidate_source_boundary": {
+    "allowed_candidate_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "candidate_only_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "prohibited_source_registry_ids": [
+      "CSINDEX_OFFICIAL",
+      "A_STOCK_DATA_RECON",
+      "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"
+    ],
+    "csindex_membership_only": true,
+    "a_stock_data_recon_formal_source_allowed": false,
+    "baostock_adjusted_price_formal_source_allowed": false
+  },
+  "blocking_conditions": [
+    "source_terms_pending_for_formal_ingestion",
+    "license_or_redistribution_not_reviewed",
+    "missing_raw_snapshot",
+    "missing_sha256",
+    "missing_source_snapshot_manifest",
+    "missing_dataset_manifest_before_validated",
+    "missing_run_manifest_for_probe",
+    "missing_observed_at",
+    "observed_at_derived_only_from_trading_date",
+    "as_of_policy_unknown",
+    "revision_policy_unknown",
+    "repeated_snapshot_comparison_missing",
+    "unknown_status_silently_converted",
+    "adjusted_price_used_as_raw_price",
+    "full_market_collection_attempted",
+    "duckdb_write_attempted",
+    "real_market_data_artifact_generated"
+  ],
+  "prohibited_row_fields": [
+    "ticker",
+    "exchange",
+    "source_symbol",
+    "adj_open",
+    "adj_high",
+    "adj_low",
+    "adj_close",
+    "adjustment_factor",
+    "gap_attribution"
+  ]
+}

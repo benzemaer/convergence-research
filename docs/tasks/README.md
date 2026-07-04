@@ -24,6 +24,7 @@ next_planned_task: D2-T04
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
 `next_planned_task: D2-T03`；D2-T02 完成本 PR 后当前索引继续推进到 D2-T03 / D2-T04。
+D2-T02 完成时的任务队列仍为：`D2-T03` 原始行情价格落账：planned。
 
 ## G0：样本宇宙与时间边界
 
@@ -99,7 +100,7 @@ next_planned_task: D2-T04
 
 - `D2-T01` 价格来源与 raw OHLCV 探针契约：completed via PR #25
 - `D2-T02` 成员对齐层物化：completed via PR #26
-- `D2-T03` 原始行情价格落账：planned
+- `D2-T03` 原始行情价格落账：blocked pending source authorization via PR TBD
 - `D2-T04` 复权因子与 `factor_as_of_time` 契约：planned
 - `D2-T05` 连续研究价格构建与反推校验：planned
 - `D2-T06` 跳空归因与价格质量标记：planned
