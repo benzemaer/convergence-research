@@ -1,0 +1,295 @@
+{
+  "$schema": "../../schemas/d2_acceptance_d3_handoff_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+  "task_id": "D2-T08",
+  "contract_status": "accepted",
+  "acceptance_status": "contract_only_blocked_pending_real_d2_materialization",
+  "depends_on": [
+    "D2_RAW_MARKET_PRICES_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1",
+    "D2_ADJUSTMENT_FACTOR_ASOF_BLOCKED_PENDING_SOURCE_AUTHORIZATION_V1",
+    "D2_CONTINUOUS_PRICE_CONSTRUCTION_CONTRACT_V1",
+    "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_REPORT_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"
+  ],
+  "contract_scope": "contract_only_d2_acceptance_and_d3_handoff_boundary",
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "real_data_materialization_authorized": false,
+  "d3_generation_authorized": false,
+  "r0_generation_authorized": false,
+  "synthetic_test_only": true,
+  "d2_contracts_under_review": [
+    {
+      "task_id": "D2-T01",
+      "summary": "raw OHLCV source contract",
+      "status": "accepted_formal_ingestion_blocked"
+    },
+    {
+      "task_id": "D2-T02",
+      "summary": "membership alignment",
+      "status": "accepted_materialized_contract_config_artifact_only"
+    },
+    {
+      "task_id": "D2-T03",
+      "summary": "raw market prices materialization",
+      "status": "blocked_pending_source_authorization"
+    },
+    {
+      "task_id": "D2-T04",
+      "summary": "adjustment factor as-of contract",
+      "status": "blocked_pending_factor_source_authorization"
+    },
+    {
+      "task_id": "D2-T05",
+      "summary": "continuous price construction",
+      "status": "blocked_pending_raw_and_factor_authorization"
+    },
+    {
+      "task_id": "D2-T06",
+      "summary": "candidate market snapshot probe",
+      "status": "executed_small_sample_exploration_only_formal_blocked"
+    },
+    {
+      "task_id": "D2-T07",
+      "summary": "market quality and PCVT dependency contract",
+      "status": "accepted_contract_only_no_real_data"
+    }
+  ],
+  "d2_acceptance_gates": {
+    "membership_alignment_accepted": {
+      "committed_d2_membership_alignment_exists": true,
+      "member_count_retained": 800,
+      "d3_direct_g0_raw_evidence_read_allowed": false,
+      "d3_uses_membership_ref_only": true
+    },
+    "raw_price_layer_gate": {
+      "materialized_by_this_pr": false,
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "raw_open",
+        "raw_high",
+        "raw_low",
+        "raw_close",
+        "volume",
+        "amount",
+        "trading_status",
+        "price_limit_status",
+        "source_registry_id",
+        "source_snapshot_id",
+        "observed_at",
+        "run_id"
+      ]
+    },
+    "continuous_price_layer_gate": {
+      "materialized_by_this_pr": false,
+      "required_fields": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "trading_date",
+        "adj_open",
+        "adj_high",
+        "adj_low",
+        "adj_close",
+        "adjustment_factor",
+        "adjustment_method",
+        "factor_as_of_time",
+        "corporate_action_flag",
+        "adjustment_revision",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ]
+    },
+    "quality_flags_gate": {
+      "materialized_by_this_pr": false,
+      "required_flags": [
+        "raw_ohlcv_integrity_status",
+        "continuous_ohlc_integrity_status",
+        "raw_vs_continuous_reconciliation_status",
+        "amount_volume_unit_status",
+        "daily_vwap_range_status",
+        "trading_constraint_status",
+        "price_limit_status",
+        "mechanical_gap_attribution",
+        "pcvt_input_readiness_status"
+      ]
+    },
+    "source_snapshot_gate": {
+      "every_formal_d3_component_ref_resolves_to_source_registry_id": true,
+      "every_formal_d3_component_ref_resolves_to_source_snapshot_id": true,
+      "raw_response_bytes_embedded_in_d3": false,
+      "vendor_export_refs_embedded_in_d3": false,
+      "d3_stores_refs_ids_hashes_observed_at_not_payload": true
+    },
+    "observed_at_gate": {
+      "every_d3_observation_has_observed_at": true,
+      "observed_at_after_data_version_cutoff_blocks_point_in_time_claim": true,
+      "final_revised_history_marks_revision_policy": true,
+      "unknown_observed_at_blocks_formal_d3_output": true
+    },
+    "no_future_information_gate": {
+      "future_outcome_fields_prohibited": true,
+      "gap_attribution_uses_no_future_direction_or_return": true
+    },
+    "trading_constraint_gate": {
+      "trading_status_unknown_not_silently_normal": true,
+      "price_limit_status_unknown_not_silently_none": true,
+      "suspended_rows_not_valid_indicator_days": true,
+      "zero_volume_rows_not_ordinary_low_participation": true,
+      "limit_rows_retained_with_diagnostic_flags": true
+    },
+    "mechanical_gap_gate": {
+      "corporate_action_mechanical_gap_not_market_gap": true,
+      "unknown_gap_attribution_not_none": true,
+      "missing_corporate_action_evidence_creates_unknown_or_diagnostic_required": true
+    },
+    "pcvt_dependency_gate": {
+      "pcvt_status": "proposed_not_r0_finalized",
+      "price_based_dependencies_handoff_as_readiness_inputs": true,
+      "c2_v1_require_unit_and_adjustment_policies": true,
+      "pcvt_values_generated_by_this_pr": false,
+      "r0_computes_indicators_only_after_d3_contract_accepted": true
+    }
+  },
+  "d3_handoff_target": {
+    "target_table": "d3.daily_market_observations",
+    "d3_generation_authorized_by_this_pr": false
+  },
+  "d3_required_component_refs": [
+    "raw_price_ref",
+    "adjusted_price_ref",
+    "trading_constraint_ref",
+    "market_price_quality_ref",
+    "mechanical_gap_ref",
+    "pcvt_input_readiness_ref",
+    "membership_ref",
+    "calendar_ref",
+    "source_snapshot_ref",
+    "run_ref"
+  ],
+  "d3_required_fact_groups": [
+    "identity",
+    "raw_trading_facts",
+    "continuous_research_prices",
+    "trading_constraints",
+    "market_quality_flags",
+    "mechanical_gap_attribution",
+    "pcvt_input_readiness",
+    "membership_alignment",
+    "calendar_alignment",
+    "source_lineage",
+    "observed_at_revision"
+  ],
+  "d3_required_quality_flags": [
+    "raw_ohlcv_integrity_status",
+    "continuous_ohlc_integrity_status",
+    "raw_vs_continuous_reconciliation_status",
+    "amount_volume_unit_status",
+    "daily_vwap_range_status",
+    "trading_constraint_status",
+    "price_limit_status",
+    "mechanical_gap_attribution",
+    "pcvt_input_readiness_status"
+  ],
+  "d3_required_source_fields": [
+    "source_registry_id",
+    "source_snapshot_id",
+    "observed_at",
+    "retrieved_at",
+    "run_id",
+    "data_version",
+    "revision_policy",
+    "history_revision_class",
+    "research_use_tier"
+  ],
+  "d3_observed_at_and_revision_policy": {
+    "final_revised_history_cannot_claim_point_in_time_support": true,
+    "missing_factor_as_of_time_blocks_formal_continuous_price_use": true,
+    "missing_revision_timestamp_blocks_formal_revision_aware_use": true,
+    "source_terms_pending_blocks_formal_ingestion": true,
+    "exploration_only_source_supports_readiness_flags_not_formal_d3_facts": true,
+    "d3_must_propagate_research_use_tier": true
+  },
+  "d3_no_bypass_policy": {
+    "r0_and_later_must_not_read_d1_d2_raw_tables_directly_once_d3_is_introduced": true,
+    "r0_allowed_sources": ["d3.daily_market_observations", "d3.*"],
+    "d3_must_not_embed_vendor_raw_payload_or_row_level_source_extracts": true,
+    "d3_references_d1_d2_component_artifacts_by_stable_refs": true
+  },
+  "pcvt_handoff_policy": {
+    "pcvt_candidate_set_status": "proposed_not_r0_finalized",
+    "pcvt_values_generated_by_this_pr": false,
+    "r0_thresholds_defined_by_this_pr": false,
+    "r0_state_machine_defined_by_this_pr": false,
+    "candidate_dependencies": [
+      {
+        "indicator_id": "P1_NATR14",
+        "readiness": "exploration_ready_after_full_window_pull"
+      },
+      {
+        "indicator_id": "P2_LogRange20",
+        "readiness": "exploration_ready_after_full_window_pull"
+      },
+      {
+        "indicator_id": "C1_LogMASpread_5_60",
+        "readiness": "exploration_ready_after_full_window_pull"
+      },
+      {
+        "indicator_id": "C2_AdjVWAPSpread_5_60",
+        "readiness": "partial_pending_amount_volume_unit_validation_and_adjusted_vwap_policy"
+      },
+      {
+        "indicator_id": "T1_ER20",
+        "readiness": "exploration_ready_after_full_window_pull"
+      },
+      {
+        "indicator_id": "T2_AbsTrendT20",
+        "readiness": "exploration_ready_after_full_window_pull"
+      },
+      {
+        "indicator_id": "V1_VolShrink20_60",
+        "readiness": "partial_pending_volume_unit_validation_and_adjusted_volume_policy"
+      },
+      {
+        "indicator_id": "V2_AmountLevel20Pct",
+        "readiness": "ready_after_amount_unit_validation_and_history_window_pull"
+      }
+    ]
+  },
+  "blocking_policy": {
+    "formal_ingestion_not_authorized": true,
+    "real_d2_raw_price_layer_not_materialized": true,
+    "real_d2_adjusted_price_layer_not_materialized": true,
+    "real_d2_quality_flags_not_materialized": true,
+    "factor_as_of_time_coverage_not_verified": true,
+    "revision_timestamp_coverage_not_verified": true,
+    "source_terms_pending_for_formal_ingestion": true,
+    "d3_generation_not_authorized_by_this_pr": true,
+    "r0_generation_not_authorized_by_this_pr": true
+  },
+  "prohibited_fields": [
+    "future_return",
+    "future_max_return",
+    "label",
+    "breakout_direction",
+    "outcome",
+    "target",
+    "holding_period_return",
+    "backtest_signal",
+    "portfolio_return",
+    "raw_rows",
+    "qfq_rows",
+    "hfq_rows",
+    "vendor_payload",
+    "raw_vendor_payload"
+  ],
+  "recommended_next_phase": "D3_daily_market_observations_contract"
+}

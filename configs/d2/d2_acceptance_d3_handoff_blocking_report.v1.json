@@ -1,0 +1,45 @@
+{
+  "$schema": "../../schemas/d2_acceptance_d3_handoff_blocking_report.schema.json",
+  "config_version": "1.0.0",
+  "report_id": "D2_ACCEPTANCE_D3_HANDOFF_BLOCKING_REPORT_V1",
+  "task_id": "D2-T08",
+  "contract_id": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+  "acceptance_status": "contract_only_blocked_pending_real_d2_materialization",
+  "real_data_read": false,
+  "external_api_called": false,
+  "raw_data_committed": false,
+  "duckdb_written": false,
+  "formal_ingestion_authorized": false,
+  "d2_raw_price_materialized": false,
+  "d2_adjusted_price_materialized": false,
+  "d2_quality_flags_materialized": false,
+  "d3_generated": false,
+  "r0_generated": false,
+  "pcvt_values_generated": false,
+  "returns_or_labels_generated": false,
+  "blocking_reasons": [
+    "formal_ingestion_not_authorized",
+    "real_d2_raw_price_layer_not_materialized",
+    "real_d2_adjusted_price_layer_not_materialized",
+    "real_d2_quality_flags_not_materialized",
+    "factor_as_of_time_coverage_not_verified",
+    "revision_timestamp_coverage_not_verified",
+    "source_terms_pending_for_formal_ingestion",
+    "d3_generation_not_authorized_by_this_pr",
+    "r0_generation_not_authorized_by_this_pr"
+  ],
+  "d2_acceptance_summary": {
+    "membership_alignment": "accepted_reference_available",
+    "raw_price_layer": "blocked_pending_formal_source_authorization",
+    "adjusted_price_layer": "blocked_pending_factor_as_of_time_and_revision_coverage",
+    "quality_flags": "contract_only_pending_real_d2_materialization",
+    "candidate_probe": "executed_small_sample_exploration_only_formal_blocked"
+  },
+  "d3_handoff_summary": {
+    "target_table": "d3.daily_market_observations",
+    "handoff_status": "contract_defined_generation_blocked",
+    "r0_no_bypass_policy_defined": true,
+    "pcvt_candidate_dependencies_proposed": true
+  },
+  "recommended_next_task": "D3-T01_daily_market_observations_contract"
+}
