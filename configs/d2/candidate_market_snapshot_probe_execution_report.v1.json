@@ -15,7 +15,7 @@
   },
   "formal_ingestion_authorized": false,
   "formal_use_blocking_reasons": [
-    "environment_not_authorized_for_external_api",
+    "local_probe_executed_but_formal_ingestion_not_authorized",
     "source_terms_pending_for_formal_ingestion",
     "factor_as_of_time_not_verified",
     "revision_comparison_not_run",

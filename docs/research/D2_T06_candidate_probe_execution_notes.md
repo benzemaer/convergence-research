@@ -58,7 +58,7 @@ python scripts/run_d2_candidate_market_snapshot_probe.py --plan configs/d2/candi
 
 ## Blocking Reasons
 
-- `environment_not_authorized_for_external_api`.
+- `local_probe_executed_but_formal_ingestion_not_authorized`.
 - `source_terms_pending_for_formal_ingestion`.
 - `factor_as_of_time_not_verified`.
 - `revision_comparison_not_run`.
