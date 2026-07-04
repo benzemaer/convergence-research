@@ -7,8 +7,8 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTRACT_PATH = ROOT / "configs/d3/component_lineage_no_bypass_contract.v1.json"
-SCHEMA_PATH = ROOT / "schemas/d3_component_lineage_no_bypass_contract.schema.json"
+CONTRACT_PATH = ROOT / "configs/d3/synthetic_daily_observation_build_contract.v1.json"
+SCHEMA_PATH = ROOT / "schemas/d3_synthetic_daily_observation_build_contract.schema.json"
 README_PATH = ROOT / "docs/tasks/README.md"
 
 
@@ -17,19 +17,18 @@ def load_json(path: Path) -> dict[str, object]:
         return json.load(handle)
 
 
-class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
+class D3SyntheticDailyObservationBuildContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.contract = load_json(CONTRACT_PATH)
         cls.schema = load_json(SCHEMA_PATH)
-        cls.validator = Draft202012Validator(cls.schema)
         cls.readme = README_PATH.read_text(encoding="utf-8")
 
     def test_contract_schema_passes(self) -> None:
         Draft202012Validator.check_schema(self.schema)
-        self.validator.validate(self.contract)
+        Draft202012Validator(self.schema).validate(self.contract)
 
-    def test_contract_binds_d3_t01_and_d3_t02_layers(self) -> None:
+    def test_contract_binds_prior_d3_contracts(self) -> None:
         self.assertEqual(
             self.contract["canonical_ref_table"], "d3.daily_market_observations"
         )
@@ -37,20 +36,21 @@ class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
             self.contract["value_layer_object"], "d3.daily_market_observation_values"
         )
         self.assertEqual(
-            self.contract["canonical_ref_contract"],
-            "D3_DAILY_MARKET_OBSERVATIONS_CONTRACT_V1",
+            self.contract["component_lineage_contract"],
+            "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1",
         )
         self.assertEqual(
-            self.contract["value_layer_contract"],
-            "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1",
+            self.contract["quality_readiness_contract"],
+            "D3_QUALITY_READINESS_CONTRACT_V1",
         )
 
-    def test_no_formal_generation_or_storage_authorized(self) -> None:
+    def test_no_formal_generation_authorized(self) -> None:
         for key in [
             "formal_ingestion_authorized",
             "duckdb_write_authorized",
             "ddl_authorized",
             "real_data_materialization_authorized",
+            "manifest_creation_authorized",
             "data_version_release_authorized",
             "pcvt_indicator_calculation_authorized",
             "r0_state_generation_authorized",
@@ -58,9 +58,24 @@ class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
             self.assertFalse(self.contract[key])
         self.assertTrue(self.contract["synthetic_test_only"])
 
-    def test_component_refs_are_complete(self) -> None:
+    def test_synthetic_input_field_groups_are_complete(self) -> None:
+        groups = self.contract["synthetic_input_field_groups"]
         self.assertGreaterEqual(
-            set(self.contract["component_refs"]),
+            set(groups),
+            {
+                "identity_fields",
+                "component_ref_fields",
+                "lineage_fields",
+                "raw_trading_value_fields",
+                "continuous_research_price_fields",
+                "participation_value_fields",
+                "trading_constraint_fields",
+                "quality_status_fields",
+                "pcvt_input_readiness_fields",
+            },
+        )
+        self.assertGreaterEqual(
+            set(groups["component_ref_fields"]),
             {
                 "raw_price_ref",
                 "adjusted_price_ref",
@@ -74,59 +89,36 @@ class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
                 "run_ref",
             },
         )
+        self.assertIn("daily_vwap", groups["raw_trading_value_fields"])
+        self.assertIn("factor_as_of_time", groups["continuous_research_price_fields"])
+        self.assertIn("quality_blocking_reasons", groups["quality_status_fields"])
+        self.assertIn("pcvt_blocking_reasons", groups["pcvt_input_readiness_fields"])
 
-    def test_lineage_inheritance_fields_are_complete(self) -> None:
+    def test_build_output_sections_are_complete(self) -> None:
         self.assertGreaterEqual(
-            set(self.contract["lineage_inheritance_fields"]),
+            set(self.contract["build_output_sections"]),
             {
-                "data_version",
-                "universe_id",
-                "time_segment_id",
-                "security_id",
-                "trading_date",
-                "observation_revision",
-                "canonical_observation_ref",
-                "observed_at",
-                "observed_at_rule",
-                "revision_policy",
-                "history_revision_class",
-                "research_use_tier",
-                "source_registry_id",
-                "source_snapshot_id",
-                "run_id",
-                "source_snapshot_ref",
-                "run_ref",
+                "canonical_observation",
+                "value_observation",
+                "quality_readiness_summary",
+                "lineage_validation_errors",
+                "build_diagnostics",
             },
         )
-
-    def test_no_bypass_policy_blocks_d1_d2_direct_reads(self) -> None:
-        policy = self.contract["no_bypass_policy"]
-        self.assertIn("d3.daily_market_observations", policy["allowed_r0_sources"])
-        self.assertIn(
-            "d3.daily_market_observation_values", policy["allowed_r0_sources"]
+        self.assertTrue(self.contract["canonical_output_policy"]["refs_only"])
+        self.assertFalse(
+            self.contract["canonical_output_policy"]["value_fields_allowed"]
         )
-        self.assertGreaterEqual(
-            set(policy["prohibited_r0_sources"]),
-            {
-                "d1.raw_market_prices",
-                "d1.corporate_actions",
-                "d1.trading_constraints",
-                "d2.adjusted_market_prices",
-                "d2.market_price_quality_flags",
-                "d2.membership_alignment",
-                "D1/D2 raw component tables directly",
-                "vendor payloads",
-                "raw/qfq/hfq row payloads",
-            },
+        self.assertTrue(
+            self.contract["value_output_policy"]["canonical_observation_ref_required"]
         )
-        self.assertTrue(policy["d1_d2_direct_read_prohibited"])
 
-    def test_prohibited_fields_cover_research_outcome_payload_and_pcvt_state(
-        self,
-    ) -> None:
+    def test_prohibited_fields_cover_research_outcome_and_payload_fields(self) -> None:
         self.assertGreaterEqual(
             set(self.contract["prohibited_fields"]),
             {
+                "pcvt_value",
+                "pcvt_state",
                 "future_return",
                 "label",
                 "backtest_signal",
@@ -136,21 +128,19 @@ class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
                 "raw_rows",
                 "qfq_rows",
                 "hfq_rows",
-                "pcvt_value",
-                "pcvt_state",
-                "state_machine_version",
             },
         )
 
-    def test_validator_behavior_is_synthetic_only(self) -> None:
-        behavior = self.contract["validator_behavior"]
-        self.assertTrue(behavior["accept_synthetic_payload_only"])
-        self.assertFalse(behavior["real_data_read_authorized"])
-        self.assertFalse(behavior["duckdb_connection_authorized"])
-        self.assertFalse(behavior["external_api_call_authorized"])
-        self.assertFalse(behavior["manifest_creation_authorized"])
+    def test_forbidden_path_policy_is_explicit(self) -> None:
+        policy = self.contract["forbidden_path_policy"]
+        self.assertTrue(policy["reject_payload_path_before_open"])
+        self.assertTrue(policy["reject_payload_content_paths"])
+        self.assertGreaterEqual(
+            set(policy["forbidden_patterns"]),
+            {"data/raw", "data/external", "marketdb", ".day", ".duckdb"},
+        )
 
-    def test_readme_advances_to_d3_t03_and_preserves_later_blocks(self) -> None:
+    def test_readme_advances_to_d3_t05_and_preserves_stage_boundaries(self) -> None:
         self.assertIn("current_stage: D3", self.readme)
         self.assertIn("current_task: D3-T05", self.readme)
         self.assertIn("next_planned_task: D3-T06", self.readme)
@@ -165,6 +155,10 @@ class D3ComponentLineageNoBypassContractTest(unittest.TestCase):
         self.assertIn(
             "D3-T03` 组件引用、source lineage 与 no-bypass 校验器："
             "completed via PR #37",
+            self.readme,
+        )
+        self.assertIn(
+            "D3-T04` 基础质量指标与 PCVT input readiness 契约：completed via PR #38",
             self.readme,
         )
         self.assertIn(

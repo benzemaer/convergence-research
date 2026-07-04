@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d3_synthetic_daily_observation_build_contract.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "canonical_ref_table",
+    "value_layer_object",
+    "component_lineage_contract",
+    "quality_readiness_contract",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "ddl_authorized",
+    "real_data_materialization_authorized",
+    "manifest_creation_authorized",
+    "data_version_release_authorized",
+    "pcvt_indicator_calculation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "synthetic_input_field_groups",
+    "build_output_sections",
+    "canonical_output_policy",
+    "value_output_policy",
+    "quality_summary_policy",
+    "lineage_validation_policy",
+    "forbidden_path_policy",
+    "prohibited_fields"
+  ],
+  "properties": {
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "D3_SYNTHETIC_DAILY_OBSERVATION_BUILD_CONTRACT_V1"
+    },
+    "task_id": { "const": "D3-T05" },
+    "contract_status": { "const": "accepted" },
+    "canonical_ref_table": { "const": "d3.daily_market_observations" },
+    "value_layer_object": { "const": "d3.daily_market_observation_values" },
+    "component_lineage_contract": {
+      "const": "D3_COMPONENT_LINEAGE_NO_BYPASS_CONTRACT_V1"
+    },
+    "quality_readiness_contract": {
+      "const": "D3_QUALITY_READINESS_CONTRACT_V1"
+    },
+    "formal_ingestion_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "ddl_authorized": { "const": false },
+    "real_data_materialization_authorized": { "const": false },
+    "manifest_creation_authorized": { "const": false },
+    "data_version_release_authorized": { "const": false },
+    "pcvt_indicator_calculation_authorized": { "const": false },
+    "r0_state_generation_authorized": { "const": false },
+    "synthetic_test_only": { "const": true },
+    "synthetic_input_field_groups": {
+      "type": "object",
+      "required": [
+        "identity_fields",
+        "component_ref_fields",
+        "lineage_fields",
+        "raw_trading_value_fields",
+        "continuous_research_price_fields",
+        "participation_value_fields",
+        "trading_constraint_fields",
+        "quality_status_fields",
+        "pcvt_input_readiness_fields"
+      ],
+      "properties": {
+        "identity_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "data_version" } },
+            { "contains": { "const": "universe_id" } },
+            { "contains": { "const": "time_segment_id" } },
+            { "contains": { "const": "security_id" } },
+            { "contains": { "const": "trading_date" } },
+            { "contains": { "const": "observation_revision" } }
+          ]
+        },
+        "component_ref_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "raw_price_ref" } },
+            { "contains": { "const": "adjusted_price_ref" } },
+            { "contains": { "const": "trading_constraint_ref" } },
+            { "contains": { "const": "market_price_quality_ref" } },
+            { "contains": { "const": "mechanical_gap_ref" } },
+            { "contains": { "const": "pcvt_input_readiness_ref" } },
+            { "contains": { "const": "membership_ref" } },
+            { "contains": { "const": "calendar_ref" } },
+            { "contains": { "const": "source_snapshot_ref" } },
+            { "contains": { "const": "run_ref" } }
+          ]
+        },
+        "lineage_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "observed_at" } },
+            { "contains": { "const": "observed_at_rule" } },
+            { "contains": { "const": "revision_policy" } },
+            { "contains": { "const": "history_revision_class" } },
+            { "contains": { "const": "research_use_tier" } },
+            { "contains": { "const": "source_registry_id" } },
+            { "contains": { "const": "source_snapshot_id" } },
+            { "contains": { "const": "run_id" } }
+          ]
+        },
+        "raw_trading_value_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "raw_open" } },
+            { "contains": { "const": "raw_high" } },
+            { "contains": { "const": "raw_low" } },
+            { "contains": { "const": "raw_close" } },
+            { "contains": { "const": "volume" } },
+            { "contains": { "const": "amount" } },
+            { "contains": { "const": "daily_vwap" } }
+          ]
+        },
+        "continuous_research_price_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "adj_open" } },
+            { "contains": { "const": "adj_high" } },
+            { "contains": { "const": "adj_low" } },
+            { "contains": { "const": "adj_close" } },
+            { "contains": { "const": "adjustment_factor" } },
+            { "contains": { "const": "adjustment_method" } },
+            { "contains": { "const": "factor_as_of_time" } },
+            { "contains": { "const": "corporate_action_flag" } },
+            { "contains": { "const": "adjustment_revision" } }
+          ]
+        },
+        "participation_value_fields": { "$ref": "#/$defs/stringArray" },
+        "trading_constraint_fields": { "$ref": "#/$defs/stringArray" },
+        "quality_status_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "quality_severity_max" } },
+            { "contains": { "const": "quality_blocking_flag" } },
+            { "contains": { "const": "quality_blocking_reasons" } }
+          ]
+        },
+        "pcvt_input_readiness_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "pcvt_input_readiness_status" } },
+            { "contains": { "const": "p_layer_input_ready" } },
+            { "contains": { "const": "c_layer_input_ready" } },
+            { "contains": { "const": "t_layer_input_ready" } },
+            { "contains": { "const": "v_layer_input_ready" } },
+            { "contains": { "const": "pcvt_blocking_reasons" } }
+          ]
+        }
+      }
+    },
+    "build_output_sections": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "canonical_observation" } },
+        { "contains": { "const": "value_observation" } },
+        { "contains": { "const": "quality_readiness_summary" } },
+        { "contains": { "const": "lineage_validation_errors" } },
+        { "contains": { "const": "build_diagnostics" } }
+      ]
+    },
+    "canonical_output_policy": {
+      "type": "object",
+      "required": [
+        "refs_only",
+        "value_fields_allowed",
+        "pcvt_value_fields_allowed",
+        "future_label_fields_allowed",
+        "vendor_payload_allowed"
+      ],
+      "properties": {
+        "refs_only": { "const": true },
+        "value_fields_allowed": { "const": false },
+        "pcvt_value_fields_allowed": { "const": false },
+        "future_label_fields_allowed": { "const": false },
+        "vendor_payload_allowed": { "const": false }
+      }
+    },
+    "value_output_policy": {
+      "type": "object",
+      "required": [
+        "canonical_observation_ref_required",
+        "primary_key_must_align_with_canonical",
+        "lineage_must_align_with_canonical"
+      ],
+      "properties": {
+        "canonical_observation_ref_required": { "const": true },
+        "primary_key_must_align_with_canonical": { "const": true },
+        "lineage_must_align_with_canonical": { "const": true }
+      }
+    },
+    "quality_summary_policy": {
+      "type": "object",
+      "required": [
+        "uses_d3_t04_status_vocabulary",
+        "uses_d3_t04_severity_vocabulary",
+        "uses_d3_t04_readiness_vocabulary",
+        "pcvt_values_allowed",
+        "pcvt_scores_allowed",
+        "state_labels_allowed",
+        "q_thresholds_allowed",
+        "future_returns_allowed",
+        "backtest_results_allowed",
+        "portfolio_results_allowed"
+      ],
+      "properties": {
+        "uses_d3_t04_status_vocabulary": { "const": true },
+        "uses_d3_t04_severity_vocabulary": { "const": true },
+        "uses_d3_t04_readiness_vocabulary": { "const": true },
+        "pcvt_values_allowed": { "const": false },
+        "pcvt_scores_allowed": { "const": false },
+        "state_labels_allowed": { "const": false },
+        "q_thresholds_allowed": { "const": false },
+        "future_returns_allowed": { "const": false },
+        "backtest_results_allowed": { "const": false },
+        "portfolio_results_allowed": { "const": false }
+      }
+    },
+    "lineage_validation_policy": {
+      "type": "object",
+      "required": ["validator_module", "validator_function"],
+      "properties": {
+        "validator_function": { "const": "validate_component_lineage_payload" }
+      }
+    },
+    "forbidden_path_policy": {
+      "type": "object",
+      "required": ["reject_payload_path_before_open", "forbidden_patterns"],
+      "properties": {
+        "reject_payload_path_before_open": { "const": true },
+        "reject_payload_content_paths": { "const": true },
+        "forbidden_patterns": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "data/raw" } },
+            { "contains": { "const": "data/external" } },
+            { "contains": { "const": "marketdb" } },
+            { "contains": { "const": ".duckdb" } },
+            { "contains": { "const": ".day" } }
+          ]
+        }
+      }
+    },
+    "prohibited_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "pcvt_value" } },
+        { "contains": { "const": "pcvt_state" } },
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "label" } },
+        { "contains": { "const": "backtest_signal" } },
+        { "contains": { "const": "portfolio_return" } },
+        { "contains": { "const": "vendor_payload" } },
+        { "contains": { "const": "raw_rows" } },
+        { "contains": { "const": "qfq_rows" } },
+        { "contains": { "const": "hfq_rows" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    }
+  }
+}
