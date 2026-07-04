@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d2_hithink_raw_market_prices_candidate_materialization_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "stage",
+    "target_table",
+    "primary_source",
+    "formal_source_registry_contract",
+    "raw_ohlcv_probe_contract",
+    "formal_source_acceptance_authorized",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "real_data_materialization_authorized",
+    "manifest_creation_authorized",
+    "data_version_release_authorized",
+    "d3_generation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "depends_on",
+    "required_target_fields",
+    "raw_probe_required_sections",
+    "field_mapping_policy",
+    "fallback_repair_policy",
+    "candidate_plan_output_sections",
+    "blocking_conditions",
+    "forbidden_actions",
+    "stage_2_release_decisions"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/d2_hithink_raw_market_prices_candidate_materialization_contract.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_MATERIALIZATION_CONTRACT_V1"},
+    "task_id": {"const": "D2-T09"},
+    "contract_status": {"const": "accepted"},
+    "contract_scope": {"const": "stage_2_candidate_materialization_plan_and_fallback_repair_probe"},
+    "stage": {"const": "stage_2"},
+    "target_table": {"const": "d1.raw_market_prices"},
+    "primary_source": {"const": "hithink_financial_api"},
+    "formal_source_registry_contract": {"const": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1"},
+    "raw_ohlcv_probe_contract": {"const": "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1"},
+    "formal_source_acceptance_authorized": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "manifest_creation_authorized": {"const": false},
+    "data_version_release_authorized": {"const": false},
+    "d3_generation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "depends_on": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1"}},
+        {"contains": {"const": "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1"}},
+        {"contains": {"const": "D2_RAW_MARKET_PRICES_MATERIALIZATION_CONTRACT_V1"}},
+        {"contains": {"const": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1"}},
+        {"contains": {"const": "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"}}
+      ]
+    },
+    "required_target_fields": {
+      "type": "array",
+      "minItems": 17,
+      "maxItems": 17,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "data_version",
+          "universe_id",
+          "time_segment_id",
+          "security_id",
+          "trading_date",
+          "raw_open",
+          "raw_high",
+          "raw_low",
+          "raw_close",
+          "volume",
+          "amount",
+          "trading_status",
+          "price_limit_status",
+          "source_registry_id",
+          "source_snapshot_id",
+          "observed_at",
+          "run_id"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "data_version"}},
+        {"contains": {"const": "universe_id"}},
+        {"contains": {"const": "time_segment_id"}},
+        {"contains": {"const": "security_id"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "raw_open"}},
+        {"contains": {"const": "raw_high"}},
+        {"contains": {"const": "raw_low"}},
+        {"contains": {"const": "raw_close"}},
+        {"contains": {"const": "volume"}},
+        {"contains": {"const": "amount"}},
+        {"contains": {"const": "trading_status"}},
+        {"contains": {"const": "price_limit_status"}},
+        {"contains": {"const": "source_registry_id"}},
+        {"contains": {"const": "source_snapshot_id"}},
+        {"contains": {"const": "observed_at"}},
+        {"contains": {"const": "run_id"}}
+      ]
+    },
+    "raw_probe_required_sections": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "raw_k_schema_report"}},
+        {"contains": {"const": "adjustment_event_schema_report"}},
+        {"contains": {"const": "coverage_report"}},
+        {"contains": {"const": "unit_inference_report"}},
+        {"contains": {"const": "missing_field_report"}},
+        {"contains": {"const": "fallback_readiness_report"}},
+        {"contains": {"const": "probe_diagnostics"}}
+      ]
+    },
+    "field_mapping_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_alias_resolution_must_precede_materialization",
+        "security_id_requires_d1_mapping",
+        "source_symbol_must_not_be_written_to_target",
+        "observed_at_must_come_from_source_or_snapshot_observation_time",
+        "observed_at_must_not_be_derived_only_from_trading_date",
+        "source_snapshot_id_requires_reviewed_snapshot_manifest",
+        "run_id_requires_reviewed_run_manifest"
+      ],
+      "properties": {
+        "source_alias_resolution_must_precede_materialization": {"const": true},
+        "security_id_requires_d1_mapping": {"const": true},
+        "source_symbol_must_not_be_written_to_target": {"const": true},
+        "observed_at_must_come_from_source_or_snapshot_observation_time": {"const": true},
+        "observed_at_must_not_be_derived_only_from_trading_date": {"const": true},
+        "source_snapshot_id_requires_reviewed_snapshot_manifest": {"const": true},
+        "run_id_requires_reviewed_run_manifest": {"const": true}
+      }
+    },
+    "fallback_repair_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_mode",
+        "fallback_sources",
+        "fallback_must_not_silently_override_primary_price_conflicts",
+        "cross_source_conflict_requires_discrepancy_report",
+        "required_repair_fields"
+      ],
+      "properties": {
+        "fallback_mode": {"const": "missing_only_repair_only"},
+        "fallback_sources": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_id", "priority", "role"],
+            "properties": {
+              "source_id": {"enum": ["baostock", "tushare"]},
+              "priority": {"enum": [1, 2]},
+              "role": {"const": "fallback_repair_source"}
+            }
+          },
+          "allOf": [
+            {"contains": {"properties": {"source_id": {"const": "baostock"}, "priority": {"const": 1}}, "required": ["source_id", "priority"]}},
+            {"contains": {"properties": {"source_id": {"const": "tushare"}, "priority": {"const": 2}}, "required": ["source_id", "priority"]}}
+          ]
+        },
+        "fallback_must_not_silently_override_primary_price_conflicts": {"const": true},
+        "cross_source_conflict_requires_discrepancy_report": {"const": true},
+        "required_repair_fields": {
+          "allOf": [
+            {"$ref": "#/$defs/stringArray"},
+            {"contains": {"const": "fallback_reason"}},
+            {"contains": {"const": "fallback_source"}},
+            {"contains": {"const": "fallback_field"}},
+            {"contains": {"const": "fallback_security_id"}},
+            {"contains": {"const": "fallback_trading_date"}},
+            {"contains": {"const": "repair_method"}},
+            {"contains": {"const": "repair_confidence"}}
+          ]
+        }
+      }
+    },
+    "candidate_plan_output_sections": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "contract_readiness_report"}},
+        {"contains": {"const": "source_boundary_report"}},
+        {"contains": {"const": "raw_field_mapping_report"}},
+        {"contains": {"const": "target_field_readiness_report"}},
+        {"contains": {"const": "fallback_repair_probe_plan"}},
+        {"contains": {"const": "blocking_report"}},
+        {"contains": {"const": "candidate_plan_diagnostics"}}
+      ]
+    },
+    "blocking_conditions": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "formal_source_acceptance_not_authorized"}},
+        {"contains": {"const": "formal_ingestion_not_authorized"}},
+        {"contains": {"const": "real_data_materialization_not_authorized"}},
+        {"contains": {"const": "missing_reviewed_source_snapshot_manifest"}},
+        {"contains": {"const": "missing_reviewed_run_manifest"}},
+        {"contains": {"const": "missing_reviewed_dataset_manifest"}},
+        {"contains": {"const": "source_snapshot_id_not_available"}},
+        {"contains": {"const": "observed_at_not_verified"}},
+        {"contains": {"const": "security_id_mapping_not_verified"}},
+        {"contains": {"const": "fallback_repair_not_reviewed"}},
+        {"contains": {"const": "cross_source_discrepancy_report_missing"}},
+        {"contains": {"const": "duckdb_write_not_authorized"}},
+        {"contains": {"const": "d3_generation_not_authorized"}},
+        {"contains": {"const": "r0_state_generation_not_authorized"}}
+      ]
+    },
+    "forbidden_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read_default_data_raw_glob",
+        "call_external_api",
+        "write_duckdb",
+        "create_manifest",
+        "publish_data_version",
+        "emit_row_level_prices",
+        "write_raw_vendor_bytes",
+        "generate_d3_artifact",
+        "generate_r0_state"
+      ],
+      "properties": {
+        "read_default_data_raw_glob": {"const": false},
+        "call_external_api": {"const": false},
+        "write_duckdb": {"const": false},
+        "create_manifest": {"const": false},
+        "publish_data_version": {"const": false},
+        "emit_row_level_prices": {"const": false},
+        "write_raw_vendor_bytes": {"const": false},
+        "generate_d3_artifact": {"const": false},
+        "generate_r0_state": {"const": false}
+      }
+    },
+    "stage_2_release_decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formal_source_acceptance_decision",
+        "raw_materialization_decision",
+        "fallback_repair_decision",
+        "d3_generation_decision",
+        "r0_handoff_decision"
+      ],
+      "properties": {
+        "formal_source_acceptance_decision": {"const": "formal_source_acceptance_blocked_pending_stage_2_review"},
+        "raw_materialization_decision": {"const": "raw_materialization_plan_only_not_authorized"},
+        "fallback_repair_decision": {"const": "fallback_repair_probe_plan_only_not_authorized"},
+        "d3_generation_decision": {"const": "d3_generation_blocked"},
+        "r0_handoff_decision": {"const": "r0_handoff_blocked"}
+      }
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

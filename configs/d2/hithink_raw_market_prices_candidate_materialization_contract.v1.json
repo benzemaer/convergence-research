@@ -1,0 +1,135 @@
+{
+  "$schema": "../../schemas/d2_hithink_raw_market_prices_candidate_materialization_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_MATERIALIZATION_CONTRACT_V1",
+  "task_id": "D2-T09",
+  "contract_status": "accepted",
+  "contract_scope": "stage_2_candidate_materialization_plan_and_fallback_repair_probe",
+  "stage": "stage_2",
+  "target_table": "d1.raw_market_prices",
+  "primary_source": "hithink_financial_api",
+  "formal_source_registry_contract": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1",
+  "raw_ohlcv_probe_contract": "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1",
+  "formal_source_acceptance_authorized": false,
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "real_data_materialization_authorized": false,
+  "manifest_creation_authorized": false,
+  "data_version_release_authorized": false,
+  "d3_generation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "depends_on": [
+    "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1",
+    "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1",
+    "D2_RAW_MARKET_PRICES_MATERIALIZATION_CONTRACT_V1",
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"
+  ],
+  "required_target_fields": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "trading_date",
+    "raw_open",
+    "raw_high",
+    "raw_low",
+    "raw_close",
+    "volume",
+    "amount",
+    "trading_status",
+    "price_limit_status",
+    "source_registry_id",
+    "source_snapshot_id",
+    "observed_at",
+    "run_id"
+  ],
+  "raw_probe_required_sections": [
+    "raw_k_schema_report",
+    "adjustment_event_schema_report",
+    "coverage_report",
+    "unit_inference_report",
+    "missing_field_report",
+    "fallback_readiness_report",
+    "probe_diagnostics"
+  ],
+  "field_mapping_policy": {
+    "source_alias_resolution_must_precede_materialization": true,
+    "security_id_requires_d1_mapping": true,
+    "source_symbol_must_not_be_written_to_target": true,
+    "observed_at_must_come_from_source_or_snapshot_observation_time": true,
+    "observed_at_must_not_be_derived_only_from_trading_date": true,
+    "source_snapshot_id_requires_reviewed_snapshot_manifest": true,
+    "run_id_requires_reviewed_run_manifest": true
+  },
+  "fallback_repair_policy": {
+    "fallback_mode": "missing_only_repair_only",
+    "fallback_sources": [
+      {
+        "source_id": "baostock",
+        "priority": 1,
+        "role": "fallback_repair_source"
+      },
+      {
+        "source_id": "tushare",
+        "priority": 2,
+        "role": "fallback_repair_source"
+      }
+    ],
+    "fallback_must_not_silently_override_primary_price_conflicts": true,
+    "cross_source_conflict_requires_discrepancy_report": true,
+    "required_repair_fields": [
+      "fallback_reason",
+      "fallback_source",
+      "fallback_field",
+      "fallback_security_id",
+      "fallback_trading_date",
+      "repair_method",
+      "repair_confidence"
+    ]
+  },
+  "candidate_plan_output_sections": [
+    "contract_readiness_report",
+    "source_boundary_report",
+    "raw_field_mapping_report",
+    "target_field_readiness_report",
+    "fallback_repair_probe_plan",
+    "blocking_report",
+    "candidate_plan_diagnostics"
+  ],
+  "blocking_conditions": [
+    "formal_source_acceptance_not_authorized",
+    "formal_ingestion_not_authorized",
+    "real_data_materialization_not_authorized",
+    "missing_reviewed_source_snapshot_manifest",
+    "missing_reviewed_run_manifest",
+    "missing_reviewed_dataset_manifest",
+    "source_snapshot_id_not_available",
+    "observed_at_not_verified",
+    "security_id_mapping_not_verified",
+    "fallback_repair_not_reviewed",
+    "cross_source_discrepancy_report_missing",
+    "duckdb_write_not_authorized",
+    "d3_generation_not_authorized",
+    "r0_state_generation_not_authorized"
+  ],
+  "forbidden_actions": {
+    "read_default_data_raw_glob": false,
+    "call_external_api": false,
+    "write_duckdb": false,
+    "create_manifest": false,
+    "publish_data_version": false,
+    "emit_row_level_prices": false,
+    "write_raw_vendor_bytes": false,
+    "generate_d3_artifact": false,
+    "generate_r0_state": false
+  },
+  "stage_2_release_decisions": {
+    "formal_source_acceptance_decision": "formal_source_acceptance_blocked_pending_stage_2_review",
+    "raw_materialization_decision": "raw_materialization_plan_only_not_authorized",
+    "fallback_repair_decision": "fallback_repair_probe_plan_only_not_authorized",
+    "d3_generation_decision": "d3_generation_blocked",
+    "r0_handoff_decision": "r0_handoff_blocked"
+  }
+}
