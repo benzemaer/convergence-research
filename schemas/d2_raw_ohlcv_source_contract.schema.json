@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_raw_ohlcv_source_contract.schema.json",
+  "title": "D2 Raw OHLCV Source Readiness Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "task_id",
+    "contract_id",
+    "contract_status",
+    "depends_on",
+    "target_table",
+    "readiness_scope",
+    "source_registry_requirements",
+    "source_snapshot_requirements",
+    "manifest_requirements",
+    "observed_at_rule",
+    "as_of_policy",
+    "revision_policy",
+    "required_raw_fields",
+    "field_alias_policy",
+    "unit_policy",
+    "quality_checks",
+    "blocking_conditions",
+    "implementation_exclusions",
+    "downstream_boundary"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "D2-T01"},
+    "contract_id": {"const": "D2_RAW_OHLCV_SOURCE_CONTRACT_V1"},
+    "contract_status": {
+      "enum": ["draft_for_g1_review", "accepted", "superseded"]
+    },
+    "depends_on": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "D0_SOURCE_REGISTRY_V1"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "D1-T02"}},
+        {"contains": {"const": "D1-T03"}},
+        {"contains": {"const": "D1-T04"}}
+      ]
+    },
+    "target_table": {"const": "d1.raw_market_prices"},
+    "readiness_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "formal_ingestion_authorized",
+        "minimum_probe_only",
+        "full_market_collection_authorized",
+        "duckdb_write_authorized",
+        "data_artifact_generation_authorized"
+      ],
+      "properties": {
+        "purpose": {"type": "string", "minLength": 1},
+        "formal_ingestion_authorized": {"const": false},
+        "minimum_probe_only": {"const": true},
+        "full_market_collection_authorized": {"const": false},
+        "duckdb_write_authorized": {"const": false},
+        "data_artifact_generation_authorized": {"const": false}
+      }
+    },
+    "source_registry_requirements": {
+      "$ref": "#/$defs/source_registry_requirements"
+    },
+    "source_snapshot_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_snapshot_required",
+        "raw_snapshot_storage_roots",
+        "sha256_required",
+        "source_snapshot_id_required",
+        "immutable_snapshot_required",
+        "source_snapshot_manifest_required_before_ingestion",
+        "raw_response_metadata_required",
+        "prohibited_snapshot_substitutes"
+      ],
+      "properties": {
+        "raw_snapshot_required": {"const": true},
+        "raw_snapshot_storage_roots": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["data/raw", "data/external"]},
+          "allOf": [
+            {"contains": {"const": "data/raw"}},
+            {"contains": {"const": "data/external"}}
+          ]
+        },
+        "sha256_required": {"const": true},
+        "source_snapshot_id_required": {"const": true},
+        "immutable_snapshot_required": {"const": true},
+        "source_snapshot_manifest_required_before_ingestion": {"const": true},
+        "raw_response_metadata_required": {
+          "$ref": "#/$defs/non_empty_unique_strings"
+        },
+        "prohibited_snapshot_substitutes": {
+          "$ref": "#/$defs/non_empty_unique_strings"
+        }
+      }
+    },
+    "manifest_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_manifest_required_before_validated",
+        "source_snapshot_manifest_required_before_ingestion",
+        "run_manifest_required_for_any_probe_run",
+        "input_hashes_required",
+        "no_manifest_generated_by_this_contract"
+      ],
+      "properties": {
+        "dataset_manifest_required_before_validated": {"const": true},
+        "source_snapshot_manifest_required_before_ingestion": {"const": true},
+        "run_manifest_required_for_any_probe_run": {"const": true},
+        "input_hashes_required": {"const": true},
+        "no_manifest_generated_by_this_contract": {"const": true}
+      }
+    },
+    "observed_at_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "rule",
+        "prohibited_defaults",
+        "point_in_time_gate"
+      ],
+      "properties": {
+        "required": {"const": true},
+        "rule": {"type": "string", "minLength": 1},
+        "prohibited_defaults": {"$ref": "#/$defs/non_empty_unique_strings"},
+        "point_in_time_gate": {"type": "string", "minLength": 1}
+      }
+    },
+    "as_of_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "endpoint_timestamp_required",
+        "retrieval_timestamp_required",
+        "vendor_revision_behavior_required",
+        "future_information_prohibited"
+      ],
+      "properties": {
+        "policy": {"type": "string", "minLength": 1},
+        "endpoint_timestamp_required": {"const": true},
+        "retrieval_timestamp_required": {"const": true},
+        "vendor_revision_behavior_required": {"const": true},
+        "future_information_prohibited": {"const": true}
+      }
+    },
+    "revision_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "repeated_snapshot_comparison_required",
+        "old_snapshots_immutable",
+        "revision_reason_required",
+        "silent_overwrite_prohibited"
+      ],
+      "properties": {
+        "policy": {"type": "string", "minLength": 1},
+        "repeated_snapshot_comparison_required": {"const": true},
+        "old_snapshots_immutable": {"const": true},
+        "revision_reason_required": {"const": true},
+        "silent_overwrite_prohibited": {"const": true}
+      }
+    },
+    "required_raw_fields": {
+      "type": "array",
+      "minItems": 17,
+      "maxItems": 17,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/raw_field"},
+      "allOf": [
+        {"contains": {"properties": {"field_name": {"const": "data_version"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "universe_id"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "time_segment_id"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "security_id"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "trading_date"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "raw_open"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "raw_high"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "raw_low"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "raw_close"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "volume"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "amount"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "trading_status"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "price_limit_status"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "source_registry_id"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "source_snapshot_id"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "observed_at"}}, "required": ["field_name"]}},
+        {"contains": {"properties": {"field_name": {"const": "run_id"}}, "required": ["field_name"]}}
+      ]
+    },
+    "field_alias_policy": {"$ref": "#/$defs/true_flags_object"},
+    "unit_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "price_unit",
+        "volume_unit",
+        "amount_unit",
+        "timezone",
+        "missing_or_unknown_policy"
+      ],
+      "properties": {
+        "price_unit": {"type": "string", "minLength": 1},
+        "volume_unit": {"type": "string", "minLength": 1},
+        "amount_unit": {"type": "string", "minLength": 1},
+        "timezone": {"type": "string", "minLength": 1},
+        "missing_or_unknown_policy": {"type": "string", "minLength": 1}
+      }
+    },
+    "quality_checks": {
+      "$ref": "#/$defs/non_empty_unique_strings"
+    },
+    "blocking_conditions": {
+      "$ref": "#/$defs/non_empty_unique_strings"
+    },
+    "implementation_exclusions": {
+      "type": "array",
+      "minItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "no_external_api_call",
+          "no_local_marketdb_read",
+          "no_tdx_day_file_read",
+          "no_market_data_collection",
+          "no_source_snapshot_generation",
+          "no_run_manifest_generation",
+          "no_dataset_manifest_generation",
+          "no_source_snapshot_manifest_generation",
+          "no_duckdb_write",
+          "no_committed_duckdb_file",
+          "no_d1_raw_market_prices_entity_data",
+          "no_d2_adjusted_market_prices_entity_data",
+          "no_adjustment_factor_calculation",
+          "no_gap_calculation",
+          "no_d3_daily_market_observations",
+          "no_pcvt_state_event_label_return_or_backtest"
+        ]
+      },
+      "allOf": [
+        {"contains": {"const": "no_external_api_call"}},
+        {"contains": {"const": "no_market_data_collection"}},
+        {"contains": {"const": "no_duckdb_write"}},
+        {"contains": {"const": "no_committed_duckdb_file"}},
+        {"contains": {"const": "no_d1_raw_market_prices_entity_data"}},
+        {"contains": {"const": "no_d2_adjusted_market_prices_entity_data"}},
+        {"contains": {"const": "no_d3_daily_market_observations"}}
+      ]
+    },
+    "downstream_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["next_task", "allowed_after_acceptance", "prohibited_after_acceptance"],
+      "properties": {
+        "next_task": {"const": "D2-T02"},
+        "allowed_after_acceptance": {"type": "string", "minLength": 1},
+        "prohibited_after_acceptance": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "non_empty_unique_strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "true_flags_object": {
+      "type": "object",
+      "additionalProperties": {"const": true},
+      "minProperties": 1
+    },
+    "source_registry_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_source_registry_ids",
+        "candidate_only_source_registry_ids",
+        "prohibited_source_registry_ids",
+        "formal_ingestion_authorized",
+        "reason"
+      ],
+      "properties": {
+        "allowed_source_registry_ids": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]},
+          "allOf": [
+            {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+            {"contains": {"const": "BAOSTOCK"}}
+          ]
+        },
+        "candidate_only_source_registry_ids": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]},
+          "allOf": [
+            {"contains": {"const": "HITHINK_FINANCIAL_API"}},
+            {"contains": {"const": "BAOSTOCK"}}
+          ]
+        },
+        "prohibited_source_registry_ids": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "CSINDEX_OFFICIAL",
+              "A_STOCK_DATA_RECON",
+              "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"
+            ]
+          },
+          "allOf": [
+            {"contains": {"const": "CSINDEX_OFFICIAL"}},
+            {"contains": {"const": "A_STOCK_DATA_RECON"}},
+            {"contains": {"const": "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"}}
+          ]
+        },
+        "formal_ingestion_authorized": {"const": false},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "raw_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field_name",
+        "type",
+        "nullable",
+        "unit",
+        "alias_candidates",
+        "rule"
+      ],
+      "properties": {
+        "field_name": {
+          "enum": [
+            "data_version",
+            "universe_id",
+            "time_segment_id",
+            "security_id",
+            "trading_date",
+            "raw_open",
+            "raw_high",
+            "raw_low",
+            "raw_close",
+            "volume",
+            "amount",
+            "trading_status",
+            "price_limit_status",
+            "source_registry_id",
+            "source_snapshot_id",
+            "observed_at",
+            "run_id"
+          ]
+        },
+        "type": {"enum": ["TEXT", "DATE", "DOUBLE", "BIGINT", "TIMESTAMP"]},
+        "nullable": {"const": false},
+        "unit": {"type": "string", "minLength": 1},
+        "alias_candidates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "rule": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

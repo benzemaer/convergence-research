@@ -80,10 +80,35 @@ next_planned_task: D2-T02
 
 状态：planned
 
-- `D2-T01` OHLCV 与成交额采集
-- `D2-T02` 原始价格与连续研究价格并存层
-- `D2-T03` 跳空与公司行为归因
-- `D2-T04` 交易约束对齐视图
+目标：
+
+- 建立原始交易事实、复权/因子、连续研究价格和跳空归因的分层边界；
+- 保证 raw price facts 与 continuous research prices 并存、可追溯、不可覆盖或混用；
+- 在 source/as-of/snapshot/manifest 阻塞条件关闭前，只做契约、探针和小样本验收设计，不启动全量正式行情拉取。
+
+非目标：
+
+- 不从 D2-T01 直接开始全市场数据采集；
+- 不绕过 D0 source registry 和 D1/D2 数据产品契约；
+- 不将候选来源返回的历史修订价格、复权价或供应商标签直接升级为正式研究证据。
+
+任务列表：
+
+- `D2-T01` 价格来源与 raw OHLCV 探针契约：planned
+- `D2-T02` 成员对齐层物化：planned
+- `D2-T03` 原始行情价格落账：planned
+- `D2-T04` 复权因子与 `factor_as_of_time` 契约：planned
+- `D2-T05` 连续研究价格构建与反推校验：planned
+- `D2-T06` 跳空归因与价格质量标记：planned
+- `D2-T07` D2 阶段验收与 D3 交接：planned
+
+完成标准：
+
+- D2-T01 至 D2-T07 均完成对应 PR 级验收；
+- `d1.raw_market_prices`、`d2.adjusted_market_prices`、`d2.market_price_quality_flags` 和
+  `d2.membership_alignment` 的来源、as-of、snapshot、manifest 和 revision 边界均通过审核；
+- 原始交易事实层、连续研究价格层、交易约束引用和公司行为/机械缺口归因之间的使用边界可测试、可追溯；
+- D3 可以仅通过引用已验收的 D1/D2 事实构建 `daily_market_observations`。
 
 ## D3：跨研究复用的标准日频观测表与基础质量指标
 
