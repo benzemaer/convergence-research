@@ -148,6 +148,37 @@ class D2ContinuousPriceConstructionValidatorTest(unittest.TestCase):
         row["adjustment_revision"] = "unknown"
         self.assert_bad(row)
 
+    def test_bad_method_or_revision_fails(self) -> None:
+        row = copy.deepcopy(self.identity_row)
+        row["adjustment_method"] = "bad_method"
+        self.assert_bad(row)
+        row = copy.deepcopy(self.identity_row)
+        row["adjustment_revision"] = "bad_revision"
+        self.assert_bad(row)
+
+    def test_prohibited_source_registry_ids_fail(self) -> None:
+        for source_id in [
+            "CSINDEX_OFFICIAL",
+            "A_STOCK_DATA_RECON",
+            "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET",
+        ]:
+            row = copy.deepcopy(self.identity_row)
+            row["source_registry_id"] = source_id
+            with self.subTest(source_id=source_id):
+                self.assert_bad(row)
+
+    def test_baostock_formal_adjusted_price_marker_fails(self) -> None:
+        contract = copy.deepcopy(self.contract)
+        contract["candidate_source_boundary"][
+            "baostock_formal_adjusted_price_source_allowed"
+        ] = True
+        row = copy.deepcopy(self.identity_row)
+        row["source_registry_id"] = "BAOSTOCK"
+        with self.assertRaises(ContinuousPriceConstructionValidationError):
+            validate_continuous_price_rows(
+                [row], contract, self.alignment, self.cutoffs
+            )
+
     def test_corporate_action_flag_silent_false_values_fail(self) -> None:
         for value in [False, 0, "false", "0", ""]:
             row = copy.deepcopy(self.identity_row)

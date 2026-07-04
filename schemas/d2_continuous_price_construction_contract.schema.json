@@ -4,7 +4,7 @@
   "title": "D2 Continuous Price Construction Contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["config_version", "task_id", "contract_id", "contract_status", "target_table", "data_version", "universe_id", "time_segment_id", "depends_on", "required_fields", "synthetic_input_raw_fields", "synthetic_input_factor_fields", "primary_key", "authorization", "construction_rule", "blocking_conditions", "prohibited_row_fields", "mechanical_gap_boundary", "d2_t06_boundary"],
+  "required": ["config_version", "task_id", "contract_id", "contract_status", "target_table", "data_version", "universe_id", "time_segment_id", "depends_on", "required_fields", "synthetic_input_raw_fields", "synthetic_input_factor_fields", "primary_key", "authorization", "controlled_vocabularies", "candidate_source_boundary", "construction_rule", "blocking_conditions", "prohibited_row_fields", "mechanical_gap_boundary", "d2_t06_boundary"],
   "properties": {
     "$schema": {"type": "string"},
     "config_version": {"const": "1.0.0"},
@@ -44,6 +44,28 @@
         "duckdb_write_authorized": {"const": false},
         "real_continuous_price_artifact_authorized": {"const": false},
         "synthetic_test_only": {"const": true}
+      }
+    },
+    "controlled_vocabularies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adjustment_method", "adjustment_revision"],
+      "properties": {
+        "adjustment_method": {"$ref": "#/$defs/adjustment_method_vocabulary"},
+        "adjustment_revision": {"$ref": "#/$defs/adjustment_revision_vocabulary"}
+      }
+    },
+    "candidate_source_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_candidate_source_registry_ids", "candidate_only_source_registry_ids", "prohibited_source_registry_ids", "hithink_candidate_only", "baostock_formal_adjusted_price_source_allowed", "csindex_membership_only"],
+      "properties": {
+        "allowed_candidate_source_registry_ids": {"type": "array", "items": {"enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]}, "minItems": 2, "maxItems": 2, "uniqueItems": true},
+        "candidate_only_source_registry_ids": {"type": "array", "items": {"enum": ["HITHINK_FINANCIAL_API", "BAOSTOCK"]}, "minItems": 2, "maxItems": 2, "uniqueItems": true},
+        "prohibited_source_registry_ids": {"type": "array", "items": {"enum": ["CSINDEX_OFFICIAL", "A_STOCK_DATA_RECON", "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"]}, "minItems": 3, "maxItems": 3, "uniqueItems": true},
+        "hithink_candidate_only": {"const": true},
+        "baostock_formal_adjusted_price_source_allowed": {"const": false},
+        "csindex_membership_only": {"const": true}
       }
     },
     "construction_rule": {
@@ -192,6 +214,56 @@
         {"contains": {"const": "trading_date"}},
         {"contains": {"const": "adjustment_revision"}}
       ]
+    },
+    "adjustment_method_vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_values", "unknown_blocks_validated_outputs"],
+      "properties": {
+        "allowed_values": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "forward_adjusted",
+              "backward_adjusted",
+              "total_return_adjusted",
+              "identity_no_adjustment",
+              "unknown"
+            ]
+          },
+          "allOf": [
+            {"contains": {"const": "forward_adjusted"}},
+            {"contains": {"const": "backward_adjusted"}},
+            {"contains": {"const": "total_return_adjusted"}},
+            {"contains": {"const": "identity_no_adjustment"}},
+            {"contains": {"const": "unknown"}}
+          ]
+        },
+        "unknown_blocks_validated_outputs": {"const": true}
+      }
+    },
+    "adjustment_revision_vocabulary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_values", "unknown_blocks_validated_outputs"],
+      "properties": {
+        "allowed_values": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"enum": ["v1", "candidate", "unknown"]},
+          "allOf": [
+            {"contains": {"const": "v1"}},
+            {"contains": {"const": "candidate"}},
+            {"contains": {"const": "unknown"}}
+          ]
+        },
+        "unknown_blocks_validated_outputs": {"const": true}
+      }
     },
     "blocking_conditions": {
       "type": "array",

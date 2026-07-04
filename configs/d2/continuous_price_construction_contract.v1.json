@@ -71,6 +71,44 @@
     "real_continuous_price_artifact_authorized": false,
     "synthetic_test_only": true
   },
+  "controlled_vocabularies": {
+    "adjustment_method": {
+      "allowed_values": [
+        "forward_adjusted",
+        "backward_adjusted",
+        "total_return_adjusted",
+        "identity_no_adjustment",
+        "unknown"
+      ],
+      "unknown_blocks_validated_outputs": true
+    },
+    "adjustment_revision": {
+      "allowed_values": [
+        "v1",
+        "candidate",
+        "unknown"
+      ],
+      "unknown_blocks_validated_outputs": true
+    }
+  },
+  "candidate_source_boundary": {
+    "allowed_candidate_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "candidate_only_source_registry_ids": [
+      "HITHINK_FINANCIAL_API",
+      "BAOSTOCK"
+    ],
+    "prohibited_source_registry_ids": [
+      "CSINDEX_OFFICIAL",
+      "A_STOCK_DATA_RECON",
+      "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"
+    ],
+    "hithink_candidate_only": true,
+    "baostock_formal_adjusted_price_source_allowed": false,
+    "csindex_membership_only": true
+  },
   "construction_rule": {
     "synthetic_construction_rule": "multiplicative_factor",
     "identity_no_adjustment_rule": "adjustment_factor == 1.0 requires adj_open, adj_high, adj_low, and adj_close to equal the corresponding raw OHLC values.",

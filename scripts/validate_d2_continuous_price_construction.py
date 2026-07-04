@@ -155,6 +155,55 @@ def validate_adjustment_method_and_revision_not_unknown(row: dict[str, Any]) -> 
         raise ContinuousPriceConstructionValidationError("adjustment_revision unknown")
 
 
+def validate_adjustment_method_allowed(
+    row: dict[str, Any],
+    contract: dict[str, Any],
+) -> None:
+    method = row["adjustment_method"]
+    allowed = contract["controlled_vocabularies"]["adjustment_method"]["allowed_values"]
+    if method not in allowed:
+        raise ContinuousPriceConstructionValidationError(
+            "adjustment_method is not allowed"
+        )
+    if method == "unknown":
+        raise ContinuousPriceConstructionValidationError("adjustment_method unknown")
+
+
+def validate_adjustment_revision_allowed(
+    row: dict[str, Any],
+    contract: dict[str, Any],
+) -> None:
+    revision = row["adjustment_revision"]
+    allowed = contract["controlled_vocabularies"]["adjustment_revision"][
+        "allowed_values"
+    ]
+    if revision not in allowed:
+        raise ContinuousPriceConstructionValidationError(
+            "adjustment_revision is not allowed"
+        )
+    if revision == "unknown":
+        raise ContinuousPriceConstructionValidationError("adjustment_revision unknown")
+
+
+def validate_source_registry_candidate_only(
+    row: dict[str, Any],
+    contract: dict[str, Any],
+) -> None:
+    source_id = row["source_registry_id"]
+    boundary = contract["candidate_source_boundary"]
+    if source_id not in boundary["candidate_only_source_registry_ids"]:
+        raise ContinuousPriceConstructionValidationError("source is not candidate-only")
+    if source_id in boundary["prohibited_source_registry_ids"]:
+        raise ContinuousPriceConstructionValidationError("source is prohibited")
+    if (
+        source_id == "BAOSTOCK"
+        and boundary["baostock_formal_adjusted_price_source_allowed"]
+    ):
+        raise ContinuousPriceConstructionValidationError(
+            "BAOSTOCK marked as formal adjusted price source"
+        )
+
+
 def validate_corporate_action_flag_not_silently_false(row: dict[str, Any]) -> None:
     invalid_values = {False, 0, "false", "0", ""}
     if row.get("corporate_action_flag") in invalid_values:
@@ -206,6 +255,9 @@ def validate_continuous_price_rows(
         validate_factor_as_of_time_not_future(row, observation_cutoff_by_trading_date)
         validate_adjusted_ohlc_order(row)
         validate_adjustment_method_and_revision_not_unknown(row)
+        validate_adjustment_method_allowed(row, contract)
+        validate_adjustment_revision_allowed(row, contract)
+        validate_source_registry_candidate_only(row, contract)
         validate_corporate_action_flag_not_silently_false(row)
         validate_identity_no_adjustment_consistency(row, tolerance_abs, tolerance_rel)
         validate_multiplicative_factor_consistency(row, tolerance_abs, tolerance_rel)

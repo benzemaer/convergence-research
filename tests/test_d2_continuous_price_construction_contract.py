@@ -112,6 +112,36 @@ class D2ContinuousPriceConstructionContractTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.contract_validator.validate(changed)
 
+    def test_schema_requires_controlled_vocabularies(self) -> None:
+        changed = copy.deepcopy(self.contract)
+        changed["controlled_vocabularies"]["adjustment_method"][
+            "allowed_values"
+        ].remove("forward_adjusted")
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["controlled_vocabularies"]["adjustment_revision"][
+            "allowed_values"
+        ].remove("candidate")
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
+    def test_schema_requires_candidate_source_boundary(self) -> None:
+        changed = copy.deepcopy(self.contract)
+        changed["candidate_source_boundary"]["prohibited_source_registry_ids"].remove(
+            "CSINDEX_OFFICIAL"
+        )
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["candidate_source_boundary"][
+            "baostock_formal_adjusted_price_source_allowed"
+        ] = True
+        with self.assertRaises(ValidationError):
+            self.contract_validator.validate(changed)
+
     def test_readme_keeps_d2_t05_blocked_without_advancing(self) -> None:
         readme = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_task: D2-T03", readme)
