@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_market_quality_pcvt_dependency_blocking_report.schema.json",
+  "title": "D2 Market Quality PCVT Dependency Blocking Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "report_id", "task_id", "contract_id", "materialization_status", "real_data_read", "external_api_called", "raw_data_committed", "duckdb_written", "formal_ingestion_authorized", "d3_generated", "r0_indicator_generated", "pcvt_values_generated", "returns_or_labels_generated", "blocking_reasons", "pcvt_dependency_readiness_summary", "recommended_next_task"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "report_id": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_BLOCKING_REPORT_V1"},
+    "task_id": {"const": "D2-T07"},
+    "contract_id": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"},
+    "materialization_status": {"const": "contract_only_no_real_data"},
+    "real_data_read": {"const": false},
+    "external_api_called": {"const": false},
+    "raw_data_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "d3_generated": {"const": false},
+    "r0_indicator_generated": {"const": false},
+    "pcvt_values_generated": {"const": false},
+    "returns_or_labels_generated": {"const": false},
+    "blocking_reasons": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "pcvt_dependency_readiness_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["price_based_indicators_exploration_ready_after_full_window_pull", "amount_volume_indicators_partial_pending_unit_and_adjustment_policy", "formal_pcvt_indicator_generation_authorized", "r0_indicator_thresholds_defined", "d3_handoff_required_before_r0"],
+      "properties": {
+        "price_based_indicators_exploration_ready_after_full_window_pull": {"const": true},
+        "amount_volume_indicators_partial_pending_unit_and_adjustment_policy": {"const": true},
+        "formal_pcvt_indicator_generation_authorized": {"const": false},
+        "r0_indicator_thresholds_defined": {"const": false},
+        "d3_handoff_required_before_r0": {"const": true}
+      }
+    },
+    "recommended_next_task": {"const": "D2-T08_D2_acceptance_and_D3_handoff_contract"}
+  }
+}
