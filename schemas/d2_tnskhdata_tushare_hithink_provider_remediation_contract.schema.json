@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d2_tnskhdata_tushare_hithink_provider_remediation_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "stage",
+    "depends_on",
+    "primary_remediation_targets",
+    "provider_priority",
+    "credential_env_keys",
+    "tnskhdata_token_policy",
+    "tushare_compatible_required_apis",
+    "hithink_rest_required_endpoint_probes",
+    "required_mapping_outputs",
+    "source_status_target_fields",
+    "factor_evidence_target_fields",
+    "formal_source_acceptance_authorized",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "manifest_creation_authorized",
+    "data_version_release_authorized",
+    "d3_generation_authorized",
+    "r0_state_generation_authorized",
+    "local_candidate_report_write_authorized",
+    "default_output_dir",
+    "forbidden_outputs"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/d2_tnskhdata_tushare_hithink_provider_remediation_contract.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_TNSKHDATA_TUSHARE_HITHINK_PROVIDER_REMEDIATION_CONTRACT_V1"},
+    "task_id": {"const": "D2-T12"},
+    "contract_status": {"const": "candidate_probe"},
+    "contract_scope": {"const": "tnskhdata_tushare_baostock_hithink_provider_remediation"},
+    "stage": {"const": "D2-T12"},
+    "depends_on": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "D2_SOURCE_STATUS_FACTOR_EVIDENCE_ACCEPTANCE_HANDOFF_CONTRACT_V1"}},
+        {"contains": {"const": "D2_HITHINK_RAW_MARKET_PRICES_CANDIDATE_ARTIFACT_CONTRACT_V1"}},
+        {"contains": {"const": "D2_ADJUSTED_PRICE_QUALITY_GAP_CANDIDATE_CONTRACT_V1"}}
+      ]
+    },
+    "primary_remediation_targets": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "code_mapping"}},
+        {"contains": {"const": "tnskhdata_provider_probe"}},
+        {"contains": {"const": "tushare_provider_probe"}},
+        {"contains": {"const": "baostock_provider_probe"}},
+        {"contains": {"const": "hithink_rest_provider_probe"}},
+        {"contains": {"const": "source_status_field_coverage"}},
+        {"contains": {"const": "factor_evidence_field_coverage"}}
+      ]
+    },
+    "provider_priority": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "priority", "mode"],
+        "properties": {
+          "source_id": {"enum": ["hithink_financial_api", "tnskhdata", "baostock", "tushare"]},
+          "priority": {"type": "integer", "minimum": 0, "maximum": 3},
+          "mode": {"enum": ["primary_candidate_source", "missing_only_repair_only"]}
+        }
+      },
+      "allOf": [
+        {"contains": {"properties": {"source_id": {"const": "hithink_financial_api"}, "priority": {"const": 0}}, "required": ["source_id", "priority"]}},
+        {"contains": {"properties": {"source_id": {"const": "tnskhdata"}, "priority": {"const": 1}}, "required": ["source_id", "priority"]}},
+        {"contains": {"properties": {"source_id": {"const": "baostock"}, "priority": {"const": 2}}, "required": ["source_id", "priority"]}},
+        {"contains": {"properties": {"source_id": {"const": "tushare"}, "priority": {"const": 3}}, "required": ["source_id", "priority"]}}
+      ]
+    },
+    "credential_env_keys": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["HITHINK_API_KEY", "TNSKHDATA_TOKEN", "TUSHARE_TOKEN"]},
+      "allOf": [
+        {"contains": {"const": "HITHINK_API_KEY"}},
+        {"contains": {"const": "TNSKHDATA_TOKEN"}},
+        {"contains": {"const": "TUSHARE_TOKEN"}}
+      ]
+    },
+    "tnskhdata_token_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_env_key", "fallback_env_key", "fallback_requires_explicit_cli_flag"],
+      "properties": {
+        "primary_env_key": {"const": "TNSKHDATA_TOKEN"},
+        "fallback_env_key": {"const": "TUSHARE_TOKEN"},
+        "fallback_requires_explicit_cli_flag": {"const": true}
+      }
+    },
+    "tushare_compatible_required_apis": {"$ref": "#/$defs/strings"},
+    "hithink_rest_required_endpoint_probes": {"$ref": "#/$defs/strings"},
+    "required_mapping_outputs": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "hithink_thscode"}},
+        {"contains": {"const": "baostock_code"}},
+        {"contains": {"const": "tushare_ts_code"}},
+        {"contains": {"const": "tnskhdata_ts_code"}},
+        {"contains": {"const": "mapping_status"}}
+      ]
+    },
+    "source_status_target_fields": {"$ref": "#/$defs/strings"},
+    "factor_evidence_target_fields": {"$ref": "#/$defs/strings"},
+    "formal_source_acceptance_authorized": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "manifest_creation_authorized": {"const": false},
+    "data_version_release_authorized": {"const": false},
+    "d3_generation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "local_candidate_report_write_authorized": {"const": true},
+    "default_output_dir": {"const": "data/generated/d2/d2_t12_provider_remediation/"},
+    "forbidden_outputs": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "api_token"}},
+        {"contains": {"const": "duckdb"}},
+        {"contains": {"const": "published_data_version"}},
+        {"contains": {"const": "d3_rows"}},
+        {"contains": {"const": "pcvt_values"}},
+        {"contains": {"const": "r0_state"}}
+      ]
+    }
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true,
+      "minItems": 1
+    }
+  }
+}

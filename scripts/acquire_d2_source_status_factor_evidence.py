@@ -8,17 +8,28 @@ import hashlib
 import io
 import json
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.resolve_security_provider_codes import resolve_security_provider_codes  # noqa: E402,I001
+
 DEFAULT_CONTRACT = (
     ROOT
     / "configs/d2/source_status_factor_evidence_acceptance_handoff_contract.v1.json"
 )
 DEFAULT_SOURCE_REGISTRY = ROOT / "configs/d2/formal_source_registry_contract.v1.json"
-SOURCE_PRIORITY = {"hithink_financial_api": 0, "baostock": 1, "tushare": 2}
+SOURCE_PRIORITY = {
+    "hithink_financial_api": 0,
+    "tnskhdata": 1,
+    "baostock": 2,
+    "tushare": 3,
+}
 STATUS_FIELDS = [
     "trading_status",
     "price_limit_status",
@@ -151,14 +162,18 @@ def _remote_credentials(env_file: Path | None) -> dict[str, str]:
     values = _load_env_file(env_file)
     credentials = {
         key: os.environ.get(key) or values.get(key, "")
-        for key in ["HITHINK_API_KEY", "TUSHARE_TOKEN"]
+        for key in ["HITHINK_API_KEY", "TUSHARE_TOKEN", "TNSKHDATA_TOKEN"]
     }
     return credentials
 
 
 def _require_remote_env(env_file: Path | None) -> dict[str, str]:
     credentials = _remote_credentials(env_file)
-    missing = [key for key, value in credentials.items() if not value]
+    missing = [
+        key
+        for key, value in credentials.items()
+        if key in {"HITHINK_API_KEY", "TUSHARE_TOKEN"} and not value
+    ]
     if missing:
         raise D2T11AcquisitionError(
             "Missing required environment keys for --enable-remote-fetch: "
@@ -306,19 +321,11 @@ def _merge_evidence(
 
 
 def _security_to_baostock_code(security_id: str) -> str | None:
-    if security_id.startswith("XSHE."):
-        return "sz." + security_id.split(".", 1)[1]
-    if security_id.startswith("XSHG."):
-        return "sh." + security_id.split(".", 1)[1]
-    return None
+    return resolve_security_provider_codes(security_id).baostock_code
 
 
 def _security_to_tushare_code(security_id: str) -> str | None:
-    if security_id.startswith("XSHE."):
-        return security_id.split(".", 1)[1] + ".SZ"
-    if security_id.startswith("XSHG."):
-        return security_id.split(".", 1)[1] + ".SH"
-    return None
+    return resolve_security_provider_codes(security_id).tushare_ts_code
 
 
 class HiThinkProviderAdapter:
@@ -494,19 +501,24 @@ class BaoStockProviderAdapter:
 
 class TushareProviderAdapter:
     provider_id = "tushare"
+    module_name = "tushare"
+    token_key = "TUSHARE_TOKEN"
 
     def probe(
         self, universe_rows: list[dict[str, Any]], credentials: dict[str, str]
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-        token = credentials.get("TUSHARE_TOKEN", "")
+        token = credentials.get(self.token_key, "") or credentials.get(
+            "TUSHARE_TOKEN", ""
+        )
         try:
-            import tushare as ts
+            ts = __import__(self.module_name)
         except Exception as exc:
             return (
                 [],
                 [],
                 self._failed(
-                    universe_rows, f"tushare_import_failed:{type(exc).__name__}"
+                    universe_rows,
+                    f"{self.provider_id}_import_failed:{type(exc).__name__}",
                 ),
             )
         status_rows: list[dict[str, Any]] = []
@@ -532,7 +544,8 @@ class TushareProviderAdapter:
                 status_rows,
                 factor_rows,
                 self._failed(
-                    universe_rows, f"tushare_probe_failed:{type(exc).__name__}"
+                    universe_rows,
+                    f"{self.provider_id}_probe_failed:{type(exc).__name__}",
                 ),
             )
         return (
@@ -591,6 +604,12 @@ class TushareProviderAdapter:
         }
 
 
+class TnskhdataProviderAdapter(TushareProviderAdapter):
+    provider_id = "tnskhdata"
+    module_name = "tnskhdata"
+    token_key = "TNSKHDATA_TOKEN"
+
+
 def _to_float(value: Any) -> float | None:
     if value in (None, ""):
         return None
@@ -603,6 +622,7 @@ def _to_float(value: Any) -> float | None:
 def _provider_adapters() -> list[ProviderAdapter]:
     return [
         HiThinkProviderAdapter(),
+        TnskhdataProviderAdapter(),
         BaoStockProviderAdapter(),
         TushareProviderAdapter(),
     ]

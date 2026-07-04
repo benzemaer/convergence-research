@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 REQUIRED_KEYS = ("HITHINK_API_KEY", "TUSHARE_TOKEN")
+LOCAL_ENV_KEYS = ("HITHINK_API_KEY", "TUSHARE_TOKEN", "TNSKHDATA_TOKEN")
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -25,7 +26,7 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 
 def _write_env_file(path: Path, values: dict[str, str]) -> None:
     path.write_text(
-        "".join(f"{key}={values.get(key, '')}\n" for key in REQUIRED_KEYS),
+        "".join(f"{key}={values.get(key, '')}\n" for key in LOCAL_ENV_KEYS),
         encoding="utf-8",
     )
 
@@ -39,7 +40,7 @@ def configure_env_file(path: Path, overwrite: bool = False) -> int:
         )
         return 2
     values = _parse_env_file(path)
-    for key in REQUIRED_KEYS:
+    for key in LOCAL_ENV_KEYS:
         if values.get(key) and not overwrite:
             continue
         values[key] = getpass.getpass(f"{key}: ")

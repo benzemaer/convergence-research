@@ -117,10 +117,10 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 
-    def test_readme_records_d2_t10_done_without_unlocking_d3_or_r0(self) -> None:
+    def test_readme_records_d2_t11_done_without_unlocking_d3_or_r0(self) -> None:
         self.assertIn("current_stage: D2", self.readme)
-        self.assertIn("current_task: D2-T11", self.readme)
-        self.assertIn("next_planned_task: D3-T07", self.readme)
+        self.assertIn("current_task: D2-T12", self.readme)
+        self.assertIn("next_planned_task: D2-T13", self.readme)
         self.assertIn("D2-T09` HiThink 主行情源", self.readme)
         self.assertIn(
             "D2-T09` HiThink 主行情源、补充源与 raw OHLCV "
@@ -133,10 +133,16 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
             self.readme,
         )
         self.assertIn(
-            "D2-T11` 来源状态与复权证据补齐、D2验收与D3交接候选：in_progress",
+            "D2-T11` 来源状态与复权证据补齐、D2验收与D3交接候选："
+            "completed via PR #43; D2/D3 remained blocked",
             self.readme,
         )
-        self.assertIn("D3-T07 remains blocked unless D2-T11", self.readme)
+        self.assertIn(
+            "D2-T12` tnskhdata/Tushare证据源探针、统一代码映射与HiThink "
+            "REST适配修复：in_progress",
+            self.readme,
+        )
+        self.assertIn("D3-T07 remains blocked unless a later D2 handoff", self.readme)
         self.assertIn("R0 remains blocked", self.readme)
 
 
