@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from scripts.validate_d3_component_lineage_no_bypass import (
+    is_forbidden_payload_path,
     main,
     validate_component_lineage_payload,
 )
@@ -184,6 +185,37 @@ class ValidateD3ComponentLineageNoBypassTest(unittest.TestCase):
                     str(payload_path),
                 ]
                 self.assertEqual(main(), 0)
+            finally:
+                sys.argv = old_argv
+
+    def test_cli_rejects_forbidden_payload_paths_before_opening(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "contract.json"
+            contract_path.write_text(
+                json.dumps(self.contract, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            forbidden_paths = [
+                Path("data/raw/synthetic_payload.json"),
+                Path("data/external/synthetic_payload.json"),
+                Path("MarketDB/prices.json"),
+                Path("research.duckdb"),
+                Path("SH000001.day"),
+            ]
+            import sys
+
+            old_argv = sys.argv
+            try:
+                for payload_path in forbidden_paths:
+                    self.assertTrue(is_forbidden_payload_path(payload_path))
+                    sys.argv = [
+                        "validate_d3_component_lineage_no_bypass.py",
+                        "--contract",
+                        str(contract_path),
+                        "--payload",
+                        str(payload_path),
+                    ]
+                    self.assertEqual(main(), 1)
             finally:
                 sys.argv = old_argv
 

@@ -18,6 +18,13 @@ FORBIDDEN_PATH_PARTS = {
 FORBIDDEN_SUFFIXES = {".duckdb", ".day"}
 
 
+def is_forbidden_payload_path(path: Path) -> bool:
+    path_text = str(path).lower()
+    return any(part in path_text for part in FORBIDDEN_PATH_PARTS) or any(
+        path_text.endswith(suffix) for suffix in FORBIDDEN_SUFFIXES
+    )
+
+
 def load_json(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as handle:
         loaded = json.load(handle)
@@ -157,6 +164,9 @@ def main() -> int:
     args = parser.parse_args()
 
     contract = load_json(args.contract)
+    if is_forbidden_payload_path(args.payload):
+        print(f"refusing forbidden payload path: {args.payload}")
+        return 1
     payload = load_json(args.payload)
     errors = validate_component_lineage_payload(payload, contract)
     if errors:
