@@ -151,6 +151,10 @@ CONFIGS = (
         D2_HITHINK_ARTIFACT_SCHEMA_PATH,
         D2_HITHINK_ARTIFACT_CONFIG_PATH,
     ),
+    (
+        ROOT / "schemas/d2_adjusted_price_quality_gap_candidate_contract.schema.json",
+        ROOT / "configs/d2/adjusted_price_quality_gap_candidate_contract.v1.json",
+    ),
 )
 
 
