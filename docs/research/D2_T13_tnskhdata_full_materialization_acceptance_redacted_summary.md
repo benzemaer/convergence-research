@@ -59,6 +59,16 @@ partitioned local staging writer, fetch ledger, rate governor state, quality
 progress summary, and partial hash manifest hooks. The staging store is local
 and ignored; it is not a formal DuckDB publication.
 
+The runner now migrates legacy `tnskhdata_fetch_checkpoint.json` records into
+the new fetch ledger when `fetch_ledger.jsonl` is absent, so resume does not
+restart from 2016. Legacy `completed_trade_dates` are only resume hints; they
+are not D2 acceptance evidence. `--repair-failed-only` limits repair runs to
+failed trade-date tasks and does not refetch completed dates.
+
+Endpoint staging is no longer loaded into memory as whole endpoint lists during
+the fetch stage. Final artifact assembly remains blocked until a streaming or
+local-staging SQL assembly pass completes.
+
 Because the full run is incomplete, the D2 acceptance decision remains blocked.
 No sample run result is used as D2 acceptance evidence.
 
@@ -135,6 +145,11 @@ No sample run result is used as D2 acceptance evidence.
     "legacy_checkpoint_completed_trade_dates": 111
   },
   "failed_task_counts": {},
+  "legacy_checkpoint_migration_supported": true,
+  "legacy_completed_dates_are_resume_hints_only": true,
+  "repair_failed_only_supported": true,
+  "endpoint_partitions_loaded_into_memory": false,
+  "keyboard_interrupt_cancel_futures": true,
   "sample_acceptance_decision": null,
   "d2_acceptance_decision": "blocked_pending_tnskhdata_full_materialization_run",
   "d3_handoff_decision": "d3_candidate_generation_blocked",

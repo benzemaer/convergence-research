@@ -27,7 +27,10 @@ class D2T13StagingWriterTest(unittest.TestCase):
             self.assertTrue(Path(path).exists())
             self.assertIn("partitions", path)
             self.assertTrue(digest)
-            self.assertEqual(len(writer.load_endpoint("daily")), 1)
+            self.assertEqual(
+                list(writer.iter_endpoint("daily"))[0]["ts_code"], "000001.SZ"
+            )
+            self.assertEqual(writer.count_endpoint_partitions("daily"), 1)
             self.assertFalse((root / "formal.duckdb").exists())
 
 

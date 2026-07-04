@@ -483,14 +483,18 @@ class PartitionedJsonlStagingWriter:
             digest = _sha256_file(path)
         return str(path), digest
 
-    def load_endpoint(self, endpoint: str) -> list[dict[str, Any]]:
-        rows: list[dict[str, Any]] = []
+    def iter_endpoint(self, endpoint: str):
         endpoint_dir = self.root / "partitions" / endpoint
         if not endpoint_dir.exists():
-            return rows
+            return
         for path in sorted(endpoint_dir.glob("*.jsonl")):
-            rows.extend(_read_jsonl(path))
-        return rows
+            yield from _read_jsonl(path)
+
+    def count_endpoint_partitions(self, endpoint: str) -> int:
+        endpoint_dir = self.root / "partitions" / endpoint
+        if not endpoint_dir.exists():
+            return 0
+        return len(list(endpoint_dir.glob("*.jsonl")))
 
 
 def _ledger_path(checkpoint_dir: Path | None) -> Path | None:
@@ -502,6 +506,63 @@ def _load_ledger(checkpoint_dir: Path | None) -> dict[str, dict[str, Any]]:
     if path is None or not path.exists():
         return {}
     return {row["task_id"]: row for row in _read_jsonl(path) if row.get("task_id")}
+
+
+def _legacy_checkpoint_path(checkpoint_dir: Path | None) -> Path | None:
+    return (
+        None
+        if checkpoint_dir is None
+        else checkpoint_dir / "tnskhdata_fetch_checkpoint.json"
+    )
+
+
+def _migrate_legacy_checkpoint(
+    checkpoint_dir: Path | None, tasks: list[FetchTask]
+) -> dict[str, dict[str, Any]]:
+    path = _legacy_checkpoint_path(checkpoint_dir)
+    if path is None or not path.exists():
+        return {}
+    legacy = _load_json(path)
+    completed = set(legacy.get("completed_trade_dates", []))
+    failed = set(legacy.get("failed_trade_dates", []))
+    migrated: dict[str, dict[str, Any]] = {}
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    for task in tasks:
+        if task.trade_date in completed:
+            migrated[task.task_id] = {
+                "task_id": task.task_id,
+                "endpoint": task.endpoint,
+                "trade_date": task.trade_date,
+                "status": "legacy_succeeded",
+                "attempt_count": 0,
+                "last_attempt_at": now,
+                "last_error_category": None,
+                "last_error_message_redacted": None,
+                "row_count": None,
+                "artifact_partition_path": None,
+                "sha256": None,
+                "started_at": now,
+                "completed_at": now,
+                "legacy_checkpoint_migrated": True,
+            }
+        elif task.trade_date in failed:
+            migrated[task.task_id] = {
+                "task_id": task.task_id,
+                "endpoint": task.endpoint,
+                "trade_date": task.trade_date,
+                "status": "failed",
+                "attempt_count": 0,
+                "last_attempt_at": now,
+                "last_error_category": "legacy_failed_trade_date",
+                "last_error_message_redacted": "legacy checkpoint failed date",
+                "row_count": 0,
+                "artifact_partition_path": None,
+                "sha256": None,
+                "started_at": now,
+                "completed_at": None,
+                "legacy_checkpoint_migrated": True,
+            }
+    return migrated
 
 
 def _write_ledger(checkpoint_dir: Path | None, rows: list[dict[str, Any]]) -> None:
@@ -574,7 +635,9 @@ def _flush_fetch_progress(
     if checkpoint_dir is None:
         return
     _write_ledger(checkpoint_dir, ledger_rows)
-    succeeded = sum(1 for row in ledger_rows if row["status"] == "succeeded")
+    succeeded = sum(
+        1 for row in ledger_rows if row["status"] in {"succeeded", "legacy_succeeded"}
+    )
     failed = sum(1 for row in ledger_rows if row["status"] == "failed")
     rate_limit = sum(
         1 for row in ledger_rows if row.get("last_error_category") == "rate_limit"
@@ -627,6 +690,7 @@ def fetch_provider_evidence_parallel(
     retry_max_attempts: int = 5,
     retry_backoff_seconds: float = 10.0,
     flush_interval_seconds: int = 60,
+    repair_failed_only: bool = False,
 ) -> dict[str, list[dict[str, Any]]]:
     writer = PartitionedJsonlStagingWriter(output_dir)
     governor = AdaptiveRateGovernor(
@@ -635,15 +699,36 @@ def fetch_provider_evidence_parallel(
         rate_increase_per_minute=rate_increase_per_minute,
         rate_decrease_factor=rate_decrease_factor,
     )
+    all_tasks = build_endpoint_tasks(plan)
     existing = _load_ledger(checkpoint_dir) if resume else {}
-    tasks = [
-        task
-        for task in build_endpoint_tasks(plan)
-        if existing.get(task.task_id, {}).get("status") != "succeeded"
+    if resume and not existing:
+        existing = _migrate_legacy_checkpoint(checkpoint_dir, all_tasks)
+    resumable_statuses = {"succeeded", "legacy_succeeded"}
+    if repair_failed_only:
+        failed_dates = {
+            row.get("trade_date")
+            for row in existing.values()
+            if row.get("status") == "failed" and row.get("trade_date")
+        }
+        tasks = [
+            task
+            for task in all_tasks
+            if task.trade_date in failed_dates
+            and task.endpoint
+            in {"daily", "stk_limit", "adj_factor", "stock_st", "suspend_d"}
+        ]
+    else:
+        tasks = [
+            task
+            for task in all_tasks
+            if existing.get(task.task_id, {}).get("status") not in resumable_statuses
+        ]
+    ledger_rows = [
+        row for row in existing.values() if row.get("status") in resumable_statuses
     ]
-    ledger_rows = [row for row in existing.values() if row.get("status") == "succeeded"]
     last_flush = time.monotonic()
-    with ThreadPoolExecutor(max_workers=max(1, max_workers)) as executor:
+    executor = ThreadPoolExecutor(max_workers=max(1, max_workers))
+    try:
         futures = {
             executor.submit(
                 _call_task_with_retry,
@@ -672,28 +757,41 @@ def fetch_provider_evidence_parallel(
                     governor=governor,
                 )
                 last_flush = time.monotonic()
+    except KeyboardInterrupt:
+        for future in futures:
+            future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        _flush_fetch_progress(
+            checkpoint_dir=checkpoint_dir, ledger_rows=ledger_rows, governor=governor
+        )
+        raise D2T13MaterializationError("interrupted; checkpoint flushed")
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
     _flush_fetch_progress(
         checkpoint_dir=checkpoint_dir, ledger_rows=ledger_rows, governor=governor
     )
     failed = [row for row in ledger_rows if row["status"] == "failed"]
+    succeeded_count = sum(
+        1 for row in ledger_rows if row["status"] in {"succeeded", "legacy_succeeded"}
+    )
     evidence = {
-        "stock_basic": writer.load_endpoint("stock_basic"),
-        "trade_cal": writer.load_endpoint("trade_cal"),
-        "daily": writer.load_endpoint("daily"),
-        "stk_limit": writer.load_endpoint("stk_limit"),
-        "adj_factor": writer.load_endpoint("adj_factor"),
-        "stock_st": writer.load_endpoint("stock_st"),
-        "suspend_d": writer.load_endpoint("suspend_d"),
+        "stock_basic": [],
+        "trade_cal": [],
+        "daily": [],
+        "stk_limit": [],
+        "adj_factor": [],
+        "stock_st": [],
+        "suspend_d": [],
         "pro_bar_qfq": [],
         "pro_bar_hfq": [],
         "_metrics": [
             {
                 "request_count": sum(
-                    row.get("attempt_count", 0) for row in ledger_rows
+                    row.get("attempt_count", 0)
+                    for row in ledger_rows
+                    if row.get("status") != "legacy_succeeded"
                 ),
-                "successful_request_count": sum(
-                    1 for row in ledger_rows if row["status"] == "succeeded"
-                ),
+                "successful_request_count": succeeded_count,
                 "failed_request_count": len(failed),
                 "primary_provider_error_count": len(failed),
                 "reconciliation_provider_error_count": 0,
@@ -713,16 +811,18 @@ def fetch_provider_evidence_parallel(
                     max(0, row.get("attempt_count", 1) - 1) for row in ledger_rows
                 ),
                 "resume_checkpoint_count": sum(
-                    1 for row in ledger_rows if row["status"] == "succeeded"
+                    1
+                    for row in ledger_rows
+                    if row["status"] in {"succeeded", "legacy_succeeded"}
                 ),
                 "all_tasks_completed": not failed
-                and len(ledger_rows) == len(build_endpoint_tasks(plan)),
+                and len(ledger_rows) == len(all_tasks)
+                and all(row["status"] == "succeeded" for row in ledger_rows),
+                "legacy_succeeded_task_count": sum(
+                    1 for row in ledger_rows if row["status"] == "legacy_succeeded"
+                ),
                 "endpoint_task_counts": {
-                    endpoint: sum(
-                        1
-                        for task in build_endpoint_tasks(plan)
-                        if task.endpoint == endpoint
-                    )
+                    endpoint: sum(1 for task in all_tasks if task.endpoint == endpoint)
                     for endpoint in (
                         "stock_basic",
                         "trade_cal",
@@ -1264,6 +1364,75 @@ def sample_acceptance_decision(quality: dict[str, Any]) -> str | None:
     return blocked.replace("blocked_pending_", "sample_blocked_pending_", 1)
 
 
+def build_fetch_stage_quality_report(
+    plan: FetchPlan, evidence: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    metrics = evidence.get("_metrics", [{}])[0]
+    return {
+        "run_mode": plan.mode,
+        "sample_mode": plan.mode != "full",
+        "fetch_stage_only": True,
+        "candidate_universe_row_count": len(plan.rows),
+        "mapped_row_count": sum(
+            1 for row in plan.rows if row.get("mapping_status") == "resolved"
+        ),
+        "unmapped_row_count": sum(
+            1 for row in plan.rows if row.get("mapping_status") != "resolved"
+        ),
+        "security_count": len({row["security_id"] for row in plan.rows}),
+        "trading_date_min": min(
+            (row["trading_date"] for row in plan.rows), default=None
+        ),
+        "trading_date_max": max(
+            (row["trading_date"] for row in plan.rows), default=None
+        ),
+        "daily_raw_row_count": None,
+        "source_status_row_count": None,
+        "factor_evidence_row_count": None,
+        "adjusted_price_row_count": None,
+        "missing_daily_count": None,
+        "missing_stk_limit_count": None,
+        "missing_adj_factor_count": None,
+        "missing_trade_cal_count": None,
+        "missing_stock_basic_count": None,
+        "missing_stock_st_count": None,
+        "missing_suspend_count": None,
+        "unresolved_trading_status_count": None,
+        "unresolved_suspension_status_count": None,
+        "unresolved_st_status_count": None,
+        "unresolved_price_limit_status_count": None,
+        "unresolved_adjustment_factor_count": None,
+        "amount_unit_status": "not_evaluated_fetch_stage_only",
+        "volume_unit_status": "not_evaluated_fetch_stage_only",
+        "duplicate_key_count": None,
+        "null_ohlc_count": None,
+        "non_positive_price_count": None,
+        "high_low_violation_count": None,
+        "primary_provider_error_count": metrics.get("primary_provider_error_count", 0),
+        "reconciliation_provider_error_count": metrics.get(
+            "reconciliation_provider_error_count", 0
+        ),
+        "pro_bar_reconciliation_status": metrics.get(
+            "pro_bar_reconciliation_status", "not_reached_fetch_stage_only"
+        ),
+        "pro_bar_reconciliation_warning_count": metrics.get(
+            "pro_bar_reconciliation_warning_count", 0
+        ),
+        "rate_limit_count": metrics.get("rate_limit_count", 0),
+        "timeout_count": metrics.get("timeout_count", 0),
+        "retry_count": metrics.get("retry_count", 0),
+        "request_count": metrics.get("request_count", 0),
+        "successful_request_count": metrics.get("successful_request_count", 0),
+        "failed_request_count": metrics.get("failed_request_count", 0),
+        "all_tasks_completed": metrics.get("all_tasks_completed", False),
+        "legacy_succeeded_task_count": metrics.get("legacy_succeeded_task_count", 0),
+        "endpoint_task_counts": metrics.get("endpoint_task_counts", {}),
+        "failed_task_counts": metrics.get("failed_task_counts", {}),
+        "resume_checkpoint_count": metrics.get("resume_checkpoint_count", 0),
+        "artifact_hashes_complete": False,
+    }
+
+
 def materialize_full_candidate(
     *,
     contract: dict[str, Any],
@@ -1295,6 +1464,7 @@ def materialize_full_candidate(
     request_timeout_seconds: int = 60,
     pro_bar_sample_securities: int = 20,
     require_pro_bar_reconciliation: bool = False,
+    repair_failed_only: bool = False,
 ) -> dict[str, Any]:
     started = time.time()
     if (
@@ -1349,6 +1519,7 @@ def materialize_full_candidate(
             retry_max_attempts=retry_max_attempts,
             retry_backoff_seconds=retry_backoff_seconds,
             flush_interval_seconds=flush_interval_seconds,
+            repair_failed_only=repair_failed_only,
         )
     else:
         evidence = fetch_provider_evidence(
@@ -1362,6 +1533,71 @@ def materialize_full_candidate(
             resume=resume,
             checkpoint_dir=checkpoint_dir,
         )
+    if full and worker_mode == "endpoint":
+        quality = build_fetch_stage_quality_report(plan, evidence)
+        quality["elapsed_seconds"] = round(time.time() - started, 3)
+        quality["staging_store_type"] = staging_format
+        quality["staging_store_path_redacted"] = (
+            "data/generated/d2/d2_t13_tnskhdata_full_candidate/**"
+            if staging_store
+            else None
+        )
+        quality["worker_mode"] = worker_mode
+        quality["max_workers"] = max_workers
+        quality["initial_requests_per_minute"] = initial_requests_per_minute
+        quality["max_requests_per_minute"] = max_requests_per_minute
+        quality["request_timeout_seconds"] = request_timeout_seconds
+        quality["repair_failed_only"] = repair_failed_only
+        source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
+        decision = "blocked_pending_tnskhdata_full_materialization_run"
+        if quality["failed_request_count"]:
+            decision = "blocked_pending_provider_coverage"
+        d3_decision = "d3_candidate_generation_blocked"
+        d2_report = {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": False,
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": decision,
+            "quality_blockers": ["full_artifact_assembly_not_complete"],
+            "duckdb_written": False,
+            "formal_duckdb_write_authorized": False,
+            "local_staging_write_authorized": True,
+            "data_version_published": False,
+            "d3_generation_authorized": False,
+            "r0_state_generation_authorized": False,
+        }
+        d3_report = {
+            "d3_handoff_decision": d3_decision,
+            "d3_generation_authorized": False,
+            "d3_rows_generated": False,
+            "r0_state_generated": False,
+        }
+        _write_json(output_dir / "tnskhdata_quality_report.json", quality)
+        _write_json(
+            output_dir / "tnskhdata_d2_acceptance_candidate_report.json", d2_report
+        )
+        _write_json(
+            output_dir / "tnskhdata_d3_handoff_candidate_report.json", d3_report
+        )
+        return {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": False,
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": decision,
+            "d3_handoff_decision": d3_decision,
+            "r0_handoff_decision": "r0_blocked",
+            "quality_report": quality,
+            "artifact_hashes": {},
+            "duckdb_written": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        }
     source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
     artifact_sha256 = hashlib.sha256(
         json.dumps(
@@ -1515,6 +1751,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, type=Path)
     parser.add_argument("--enable-remote-fetch", action="store_true")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--repair-failed-only", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path)
     parser.add_argument("--staging-store", type=Path)
     parser.add_argument(
@@ -1575,6 +1812,7 @@ def main() -> int:
         request_timeout_seconds=args.request_timeout_seconds,
         pro_bar_sample_securities=args.pro_bar_sample_securities,
         require_pro_bar_reconciliation=args.require_pro_bar_reconciliation,
+        repair_failed_only=args.repair_failed_only,
     )
     redacted = {
         "run_id": report["run_id"],

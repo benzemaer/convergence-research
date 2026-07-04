@@ -8,6 +8,7 @@ from pathlib import Path
 from scripts.materialize_d2_tnskhdata_full_candidate import (
     build_fetch_plan,
     fetch_provider_evidence,
+    fetch_provider_evidence_parallel,
 )
 
 
@@ -127,6 +128,77 @@ class D2T13CheckpointResumeTest(unittest.TestCase):
                 checkpoint_dir=checkpoint_dir,
             )
             self.assertFalse(any(name == "daily" for name, _ in second.calls))
+
+    def test_parallel_resume_migrates_legacy_checkpoint_without_refetching(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            checkpoint_dir = root / "checkpoints"
+            checkpoint_dir.mkdir()
+            (checkpoint_dir / "tnskhdata_fetch_checkpoint.json").write_text(
+                json.dumps(
+                    {
+                        "completed_trade_dates": ["20260629"],
+                        "failed_trade_dates": ["20260630"],
+                        "request_count": 10,
+                        "rate_limit_count": 0,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = CountingClient()
+            evidence = fetch_provider_evidence_parallel(
+                client,
+                self._plan(),
+                output_dir=root,
+                checkpoint_dir=checkpoint_dir,
+                resume=True,
+                max_workers=1,
+                retry_max_attempts=1,
+                retry_backoff_seconds=0,
+            )
+            daily_calls = [
+                kwargs["trade_date"] for name, kwargs in client.calls if name == "daily"
+            ]
+            self.assertEqual(daily_calls, ["20260630"])
+            self.assertGreater(
+                evidence["_metrics"][0]["legacy_succeeded_task_count"], 0
+            )
+            self.assertTrue((checkpoint_dir / "fetch_ledger.jsonl").exists())
+
+    def test_repair_failed_only_does_not_refetch_completed_dates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            checkpoint_dir = root / "checkpoints"
+            checkpoint_dir.mkdir()
+            (checkpoint_dir / "tnskhdata_fetch_checkpoint.json").write_text(
+                json.dumps(
+                    {
+                        "completed_trade_dates": ["20260629"],
+                        "failed_trade_dates": ["20260630"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            client = CountingClient()
+            fetch_provider_evidence_parallel(
+                client,
+                self._plan(),
+                output_dir=root,
+                checkpoint_dir=checkpoint_dir,
+                resume=True,
+                repair_failed_only=True,
+                max_workers=1,
+                retry_max_attempts=1,
+                retry_backoff_seconds=0,
+            )
+            date_calls = {
+                kwargs["trade_date"]
+                for name, kwargs in client.calls
+                if name in {"daily", "stk_limit", "adj_factor", "stock_st", "suspend_d"}
+            }
+            self.assertEqual(date_calls, {"20260630"})
 
 
 if __name__ == "__main__":
