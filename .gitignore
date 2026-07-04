@@ -7,10 +7,14 @@ __pycache__/
 基础文档集/
 *.duckdb
 *.duckdb.wal
+*.parquet
+.env
+.env.*
 
 # Immutable source snapshots are retained locally and referenced by manifests.
 data/raw/
 data/external/
+data/generated/
 
 # Local DuckDB scratch databases must not enter version control.
 data/interim/duckdb/*.duckdb

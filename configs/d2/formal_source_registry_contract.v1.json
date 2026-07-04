@@ -1,0 +1,94 @@
+{
+  "$schema": "../../schemas/d2_formal_source_registry_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1",
+  "task_id": "D2-T09",
+  "contract_status": "accepted",
+  "contract_scope": "formal_candidate_source_registry_and_fallback_policy",
+  "formal_source_acceptance_authorized": false,
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "real_data_materialization_authorized": false,
+  "manifest_creation_authorized": false,
+  "data_version_release_authorized": false,
+  "d3_generation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "depends_on": [
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"
+  ],
+  "source_hierarchy": {
+    "primary_source": {
+      "source_id": "hithink_financial_api",
+      "role": "primary_formal_candidate",
+      "priority": 0
+    },
+    "fallback_sources": [
+      {
+        "source_id": "baostock",
+        "role": "fallback_repair_source",
+        "priority": 1
+      },
+      {
+        "source_id": "tushare",
+        "role": "fallback_repair_source",
+        "priority": 2
+      }
+    ],
+    "rejected_sources": [
+      {
+        "source_id": "a-stock-data",
+        "role": "rejected",
+        "reason": "not_used_as_formal_or_fallback_source"
+      }
+    ],
+    "deprecated_sources": [
+      {
+        "source_id": "a-stock-data",
+        "role": "deprecated",
+        "reason": "formal_path_removed"
+      }
+    ]
+  },
+  "fallback_policy": {
+    "fallback_mode": "missing_only_repair_only",
+    "fallback_must_not_silently_override_primary_price_conflicts": true,
+    "required_repair_fields": [
+      "fallback_reason",
+      "fallback_source",
+      "fallback_field",
+      "fallback_security_id",
+      "fallback_trading_date",
+      "repair_method",
+      "repair_confidence"
+    ],
+    "cross_source_conflict_requires_discrepancy_report": true
+  },
+  "secret_handling": {
+    "hithink_financial_api": {
+      "api_key_env_var": "HITHINK_API_KEY",
+      "committed_secret_allowed": false,
+      "log_secret_allowed": false
+    },
+    "tushare": {
+      "token_env_var": "TUSHARE_TOKEN",
+      "committed_secret_allowed": false,
+      "log_secret_allowed": false
+    },
+    "baostock": {
+      "requires_committed_token": false,
+      "committed_secret_allowed": false,
+      "log_secret_allowed": false
+    },
+    "no_secret_may_be_committed_logged_printed_or_stored_in_config": true
+  },
+  "a_stock_data_policy": {
+    "a_stock_data_is_not_used_as_formal_source": true,
+    "a_stock_data_is_not_used_as_fallback_source": true,
+    "a_stock_data_must_not_appear_in_primary_source_or_fallback_sources": true,
+    "a_stock_data_allowed_only_under_rejected_or_deprecated_sources": true
+  }
+}

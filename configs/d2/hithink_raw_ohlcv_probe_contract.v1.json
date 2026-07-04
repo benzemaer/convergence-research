@@ -1,0 +1,130 @@
+{
+  "$schema": "../../schemas/d2_hithink_raw_ohlcv_probe_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1",
+  "task_id": "D2-T09",
+  "contract_status": "accepted",
+  "contract_scope": "local_schema_coverage_probe_for_hithink_raw_ohlcv_and_adjustment_events",
+  "primary_source": "hithink_financial_api",
+  "formal_source_registry_contract": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1",
+  "formal_source_acceptance_authorized": false,
+  "formal_ingestion_authorized": false,
+  "duckdb_write_authorized": false,
+  "real_data_materialization_authorized": false,
+  "manifest_creation_authorized": false,
+  "data_version_release_authorized": false,
+  "d3_generation_authorized": false,
+  "r0_state_generation_authorized": false,
+  "synthetic_test_only": true,
+  "depends_on": [
+    "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1",
+    "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"
+  ],
+  "expected_local_snapshot_patterns": [
+    "data/raw/a_share_daily_k_1d_none_10y_*.parquet",
+    "data/raw/a_share_adjustment_factors_event_none_all_*.parquet"
+  ],
+  "raw_ohlcv_required_semantic_fields": [
+    "security_code_or_thscode",
+    "trading_date",
+    "raw_open",
+    "raw_high",
+    "raw_low",
+    "raw_close",
+    "volume",
+    "amount"
+  ],
+  "raw_ohlcv_field_aliases": {
+    "security_code_or_thscode": ["security_code", "thscode", "ts_code", "code"],
+    "trading_date": ["trading_date", "trade_date", "date"],
+    "raw_open": ["raw_open", "open"],
+    "raw_high": ["raw_high", "high"],
+    "raw_low": ["raw_low", "low"],
+    "raw_close": ["raw_close", "close"],
+    "volume": ["volume", "vol"],
+    "amount": ["amount", "turnover_amount"]
+  },
+  "candidate_optional_fields": [
+    "trading_status",
+    "price_limit_status",
+    "is_suspended",
+    "is_st",
+    "limit_up_price",
+    "limit_down_price",
+    "previous_close",
+    "turnover",
+    "float_shares",
+    "source_update_time",
+    "observed_at",
+    "revision_time"
+  ],
+  "adjustment_event_expected_semantic_fields": [
+    "security_code_or_thscode",
+    "event_date",
+    "ex_date",
+    "record_date",
+    "announcement_date",
+    "cash_dividend",
+    "share_bonus",
+    "share_transfer",
+    "rights_issue",
+    "rights_price",
+    "adjustment_factor",
+    "factor_as_of_time",
+    "adjustment_revision"
+  ],
+  "adjustment_event_field_aliases": {
+    "security_code_or_thscode": ["security_code", "thscode", "ts_code", "code"],
+    "event_date": ["event_date"],
+    "ex_date": ["ex_date", "exright_date"],
+    "record_date": ["record_date"],
+    "announcement_date": ["announcement_date", "ann_date"],
+    "cash_dividend": ["cash_dividend"],
+    "share_bonus": ["share_bonus"],
+    "share_transfer": ["share_transfer"],
+    "rights_issue": ["rights_issue"],
+    "rights_price": ["rights_price"],
+    "adjustment_factor": ["adjustment_factor", "factor"],
+    "factor_as_of_time": ["factor_as_of_time"],
+    "adjustment_revision": ["adjustment_revision"]
+  },
+  "unit_inference_policy": {
+    "amount_unit_candidates": ["yuan", "thousand_yuan", "ten_thousand_yuan", "unknown"],
+    "volume_unit_candidates": ["share", "lot", "unknown"],
+    "missing_or_ambiguous_unit_status": "warning"
+  },
+  "probe_output_sections": [
+    "raw_k_schema_report",
+    "adjustment_event_schema_report",
+    "coverage_report",
+    "unit_inference_report",
+    "time_semantics_report",
+    "missing_field_report",
+    "fallback_readiness_report",
+    "a_stock_data_removal_report",
+    "probe_diagnostics"
+  ],
+  "probe_statuses": [
+    "passed",
+    "warning",
+    "failed",
+    "blocked",
+    "unknown",
+    "not_applicable"
+  ],
+  "stage_1_release_decisions": {
+    "formal_source_acceptance_decision": "formal_source_acceptance_blocked_pending_probe_review",
+    "raw_materialization_decision": "raw_materialization_not_authorized_in_stage_1",
+    "d3_generation_decision": "d3_generation_blocked",
+    "r0_handoff_decision": "r0_handoff_blocked"
+  },
+  "forbidden_actions": {
+    "default_scan_data_raw": false,
+    "write_duckdb": false,
+    "create_manifest": false,
+    "publish_data_version": false,
+    "emit_raw_rows": false
+  }
+}

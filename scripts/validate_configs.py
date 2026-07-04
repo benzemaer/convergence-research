@@ -113,6 +113,14 @@ CONFIGS = (
         ROOT / "schemas/d3_data_version_quality_manifest_gate_contract.schema.json",
         ROOT / "configs/d3/data_version_quality_manifest_gate_contract.v1.json",
     ),
+    (
+        ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
+        ROOT / "configs/d2/formal_source_registry_contract.v1.json",
+    ),
+    (
+        ROOT / "schemas/d2_hithink_raw_ohlcv_probe_contract.schema.json",
+        ROOT / "configs/d2/hithink_raw_ohlcv_probe_contract.v1.json",
+    ),
 )
 
 

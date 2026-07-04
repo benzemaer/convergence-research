@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d2_hithink_raw_ohlcv_probe_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "primary_source",
+    "formal_source_registry_contract",
+    "formal_source_acceptance_authorized",
+    "formal_ingestion_authorized",
+    "duckdb_write_authorized",
+    "real_data_materialization_authorized",
+    "manifest_creation_authorized",
+    "data_version_release_authorized",
+    "d3_generation_authorized",
+    "r0_state_generation_authorized",
+    "synthetic_test_only",
+    "depends_on",
+    "expected_local_snapshot_patterns",
+    "raw_ohlcv_required_semantic_fields",
+    "raw_ohlcv_field_aliases",
+    "candidate_optional_fields",
+    "adjustment_event_expected_semantic_fields",
+    "adjustment_event_field_aliases",
+    "unit_inference_policy",
+    "probe_output_sections",
+    "probe_statuses",
+    "stage_1_release_decisions",
+    "forbidden_actions"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/d2_hithink_raw_ohlcv_probe_contract.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_HITHINK_RAW_OHLCV_PROBE_CONTRACT_V1"},
+    "task_id": {"const": "D2-T09"},
+    "contract_status": {"const": "accepted"},
+    "contract_scope": {"const": "local_schema_coverage_probe_for_hithink_raw_ohlcv_and_adjustment_events"},
+    "primary_source": {"const": "hithink_financial_api"},
+    "formal_source_registry_contract": {"const": "D2_FORMAL_SOURCE_REGISTRY_CONTRACT_V1"},
+    "formal_source_acceptance_authorized": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "real_data_materialization_authorized": {"const": false},
+    "manifest_creation_authorized": {"const": false},
+    "data_version_release_authorized": {"const": false},
+    "d3_generation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "synthetic_test_only": {"const": true},
+    "depends_on": {"$ref": "#/$defs/dependsOn"},
+    "expected_local_snapshot_patterns": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "data/raw/a_share_daily_k_1d_none_10y_*.parquet"}},
+        {"contains": {"const": "data/raw/a_share_adjustment_factors_event_none_all_*.parquet"}}
+      ]
+    },
+    "raw_ohlcv_required_semantic_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "security_code_or_thscode"}},
+        {"contains": {"const": "trading_date"}},
+        {"contains": {"const": "raw_open"}},
+        {"contains": {"const": "raw_high"}},
+        {"contains": {"const": "raw_low"}},
+        {"contains": {"const": "raw_close"}},
+        {"contains": {"const": "volume"}},
+        {"contains": {"const": "amount"}}
+      ]
+    },
+    "raw_ohlcv_field_aliases": {"type": "object"},
+    "candidate_optional_fields": {"$ref": "#/$defs/stringArray"},
+    "adjustment_event_expected_semantic_fields": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "security_code_or_thscode"}},
+        {"contains": {"const": "event_date"}},
+        {"contains": {"const": "ex_date"}},
+        {"contains": {"const": "record_date"}},
+        {"contains": {"const": "announcement_date"}},
+        {"contains": {"const": "cash_dividend"}},
+        {"contains": {"const": "share_bonus"}},
+        {"contains": {"const": "share_transfer"}},
+        {"contains": {"const": "rights_issue"}},
+        {"contains": {"const": "rights_price"}},
+        {"contains": {"const": "adjustment_factor"}},
+        {"contains": {"const": "factor_as_of_time"}},
+        {"contains": {"const": "adjustment_revision"}}
+      ]
+    },
+    "adjustment_event_field_aliases": {"type": "object"},
+    "unit_inference_policy": {"type": "object"},
+    "probe_output_sections": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "raw_k_schema_report"}},
+        {"contains": {"const": "adjustment_event_schema_report"}},
+        {"contains": {"const": "coverage_report"}},
+        {"contains": {"const": "unit_inference_report"}},
+        {"contains": {"const": "time_semantics_report"}},
+        {"contains": {"const": "missing_field_report"}},
+        {"contains": {"const": "fallback_readiness_report"}},
+        {"contains": {"const": "a_stock_data_removal_report"}},
+        {"contains": {"const": "probe_diagnostics"}}
+      ]
+    },
+    "probe_statuses": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "passed"}},
+        {"contains": {"const": "warning"}},
+        {"contains": {"const": "failed"}},
+        {"contains": {"const": "blocked"}},
+        {"contains": {"const": "unknown"}},
+        {"contains": {"const": "not_applicable"}}
+      ]
+    },
+    "stage_1_release_decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formal_source_acceptance_decision",
+        "raw_materialization_decision",
+        "d3_generation_decision",
+        "r0_handoff_decision"
+      ],
+      "properties": {
+        "formal_source_acceptance_decision": {"const": "formal_source_acceptance_blocked_pending_probe_review"},
+        "raw_materialization_decision": {"const": "raw_materialization_not_authorized_in_stage_1"},
+        "d3_generation_decision": {"const": "d3_generation_blocked"},
+        "r0_handoff_decision": {"const": "r0_handoff_blocked"}
+      }
+    },
+    "forbidden_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_scan_data_raw", "write_duckdb", "create_manifest", "publish_data_version", "emit_raw_rows"],
+      "properties": {
+        "default_scan_data_raw": {"const": false},
+        "write_duckdb": {"const": false},
+        "create_manifest": {"const": false},
+        "publish_data_version": {"const": false},
+        "emit_raw_rows": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "stringArray": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "dependsOn": {
+      "allOf": [
+        {"$ref": "#/$defs/stringArray"},
+        {"contains": {"const": "D2_ACCEPTANCE_D3_HANDOFF_CONTRACT_V1"}},
+        {"contains": {"const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"}},
+        {"contains": {"const": "D0_DATA_PRODUCT_CONTRACTS_V1"}},
+        {"contains": {"const": "D3_DATA_VERSION_QUALITY_MANIFEST_GATE_CONTRACT_V1"}}
+      ]
+    }
+  }
+}
