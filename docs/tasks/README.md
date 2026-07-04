@@ -18,8 +18,8 @@
 
 ```text
 current_stage: D2
-current_task: D2-T01
-next_planned_task: D2-T02
+current_task: D2-T02
+next_planned_task: D2-T03
 ```
 
 ## G0：样本宇宙与时间边界
@@ -94,7 +94,7 @@ next_planned_task: D2-T02
 
 任务列表：
 
-- `D2-T01` 价格来源与 raw OHLCV 探针契约：planned
+- `D2-T01` 价格来源与 raw OHLCV 探针契约：completed via PR #25
 - `D2-T02` 成员对齐层物化：planned
 - `D2-T03` 原始行情价格落账：planned
 - `D2-T04` 复权因子与 `factor_as_of_time` 契约：planned

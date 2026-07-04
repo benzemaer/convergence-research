@@ -46,7 +46,7 @@ class D2RawOhlcvSourceContractTest(unittest.TestCase):
         self.assertEqual(self.contract["target_table"], "d1.raw_market_prices")
         self.assertEqual(
             self.contract["contract_status"],
-            "draft_for_g1_review",
+            "accepted",
         )
 
     def test_required_raw_fields_match_d1_raw_market_prices(self) -> None:
@@ -204,18 +204,39 @@ class D2RawOhlcvSourceContractTest(unittest.TestCase):
         changed["implementation_exclusions"].remove("no_duckdb_write")
         self.assert_invalid(changed)
 
+    def test_field_alias_policy_requires_raw_price_and_d1_mapping_gates(
+        self,
+    ) -> None:
+        policy = self.contract["field_alias_policy"]
+        self.assertTrue(policy["adjusted_price_aliases_prohibited_for_raw_fields"])
+        self.assertTrue(policy["security_id_requires_d1_mapping"])
+
+        changed = copy.deepcopy(self.contract)
+        del changed["field_alias_policy"][
+            "adjusted_price_aliases_prohibited_for_raw_fields"
+        ]
+        self.assert_invalid(changed)
+
+        changed = copy.deepcopy(self.contract)
+        del changed["field_alias_policy"]["security_id_requires_d1_mapping"]
+        self.assert_invalid(changed)
+
     def test_task_doc_and_index_do_not_claim_completion_or_data_execution(self) -> None:
         task = TASK_PATH.read_text(encoding="utf-8")
         index = TASK_INDEX_PATH.read_text(encoding="utf-8")
 
         self.assertIn("## 状态", task)
-        self.assertIn("planned", task)
+        self.assertIn("completed via PR #25", task)
         self.assertIn("configs/d2/raw_ohlcv_source_contract.v1.json", task)
         self.assertIn("不调用任何外部 API", task)
         self.assertIn("不生成 D1/D2 DuckDB 实体数据", task)
-        self.assertIn("D2-T01` 价格来源与 raw OHLCV 探针契约：planned", index)
-        self.assertNotIn("D2-T01` 价格来源与 raw OHLCV 探针契约：completed", index)
-        self.assertNotIn("D2-T01` 价格来源与 raw OHLCV 探针契约：completed", task)
+        self.assertIn(
+            "D2-T01` 价格来源与 raw OHLCV 探针契约：completed via PR #25",
+            index,
+        )
+        self.assertIn("current_task: D2-T02", index)
+        self.assertIn("next_planned_task: D2-T03", index)
+        self.assertNotIn("D2-T01` 价格来源与 raw OHLCV 探针契约：planned", index)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 ## 状态
 
-planned
+completed via PR #25
 
 ## 目标
 

@@ -3,7 +3,7 @@
   "config_version": "1.0.0",
   "task_id": "D2-T01",
   "contract_id": "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
-  "contract_status": "draft_for_g1_review",
+  "contract_status": "accepted",
   "depends_on": [
     "D0_SOURCE_REGISTRY_V1",
     "D0_DATA_PRODUCT_CONTRACTS_V1",

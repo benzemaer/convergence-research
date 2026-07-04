@@ -204,7 +204,7 @@
         {"contains": {"properties": {"field_name": {"const": "run_id"}}, "required": ["field_name"]}}
       ]
     },
-    "field_alias_policy": {"$ref": "#/$defs/true_flags_object"},
+    "field_alias_policy": {"$ref": "#/$defs/field_alias_policy"},
     "unit_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -281,10 +281,23 @@
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
     },
-    "true_flags_object": {
+    "field_alias_policy": {
       "type": "object",
-      "additionalProperties": {"const": true},
-      "minProperties": 1
+      "additionalProperties": false,
+      "required": [
+        "alias_mapping_required",
+        "source_column_retention_required",
+        "ambiguous_alias_blocking",
+        "adjusted_price_aliases_prohibited_for_raw_fields",
+        "security_id_requires_d1_mapping"
+      ],
+      "properties": {
+        "alias_mapping_required": {"const": true},
+        "source_column_retention_required": {"const": true},
+        "ambiguous_alias_blocking": {"const": true},
+        "adjusted_price_aliases_prohibited_for_raw_fields": {"const": true},
+        "security_id_requires_d1_mapping": {"const": true}
+      }
     },
     "source_registry_requirements": {
       "type": "object",
