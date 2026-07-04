@@ -220,6 +220,26 @@ class MaterializeD2HiThinkRawMarketPricesCandidateTest(unittest.TestCase):
         self.assertGreater(quality["negative_amount_count"], 0)
         self.assertGreater(quality["duplicate_key_count"], 0)
 
+    def test_null_volume_and_amount_trigger_candidate_blocking_flag(self) -> None:
+        raw_rows = [
+            {
+                "thscode": "600000.SH",
+                "trade_date": "20260701",
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10,
+                "vol": None,
+                "turnover_amount": None,
+            }
+        ]
+        quality = self._run(raw_rows)["quality_summary"]
+        self.assertTrue(quality["candidate_blocking_flag"])
+        self.assertEqual(quality["null_volume_count"], 1)
+        self.assertEqual(quality["null_amount_count"], 1)
+        self.assertIn("null_volume", quality["candidate_blocking_reasons"])
+        self.assertIn("null_amount", quality["candidate_blocking_reasons"])
+
     def test_missing_or_unparseable_observed_at_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_path = Path(tmpdir) / "raw.json"
@@ -254,6 +274,44 @@ class MaterializeD2HiThinkRawMarketPricesCandidateTest(unittest.TestCase):
         self.assertFalse(report["data_version_published"])
         self.assertFalse(report["d3_artifact_generated"])
         self.assertFalse(report["r0_state_generated"])
+
+    def test_materializer_source_does_not_convert_real_parquet_to_dict_rows(
+        self,
+    ) -> None:
+        source = SCRIPT_PATH.read_text(encoding="utf-8")
+        self.assertNotIn('.to_dict(orient="records")', source)
+        self.assertNotIn(".to_dict(orient='records')", source)
+
+    def test_small_parquet_input_uses_dataframe_branch_when_available(self) -> None:
+        try:
+            import pandas as pd
+        except ImportError:
+            self.skipTest("pandas is unavailable")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            raw_path = tmp / "raw.parquet"
+            try:
+                pd.DataFrame(self.raw_rows).to_parquet(raw_path, index=False)
+            except Exception as exc:  # pragma: no cover - depends on optional engine
+                self.skipTest(f"parquet engine unavailable: {exc}")
+            report = materialize_hithink_raw_market_prices_candidate(
+                raw_k_path=raw_path,
+                probe_report=self.probe_report,
+                security_mapping=self.mapping,
+                contracts=self.contracts,
+                params={
+                    "universe_id": "CSI800_STATIC_2026_07",
+                    "time_segment_id": "RAW_10Y_TO_20260704",
+                    "source_observed_at": "2026-07-04T00:00:00Z",
+                    "output_dir": tmp / "generated",
+                },
+            )
+            artifact_path = Path(report["candidate_raw_market_prices_artifact"])
+            self.assertEqual(artifact_path.suffix, ".parquet")
+            rows = read_artifact(artifact_path)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(set(rows[0]), set(TARGET_FIELDS))
+            self.assertFalse(report["duckdb_written"])
 
     def test_cli_explicit_synthetic_input_returns_zero(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -107,6 +107,8 @@ class D2HiThinkRawMarketPricesCandidateArtifactContractTest(unittest.TestCase):
                 "null_ohlc_count",
                 "nonpositive_ohlc_count",
                 "ohlc_order_violation_count",
+                "null_volume_count",
+                "null_amount_count",
                 "negative_volume_count",
                 "negative_amount_count",
                 "unknown_trading_status_count",
@@ -118,6 +120,14 @@ class D2HiThinkRawMarketPricesCandidateArtifactContractTest(unittest.TestCase):
         )
         self.assertIn(
             "duplicate_key_blocks_candidate_acceptance",
+            self.contract["blocking_rules"],
+        )
+        self.assertIn(
+            "null_volume_blocks_candidate_acceptance",
+            self.contract["blocking_rules"],
+        )
+        self.assertIn(
+            "null_amount_blocks_candidate_acceptance",
             self.contract["blocking_rules"],
         )
         self.assertGreaterEqual(

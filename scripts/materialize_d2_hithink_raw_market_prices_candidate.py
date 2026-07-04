@@ -165,15 +165,9 @@ def _load_raw_rows(path: Path, columns: list[str]) -> list[dict[str, Any]]:
     if path.suffix.lower() == ".csv":
         with path.open(encoding="utf-8", newline="") as handle:
             return [dict(row) for row in csv.DictReader(handle)]
-    try:
-        import pandas as pd
-
-        frame = pd.read_parquet(path, columns=list(dict.fromkeys(columns)))
-        return frame.to_dict(orient="records")
-    except Exception as exc:
-        raise CandidateArtifactMaterializationError(
-            "raw-k-path must be explicit JSON/CSV or readable parquet"
-        ) from exc
+    raise CandidateArtifactMaterializationError(
+        "non-parquet synthetic raw-k-path must be JSON/CSV"
+    )
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -200,6 +194,12 @@ def _write_artifact(path_base: Path, rows: list[dict[str, Any]]) -> tuple[Path, 
         jsonl_path = path_base.with_suffix(".jsonl")
         _write_jsonl(jsonl_path, rows)
         return jsonl_path, "jsonl"
+
+
+def _write_dataframe_artifact(path_base: Path, frame: Any) -> tuple[Path, str]:
+    parquet_path = path_base.with_suffix(".parquet")
+    frame.to_parquet(parquet_path, index=False)
+    return parquet_path, "parquet"
 
 
 def _validate_contracts(contracts: dict[str, dict[str, Any]]) -> None:
@@ -292,6 +292,102 @@ def _date_text(value: Any) -> str:
     return text
 
 
+def _date_series(values: Any) -> Any:
+    import pandas as pd
+
+    text = values.astype(str)
+    parsed_yyyymmdd = pd.to_datetime(text, format="%Y%m%d", errors="coerce")
+    parsed_general = pd.to_datetime(text, errors="coerce")
+    parsed = parsed_yyyymmdd.fillna(parsed_general)
+    return parsed.dt.strftime("%Y-%m-%d").fillna(text)
+
+
+def _security_mapping_frame(security_mapping: dict[str, Any]) -> Any:
+    import pandas as pd
+
+    mapping_rows = security_mapping.get("rows", security_mapping)
+    if not isinstance(mapping_rows, list):
+        raise CandidateArtifactMaterializationError(
+            "security mapping must be a row list"
+        )
+    frame = pd.DataFrame(mapping_rows)
+    required = {"source_symbol", "security_id", "mapping_status"}
+    if not required.issubset(frame.columns):
+        raise CandidateArtifactMaterializationError(
+            "security mapping missing required fields"
+        )
+    accepted = frame.loc[frame["mapping_status"] == "accepted", :]
+    return accepted[["source_symbol", "security_id"]].astype(str)
+
+
+def _candidate_frame_from_parquet(
+    raw_k_path: Path,
+    resolved: dict[str, str],
+    security_mapping: dict[str, Any],
+    params: dict[str, Any],
+) -> tuple[Any, int, int]:
+    import pandas as pd
+    import pyarrow.parquet as pq
+
+    parquet_file = pq.ParquetFile(raw_k_path)
+    available_columns = set(parquet_file.schema.names)
+    required_columns = {resolved[field] for field in RAW_REQUIRED_SEMANTIC_FIELDS}
+    missing_columns = sorted(required_columns - available_columns)
+    if missing_columns:
+        joined = ", ".join(missing_columns)
+        raise CandidateArtifactMaterializationError(
+            f"raw parquet missing resolved columns: {joined}"
+        )
+    optional_columns = [
+        column
+        for column in ["trading_status", "price_limit_status"]
+        if column in available_columns
+    ]
+    selected_columns = list(dict.fromkeys([*required_columns, *optional_columns]))
+    raw_frame = pd.read_parquet(raw_k_path, columns=selected_columns)
+    row_count_input = len(raw_frame)
+    mapping_frame = _security_mapping_frame(security_mapping)
+    source_col = resolved["security_code_or_thscode"]
+    raw_frame = raw_frame.assign(_source_symbol=raw_frame[source_col].astype(str))
+    merged = raw_frame.merge(
+        mapping_frame,
+        left_on="_source_symbol",
+        right_on="source_symbol",
+        how="inner",
+    )
+    dropped = row_count_input - len(merged)
+    candidate = pd.DataFrame(index=merged.index)
+    candidate["data_version"] = params["data_version"]
+    candidate["universe_id"] = params["universe_id"]
+    candidate["time_segment_id"] = params["time_segment_id"]
+    candidate["security_id"] = merged["security_id"]
+    candidate["trading_date"] = _date_series(merged[resolved["trading_date"]])
+    for target, semantic in [
+        ("raw_open", "raw_open"),
+        ("raw_high", "raw_high"),
+        ("raw_low", "raw_low"),
+        ("raw_close", "raw_close"),
+        ("volume", "volume"),
+        ("amount", "amount"),
+    ]:
+        candidate[target] = pd.to_numeric(merged[resolved[semantic]], errors="coerce")
+    candidate["trading_status"] = (
+        merged["trading_status"].fillna("unknown").astype(str)
+        if "trading_status" in merged
+        else "unknown"
+    )
+    candidate["price_limit_status"] = (
+        merged["price_limit_status"].fillna("unknown").astype(str)
+        if "price_limit_status" in merged
+        else "unknown"
+    )
+    candidate["source_registry_id"] = "hithink_financial_api"
+    candidate["source_snapshot_id"] = params["source_snapshot_id"]
+    candidate["observed_at"] = params["observed_at"]
+    candidate["run_id"] = params["run_id"]
+    return candidate[TARGET_FIELDS], row_count_input, dropped
+
+
 def _candidate_rows(
     raw_rows: list[dict[str, Any]],
     resolved: dict[str, str],
@@ -345,6 +441,8 @@ def _quality_summary(
     order_violation = 0
     negative_volume = 0
     negative_amount = 0
+    null_volume = 0
+    null_amount = 0
     for row in rows:
         values = [
             row[field] for field in ["raw_open", "raw_high", "raw_low", "raw_close"]
@@ -363,6 +461,10 @@ def _quality_summary(
             negative_volume += 1
         if row["amount"] is not None and row["amount"] < 0:
             negative_amount += 1
+        if row["volume"] is None:
+            null_volume += 1
+        if row["amount"] is None:
+            null_amount += 1
     key_counts: dict[tuple[Any, ...], int] = {}
     for row in rows:
         key = (
@@ -386,6 +488,10 @@ def _quality_summary(
         reasons.append("negative_volume")
     if negative_amount:
         reasons.append("negative_amount")
+    if null_volume:
+        reasons.append("null_volume")
+    if null_amount:
+        reasons.append("null_amount")
     if duplicate_key_count:
         reasons.append("duplicate_key")
     unknown_trading = sum(1 for row in rows if row["trading_status"] == "unknown")
@@ -403,6 +509,80 @@ def _quality_summary(
         "null_ohlc_count": null_ohlc,
         "nonpositive_ohlc_count": nonpositive_ohlc,
         "ohlc_order_violation_count": order_violation,
+        "null_volume_count": null_volume,
+        "null_amount_count": null_amount,
+        "negative_volume_count": negative_volume,
+        "negative_amount_count": negative_amount,
+        "unknown_trading_status_count": unknown_trading,
+        "unknown_price_limit_status_count": unknown_limit,
+        "duplicate_key_count": duplicate_key_count,
+        "candidate_blocking_flag": bool(reasons),
+        "candidate_blocking_reasons": reasons,
+    }
+
+
+def _quality_summary_from_frame(
+    input_count: int,
+    frame: Any,
+    dropped_unmapped: int,
+) -> dict[str, Any]:
+    ohlc = frame[["raw_open", "raw_high", "raw_low", "raw_close"]]
+    null_ohlc = int(ohlc.isna().any(axis=1).sum())
+    complete_ohlc = ohlc.dropna()
+    nonpositive_ohlc = int((complete_ohlc <= 0).any(axis=1).sum())
+    high = frame["raw_high"]
+    low = frame["raw_low"]
+    order_violation = int(
+        (high < frame[["raw_open", "raw_close", "raw_low"]].max(axis=1)).sum()
+        + (low > frame[["raw_open", "raw_close", "raw_high"]].min(axis=1)).sum()
+    )
+    null_volume = int(frame["volume"].isna().sum())
+    null_amount = int(frame["amount"].isna().sum())
+    negative_volume = int((frame["volume"].dropna() < 0).sum())
+    negative_amount = int((frame["amount"].dropna() < 0).sum())
+    duplicate_key_count = int(
+        frame.duplicated(
+            subset=[
+                "data_version",
+                "universe_id",
+                "time_segment_id",
+                "security_id",
+                "trading_date",
+                "source_snapshot_id",
+            ],
+            keep="first",
+        ).sum()
+    )
+    unknown_trading = int((frame["trading_status"] == "unknown").sum())
+    unknown_limit = int((frame["price_limit_status"] == "unknown").sum())
+    reasons = []
+    for count, reason in [
+        (null_ohlc, "null_ohlc"),
+        (nonpositive_ohlc, "nonpositive_ohlc"),
+        (order_violation, "ohlc_order_violation"),
+        (negative_volume, "negative_volume"),
+        (negative_amount, "negative_amount"),
+        (null_volume, "null_volume"),
+        (null_amount, "null_amount"),
+        (duplicate_key_count, "duplicate_key"),
+    ]:
+        if count:
+            reasons.append(reason)
+    if unknown_trading or unknown_limit:
+        reasons.append("unknown_status_blocks_future_d2_acceptance")
+    dates = sorted(value for value in frame["trading_date"].dropna().tolist() if value)
+    return {
+        "row_count_input": input_count,
+        "row_count_output": int(len(frame)),
+        "dropped_unmapped_security_count": int(dropped_unmapped),
+        "security_count_output": int(frame["security_id"].nunique()),
+        "trading_date_min": dates[0] if dates else None,
+        "trading_date_max": dates[-1] if dates else None,
+        "null_ohlc_count": null_ohlc,
+        "nonpositive_ohlc_count": nonpositive_ohlc,
+        "ohlc_order_violation_count": order_violation,
+        "null_volume_count": null_volume,
+        "null_amount_count": null_amount,
         "negative_volume_count": negative_volume,
         "negative_amount_count": negative_amount,
         "unknown_trading_status_count": unknown_trading,
@@ -446,13 +626,6 @@ def materialize_hithink_raw_market_prices_candidate(
     for optional_field in ["trading_status", "price_limit_status"]:
         if optional_field not in columns:
             columns.append(optional_field)
-    raw_rows = _load_raw_rows(raw_k_path, columns)
-    mapping_rows = security_mapping.get("rows", security_mapping)
-    if not isinstance(mapping_rows, list):
-        raise CandidateArtifactMaterializationError(
-            "security mapping must be a row list"
-        )
-    mapping = _load_security_mapping([dict(row) for row in mapping_rows])
     candidate_params = {
         "data_version": data_version,
         "universe_id": params["universe_id"],
@@ -461,13 +634,29 @@ def materialize_hithink_raw_market_prices_candidate(
         "observed_at": observed_at,
         "run_id": run_id,
     }
-    candidate_rows, dropped = _candidate_rows(
-        raw_rows, resolved, mapping, candidate_params
-    )
-    quality = _quality_summary(len(raw_rows), candidate_rows, dropped)
-    artifact_path, artifact_format = _write_artifact(
-        output_dir / "candidate_raw_market_prices", candidate_rows
-    )
+    if raw_k_path.suffix.lower() == ".parquet":
+        candidate_frame, row_count_input, dropped = _candidate_frame_from_parquet(
+            raw_k_path, resolved, security_mapping, candidate_params
+        )
+        quality = _quality_summary_from_frame(row_count_input, candidate_frame, dropped)
+        artifact_path, artifact_format = _write_dataframe_artifact(
+            output_dir / "candidate_raw_market_prices", candidate_frame
+        )
+    else:
+        raw_rows = _load_raw_rows(raw_k_path, columns)
+        mapping_rows = security_mapping.get("rows", security_mapping)
+        if not isinstance(mapping_rows, list):
+            raise CandidateArtifactMaterializationError(
+                "security mapping must be a row list"
+            )
+        mapping = _load_security_mapping([dict(row) for row in mapping_rows])
+        candidate_rows, dropped = _candidate_rows(
+            raw_rows, resolved, mapping, candidate_params
+        )
+        quality = _quality_summary(len(raw_rows), candidate_rows, dropped)
+        artifact_path, artifact_format = _write_artifact(
+            output_dir / "candidate_raw_market_prices", candidate_rows
+        )
     materialization_report = {
         "status": "candidate_blocked"
         if quality["candidate_blocking_flag"]
