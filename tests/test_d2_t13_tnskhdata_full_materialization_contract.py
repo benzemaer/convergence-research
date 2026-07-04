@@ -32,8 +32,15 @@ class D2T13TnskhdataFullMaterializationContractTest(unittest.TestCase):
 
     def test_generation_flags_stay_false(self) -> None:
         self.assertFalse(self.contract["duckdb_write_authorized"])
+        self.assertFalse(self.contract["formal_duckdb_write_authorized"])
+        self.assertTrue(self.contract["local_staging_write_authorized"])
+        self.assertTrue(self.contract["local_staging_store_authorized"])
         self.assertFalse(self.contract["d3_generation_authorized"])
         self.assertFalse(self.contract["r0_state_generation_authorized"])
+        self.assertEqual(self.contract["initial_requests_per_minute"], 200)
+        self.assertEqual(self.contract["max_requests_per_minute"], 500)
+        self.assertTrue(self.contract["parallel_provider_fetch_authorized"])
+        self.assertTrue(self.contract["adaptive_rate_limit_authorized"])
 
     def test_schema_rejects_d3_unlock_or_missing_artifact_name(self) -> None:
         changed = copy.deepcopy(self.contract)
@@ -43,6 +50,16 @@ class D2T13TnskhdataFullMaterializationContractTest(unittest.TestCase):
 
         changed = copy.deepcopy(self.contract)
         changed["output_artifact_names"].remove("tnskhdata_quality_report.json")
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["formal_duckdb_write_authorized"] = True
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["max_requests_per_minute"] = 1000
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 

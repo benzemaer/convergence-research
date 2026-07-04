@@ -7,7 +7,9 @@ import hashlib
 import json
 import os
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -63,6 +65,106 @@ class FetchPlan:
     ts_codes: list[str]
     trade_dates: list[str]
     mode: str
+
+
+@dataclass(frozen=True)
+class FetchTask:
+    task_id: str
+    endpoint: str
+    params: dict[str, Any]
+    trade_date: str | None = None
+
+
+@dataclass
+class FetchTaskResult:
+    task: FetchTask
+    status: str
+    rows: list[dict[str, Any]]
+    attempt_count: int
+    error_category: str | None = None
+    error_message_redacted: str | None = None
+    sha256: str | None = None
+    artifact_partition_path: str | None = None
+
+
+class AdaptiveRateGovernor:
+    def __init__(
+        self,
+        *,
+        initial_requests_per_minute: int = 200,
+        max_requests_per_minute: int = 500,
+        rate_increase_per_minute: int = 100,
+        rate_decrease_factor: float = 0.5,
+        min_requests_per_minute: int = 100,
+        enabled: bool = True,
+    ) -> None:
+        self.current_rpm = initial_requests_per_minute
+        self.max_rpm = max_requests_per_minute
+        self.increase = rate_increase_per_minute
+        self.decrease_factor = rate_decrease_factor
+        self.min_rpm = min_requests_per_minute
+        self.enabled = enabled
+        self.lock = threading.Lock()
+        self.next_allowed_at = 0.0
+        self.minute_index = 0
+        self.rate_increase_events = 0
+        self.rate_decrease_events = 0
+        self.history: list[dict[str, Any]] = []
+
+    def acquire(self) -> None:
+        if not self.enabled:
+            return
+        with self.lock:
+            interval = 60.0 / self.current_rpm if self.current_rpm > 0 else 0.0
+            now = time.monotonic()
+            wait_seconds = max(0.0, self.next_allowed_at - now)
+            self.next_allowed_at = max(now, self.next_allowed_at) + interval
+        if wait_seconds:
+            time.sleep(wait_seconds)
+
+    def record_minute(
+        self,
+        *,
+        successful_requests: int,
+        failed_requests: int,
+        rate_limit_count: int,
+        timeout_count: int,
+        provider_error_count: int,
+    ) -> dict[str, Any]:
+        with self.lock:
+            backoff_events = 0
+            if rate_limit_count or timeout_count or provider_error_count:
+                self.current_rpm = max(
+                    self.min_rpm, int(self.current_rpm * self.decrease_factor)
+                )
+                self.rate_decrease_events += 1
+                backoff_events = 1
+            elif successful_requests:
+                new_rpm = min(self.max_rpm, self.current_rpm + self.increase)
+                if new_rpm != self.current_rpm:
+                    self.rate_increase_events += 1
+                self.current_rpm = new_rpm
+            entry = {
+                "minute_index": self.minute_index,
+                "current_rpm": self.current_rpm,
+                "successful_requests": successful_requests,
+                "failed_requests": failed_requests,
+                "rate_limit_count": rate_limit_count,
+                "timeout_count": timeout_count,
+                "provider_error_count": provider_error_count,
+                "backoff_events": backoff_events,
+            }
+            self.minute_index += 1
+            self.history.append(entry)
+            return entry
+
+    def state(self) -> dict[str, Any]:
+        return {
+            "current_rpm": self.current_rpm,
+            "rate_increase_events": self.rate_increase_events,
+            "rate_decrease_events": self.rate_decrease_events,
+            "history": self.history,
+        }
 
 
 class RequestThrottle:
@@ -156,6 +258,7 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "".join(
             json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows
@@ -170,6 +273,24 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _sha256_rows(rows: list[dict[str, Any]]) -> str:
+    return hashlib.sha256(
+        "\n".join(
+            json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _date_yyyymmdd(value: Any) -> str:
@@ -218,6 +339,28 @@ def _frame_records(frame: Any) -> list[dict[str, Any]]:
     if isinstance(frame, list):
         return [dict(row) for row in frame if isinstance(row, dict)]
     return []
+
+
+def classify_provider_error(exc: Exception) -> str:
+    text = f"{type(exc).__name__} {exc}".lower()
+    if _is_rate_limit_error(exc) or "429" in text:
+        return "rate_limit"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    if "permission" in text or "denied" in text or "auth" in text:
+        return "permission_denied"
+    if "schema" in text or "field" in text or "column" in text:
+        return "schema_missing"
+    if "network" in text or "connection" in text or "reset" in text:
+        return "network_error"
+    return "unknown_provider_error"
+
+
+def _redact_error(exc: Exception) -> str:
+    text = str(exc)
+    for key in ("token", "apikey", "api_key", "secret"):
+        text = text.replace(key, "[redacted-key]")
+    return text[:160]
 
 
 def _to_float(value: Any) -> float | None:
@@ -291,6 +434,324 @@ def build_fetch_plan(
         trade_dates=sorted({row["trading_date"] for row in mapped_rows}),
         mode="full" if full else "sample",
     )
+
+
+def build_endpoint_tasks(plan: FetchPlan) -> list[FetchTask]:
+    tasks = [
+        FetchTask(
+            task_id=f"stock_basic:{status}",
+            endpoint="stock_basic",
+            params={"exchange": "", "list_status": status},
+        )
+        for status in ("L", "D", "P", "G")
+    ]
+    start_date = min(plan.trade_dates) if plan.trade_dates else DEFAULT_START_DATE
+    end_date = max(plan.trade_dates) if plan.trade_dates else DEFAULT_END_DATE
+    tasks.append(
+        FetchTask(
+            task_id=f"trade_cal:{start_date}:{end_date}",
+            endpoint="trade_cal",
+            params={"exchange": "", "start_date": start_date, "end_date": end_date},
+        )
+    )
+    for trade_date in plan.trade_dates:
+        for endpoint in ("daily", "stk_limit", "adj_factor", "stock_st", "suspend_d"):
+            tasks.append(
+                FetchTask(
+                    task_id=f"{endpoint}:{trade_date}",
+                    endpoint=endpoint,
+                    params={"trade_date": trade_date},
+                    trade_date=trade_date,
+                )
+            )
+    return tasks
+
+
+class PartitionedJsonlStagingWriter:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.lock = threading.Lock()
+
+    def partition_path(self, task: FetchTask) -> Path:
+        suffix = task.trade_date or str(task.params.get("list_status") or "range")
+        return self.root / "partitions" / task.endpoint / f"{suffix}.jsonl"
+
+    def write(self, task: FetchTask, rows: list[dict[str, Any]]) -> tuple[str, str]:
+        path = self.partition_path(task)
+        with self.lock:
+            _write_jsonl(path, rows)
+            digest = _sha256_file(path)
+        return str(path), digest
+
+    def load_endpoint(self, endpoint: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        endpoint_dir = self.root / "partitions" / endpoint
+        if not endpoint_dir.exists():
+            return rows
+        for path in sorted(endpoint_dir.glob("*.jsonl")):
+            rows.extend(_read_jsonl(path))
+        return rows
+
+
+def _ledger_path(checkpoint_dir: Path | None) -> Path | None:
+    return None if checkpoint_dir is None else checkpoint_dir / "fetch_ledger.jsonl"
+
+
+def _load_ledger(checkpoint_dir: Path | None) -> dict[str, dict[str, Any]]:
+    path = _ledger_path(checkpoint_dir)
+    if path is None or not path.exists():
+        return {}
+    return {row["task_id"]: row for row in _read_jsonl(path) if row.get("task_id")}
+
+
+def _write_ledger(checkpoint_dir: Path | None, rows: list[dict[str, Any]]) -> None:
+    path = _ledger_path(checkpoint_dir)
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_jsonl(path, rows)
+
+
+def _task_ledger_row(result: FetchTaskResult) -> dict[str, Any]:
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    return {
+        "task_id": result.task.task_id,
+        "endpoint": result.task.endpoint,
+        "trade_date": result.task.trade_date,
+        "status": result.status,
+        "attempt_count": result.attempt_count,
+        "last_attempt_at": now,
+        "last_error_category": result.error_category,
+        "last_error_message_redacted": result.error_message_redacted,
+        "row_count": len(result.rows),
+        "artifact_partition_path": result.artifact_partition_path,
+        "sha256": result.sha256,
+        "started_at": now,
+        "completed_at": now if result.status in {"succeeded", "failed"} else None,
+    }
+
+
+def _call_task_with_retry(
+    client: Any,
+    task: FetchTask,
+    *,
+    governor: AdaptiveRateGovernor,
+    retry_max_attempts: int,
+    retry_backoff_seconds: float,
+) -> FetchTaskResult:
+    method = getattr(client, task.endpoint)
+    last_exc: Exception | None = None
+    for attempt in range(1, max(1, retry_max_attempts) + 1):
+        governor.acquire()
+        try:
+            rows = _frame_records(method(**task.params))
+            status = "succeeded"
+            return FetchTaskResult(task, status, rows, attempt)
+        except Exception as exc:
+            last_exc = exc
+            category = classify_provider_error(exc)
+            if category in {"permission_denied", "schema_missing"}:
+                break
+            if retry_backoff_seconds > 0:
+                time.sleep(retry_backoff_seconds)
+    assert last_exc is not None
+    return FetchTaskResult(
+        task=task,
+        status="failed",
+        rows=[],
+        attempt_count=max(1, retry_max_attempts),
+        error_category=classify_provider_error(last_exc),
+        error_message_redacted=_redact_error(last_exc),
+    )
+
+
+def _flush_fetch_progress(
+    *,
+    checkpoint_dir: Path | None,
+    ledger_rows: list[dict[str, Any]],
+    governor: AdaptiveRateGovernor,
+) -> None:
+    if checkpoint_dir is None:
+        return
+    _write_ledger(checkpoint_dir, ledger_rows)
+    succeeded = sum(1 for row in ledger_rows if row["status"] == "succeeded")
+    failed = sum(1 for row in ledger_rows if row["status"] == "failed")
+    rate_limit = sum(
+        1 for row in ledger_rows if row.get("last_error_category") == "rate_limit"
+    )
+    timeout = sum(
+        1 for row in ledger_rows if row.get("last_error_category") == "timeout"
+    )
+    provider_errors = sum(
+        1
+        for row in ledger_rows
+        if row.get("last_error_category")
+        and row.get("last_error_category") not in {"rate_limit", "timeout"}
+    )
+    governor.record_minute(
+        successful_requests=succeeded,
+        failed_requests=failed,
+        rate_limit_count=rate_limit,
+        timeout_count=timeout,
+        provider_error_count=provider_errors,
+    )
+    _write_json(checkpoint_dir / "rate_governor_state.json", governor.state())
+    _write_json(
+        checkpoint_dir / "quality_progress_summary.json",
+        {
+            "succeeded_task_count": succeeded,
+            "failed_task_count": failed,
+            "rate_limit_count": rate_limit,
+            "timeout_count": timeout,
+            "provider_error_count": provider_errors,
+        },
+    )
+    _write_json(
+        checkpoint_dir / "partial_hash_manifest.json",
+        {row["task_id"]: row["sha256"] for row in ledger_rows if row.get("sha256")},
+    )
+
+
+def fetch_provider_evidence_parallel(
+    client: Any,
+    plan: FetchPlan,
+    *,
+    output_dir: Path,
+    checkpoint_dir: Path | None,
+    resume: bool,
+    max_workers: int = 7,
+    initial_requests_per_minute: int = 200,
+    max_requests_per_minute: int = 500,
+    rate_increase_per_minute: int = 100,
+    rate_decrease_factor: float = 0.5,
+    retry_max_attempts: int = 5,
+    retry_backoff_seconds: float = 10.0,
+    flush_interval_seconds: int = 60,
+) -> dict[str, list[dict[str, Any]]]:
+    writer = PartitionedJsonlStagingWriter(output_dir)
+    governor = AdaptiveRateGovernor(
+        initial_requests_per_minute=initial_requests_per_minute,
+        max_requests_per_minute=max_requests_per_minute,
+        rate_increase_per_minute=rate_increase_per_minute,
+        rate_decrease_factor=rate_decrease_factor,
+    )
+    existing = _load_ledger(checkpoint_dir) if resume else {}
+    tasks = [
+        task
+        for task in build_endpoint_tasks(plan)
+        if existing.get(task.task_id, {}).get("status") != "succeeded"
+    ]
+    ledger_rows = [row for row in existing.values() if row.get("status") == "succeeded"]
+    last_flush = time.monotonic()
+    with ThreadPoolExecutor(max_workers=max(1, max_workers)) as executor:
+        futures = {
+            executor.submit(
+                _call_task_with_retry,
+                client,
+                task,
+                governor=governor,
+                retry_max_attempts=retry_max_attempts,
+                retry_backoff_seconds=retry_backoff_seconds,
+            ): task
+            for task in tasks
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            if result.status == "succeeded":
+                path, digest = writer.write(result.task, result.rows)
+                result.artifact_partition_path = path
+                result.sha256 = digest
+            ledger_rows = [
+                row for row in ledger_rows if row["task_id"] != result.task.task_id
+            ]
+            ledger_rows.append(_task_ledger_row(result))
+            if time.monotonic() - last_flush >= flush_interval_seconds:
+                _flush_fetch_progress(
+                    checkpoint_dir=checkpoint_dir,
+                    ledger_rows=ledger_rows,
+                    governor=governor,
+                )
+                last_flush = time.monotonic()
+    _flush_fetch_progress(
+        checkpoint_dir=checkpoint_dir, ledger_rows=ledger_rows, governor=governor
+    )
+    failed = [row for row in ledger_rows if row["status"] == "failed"]
+    evidence = {
+        "stock_basic": writer.load_endpoint("stock_basic"),
+        "trade_cal": writer.load_endpoint("trade_cal"),
+        "daily": writer.load_endpoint("daily"),
+        "stk_limit": writer.load_endpoint("stk_limit"),
+        "adj_factor": writer.load_endpoint("adj_factor"),
+        "stock_st": writer.load_endpoint("stock_st"),
+        "suspend_d": writer.load_endpoint("suspend_d"),
+        "pro_bar_qfq": [],
+        "pro_bar_hfq": [],
+        "_metrics": [
+            {
+                "request_count": sum(
+                    row.get("attempt_count", 0) for row in ledger_rows
+                ),
+                "successful_request_count": sum(
+                    1 for row in ledger_rows if row["status"] == "succeeded"
+                ),
+                "failed_request_count": len(failed),
+                "primary_provider_error_count": len(failed),
+                "reconciliation_provider_error_count": 0,
+                "pro_bar_reconciliation_status": "not_reached_full_run_incomplete"
+                if failed
+                else "passed_or_not_requested",
+                "pro_bar_reconciliation_warning_count": 0,
+                "rate_limit_count": sum(
+                    1
+                    for row in failed
+                    if row.get("last_error_category") == "rate_limit"
+                ),
+                "timeout_count": sum(
+                    1 for row in failed if row.get("last_error_category") == "timeout"
+                ),
+                "retry_count": sum(
+                    max(0, row.get("attempt_count", 1) - 1) for row in ledger_rows
+                ),
+                "resume_checkpoint_count": sum(
+                    1 for row in ledger_rows if row["status"] == "succeeded"
+                ),
+                "all_tasks_completed": not failed
+                and len(ledger_rows) == len(build_endpoint_tasks(plan)),
+                "endpoint_task_counts": {
+                    endpoint: sum(
+                        1
+                        for task in build_endpoint_tasks(plan)
+                        if task.endpoint == endpoint
+                    )
+                    for endpoint in (
+                        "stock_basic",
+                        "trade_cal",
+                        "daily",
+                        "stk_limit",
+                        "adj_factor",
+                        "stock_st",
+                        "suspend_d",
+                    )
+                },
+                "failed_task_counts": {
+                    endpoint: sum(1 for row in failed if row["endpoint"] == endpoint)
+                    for endpoint in (
+                        "stock_basic",
+                        "trade_cal",
+                        "daily",
+                        "stk_limit",
+                        "adj_factor",
+                        "stock_st",
+                        "suspend_d",
+                    )
+                },
+                "final_requests_per_minute": governor.current_rpm,
+                "rate_increase_events": governor.rate_increase_events,
+                "rate_decrease_events": governor.rate_decrease_events,
+            }
+        ],
+    }
+    return evidence
 
 
 def _client_from_token(token: str) -> Any:
@@ -749,6 +1210,16 @@ def build_quality_report(
             "pro_bar_reconciliation_warning_count", 0
         ),
         "rate_limit_count": metrics.get("rate_limit_count", 0),
+        "timeout_count": metrics.get("timeout_count", 0),
+        "retry_count": metrics.get("retry_count", 0),
+        "successful_request_count": metrics.get("successful_request_count", 0),
+        "failed_request_count": metrics.get("failed_request_count", 0),
+        "all_tasks_completed": metrics.get("all_tasks_completed", True),
+        "endpoint_task_counts": metrics.get("endpoint_task_counts", {}),
+        "failed_task_counts": metrics.get("failed_task_counts", {}),
+        "final_requests_per_minute": metrics.get("final_requests_per_minute"),
+        "rate_increase_events": metrics.get("rate_increase_events", 0),
+        "rate_decrease_events": metrics.get("rate_decrease_events", 0),
         "resume_checkpoint_count": metrics.get("resume_checkpoint_count", 0),
     }
 
@@ -756,6 +1227,8 @@ def build_quality_report(
 def acceptance_decision(quality: dict[str, Any]) -> str:
     if quality.get("run_mode") != "full" or quality.get("sample_mode") is not False:
         return "blocked_pending_tnskhdata_full_materialization_run"
+    if not quality.get("all_tasks_completed", True):
+        return "blocked_pending_provider_coverage"
     if quality["primary_provider_error_count"] or quality["rate_limit_count"]:
         return "blocked_pending_provider_coverage"
     if (
@@ -806,10 +1279,22 @@ def materialize_full_candidate(
     sample_dates_per_security: int | None = None,
     resume: bool = False,
     checkpoint_dir: Path | None = None,
+    staging_store: Path | None = None,
+    staging_format: str = "partitioned-jsonl",
+    flush_interval_seconds: int = 60,
+    worker_mode: str = "serial",
+    max_workers: int = 7,
+    initial_requests_per_minute: int = 200,
+    max_requests_per_minute: int = 500,
+    rate_increase_per_minute: int = 100,
+    rate_decrease_factor: float = 0.5,
     requests_per_minute: int = 200,
     pro_bar_requests_per_minute: int = 60,
     retry_max_attempts: int = 3,
     retry_backoff_seconds: float = 5.0,
+    request_timeout_seconds: int = 60,
+    pro_bar_sample_securities: int = 20,
+    require_pro_bar_reconciliation: bool = False,
 ) -> dict[str, Any]:
     started = time.time()
     if (
@@ -821,11 +1306,14 @@ def materialize_full_candidate(
         raise D2T13MaterializationError("primary_source must be tnskhdata")
     for flag in (
         "duckdb_write_authorized",
+        "formal_duckdb_write_authorized",
         "d3_generation_authorized",
         "r0_state_generation_authorized",
     ):
         if contract.get(flag) is not False:
             raise D2T13MaterializationError(f"{flag} must remain false")
+    if contract.get("local_staging_write_authorized") is not True:
+        raise D2T13MaterializationError("local staging write must be authorized")
     if not enable_remote_fetch and client is None:
         raise D2T13MaterializationError(
             "remote fetch must be enabled unless fake client is injected"
@@ -844,17 +1332,36 @@ def materialize_full_candidate(
     if client is None:
         token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
         client = _client_from_token(token)
-    evidence = fetch_provider_evidence(
-        client,
-        plan,
-        requests_per_minute=requests_per_minute,
-        pro_bar_requests_per_minute=pro_bar_requests_per_minute,
-        retry_max_attempts=retry_max_attempts,
-        retry_backoff_seconds=retry_backoff_seconds,
-        throttle_enabled=enable_remote_fetch and client is not None,
-        resume=resume,
-        checkpoint_dir=checkpoint_dir,
-    )
+    if staging_format not in {"partitioned-jsonl", "duckdb"}:
+        raise D2T13MaterializationError("unsupported staging format")
+    if full and worker_mode == "endpoint":
+        evidence = fetch_provider_evidence_parallel(
+            client,
+            plan,
+            output_dir=output_dir if staging_store is None else staging_store.parent,
+            checkpoint_dir=checkpoint_dir,
+            resume=resume,
+            max_workers=max_workers,
+            initial_requests_per_minute=initial_requests_per_minute,
+            max_requests_per_minute=max_requests_per_minute,
+            rate_increase_per_minute=rate_increase_per_minute,
+            rate_decrease_factor=rate_decrease_factor,
+            retry_max_attempts=retry_max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            flush_interval_seconds=flush_interval_seconds,
+        )
+    else:
+        evidence = fetch_provider_evidence(
+            client,
+            plan,
+            requests_per_minute=requests_per_minute,
+            pro_bar_requests_per_minute=pro_bar_requests_per_minute,
+            retry_max_attempts=retry_max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            throttle_enabled=enable_remote_fetch and client is not None,
+            resume=resume,
+            checkpoint_dir=checkpoint_dir,
+        )
     source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
     artifact_sha256 = hashlib.sha256(
         json.dumps(
@@ -897,6 +1404,19 @@ def materialize_full_candidate(
     )
     quality["elapsed_seconds"] = round(time.time() - started, 3)
     quality["request_count"] = evidence.get("_metrics", [{}])[0].get("request_count", 0)
+    quality["staging_store_type"] = staging_format
+    quality["staging_store_path_redacted"] = (
+        "data/generated/d2/d2_t13_tnskhdata_full_candidate/**"
+        if staging_store
+        else None
+    )
+    quality["worker_mode"] = worker_mode
+    quality["max_workers"] = max_workers
+    quality["initial_requests_per_minute"] = initial_requests_per_minute
+    quality["max_requests_per_minute"] = max_requests_per_minute
+    quality["request_timeout_seconds"] = request_timeout_seconds
+    quality["pro_bar_sample_securities"] = pro_bar_sample_securities
+    quality["require_pro_bar_reconciliation"] = require_pro_bar_reconciliation
     reconciliation = {
         "daily_raw_source": "tnskhdata daily",
         "adjustment_factor_source": "tnskhdata adj_factor",
@@ -941,6 +1461,8 @@ def materialize_full_candidate(
             if quality.get(key)
         ],
         "duckdb_written": False,
+        "formal_duckdb_write_authorized": False,
+        "local_staging_write_authorized": True,
         "data_version_published": False,
         "d3_generation_authorized": False,
         "r0_state_generation_authorized": False,
@@ -994,13 +1516,31 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--enable-remote-fetch", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path)
+    parser.add_argument("--staging-store", type=Path)
+    parser.add_argument(
+        "--staging-format",
+        default="partitioned-jsonl",
+        choices=("partitioned-jsonl", "duckdb"),
+    )
+    parser.add_argument("--flush-interval-seconds", default=60, type=int)
+    parser.add_argument(
+        "--worker-mode", default="serial", choices=("serial", "endpoint")
+    )
+    parser.add_argument("--max-workers", default=7, type=int)
     parser.add_argument("--sample-securities", type=int)
     parser.add_argument("--sample-dates-per-security", type=int)
     parser.add_argument("--full", action="store_true")
+    parser.add_argument("--initial-requests-per-minute", default=200, type=int)
+    parser.add_argument("--max-requests-per-minute", default=500, type=int)
+    parser.add_argument("--rate-increase-per-minute", default=100, type=int)
+    parser.add_argument("--rate-decrease-factor", default=0.5, type=float)
     parser.add_argument("--requests-per-minute", default=200, type=int)
     parser.add_argument("--pro-bar-requests-per-minute", default=60, type=int)
-    parser.add_argument("--retry-max-attempts", default=3, type=int)
-    parser.add_argument("--retry-backoff-seconds", default=5.0, type=float)
+    parser.add_argument("--retry-max-attempts", default=5, type=int)
+    parser.add_argument("--retry-backoff-seconds", default=10.0, type=float)
+    parser.add_argument("--request-timeout-seconds", default=60, type=int)
+    parser.add_argument("--pro-bar-sample-securities", default=20, type=int)
+    parser.add_argument("--require-pro-bar-reconciliation", action="store_true")
     return parser.parse_args()
 
 
@@ -1019,10 +1559,22 @@ def main() -> int:
         sample_dates_per_security=args.sample_dates_per_security,
         resume=args.resume,
         checkpoint_dir=args.checkpoint_dir,
+        staging_store=args.staging_store,
+        staging_format=args.staging_format,
+        flush_interval_seconds=args.flush_interval_seconds,
+        worker_mode=args.worker_mode,
+        max_workers=args.max_workers,
+        initial_requests_per_minute=args.initial_requests_per_minute,
+        max_requests_per_minute=args.max_requests_per_minute,
+        rate_increase_per_minute=args.rate_increase_per_minute,
+        rate_decrease_factor=args.rate_decrease_factor,
         requests_per_minute=args.requests_per_minute,
         pro_bar_requests_per_minute=args.pro_bar_requests_per_minute,
         retry_max_attempts=args.retry_max_attempts,
         retry_backoff_seconds=args.retry_backoff_seconds,
+        request_timeout_seconds=args.request_timeout_seconds,
+        pro_bar_sample_securities=args.pro_bar_sample_securities,
+        require_pro_bar_reconciliation=args.require_pro_bar_reconciliation,
     )
     redacted = {
         "run_id": report["run_id"],

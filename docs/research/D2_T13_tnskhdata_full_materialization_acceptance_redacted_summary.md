@@ -54,6 +54,11 @@ window for this PR update and was stopped by the shell timeout before final
 candidate artifacts and full-run reports were written. The checkpoint can be
 used to resume without restarting completed trade-date fetches.
 
+This PR update adds the endpoint-worker runner, shared adaptive rate governor,
+partitioned local staging writer, fetch ledger, rate governor state, quality
+progress summary, and partial hash manifest hooks. The staging store is local
+and ignored; it is not a formal DuckDB publication.
+
 Because the full run is incomplete, the D2 acceptance decision remains blocked.
 No sample run result is used as D2 acceptance evidence.
 
@@ -63,6 +68,17 @@ No sample run result is used as D2 acceptance evidence.
   "source_snapshot_id": "tnskhdata_d2_t13_20160101_20260630_full",
   "run_mode": "full",
   "sample_mode": false,
+  "staging_store_type": "partitioned-jsonl",
+  "staging_store_path_redacted": "data/generated/d2/d2_t13_tnskhdata_full_candidate/**",
+  "formal_duckdb_write_authorized": false,
+  "local_staging_write_authorized": true,
+  "worker_mode": "endpoint",
+  "max_workers": 7,
+  "initial_requests_per_minute": 200,
+  "max_requests_per_minute": 500,
+  "final_requests_per_minute": null,
+  "rate_increase_events": null,
+  "rate_decrease_events": null,
   "candidate_artifact_output_dir": "data/generated/d2/d2_t13_tnskhdata_full_candidate/",
   "candidate_universe_row_count": 1671919,
   "mapped_row_count": null,
@@ -97,11 +113,28 @@ No sample run result is used as D2 acceptance evidence.
   "pro_bar_reconciliation_status": "not_reached_full_run_incomplete",
   "pro_bar_reconciliation_warning_count": 0,
   "rate_limit_count": 0,
+  "timeout_count": 0,
+  "retry_count": null,
+  "successful_request_count": null,
+  "failed_request_count": null,
   "resume_checkpoint_count": 111,
   "last_successful_trade_date": "20161213",
   "failed_trade_dates": [],
   "request_count": 560,
   "request_count_source": "derived_from_completed_trade_dates_after_counting_fix",
+  "endpoint_task_counts": {
+    "stock_basic": 4,
+    "trade_cal": 1,
+    "daily": 2426,
+    "stk_limit": 2426,
+    "adj_factor": 2426,
+    "stock_st": 2426,
+    "suspend_d": 2426
+  },
+  "completed_task_counts": {
+    "legacy_checkpoint_completed_trade_dates": 111
+  },
+  "failed_task_counts": {},
   "sample_acceptance_decision": null,
   "d2_acceptance_decision": "blocked_pending_tnskhdata_full_materialization_run",
   "d3_handoff_decision": "d3_candidate_generation_blocked",
