@@ -27,6 +27,36 @@ class BuildD2CSI800MembershipAlignmentTest(unittest.TestCase):
         self.assertEqual(alignment, load(MODULE.DEFAULT_ALIGNMENT_PATH))
         self.assertEqual(report, load(MODULE.DEFAULT_REPORT_PATH))
 
+    def assert_bad_d2_t01_contract_fails(self, field: str, value: object) -> None:
+        contract = load(MODULE.DEFAULT_D2_T01_CONTRACT_PATH)
+        contract[field] = value
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = Path(tmpdir) / "raw_ohlcv_source_contract.v1.json"
+            contract_path.write_text(
+                MODULE.dump_json(contract),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                MODULE.build_alignment(d2_t01_contract_path=contract_path)
+
+    def test_builder_rejects_unaccepted_d2_t01_contract(self) -> None:
+        self.assert_bad_d2_t01_contract_fails(
+            "contract_status",
+            "draft_for_g1_review",
+        )
+
+    def test_builder_rejects_wrong_d2_t01_contract_id(self) -> None:
+        self.assert_bad_d2_t01_contract_fails(
+            "contract_id",
+            "D2_WRONG_CONTRACT",
+        )
+
+    def test_builder_rejects_wrong_d2_t01_target_table(self) -> None:
+        self.assert_bad_d2_t01_contract_fails(
+            "target_table",
+            "d2.membership_alignment",
+        )
+
     def test_check_mode_passes_for_committed_outputs(self) -> None:
         self.assertEqual(MODULE.main(["--check"]), 0)
 

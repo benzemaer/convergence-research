@@ -18,6 +18,7 @@ DEFAULT_COMPLETION_REPORT_PATH = (
 DEFAULT_CONTRACT_PATH = (
     ROOT / "configs/d2/csi800_static_2026_06_membership_alignment_contract.v1.json"
 )
+DEFAULT_D2_T01_CONTRACT_PATH = ROOT / "configs/d2/raw_ohlcv_source_contract.v1.json"
 DEFAULT_ALIGNMENT_PATH = (
     ROOT / "configs/d2/csi800_static_2026_06_membership_alignment.v1.json"
 )
@@ -42,7 +43,17 @@ def assert_inputs_ready(
     reference: dict[str, Any],
     completion_report: dict[str, Any],
     contract: dict[str, Any],
+    d2_t01_contract: dict[str, Any],
 ) -> None:
+    expected_d2_t01 = {
+        "contract_id": "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
+        "task_id": "D2-T01",
+        "contract_status": "accepted",
+        "target_table": "d1.raw_market_prices",
+    }
+    for key, expected in expected_d2_t01.items():
+        if d2_t01_contract.get(key) != expected:
+            raise ValueError(f"D2-T01 readiness contract {key} is not accepted")
     if reference["artifact_id"] != contract["membership_source"]:
         raise ValueError("membership reference id does not match contract")
     if not reference["d2_usage_authorized"]:
@@ -101,11 +112,13 @@ def build_alignment(
     reference_path: Path = DEFAULT_REFERENCE_PATH,
     completion_report_path: Path = DEFAULT_COMPLETION_REPORT_PATH,
     contract_path: Path = DEFAULT_CONTRACT_PATH,
+    d2_t01_contract_path: Path = DEFAULT_D2_T01_CONTRACT_PATH,
 ) -> dict[str, Any]:
     reference = load_json(reference_path)
     completion_report = load_json(completion_report_path)
     contract = load_json(contract_path)
-    assert_inputs_ready(reference, completion_report, contract)
+    d2_t01_contract = load_json(d2_t01_contract_path)
+    assert_inputs_ready(reference, completion_report, contract, d2_t01_contract)
     rows = build_alignment_rows(reference, contract)
     return {
         "$schema": "../../schemas/d2_csi800_static_membership_alignment.schema.json",
@@ -202,6 +215,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_COMPLETION_REPORT_PATH,
     )
     parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT_PATH)
+    parser.add_argument(
+        "--d2-t01-contract",
+        type=Path,
+        default=DEFAULT_D2_T01_CONTRACT_PATH,
+    )
     parser.add_argument("--write-alignment", type=Path)
     parser.add_argument("--write-report", type=Path)
     parser.add_argument("--check", action="store_true")
@@ -214,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         reference_path=args.reference,
         completion_report_path=args.completion_report,
         contract_path=args.contract,
+        d2_t01_contract_path=args.d2_t01_contract,
     )
     report = build_report(alignment)
     if args.check:
