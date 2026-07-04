@@ -1,0 +1,138 @@
+{
+  "$schema": "../../schemas/d2_candidate_market_snapshot_probe_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D2-T06",
+  "contract_id": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_CONTRACT_V1",
+  "contract_status": "accepted",
+  "probe_status": "contract_only",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "time_segment_id": "DR001_STATIC_BACKFILL_20160101_20260630",
+  "depends_on": [
+    "D0_SOURCE_REGISTRY_V1",
+    "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
+    "D2_RAW_MARKET_PRICES_MATERIALIZATION_CONTRACT_V1",
+    "D2_ADJUSTMENT_FACTOR_ASOF_CONTRACT_V1",
+    "D2_CONTINUOUS_PRICE_CONSTRUCTION_CONTRACT_V1",
+    "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1",
+    "DR-001"
+  ],
+  "candidate_source_registry_ids": [
+    "HITHINK_FINANCIAL_API",
+    "BAOSTOCK"
+  ],
+  "prohibited_source_registry_ids": [
+    "CSINDEX_OFFICIAL",
+    "A_STOCK_DATA_RECON",
+    "PUBLIC_A_SHARE_ENDPOINTS_REVIEW_BUCKET"
+  ],
+  "authorization": {
+    "external_api_call_authorized": false,
+    "real_probe_execution_authorized": false,
+    "formal_ingestion_authorized": false,
+    "duckdb_write_authorized": false,
+    "official_dataset_materialization_authorized": false,
+    "synthetic_test_only": true
+  },
+  "future_probe_output_required_fields": [
+    "probe_id",
+    "source_registry_id",
+    "publisher_or_vendor",
+    "endpoint_or_export_name",
+    "endpoint_version",
+    "request_parameters",
+    "security_id",
+    "trading_date",
+    "retrieved_at",
+    "observed_at",
+    "source_snapshot_id",
+    "raw_response_sha256",
+    "row_count",
+    "has_raw_ohlcv",
+    "has_qfq_ohlc",
+    "has_hfq_ohlc",
+    "has_vendor_adjustment_factor",
+    "has_factor_as_of_time",
+    "has_revision_timestamp",
+    "raw_close",
+    "qfq_close",
+    "hfq_close",
+    "vendor_adjustment_factor",
+    "implied_qfq_factor",
+    "implied_hfq_factor",
+    "history_revision_class",
+    "research_use_tier",
+    "blocking_reason"
+  ],
+  "controlled_vocabularies": {
+    "history_revision_class": {
+      "allowed_values": [
+        "point_in_time_candidate",
+        "final_revised_history",
+        "unknown"
+      ],
+      "pre_review_allowed_values": [
+        "final_revised_history",
+        "unknown"
+      ]
+    },
+    "research_use_tier": {
+      "allowed_values": [
+        "exploration_only",
+        "candidate_cross_validation",
+        "formal_blocked",
+        "formal_candidate_after_review"
+      ],
+      "pre_review_allowed_values": [
+        "exploration_only",
+        "candidate_cross_validation",
+        "formal_blocked"
+      ]
+    }
+  },
+  "default_rules": {
+    "real_vendor_history_pre_review_revision_class": "final_revised_history_or_unknown",
+    "real_vendor_history_pre_review_research_use_tiers": [
+      "exploration_only",
+      "candidate_cross_validation",
+      "formal_blocked"
+    ],
+    "formal_candidate_after_review_requires_complete_evidence": true
+  },
+  "implied_factor_rule": {
+    "synthetic_implied_factor_tolerance_abs": 1e-8,
+    "synthetic_implied_factor_tolerance_rel": 1e-8,
+    "implied_qfq_factor_formula": "qfq_close / raw_close",
+    "implied_hfq_factor_formula": "hfq_close / raw_close",
+    "raw_close_must_be_positive": true,
+    "vendor_factor_missing_implied_factor_label": "candidate_implied_factor",
+    "implied_factor_not_vendor_official_factor": true,
+    "qfq_hfq_must_not_replace_raw_trading_fact": true
+  },
+  "blocking_conditions": [
+    "source_terms_pending_for_formal_ingestion",
+    "external_api_call_not_authorized_by_this_pr",
+    "missing_raw_snapshot",
+    "missing_raw_response_sha256",
+    "missing_retrieved_at",
+    "missing_observed_at",
+    "missing_source_snapshot_id",
+    "missing_raw_ohlcv",
+    "missing_qfq_or_hfq_coverage",
+    "missing_vendor_adjustment_factor",
+    "factor_as_of_time_missing",
+    "revision_timestamp_missing",
+    "history_revision_class_final_revised_or_unknown",
+    "formal_point_in_time_use_blocked",
+    "duckdb_write_attempted",
+    "formal_materialization_attempted"
+  ],
+  "prohibited_row_fields": [
+    "future_return",
+    "label",
+    "event_type",
+    "pcvt_state",
+    "gap_attribution"
+  ],
+  "formal_use_boundary": "Formal point-in-time use remains blocked until terms, source snapshots, raw response hashes, factor_as_of_time semantics, and repeated snapshot revision comparison are reviewed.",
+  "d3_boundary": "This D2-T06 contract-only probe does not authorize D3 daily_market_observations."
+}

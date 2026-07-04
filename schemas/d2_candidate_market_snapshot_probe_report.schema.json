@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_candidate_market_snapshot_probe_report.schema.json",
+  "title": "D2 Candidate Market Snapshot Probe Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "report_id", "task_id", "probe_status", "external_api_called", "real_probe_rows_generated", "raw_snapshot_read", "raw_snapshot_written", "data_external_read", "data_external_written", "duckdb_written", "official_dataset_materialized", "source_snapshot_manifest_created", "dataset_manifest_created", "run_manifest_created", "hithink_probe_authorized", "baostock_probe_authorized", "formal_ingestion_authorized", "exploration_use_policy", "formal_use_policy", "recommended_next_task", "d3_not_authorized_by_this_pr"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "report_id": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_REPORT_V1"},
+    "task_id": {"const": "D2-T06"},
+    "probe_status": {"const": "contract_only_not_executed"},
+    "external_api_called": {"const": false},
+    "real_probe_rows_generated": {"const": false},
+    "raw_snapshot_read": {"const": false},
+    "raw_snapshot_written": {"const": false},
+    "data_external_read": {"const": false},
+    "data_external_written": {"const": false},
+    "duckdb_written": {"const": false},
+    "official_dataset_materialized": {"const": false},
+    "source_snapshot_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "run_manifest_created": {"const": false},
+    "hithink_probe_authorized": {"const": false},
+    "baostock_probe_authorized": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "exploration_use_policy": {"const": "allowed_after_manual_probe_execution_with_final_revised_label"},
+    "formal_use_policy": {"const": "blocked_until_terms_asof_revision_snapshot_review"},
+    "recommended_next_task": {"const": "manual_or_separately_authorized_candidate_snapshot_probe_execution"},
+    "d3_not_authorized_by_this_pr": {"const": true}
+  }
+}
