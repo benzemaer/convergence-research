@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_csi800_static_membership_alignment_report.schema.json",
+  "title": "D2 CSI800 Static Membership Alignment Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_id",
+    "report_version",
+    "task_id",
+    "alignment_status",
+    "contract_id",
+    "alignment_artifact_id",
+    "source_membership_reference_id",
+    "member_count_expected",
+    "member_count_observed",
+    "unique_security_id_count",
+    "duplicate_primary_key_count",
+    "missing_required_field_count",
+    "non_csindex_source_count",
+    "historical_membership_claim_attempted",
+    "raw_evidence_read",
+    "data_external_read",
+    "duckdb_written",
+    "market_data_generated",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "next_task"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "report_id": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_REPORT_V1"
+    },
+    "report_version": {"const": "1.0.0"},
+    "task_id": {"const": "D2-T02"},
+    "alignment_status": {"const": "completed"},
+    "contract_id": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_CONTRACT_V1"
+    },
+    "alignment_artifact_id": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"
+    },
+    "source_membership_reference_id": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"
+    },
+    "member_count_expected": {"const": 800},
+    "member_count_observed": {"const": 800},
+    "unique_security_id_count": {"const": 800},
+    "duplicate_primary_key_count": {"const": 0},
+    "missing_required_field_count": {"const": 0},
+    "non_csindex_source_count": {"const": 0},
+    "historical_membership_claim_attempted": {"const": false},
+    "raw_evidence_read": {"const": false},
+    "data_external_read": {"const": false},
+    "duckdb_written": {"const": false},
+    "market_data_generated": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "next_task": {"const": "D2-T03"}
+  }
+}

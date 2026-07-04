@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_csi800_static_membership_alignment.schema.json",
+  "title": "D2 CSI800 Static Membership Alignment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_id",
+    "artifact_version",
+    "task_id",
+    "contract_id",
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "index_code",
+    "membership_effective_date",
+    "membership_mode",
+    "membership_source",
+    "source_registry_id",
+    "source_snapshot_id",
+    "run_id",
+    "member_count",
+    "historical_membership_claim_attempted",
+    "raw_evidence_read",
+    "data_external_read",
+    "duckdb_written",
+    "market_data_generated",
+    "run_manifest_created",
+    "dataset_manifest_created",
+    "rows"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "artifact_id": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"
+    },
+    "artifact_version": {"const": "1.0.0"},
+    "task_id": {"const": "D2-T02"},
+    "contract_id": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_CONTRACT_V1"
+    },
+    "data_version": {
+      "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"
+    },
+    "universe_id": {"const": "CSI800_STATIC_2026_06"},
+    "time_segment_id": {"const": "DR001_STATIC_BACKFILL_20160101_20260630"},
+    "index_code": {"const": "000906"},
+    "membership_effective_date": {"const": "2026-06-12"},
+    "membership_mode": {"const": "static_cohort"},
+    "membership_source": {
+      "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"
+    },
+    "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+    "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+    "run_id": {
+      "const": "D2_T02_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_BUILD_V1"
+    },
+    "member_count": {"const": 800},
+    "historical_membership_claim_attempted": {"const": false},
+    "raw_evidence_read": {"const": false},
+    "data_external_read": {"const": false},
+    "duckdb_written": {"const": false},
+    "market_data_generated": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "rows": {
+      "type": "array",
+      "minItems": 800,
+      "maxItems": 800,
+      "items": {"$ref": "#/$defs/alignment_row"}
+    }
+  },
+  "$defs": {
+    "alignment_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_version",
+        "universe_id",
+        "time_segment_id",
+        "security_id",
+        "index_code",
+        "membership_effective_date",
+        "membership_mode",
+        "membership_source",
+        "source_registry_id",
+        "source_snapshot_id",
+        "run_id"
+      ],
+      "properties": {
+        "data_version": {
+          "const": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1"
+        },
+        "universe_id": {"const": "CSI800_STATIC_2026_06"},
+        "time_segment_id": {"const": "DR001_STATIC_BACKFILL_20160101_20260630"},
+        "security_id": {"type": "string", "pattern": "^CN\\.(SSE|SZSE)\\.[0-9]{6}$"},
+        "index_code": {"const": "000906"},
+        "membership_effective_date": {"const": "2026-06-12"},
+        "membership_mode": {"const": "static_cohort"},
+        "membership_source": {
+          "const": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1"
+        },
+        "source_registry_id": {"const": "CSINDEX_OFFICIAL"},
+        "source_snapshot_id": {"const": "CSINDEX_000906_20260703T100909Z"},
+        "run_id": {
+          "const": "D2_T02_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_BUILD_V1"
+        }
+      }
+    }
+  }
+}

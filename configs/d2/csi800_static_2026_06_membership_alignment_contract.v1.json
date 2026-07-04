@@ -1,0 +1,100 @@
+{
+  "$schema": "../../schemas/d2_csi800_static_membership_alignment_contract.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "D2-T02",
+  "contract_id": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_CONTRACT_V1",
+  "contract_status": "accepted",
+  "depends_on": [
+    "D2_RAW_OHLCV_SOURCE_CONTRACT_V1",
+    "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1",
+    "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_COMPLETION_REPORT_V1",
+    "D0_DATA_PRODUCT_CONTRACTS_V1",
+    "DR-001"
+  ],
+  "target_table": "d2.membership_alignment",
+  "source_registry_id": "CSINDEX_OFFICIAL",
+  "source_snapshot_id": "CSINDEX_000906_20260703T100909Z",
+  "universe_id": "CSI800_STATIC_2026_06",
+  "index_code": "000906",
+  "membership_effective_date": "2026-06-12",
+  "membership_mode": "static_cohort",
+  "data_version": "D2_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_V1",
+  "time_segment_id": "DR001_STATIC_BACKFILL_20160101_20260630",
+  "run_id": "D2_T02_CSI800_STATIC_2026_06_MEMBERSHIP_ALIGNMENT_BUILD_V1",
+  "membership_source": "D1_T04_CSI800_STATIC_2026_06_MEMBERSHIP_REFERENCE_V1",
+  "required_fields": [
+    "data_version",
+    "universe_id",
+    "time_segment_id",
+    "security_id",
+    "index_code",
+    "membership_effective_date",
+    "membership_mode",
+    "membership_source",
+    "source_registry_id",
+    "source_snapshot_id",
+    "run_id"
+  ],
+  "primary_key": [
+    "data_version",
+    "universe_id",
+    "security_id",
+    "index_code",
+    "membership_effective_date"
+  ],
+  "source_boundary": {
+    "alignment_scope": "Static research cohort membership alignment only.",
+    "historical_membership_claim_allowed": false,
+    "market_price_source_allowed": false,
+    "corporate_action_source_allowed": false,
+    "trading_status_source_allowed": false,
+    "raw_evidence_read_allowed": false,
+    "data_external_read_allowed": false
+  },
+  "quality_checks": [
+    "schema_valid",
+    "row_count_is_800",
+    "required_fields_only",
+    "primary_key_unique",
+    "security_id_set_matches_d1_reference",
+    "source_registry_is_csindex",
+    "membership_mode_is_static_cohort",
+    "membership_effective_date_is_2026_06_12",
+    "no_historical_membership_claim"
+  ],
+  "blocking_conditions": [
+    "d1_membership_reference_not_completed",
+    "d1_completion_report_not_ready_for_d2",
+    "d2_t01_contract_not_accepted",
+    "non_required_alignment_field_present",
+    "security_id_set_mismatch",
+    "duplicate_primary_key",
+    "non_csindex_source",
+    "historical_membership_claim_attempted",
+    "raw_evidence_read_attempted",
+    "data_external_read_attempted",
+    "duckdb_write_attempted",
+    "market_data_generation_attempted"
+  ],
+  "implementation_exclusions": [
+    "no_raw_evidence_read",
+    "no_data_external_read",
+    "no_external_api_call",
+    "no_marketdb_read",
+    "no_tdx_day_file_read",
+    "no_market_data_collection",
+    "no_duckdb_write",
+    "no_run_manifest_generation",
+    "no_dataset_manifest_generation",
+    "no_source_snapshot_manifest_generation",
+    "no_raw_price_generation",
+    "no_adjusted_price_generation",
+    "no_gap_attribution",
+    "no_pcvt_state_event_label_return_or_backtest"
+  ],
+  "downstream_boundary": {
+    "next_task": "D2-T03",
+    "allowed_use": "D3 membership reference input after D2 stage gates.",
+    "prohibited_use": "Do not use as market data, corporate action data, trading status data, or historical point-in-time index membership."
+  }
+}
