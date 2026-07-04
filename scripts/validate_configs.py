@@ -101,6 +101,10 @@ CONFIGS = (
         ROOT / "schemas/d3_component_lineage_no_bypass_contract.schema.json",
         ROOT / "configs/d3/component_lineage_no_bypass_contract.v1.json",
     ),
+    (
+        ROOT / "schemas/d3_quality_readiness_contract.schema.json",
+        ROOT / "configs/d3/quality_readiness_contract.v1.json",
+    ),
 )
 
 

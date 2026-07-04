@@ -18,8 +18,8 @@
 
 ```text
 current_stage: D3
-current_task: D3-T03
-next_planned_task: D3-T04
+current_task: D3-T04
+next_planned_task: D3-T05
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -137,8 +137,8 @@ R0 交接仍未授权。
 
 - `D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35
 - `D3-T02` D3 标准数值观测 view/table 契约：completed via PR #36
-- `D3-T03` 组件引用、source lineage 与 no-bypass 校验器：in_progress
-- `D3-T04` 基础质量指标与 PCVT input readiness 契约：planned
+- `D3-T03` 组件引用、source lineage 与 no-bypass 校验器：completed via PR #37
+- `D3-T04` 基础质量指标与 PCVT input readiness 契约：in_progress
 - `D3-T05` 标准日频观测合成构建与最小集成测试：planned
 - `D3-T06` `data_version`、quality report 与 manifest 发布门禁：planned
 - `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布：blocked pending D2 formal materialization
