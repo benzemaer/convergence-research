@@ -103,6 +103,21 @@ R0 must not read：
 
 当前 R0 仍 blocked，直到 D3 contract 和后续 D3 `data_version` gates accepted。
 
+## 阻塞条件 / 失败状态
+
+- formal ingestion 未授权。
+- D3-T02 不授权 DuckDB write、DDL、真实数据物化或 `data_version` release。
+- D2 formal materialization 未完成前，D3-T07 仍 blocked。
+- `daily_vwap` 缺少 amount/volume unit validation 或 DailyVWAP range check 时不得进入
+  formal-ready。
+- `factor_as_of_time` 缺失或 revision semantics 未验证时 continuous price formal use
+  blocked。
+- unknown `trading_status` / `price_limit_status` / boolean flags 不得静默转 normal /
+  none / false。
+- 若 contract、schema、tests、README 或 config validation 未通过，本 PR 失败。
+- 若 PR 引入真实数据读取、DuckDB 写入、DDL、manifest、`data_version`、PCVT values、
+  future labels、backtest 或 formal source promotion，本 PR 失败并应回退。
+
 ## 验收标准
 
 - contract JSON 通过 JSON Schema。
