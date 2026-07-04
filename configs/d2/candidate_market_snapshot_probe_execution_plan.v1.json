@@ -1,0 +1,60 @@
+{
+  "$schema": "../../schemas/d2_candidate_market_snapshot_probe_execution_plan.schema.json",
+  "config_version": "1.0.0",
+  "plan_id": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_PLAN_V1",
+  "task_id": "D2-T06",
+  "depends_on": [
+    "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_CONTRACT_V1"
+  ],
+  "execution_mode": "small_sample_probe",
+  "default_mode": "dry_run",
+  "formal_ingestion_authorized": false,
+  "official_dataset_materialization_authorized": false,
+  "duckdb_write_authorized": false,
+  "raw_data_commit_authorized": false,
+  "row_level_price_commit_authorized": false,
+  "candidate_sources": [
+    "BAOSTOCK"
+  ],
+  "hithink_execution_authorized": false,
+  "sample_security_ids": [
+    "CN.SSE.600519",
+    "CN.SZSE.000001",
+    "CN.SSE.600000"
+  ],
+  "sample_date_start": "2024-12-16",
+  "sample_date_end": "2024-12-31",
+  "max_security_count": 3,
+  "max_trading_day_count": 15,
+  "adjustment_modes_requested": [
+    "raw",
+    "qfq",
+    "hfq"
+  ],
+  "baostock_adjustment_flag_mapping": {
+    "raw": "3",
+    "qfq": "2",
+    "hfq": "1",
+    "mapping_status": "candidate_mapping_requires_probe_confirmation"
+  },
+  "required_probe_checks": [
+    "raw_ohlcv_coverage",
+    "qfq_coverage",
+    "hfq_coverage",
+    "vendor_adjustment_factor_coverage",
+    "implied_qfq_factor_consistency",
+    "implied_hfq_factor_consistency",
+    "retrieved_at_present",
+    "observed_at_present",
+    "source_snapshot_id_present",
+    "raw_response_sha256_present",
+    "history_revision_class_assigned",
+    "research_use_tier_assigned"
+  ],
+  "raw_output_root": "data/raw/d2_t06_candidate_probe",
+  "committed_report_path": "configs/d2/candidate_market_snapshot_probe_execution_report.v1.json",
+  "redaction_policy": "no_row_level_prices_committed",
+  "history_revision_class_default": "final_revised_history",
+  "research_use_tier_default": "exploration_only",
+  "formal_use_policy": "blocked_until_terms_asof_revision_snapshot_review"
+}

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_candidate_market_snapshot_probe_execution_report.schema.json",
+  "title": "D2 Candidate Market Snapshot Probe Execution Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "report_id", "task_id", "execution_status", "source_registry_id", "sample_security_count", "sample_trading_day_window", "raw_snapshot_written_local", "raw_snapshot_committed", "data_external_committed", "duckdb_written", "official_dataset_materialized", "formal_ingestion_authorized", "d1_raw_market_prices_generated", "d2_adjusted_market_prices_generated", "d3_daily_observations_generated", "run_manifest_created", "dataset_manifest_created", "source_snapshot_manifest_created", "redacted_report_only", "raw_response_sha256_count", "source_snapshot_id_count", "retrieved_at_min", "retrieved_at_max", "field_coverage_summary", "raw_ohlcv_coverage", "qfq_coverage", "hfq_coverage", "vendor_adjustment_factor_coverage", "factor_as_of_time_coverage", "revision_timestamp_coverage", "implied_qfq_factor_check", "implied_hfq_factor_check", "history_revision_class", "research_use_tier", "formal_use_blocking_reasons", "recommended_next_decision"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "report_id": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_REPORT_V1"},
+    "task_id": {"const": "D2-T06"},
+    "execution_status": {"enum": ["executed_small_sample", "not_executed_environment_blocked"]},
+    "source_registry_id": {"const": "BAOSTOCK"},
+    "sample_security_count": {"type": "integer", "minimum": 0, "maximum": 3},
+    "sample_trading_day_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "max_trading_day_count"],
+      "properties": {
+        "start": {"const": "2024-12-16"},
+        "end": {"const": "2024-12-31"},
+        "max_trading_day_count": {"const": 15}
+      }
+    },
+    "raw_snapshot_written_local": {"type": "boolean"},
+    "raw_snapshot_committed": {"const": false},
+    "data_external_committed": {"const": false},
+    "duckdb_written": {"const": false},
+    "official_dataset_materialized": {"const": false},
+    "formal_ingestion_authorized": {"const": false},
+    "d1_raw_market_prices_generated": {"const": false},
+    "d2_adjusted_market_prices_generated": {"const": false},
+    "d3_daily_observations_generated": {"const": false},
+    "run_manifest_created": {"const": false},
+    "dataset_manifest_created": {"const": false},
+    "source_snapshot_manifest_created": {"const": false},
+    "redacted_report_only": {"const": true},
+    "raw_response_sha256_count": {"type": "integer", "minimum": 0},
+    "source_snapshot_id_count": {"type": "integer", "minimum": 0},
+    "retrieved_at_min": {"type": ["string", "null"]},
+    "retrieved_at_max": {"type": ["string", "null"]},
+    "field_coverage_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "row_level_prices_committed", "formal_point_in_time_supported"],
+      "properties": {
+        "status": {"enum": ["executed_small_sample", "not_executed_environment_blocked"]},
+        "row_level_prices_committed": {"const": false},
+        "formal_point_in_time_supported": {"const": false}
+      }
+    },
+    "raw_ohlcv_coverage": {"enum": ["pass", "fail", "not_executed"]},
+    "qfq_coverage": {"enum": ["pass", "fail", "not_executed"]},
+    "hfq_coverage": {"enum": ["pass", "fail", "not_executed"]},
+    "vendor_adjustment_factor_coverage": {"enum": ["pass", "fail", "not_executed"]},
+    "factor_as_of_time_coverage": {"enum": ["pass", "fail", "not_executed"]},
+    "revision_timestamp_coverage": {"enum": ["pass", "fail", "not_executed"]},
+    "implied_qfq_factor_check": {"$ref": "#/$defs/factor_check"},
+    "implied_hfq_factor_check": {"$ref": "#/$defs/factor_check"},
+    "history_revision_class": {"enum": ["final_revised_history", "unknown"]},
+    "research_use_tier": {"const": "exploration_only"},
+    "formal_use_blocking_reasons": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "recommended_next_decision": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "factor_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checked_count", "mismatch_count"],
+      "properties": {
+        "status": {"enum": ["pass", "fail", "not_executed"]},
+        "checked_count": {"type": "integer", "minimum": 0},
+        "mismatch_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

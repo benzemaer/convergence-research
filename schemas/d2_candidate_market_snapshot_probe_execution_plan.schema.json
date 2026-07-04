@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/d2_candidate_market_snapshot_probe_execution_plan.schema.json",
+  "title": "D2 Candidate Market Snapshot Probe Execution Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["config_version", "plan_id", "task_id", "depends_on", "execution_mode", "default_mode", "formal_ingestion_authorized", "official_dataset_materialization_authorized", "duckdb_write_authorized", "raw_data_commit_authorized", "row_level_price_commit_authorized", "candidate_sources", "hithink_execution_authorized", "sample_security_ids", "sample_date_start", "sample_date_end", "max_security_count", "max_trading_day_count", "adjustment_modes_requested", "baostock_adjustment_flag_mapping", "required_probe_checks", "raw_output_root", "committed_report_path", "redaction_policy", "history_revision_class_default", "research_use_tier_default", "formal_use_policy"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "plan_id": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_EXECUTION_PLAN_V1"},
+    "task_id": {"const": "D2-T06"},
+    "depends_on": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "contains": {"const": "D2_CANDIDATE_MARKET_SNAPSHOT_PROBE_CONTRACT_V1"}
+    },
+    "execution_mode": {"const": "small_sample_probe"},
+    "default_mode": {"const": "dry_run"},
+    "formal_ingestion_authorized": {"const": false},
+    "official_dataset_materialization_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "raw_data_commit_authorized": {"const": false},
+    "row_level_price_commit_authorized": {"const": false},
+    "candidate_sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {"const": "BAOSTOCK"},
+      "contains": {"const": "BAOSTOCK"}
+    },
+    "hithink_execution_authorized": {"const": false},
+    "sample_security_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["CN.SSE.600519", "CN.SZSE.000001", "CN.SSE.600000"]}
+    },
+    "sample_date_start": {"const": "2024-12-16"},
+    "sample_date_end": {"const": "2024-12-31"},
+    "max_security_count": {"const": 3},
+    "max_trading_day_count": {"const": 15},
+    "adjustment_modes_requested": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["raw", "qfq", "hfq"]},
+      "allOf": [
+        {"contains": {"const": "raw"}},
+        {"contains": {"const": "qfq"}},
+        {"contains": {"const": "hfq"}}
+      ]
+    },
+    "baostock_adjustment_flag_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw", "qfq", "hfq", "mapping_status"],
+      "properties": {
+        "raw": {"const": "3"},
+        "qfq": {"const": "2"},
+        "hfq": {"const": "1"},
+        "mapping_status": {"const": "candidate_mapping_requires_probe_confirmation"}
+      }
+    },
+    "required_probe_checks": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1},
+      "allOf": [
+        {"contains": {"const": "raw_ohlcv_coverage"}},
+        {"contains": {"const": "qfq_coverage"}},
+        {"contains": {"const": "hfq_coverage"}},
+        {"contains": {"const": "vendor_adjustment_factor_coverage"}},
+        {"contains": {"const": "implied_qfq_factor_consistency"}},
+        {"contains": {"const": "implied_hfq_factor_consistency"}},
+        {"contains": {"const": "retrieved_at_present"}},
+        {"contains": {"const": "observed_at_present"}},
+        {"contains": {"const": "source_snapshot_id_present"}},
+        {"contains": {"const": "raw_response_sha256_present"}},
+        {"contains": {"const": "history_revision_class_assigned"}},
+        {"contains": {"const": "research_use_tier_assigned"}}
+      ]
+    },
+    "raw_output_root": {"const": "data/raw/d2_t06_candidate_probe"},
+    "committed_report_path": {"const": "configs/d2/candidate_market_snapshot_probe_execution_report.v1.json"},
+    "redaction_policy": {"const": "no_row_level_prices_committed"},
+    "history_revision_class_default": {"const": "final_revised_history"},
+    "research_use_tier_default": {"const": "exploration_only"},
+    "formal_use_policy": {"const": "blocked_until_terms_asof_revision_snapshot_review"}
+  }
+}
