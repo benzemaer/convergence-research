@@ -149,13 +149,7 @@ def validate_d3_release_gate_payload(
     if release_decision != contract["current_formal_release_decision"]:
         errors.append("release_decision must be formal_release_blocked for D3-T06")
 
-    for gate in [
-        "d2_formal_materialization_gate",
-        "source_authorization_gate",
-        "factor_as_of_time_coverage_gate",
-        "revision_timestamp_coverage_gate",
-        "r0_release_gate",
-    ]:
+    for gate in contract["current_blocking_gates"]:
         if release_gate_results.get(gate) == "passed":
             errors.append(f"{gate} must not be passed in D3-T06")
 

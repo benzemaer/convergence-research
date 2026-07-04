@@ -165,6 +165,10 @@ class D3DataVersionQualityManifestGateContractTest(unittest.TestCase):
                 "r0_release_gate": "blocked",
             },
         )
+        self.assertLessEqual(
+            set(self.contract["current_blocking_gates"]),
+            gate_ids,
+        )
 
     def test_prohibited_fields_and_forbidden_path_policy_are_complete(self) -> None:
         self.assertGreaterEqual(

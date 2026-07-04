@@ -158,13 +158,7 @@ class ValidateD3ReleaseGateTest(unittest.TestCase):
         self.assertIn("D3-T06 cannot allow formal release", errors)
 
     def test_current_hard_blocking_gates_cannot_pass(self) -> None:
-        for gate in [
-            "d2_formal_materialization_gate",
-            "source_authorization_gate",
-            "factor_as_of_time_coverage_gate",
-            "revision_timestamp_coverage_gate",
-            "r0_release_gate",
-        ]:
+        for gate in self.contract["current_blocking_gates"]:
             payload = self.valid_payload()
             payload["release_gate_results"][gate] = "passed"
             self.assertIn(f"{gate} must not be passed", self.errors(payload))
