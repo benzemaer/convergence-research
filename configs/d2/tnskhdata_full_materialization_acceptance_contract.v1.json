@@ -8,6 +8,13 @@
   "date_boundary_source": "docs/decisions/DR-001_G0静态中证800样本与时间边界.md",
   "start_date": "20160101",
   "end_date": "20260630",
+  "canonical_fetch_date_domain": "calendar",
+  "date_domain_source": "DR-001",
+  "closed_calendar_interval": true,
+  "security_universe_source": "CSI800_STATIC_2026_06 membership / security mapping",
+  "security_universe_artifact": "configs/d2/csi800_static_2026_06_membership_alignment.v1.json",
+  "d2_t09_candidate_raw_market_prices_status": "superseded_diagnostic_input_only",
+  "d2_t09_candidate_raw_market_prices_defines_date_domain": false,
   "depends_on": [
     "D2_TNSKHDATA_SOURCE_LEVEL_ASOF_SNAPSHOT_REVISION_POLICY_V1",
     "D2_TNSKHDATA_TUSHARE_HITHINK_PROVIDER_REMEDIATION_CONTRACT_V1"
@@ -51,6 +58,7 @@
     "tnskhdata_source_status_candidate.jsonl",
     "tnskhdata_factor_evidence_candidate.jsonl",
     "tnskhdata_adjusted_price_candidate.jsonl",
+    "tnskhdata_date_domain_audit_report.json",
     "tnskhdata_quality_report.json",
     "tnskhdata_reconciliation_report.json",
     "tnskhdata_d2_acceptance_candidate_report.json",

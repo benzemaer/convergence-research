@@ -26,6 +26,12 @@ The provider fetch window follows DR-001:
 }
 ```
 
+D2-T09 `candidate_raw_market_prices.parquet` is superseded diagnostic input
+only. It is a HiThink candidate diagnostic output with a blocking flag and must
+not define the D2-T13 canonical fetch date domain. D2-T13 owns tnskhdata
+calendar-domain materialization from DR-001 and the formal
+`CSI800_STATIC_2026_06` membership/security mapping artifact.
+
 ## Source Decision
 
 ```json
@@ -69,14 +75,12 @@ Endpoint staging is no longer loaded into memory as whole endpoint lists during
 the fetch stage. Partitioned assembly is allowed after fetch completeness passes,
 but D2 acceptance remains blocked until provider coverage and quality gates pass.
 
-The no-remote verification/finalize command was executed after the endpoint
-fetch rerun with `fetch_date_domain = candidate`. Partition counts are complete
-for every candidate-date endpoint and all JSONL partitions are parseable, so
-`fetch_completeness_decision = complete`. Verification found 35 open-date
-zero-row primary partitions; these are classified as
-`unexpected_empty_primary_partitions`, not malformed partitions. Provider
-coverage therefore remains blocked. No sample run result is used as D2
-acceptance evidence.
+The no-remote verification/finalize command was rerun with
+`fetch_date_domain = calendar`, the formal D2-T02 membership/security universe,
+and the D2-T09 parquet passed only as `candidate_price_artifact` for date-domain
+audit. D2-T09 candidate-domain partitions are not accepted D2-T13 evidence. The
+calendar-domain verify remains incomplete because the local staging directory
+does not yet contain the full DR-001 calendar endpoint partition set.
 
 ```json
 {
@@ -98,21 +102,31 @@ acceptance evidence.
   "verify_fetch_only_executed": true,
   "assemble_only_executed": false,
   "finalize_only_executed": true,
-  "fetch_date_domain": "candidate",
-  "default_fetch_date_domain": "calendar",
+  "fetch_date_domain": "calendar",
+  "canonical_fetch_date_domain": "calendar",
+  "date_domain_source": "DR-001",
+  "dr001_start_date": "20160101",
+  "dr001_end_date": "20260630",
+  "closed_calendar_interval": true,
+  "security_universe_source": "CSI800_STATIC_2026_06 membership / security mapping",
+  "candidate_price_artifact_date_min": "20160703",
+  "candidate_price_artifact_date_max": "20260702",
+  "candidate_price_artifact_superseded": true,
+  "candidate_price_artifact_date_domain_ignored": true,
+  "d2_t09_candidate_raw_market_prices_is_superseded_diagnostic_input_only": true,
   "trade_cal_used_as_fetch_task_cutter_by_default": false,
-  "fetch_completeness_decision": "complete",
+  "fetch_completeness_decision": "incomplete",
   "provider_coverage_decision": "blocked_pending_provider_coverage",
   "candidate_artifact_output_dir": "data/generated/d2/d2_t13_tnskhdata_full_candidate/",
-  "candidate_universe_row_count": 1671919,
-  "mapped_row_count": null,
+  "candidate_universe_row_count": 3067200,
+  "mapped_row_count": 3067200,
   "unmapped_row_count": null,
   "daily_raw_row_count": null,
   "source_status_row_count": null,
   "factor_evidence_row_count": null,
   "adjusted_price_row_count": null,
   "security_count": 800,
-  "trading_date_min": "20160703",
+  "trading_date_min": "20160101",
   "trading_date_max": "20260630",
   "missing_daily_count": null,
   "missing_stk_limit_count": null,
@@ -159,19 +173,21 @@ acceptance evidence.
     "legacy_checkpoint_completed_trade_dates": 111
   },
   "failed_task_counts": {},
+  "expected_trade_date_count": 3834,
   "endpoint_partition_counts": {
-    "daily": 2426,
-    "stk_limit": 2426,
-    "adj_factor": 2426,
-    "stock_st": 2426,
-    "suspend_d": 2426
+    "daily": 0,
+    "stk_limit": 0,
+    "adj_factor": 0,
+    "stock_st": 0,
+    "suspend_d": 0
   },
-  "partition_missing_count": 0,
+  "partition_missing_count": 19175,
   "partition_malformed_count": 0,
   "provider_empty_count": 0,
-  "expected_empty_count": 1541,
-  "allowed_empty_count": 1093,
-  "unexpected_empty_primary_partition_count": 35,
+  "expected_empty_count": 0,
+  "allowed_empty_count": 0,
+  "unexpected_empty_primary_partition_count": 0,
+  "superseded_candidate_domain_unexpected_empty_primary_partition_count": 35,
   "unexpected_empty_primary_partition_by_endpoint": {
     "daily": 12,
     "stk_limit": 12,

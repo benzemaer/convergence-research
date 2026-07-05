@@ -29,6 +29,12 @@ class D2T13TnskhdataFullMaterializationContractTest(unittest.TestCase):
         self.assertEqual(self.contract["primary_source"], "tnskhdata")
         self.assertEqual(self.contract["start_date"], "20160101")
         self.assertEqual(self.contract["end_date"], "20260630")
+        self.assertEqual(self.contract["canonical_fetch_date_domain"], "calendar")
+        self.assertEqual(self.contract["date_domain_source"], "DR-001")
+        self.assertTrue(self.contract["closed_calendar_interval"])
+        self.assertFalse(
+            self.contract["d2_t09_candidate_raw_market_prices_defines_date_domain"]
+        )
 
     def test_generation_flags_stay_false(self) -> None:
         self.assertFalse(self.contract["duckdb_write_authorized"])
@@ -60,6 +66,22 @@ class D2T13TnskhdataFullMaterializationContractTest(unittest.TestCase):
 
         changed = copy.deepcopy(self.contract)
         changed["max_requests_per_minute"] = 1000
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+    def test_schema_rejects_candidate_price_artifact_as_date_domain(self) -> None:
+        changed = copy.deepcopy(self.contract)
+        changed["date_domain_source"] = "D2_T09_candidate_raw_market_prices"
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["canonical_fetch_date_domain"] = "candidate"
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
+        changed["d2_t09_candidate_raw_market_prices_defines_date_domain"] = True
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)
 

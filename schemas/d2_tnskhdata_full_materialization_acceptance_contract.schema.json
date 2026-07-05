@@ -13,6 +13,13 @@
     "date_boundary_source",
     "start_date",
     "end_date",
+    "canonical_fetch_date_domain",
+    "date_domain_source",
+    "closed_calendar_interval",
+    "security_universe_source",
+    "security_universe_artifact",
+    "d2_t09_candidate_raw_market_prices_status",
+    "d2_t09_candidate_raw_market_prices_defines_date_domain",
     "depends_on",
     "formal_source_acceptance_authorized",
     "duckdb_write_authorized",
@@ -47,6 +54,13 @@
     "date_boundary_source": {"const": "docs/decisions/DR-001_G0静态中证800样本与时间边界.md"},
     "start_date": {"const": "20160101"},
     "end_date": {"const": "20260630"},
+    "canonical_fetch_date_domain": {"const": "calendar"},
+    "date_domain_source": {"const": "DR-001"},
+    "closed_calendar_interval": {"const": true},
+    "security_universe_source": {"const": "CSI800_STATIC_2026_06 membership / security mapping"},
+    "security_universe_artifact": {"const": "configs/d2/csi800_static_2026_06_membership_alignment.v1.json"},
+    "d2_t09_candidate_raw_market_prices_status": {"const": "superseded_diagnostic_input_only"},
+    "d2_t09_candidate_raw_market_prices_defines_date_domain": {"const": false},
     "depends_on": {
       "allOf": [
         {"$ref": "#/$defs/strings"},
@@ -96,6 +110,7 @@
         {"contains": {"const": "tnskhdata_source_status_candidate.jsonl"}},
         {"contains": {"const": "tnskhdata_factor_evidence_candidate.jsonl"}},
         {"contains": {"const": "tnskhdata_adjusted_price_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_date_domain_audit_report.json"}},
         {"contains": {"const": "tnskhdata_quality_report.json"}},
         {"contains": {"const": "tnskhdata_candidate_file_hash_summary.json"}}
       ]

@@ -126,7 +126,7 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
                 contract=CONTRACT,
                 candidate_universe=self._candidate_path(tmp),
                 output_dir=tmp / "generated",
-                start_date="20160101",
+                start_date="20260630",
                 end_date="20260630",
                 enable_remote_fetch=False,
                 client=CompleteFakeClient(),
@@ -153,7 +153,7 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
                 contract=CONTRACT,
                 candidate_universe=self._candidate_path(tmp),
                 output_dir=tmp / "generated",
-                start_date="20160101",
+                start_date="20260630",
                 end_date="20260630",
                 enable_remote_fetch=False,
                 client=ProBarFailingFakeClient(),
@@ -189,6 +189,9 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
             full=True,
             sample_securities=None,
             sample_dates_per_security=None,
+            start_date="20260630",
+            end_date="20260630",
+            fetch_date_domain="calendar",
         )
         evidence = {
             "stock_basic": [{"ts_code": "000001.SZ", "list_date": "20100101"}],
@@ -248,7 +251,13 @@ class D2T13TnskhdataAcceptanceGateTest(unittest.TestCase):
             },
         ]
         plan = build_fetch_plan(
-            rows, full=True, sample_securities=None, sample_dates_per_security=None
+            rows,
+            full=True,
+            sample_securities=None,
+            sample_dates_per_security=None,
+            start_date="20260630",
+            end_date="20260630",
+            fetch_date_domain="calendar",
         )
         evidence = {
             "stock_basic": [{"ts_code": "000001.SZ", "list_date": "20100101"}],

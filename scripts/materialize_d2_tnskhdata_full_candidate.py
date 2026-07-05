@@ -32,9 +32,13 @@ DEFAULT_CONTRACT = (
     ROOT / "configs/d2/tnskhdata_full_materialization_acceptance_contract.v1.json"
 )
 DEFAULT_OUTPUT_DIR = ROOT / "data/generated/d2/d2_t13_tnskhdata_full_candidate"
+DEFAULT_SECURITY_UNIVERSE = (
+    ROOT / "configs/d2/csi800_static_2026_06_membership_alignment.v1.json"
+)
 DEFAULT_START_DATE = "20160101"
 DEFAULT_END_DATE = "20260630"
 UNIVERSE_COLUMNS = ["security_id", "trading_date", "universe_id", "time_segment_id"]
+SECURITY_UNIVERSE_COLUMNS = ["security_id", "universe_id", "time_segment_id"]
 OUTPUT_NAMES = [
     "tnskhdata_stock_basic_candidate.jsonl",
     "tnskhdata_trade_calendar_candidate.jsonl",
@@ -47,6 +51,7 @@ OUTPUT_NAMES = [
     "tnskhdata_factor_evidence_candidate.jsonl",
     "tnskhdata_adjusted_price_candidate.jsonl",
     "tnskhdata_fetch_verification_report.json",
+    "tnskhdata_date_domain_audit_report.json",
     "tnskhdata_quality_report.json",
     "tnskhdata_reconciliation_report.json",
     "tnskhdata_d2_acceptance_candidate_report.json",
@@ -392,9 +397,7 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-def _load_candidate_universe(
-    path: Path, start_date: str, end_date: str
-) -> list[dict[str, Any]]:
+def _load_candidate_universe(path: Path) -> list[dict[str, Any]]:
     if path.suffix.lower() == ".parquet":
         import pandas as pd
 
@@ -408,16 +411,111 @@ def _load_candidate_universe(
         if any(field not in row for field in UNIVERSE_COLUMNS):
             raise D2T13MaterializationError("candidate universe row missing fields")
         trading_date = _date_yyyymmdd(row["trading_date"])
-        if start_date <= trading_date <= end_date:
-            output.append(
-                {
-                    "security_id": str(row["security_id"]),
-                    "trading_date": trading_date,
-                    "universe_id": str(row["universe_id"]),
-                    "time_segment_id": str(row["time_segment_id"]),
-                }
-            )
+        output.append(
+            {
+                "security_id": str(row["security_id"]),
+                "trading_date": trading_date,
+                "universe_id": str(row["universe_id"]),
+                "time_segment_id": str(row["time_segment_id"]),
+            }
+        )
     return output
+
+
+def _load_security_universe(path: Path) -> list[dict[str, Any]]:
+    if path.suffix.lower() == ".parquet":
+        import pandas as pd
+
+        frame = pd.read_parquet(path, columns=SECURITY_UNIVERSE_COLUMNS)
+        rows = [dict(row) for row in frame.to_dict("records")]
+    else:
+        payload = _load_json(path)
+        rows = payload.get("rows", payload) if isinstance(payload, dict) else payload
+    output: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        if any(field not in row for field in SECURITY_UNIVERSE_COLUMNS):
+            raise D2T13MaterializationError("security universe row missing fields")
+        security_id = str(row["security_id"])
+        if security_id in seen:
+            continue
+        seen.add(security_id)
+        output.append(
+            {
+                "security_id": security_id,
+                "universe_id": str(row["universe_id"]),
+                "time_segment_id": str(row["time_segment_id"]),
+            }
+        )
+    return output
+
+
+def _candidate_price_artifact_audit(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {
+            "candidate_price_artifact_provided": False,
+            "candidate_price_artifact_date_min": None,
+            "candidate_price_artifact_date_max": None,
+            "candidate_price_artifact_superseded": True,
+            "candidate_price_artifact_date_domain_ignored": True,
+        }
+    if path.suffix.lower() == ".parquet":
+        import pandas as pd
+
+        frame = pd.read_parquet(path, columns=UNIVERSE_COLUMNS)
+        dates = frame["trading_date"].map(_date_yyyymmdd)
+        row_count = int(len(frame))
+        security_count = int(frame["security_id"].nunique())
+        date_min = min(dates, default=None)
+        date_max = max(dates, default=None)
+    else:
+        rows = _load_candidate_universe(path)
+        dates = [row["trading_date"] for row in rows]
+        row_count = len(rows)
+        security_count = len({row["security_id"] for row in rows})
+        date_min = min(dates, default=None)
+        date_max = max(dates, default=None)
+    return {
+        "candidate_price_artifact_provided": True,
+        "candidate_price_artifact_path_redacted": (
+            "data/generated/d2/d2_t09_candidate_raw_market_prices/"
+            "candidate_raw_market_prices.parquet"
+            if "d2_t09_candidate_raw_market_prices" in str(path).lower()
+            else path.name
+        ),
+        "candidate_price_artifact_date_min": date_min,
+        "candidate_price_artifact_date_max": date_max,
+        "candidate_price_artifact_superseded": True,
+        "candidate_price_artifact_date_domain_ignored": True,
+        "candidate_price_artifact_security_count": security_count,
+        "candidate_price_artifact_row_count": row_count,
+    }
+
+
+def build_date_domain_audit_report(
+    *,
+    contract: dict[str, Any],
+    security_universe_path: Path,
+    candidate_price_artifact: Path | None,
+    fetch_date_domain: str,
+) -> dict[str, Any]:
+    candidate_audit = _candidate_price_artifact_audit(candidate_price_artifact)
+    return {
+        "dr001_start_date": contract["start_date"],
+        "dr001_end_date": contract["end_date"],
+        "canonical_fetch_date_domain": "calendar",
+        "date_domain_source": "DR-001",
+        "requested_fetch_date_domain": fetch_date_domain,
+        "security_universe_source": (
+            "CSI800_STATIC_2026_06 membership / security mapping"
+        ),
+        "security_universe_path": str(security_universe_path).replace("\\", "/"),
+        "d2_t09_candidate_raw_market_prices_is_superseded_diagnostic_input_only": True,
+        (
+            "d2_t09_candidate_raw_market_prices_must_not_define_canonical_fetch_domain"
+        ): True,
+        **candidate_audit,
+    }
 
 
 def build_fetch_plan(
@@ -433,15 +531,44 @@ def build_fetch_plan(
 ) -> FetchPlan:
     if fetch_date_domain not in {"calendar", "candidate", "trade-cal-open"}:
         raise D2T13MaterializationError("unsupported fetch_date_domain")
-    mapped_rows = []
+    if fetch_date_domain == "calendar":
+        trade_dates = _calendar_dates(start_date, end_date)
+    elif fetch_date_domain == "candidate":
+        trade_dates = sorted({_date_yyyymmdd(row["trading_date"]) for row in rows})
+    else:
+        if trade_cal_open_dates is None:
+            raise D2T13MaterializationError(
+                "trade-cal-open fetch_date_domain requires explicit open dates"
+            )
+        trade_dates = sorted({_date_yyyymmdd(date) for date in trade_cal_open_dates})
+    security_rows: list[dict[str, Any]] = []
+    seen_security_ids: set[str] = set()
     for row in rows:
+        base = {
+            "security_id": str(row["security_id"]),
+            "universe_id": str(row["universe_id"]),
+            "time_segment_id": str(row["time_segment_id"]),
+        }
+        if base["security_id"] in seen_security_ids:
+            continue
+        seen_security_ids.add(base["security_id"])
+        security_rows.append(base)
+    mapped_securities: list[dict[str, Any]] = []
+    for row in security_rows:
         mapping = resolve_security_provider_codes(row["security_id"])
         if mapping.mapping_status != "resolved":
-            mapped_rows.append({**row, "ts_code": None, "mapping_status": "unresolved"})
+            mapped_securities.append(
+                {**row, "ts_code": None, "mapping_status": "unresolved"}
+            )
             continue
-        mapped_rows.append(
+        mapped_securities.append(
             {**row, "ts_code": mapping.tnskhdata_ts_code, "mapping_status": "resolved"}
         )
+    mapped_rows = [
+        {**security, "trading_date": trade_date}
+        for security in mapped_securities
+        for trade_date in trade_dates
+    ]
     if not full:
         by_security: dict[str, list[dict[str, Any]]] = {}
         for row in mapped_rows:
@@ -454,21 +581,10 @@ def build_fetch_plan(
             )
             sampled.extend(dates[-(sample_dates_per_security or 5) :])
         mapped_rows = sampled
-    candidate_dates = sorted({row["trading_date"] for row in mapped_rows})
-    if fetch_date_domain == "calendar":
-        trade_dates = _calendar_dates(start_date, end_date)
-    elif fetch_date_domain == "candidate":
-        trade_dates = candidate_dates
-    else:
-        if trade_cal_open_dates is None:
-            raise D2T13MaterializationError(
-                "trade-cal-open fetch_date_domain requires explicit open dates"
-            )
-        trade_dates = sorted({_date_yyyymmdd(date) for date in trade_cal_open_dates})
     return FetchPlan(
         rows=mapped_rows,
         ts_codes=sorted({row["ts_code"] for row in mapped_rows if row.get("ts_code")}),
-        trade_dates=trade_dates,
+        trade_dates=sorted({row["trading_date"] for row in mapped_rows}),
         mode="full" if full else "sample",
         fetch_date_domain=fetch_date_domain,
     )
@@ -1285,6 +1401,15 @@ def build_quality_report(
     return {
         "run_mode": plan.mode,
         "sample_mode": plan.mode != "full",
+        "fetch_date_domain": plan.fetch_date_domain,
+        "date_domain_source": "DR-001"
+        if plan.fetch_date_domain == "calendar"
+        else (
+            "D2_T09_candidate_raw_market_prices"
+            if plan.fetch_date_domain == "candidate"
+            else "trade_cal_open"
+        ),
+        "candidate_price_artifact_date_domain_ignored": True,
         "candidate_universe_row_count": len(rows),
         "mapped_row_count": sum(
             1 for row in rows if row.get("mapping_status") == "resolved"
@@ -1365,6 +1490,10 @@ def build_quality_report(
 def acceptance_decision(quality: dict[str, Any]) -> str:
     if quality.get("run_mode") != "full" or quality.get("sample_mode") is not False:
         return "blocked_pending_tnskhdata_full_materialization_run"
+    if quality.get("fetch_date_domain", "calendar") != "calendar":
+        return "blocked_pending_tnskhdata_full_materialization_run"
+    if quality.get("date_domain_source", "DR-001") != "DR-001":
+        return "blocked_pending_tnskhdata_full_materialization_run"
     if quality.get("fetch_stage_only") is True:
         return "blocked_pending_tnskhdata_full_materialization_run"
     if quality.get("fetch_completeness_decision", "complete") != "complete":
@@ -1429,6 +1558,15 @@ def build_fetch_stage_quality_report(
     return {
         "run_mode": plan.mode,
         "sample_mode": plan.mode != "full",
+        "fetch_date_domain": plan.fetch_date_domain,
+        "date_domain_source": "DR-001"
+        if plan.fetch_date_domain == "calendar"
+        else (
+            "D2_T09_candidate_raw_market_prices"
+            if plan.fetch_date_domain == "candidate"
+            else "trade_cal_open"
+        ),
+        "candidate_price_artifact_date_domain_ignored": True,
         "fetch_stage_only": True,
         "candidate_universe_row_count": len(plan.rows),
         "mapped_row_count": sum(
@@ -1875,6 +2013,15 @@ def assemble_partitioned_artifacts(
     return {
         "run_mode": plan.mode,
         "sample_mode": plan.mode != "full",
+        "fetch_date_domain": plan.fetch_date_domain,
+        "date_domain_source": "DR-001"
+        if plan.fetch_date_domain == "calendar"
+        else (
+            "D2_T09_candidate_raw_market_prices"
+            if plan.fetch_date_domain == "candidate"
+            else "trade_cal_open"
+        ),
+        "candidate_price_artifact_date_domain_ignored": True,
         "fetch_stage_only": False,
         "fetch_completeness_decision": verification["fetch_completeness_decision"],
         "provider_coverage_decision": verification["provider_coverage_decision"],
@@ -1923,6 +2070,15 @@ def finalize_partitioned_reports(
             quality = {
                 "run_mode": plan.mode,
                 "sample_mode": plan.mode != "full",
+                "fetch_date_domain": plan.fetch_date_domain,
+                "date_domain_source": "DR-001"
+                if plan.fetch_date_domain == "calendar"
+                else (
+                    "D2_T09_candidate_raw_market_prices"
+                    if plan.fetch_date_domain == "candidate"
+                    else "trade_cal_open"
+                ),
+                "candidate_price_artifact_date_domain_ignored": True,
                 "fetch_stage_only": False,
                 "fetch_completeness_decision": verification[
                     "fetch_completeness_decision"
@@ -1973,6 +2129,15 @@ def finalize_partitioned_reports(
             }
     quality.update(
         {
+            "fetch_date_domain": plan.fetch_date_domain,
+            "date_domain_source": "DR-001"
+            if plan.fetch_date_domain == "calendar"
+            else (
+                "D2_T09_candidate_raw_market_prices"
+                if plan.fetch_date_domain == "candidate"
+                else "trade_cal_open"
+            ),
+            "candidate_price_artifact_date_domain_ignored": True,
             "fetch_completeness_decision": verification["fetch_completeness_decision"],
             "provider_coverage_decision": verification["provider_coverage_decision"],
             "unexpected_empty_primary_partition_count": verification[
@@ -2100,11 +2265,13 @@ def finalize_partitioned_reports(
 def materialize_full_candidate(
     *,
     contract: dict[str, Any],
-    candidate_universe: Path,
     output_dir: Path,
     start_date: str,
     end_date: str,
     enable_remote_fetch: bool,
+    security_universe: Path | None = None,
+    candidate_universe: Path | None = None,
+    candidate_price_artifact: Path | None = None,
     env_file: Path | None = None,
     client: Any | None = None,
     full: bool = False,
@@ -2164,7 +2331,24 @@ def materialize_full_candidate(
     output_dir.mkdir(parents=True, exist_ok=True)
     if resume and checkpoint_dir:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    rows = _load_candidate_universe(candidate_universe, start_date, end_date)
+    effective_security_universe = security_universe or candidate_universe
+    if effective_security_universe is None:
+        effective_security_universe = DEFAULT_SECURITY_UNIVERSE
+    diagnostic_candidate = candidate_price_artifact or (
+        candidate_universe
+        if candidate_universe != effective_security_universe
+        else None
+    )
+    date_domain_audit = build_date_domain_audit_report(
+        contract=contract,
+        security_universe_path=effective_security_universe,
+        candidate_price_artifact=diagnostic_candidate,
+        fetch_date_domain=fetch_date_domain,
+    )
+    _write_json(
+        output_dir / "tnskhdata_date_domain_audit_report.json", date_domain_audit
+    )
+    rows = _load_security_universe(effective_security_universe)
     trade_cal_open_dates = None
     if fetch_date_domain == "trade-cal-open":
         trade_cal_path = _partition_file(output_dir, "trade_cal", "range")
@@ -2189,6 +2373,7 @@ def materialize_full_candidate(
     )
     if no_remote_fetch or verify_fetch_only or assemble_only or finalize_only:
         verification = verify_partitioned_fetch_completeness(plan, output_dir)
+        verification["date_domain_audit_report"] = date_domain_audit
         _write_json(
             output_dir / "tnskhdata_fetch_verification_report.json", verification
         )
@@ -2226,6 +2411,7 @@ def materialize_full_candidate(
             "r0_handoff_decision": "r0_blocked",
             "quality_report": finalized["quality_report"] if finalized else quality,
             "fetch_verification_report": verification,
+            "date_domain_audit_report": date_domain_audit,
             "artifact_hashes": finalized["artifact_hashes"] if finalized else {},
             "duckdb_written": False,
             "data_version_published": False,
@@ -2461,6 +2647,7 @@ def materialize_full_candidate(
             "provider_coverage_decision": "complete"
             if quality.get("all_tasks_completed", True)
             else "blocked_pending_provider_coverage",
+            "date_domain_audit_report": date_domain_audit,
             "expected_trade_date_count": len(plan.trade_dates),
             "expected_date_endpoint_partition_count": len(plan.trade_dates) * 5,
             "partition_missing_count": 0,
@@ -2498,6 +2685,7 @@ def materialize_full_candidate(
         "r0_handoff_decision": "r0_blocked",
         "quality_report": quality,
         "artifact_hashes": hash_summary,
+        "date_domain_audit_report": date_domain_audit,
         "duckdb_written": False,
         "data_version_published": False,
         "d3_rows_generated": False,
@@ -2509,7 +2697,11 @@ def materialize_full_candidate(
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", default=DEFAULT_CONTRACT, type=Path)
-    parser.add_argument("--candidate-universe", required=True, type=Path)
+    parser.add_argument(
+        "--security-universe", default=DEFAULT_SECURITY_UNIVERSE, type=Path
+    )
+    parser.add_argument("--candidate-universe", type=Path)
+    parser.add_argument("--candidate-price-artifact", type=Path)
     parser.add_argument("--env-file", type=Path)
     parser.add_argument("--start-date", default=DEFAULT_START_DATE)
     parser.add_argument("--end-date", default=DEFAULT_END_DATE)
@@ -2559,7 +2751,9 @@ def main() -> int:
     args = _parse_args()
     report = materialize_full_candidate(
         contract=_load_json(args.contract),
+        security_universe=args.security_universe,
         candidate_universe=args.candidate_universe,
+        candidate_price_artifact=args.candidate_price_artifact,
         env_file=args.env_file,
         output_dir=args.output_dir,
         start_date=args.start_date,

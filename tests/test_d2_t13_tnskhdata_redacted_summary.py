@@ -18,6 +18,10 @@ class D2T13TnskhdataRedactedSummaryTest(unittest.TestCase):
         self.assertIn("20260630", text)
         self.assertIn("d2_acceptance_decision", text)
         self.assertIn("d3_handoff_decision", text)
+        self.assertIn("superseded diagnostic input", text)
+        self.assertIn("candidate_price_artifact_date_domain_ignored", text)
+        self.assertIn('"date_domain_source": "DR-001"', text)
+        self.assertIn('"canonical_fetch_date_domain": "calendar"', text)
         for forbidden in [
             "vendor_payload:",
             "raw provider response:",

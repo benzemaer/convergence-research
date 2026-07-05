@@ -66,6 +66,15 @@ class D2T13FinalizeGateTest(unittest.TestCase):
             acceptance_decision(quality), "blocked_pending_provider_coverage"
         )
 
+    def test_candidate_date_domain_blocks_acceptance(self) -> None:
+        quality = self._quality()
+        quality["fetch_date_domain"] = "candidate"
+        quality["date_domain_source"] = "D2_T09_candidate_raw_market_prices"
+        self.assertEqual(
+            acceptance_decision(quality),
+            "blocked_pending_tnskhdata_full_materialization_run",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

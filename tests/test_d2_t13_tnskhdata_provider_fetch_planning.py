@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 from scripts.materialize_d2_tnskhdata_full_candidate import (
+    build_date_domain_audit_report,
     build_endpoint_tasks,
     build_fetch_plan,
     fetch_provider_evidence,
@@ -86,6 +90,42 @@ class FakeProviderClient:
 
 
 class D2T13TnskhdataProviderFetchPlanningTest(unittest.TestCase):
+    def test_date_domain_audit_ignores_candidate_price_artifact_dates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            candidate = tmp / "candidate.json"
+            candidate.write_text(
+                json.dumps(
+                    [
+                        {
+                            "security_id": "XSHE.000001",
+                            "trading_date": "20160703",
+                            "universe_id": "u",
+                            "time_segment_id": "t",
+                        },
+                        {
+                            "security_id": "XSHE.000001",
+                            "trading_date": "20260702",
+                            "universe_id": "u",
+                            "time_segment_id": "t",
+                        },
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            audit = build_date_domain_audit_report(
+                contract={"start_date": "20160101", "end_date": "20260630"},
+                security_universe_path=tmp / "membership.json",
+                candidate_price_artifact=candidate,
+                fetch_date_domain="calendar",
+            )
+            self.assertEqual(audit["canonical_fetch_date_domain"], "calendar")
+            self.assertEqual(audit["date_domain_source"], "DR-001")
+            self.assertEqual(audit["candidate_price_artifact_date_min"], "20160703")
+            self.assertEqual(audit["candidate_price_artifact_date_max"], "20260702")
+            self.assertTrue(audit["candidate_price_artifact_superseded"])
+            self.assertTrue(audit["candidate_price_artifact_date_domain_ignored"])
+
     def test_sample_plan_selects_latest_dates_and_maps_ts_code(self) -> None:
         rows = [
             {
