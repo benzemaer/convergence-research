@@ -18,8 +18,8 @@
 
 ```text
 current_stage: D2
-current_task: D2-T12
-next_planned_task: D2-T13
+current_task: D2-T13
+next_planned_task: D3-T07
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -127,14 +127,14 @@ next_planned_task: D3-T07
 - `D2-T06` 候选行情快照探针：small-sample redacted execution report via PR #32; formal ingestion and D1/D2/D3 materialization remain blocked
 - `D2-T07` 价格质量、交易约束、机械缺口与 PCVT 底层依赖契约：contract-only via PR #33
 - `D2-T08` D2 阶段验收与 D3 交接契约：contract-only via PR #34; D3 contract work may proceed, but formal D3 generation remains blocked
-- `D2-T09` HiThink 主行情源、补充源与 raw OHLCV 探针契约：completed via PR #41
+- `D2-T09` HiThink 主行情源、补充源与 raw OHLCV 探针契约：completed via PR #41; candidate raw market prices remain superseded diagnostic output and do not define D2-T13 date domain
 - `D2-T10` adjusted price、质量标记与机械缺口正式候选物化：completed via PR #42
 - `D2-T11` 来源状态与复权证据补齐、D2验收与D3交接候选：completed via PR #43; D2/D3 remained blocked
-- `D2-T12` tnskhdata/Tushare证据源探针、统一代码映射与HiThink REST适配修复：in_progress
-- `D2-T13` field-specific remediation / acceptance policy decision：planned pending D2-T12 result
-- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2 source status and PIT factor evidence
+- `D2-T12` tnskhdata/Tushare证据源探针、统一代码映射与HiThink REST适配修复：completed via PR #44
+- `D2-T13` tnskhdata全量候选物化与D2验收交接：in_progress; owns DR-001 calendar-domain tnskhdata materialization from CSI800_STATIC_2026_06 membership/security mapping
+- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T13 acceptance decision
 
-D3-T07 remains blocked unless a later D2 handoff decision explicitly allows D3 candidate generation.
+D3-T07 remains blocked unless D2-T13 handoff decision explicitly allows D3 candidate generation.
 R0 remains blocked.
 
 完成标准：

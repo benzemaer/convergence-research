@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d2_tnskhdata_full_materialization_acceptance_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "stage",
+    "primary_source",
+    "date_boundary_source",
+    "start_date",
+    "end_date",
+    "canonical_fetch_date_domain",
+    "date_domain_source",
+    "closed_calendar_interval",
+    "security_universe_source",
+    "security_universe_artifact",
+    "d2_t09_candidate_raw_market_prices_status",
+    "d2_t09_candidate_raw_market_prices_defines_date_domain",
+    "depends_on",
+    "formal_source_acceptance_authorized",
+    "duckdb_write_authorized",
+    "formal_duckdb_write_authorized",
+    "local_staging_write_authorized",
+    "local_staging_store_authorized",
+    "local_staging_store_path_pattern",
+    "adaptive_rate_limit_authorized",
+    "parallel_provider_fetch_authorized",
+    "max_requests_per_minute",
+    "initial_requests_per_minute",
+    "rate_increase_per_minute",
+    "rate_decrease_on_error",
+    "d3_generation_authorized",
+    "r0_state_generation_authorized",
+    "local_candidate_artifact_write_authorized",
+    "local_candidate_report_write_authorized",
+    "d2_acceptance_candidate_authorized",
+    "d3_handoff_candidate_authorized",
+    "provider_fetch_interfaces",
+    "output_artifact_names",
+    "acceptance_decision_enum",
+    "forbidden_actions"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/d2_tnskhdata_full_materialization_acceptance_contract.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "contract_id": {"const": "D2_TNSKHDATA_FULL_MATERIALIZATION_ACCEPTANCE_CONTRACT_V1"},
+    "task_id": {"const": "D2-T13"},
+    "stage": {"const": "D2-T13"},
+    "primary_source": {"const": "tnskhdata"},
+    "date_boundary_source": {"const": "docs/decisions/DR-001_G0静态中证800样本与时间边界.md"},
+    "start_date": {"const": "20160101"},
+    "end_date": {"const": "20260630"},
+    "canonical_fetch_date_domain": {"const": "calendar"},
+    "date_domain_source": {"const": "DR-001"},
+    "closed_calendar_interval": {"const": true},
+    "security_universe_source": {"const": "CSI800_STATIC_2026_06 membership / security mapping"},
+    "security_universe_artifact": {"const": "configs/d2/csi800_static_2026_06_membership_alignment.v1.json"},
+    "d2_t09_candidate_raw_market_prices_status": {"const": "superseded_diagnostic_input_only"},
+    "d2_t09_candidate_raw_market_prices_defines_date_domain": {"const": false},
+    "depends_on": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "D2_TNSKHDATA_SOURCE_LEVEL_ASOF_SNAPSHOT_REVISION_POLICY_V1"}},
+        {"contains": {"const": "D2_TNSKHDATA_TUSHARE_HITHINK_PROVIDER_REMEDIATION_CONTRACT_V1"}}
+      ]
+    },
+    "formal_source_acceptance_authorized": {"const": false},
+    "duckdb_write_authorized": {"const": false},
+    "formal_duckdb_write_authorized": {"const": false},
+    "local_staging_write_authorized": {"const": true},
+    "local_staging_store_authorized": {"const": true},
+    "local_staging_store_path_pattern": {"const": "data/generated/d2/d2_t13_tnskhdata_full_candidate/**"},
+    "adaptive_rate_limit_authorized": {"const": true},
+    "parallel_provider_fetch_authorized": {"const": true},
+    "max_requests_per_minute": {"const": 500},
+    "initial_requests_per_minute": {"const": 200},
+    "rate_increase_per_minute": {"const": 100},
+    "rate_decrease_on_error": {"const": true},
+    "d3_generation_authorized": {"const": false},
+    "r0_state_generation_authorized": {"const": false},
+    "local_candidate_artifact_write_authorized": {"const": true},
+    "local_candidate_report_write_authorized": {"const": true},
+    "d2_acceptance_candidate_authorized": {"const": true},
+    "d3_handoff_candidate_authorized": {"const": true},
+    "provider_fetch_interfaces": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "stock_basic"}},
+        {"contains": {"const": "trade_cal"}},
+        {"contains": {"const": "daily"}},
+        {"contains": {"const": "stk_limit"}},
+        {"contains": {"const": "adj_factor"}},
+        {"contains": {"const": "stock_st"}},
+        {"contains": {"const": "suspend_d"}},
+        {"contains": {"const": "pro_bar"}}
+      ]
+    },
+    "output_artifact_names": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "tnskhdata_stock_basic_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_trade_calendar_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_daily_raw_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_stk_limit_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_adj_factor_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_source_status_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_factor_evidence_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_adjusted_price_candidate.jsonl"}},
+        {"contains": {"const": "tnskhdata_date_domain_audit_report.json"}},
+        {"contains": {"const": "tnskhdata_quality_report.json"}},
+        {
+          "contains": {
+            "const": "tnskhdata_unexpected_empty_primary_repair_report.json"
+          }
+        },
+        {"contains": {"const": "tnskhdata_candidate_file_hash_summary.json"}}
+      ]
+    },
+    "acceptance_decision_enum": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "enum": [
+          "accepted_for_d3_candidate_generation",
+          "blocked_pending_tnskhdata_full_materialization_run",
+          "blocked_pending_provider_coverage",
+          "blocked_pending_quality_resolution",
+          "blocked_pending_reconciliation",
+          "rejected"
+        ]
+      }
+    },
+    "forbidden_actions": {
+      "allOf": [
+        {"$ref": "#/$defs/strings"},
+        {"contains": {"const": "commit_generated_artifacts"}},
+        {"contains": {"const": "commit_token"}},
+        {"contains": {"const": "write_duckdb"}},
+        {"contains": {"const": "publish_d3_data_version"}},
+        {"contains": {"const": "generate_d3_rows"}},
+        {"contains": {"const": "generate_pcvt_values"}},
+        {"contains": {"const": "generate_r0_states"}},
+        {"contains": {"const": "generate_labels_returns_backtests_portfolio"}}
+      ]
+    }
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true,
+      "minItems": 1
+    }
+  }
+}
