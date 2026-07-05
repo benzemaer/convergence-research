@@ -49,6 +49,7 @@ DEFAULT_OUTPUT_DIR = (
     ROOT / "data/generated/d2/d2_t15_tnskhdata_security_major_candidate"
 )
 ENDPOINTS = ("daily", "adj_factor", "stock_st", "suspend_d", "stk_limit")
+STOCK_BASIC_LIST_STATUSES = ("L", "D", "P", "G")
 COMPLETED_LEDGER_STATUSES = {
     "succeeded",
     "succeeded_after_fallback",
@@ -63,6 +64,13 @@ RETRYABLE_LEDGER_STATUSES = {
     "data_validation_error",
 }
 BLOCKING_LEDGER_STATUSES = RETRYABLE_LEDGER_STATUSES
+FRESH_RUN_PATTERNS = (
+    "d2_t15_tnskhdata_staging.duckdb*",
+    "d2_t15_*.csv",
+    "d2_t15_*.json",
+    "d2_t16_*.json",
+    "d2_t16_*.jsonl",
+)
 
 
 class D2T16ProviderRunnerError(ValueError):
@@ -115,6 +123,12 @@ class ProviderFetchResult:
 class ProgressState:
     run_id: str
     total_task_count: int
+    total_tasks_original: int
+    skipped_resume_count: int
+    executed_task_count: int
+    reference_task_count: int
+    main_task_count: int
+    status: str = "running"
     completed_task_count: int = 0
     succeeded_task_count: int = 0
     failed_task_count: int = 0
@@ -216,12 +230,25 @@ class ProgressReporter:
         path: Path,
         run_id: str,
         total_task_count: int,
+        total_tasks_original: int,
+        skipped_resume_count: int,
+        executed_task_count: int,
+        reference_task_count: int,
+        main_task_count: int,
         progress_interval_seconds: float,
         progress_every_tasks: int,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.path = path
-        self.state = ProgressState(run_id=run_id, total_task_count=total_task_count)
+        self.state = ProgressState(
+            run_id=run_id,
+            total_task_count=total_task_count,
+            total_tasks_original=total_tasks_original,
+            skipped_resume_count=skipped_resume_count,
+            executed_task_count=executed_task_count,
+            reference_task_count=reference_task_count,
+            main_task_count=main_task_count,
+        )
         self.progress_interval_seconds = progress_interval_seconds
         self.progress_every_tasks = progress_every_tasks
         self.clock = clock
@@ -247,6 +274,10 @@ class ProgressReporter:
         if should_write:
             self.write(limiter_snapshot)
 
+    def set_status(self, status: str, limiter_snapshot: dict[str, Any]) -> None:
+        self.state.status = status
+        self.write(limiter_snapshot)
+
     def write(self, limiter_snapshot: dict[str, Any]) -> None:
         payload = {
             **asdict(self.state),
@@ -261,6 +292,7 @@ class ProgressReporter:
         )
         tmp_path.replace(self.path)
         self._last_write_at = self.clock()
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True), flush=True)
 
 
 def _write_jsonl(path: Path, rows: Iterable[dict[str, Any]], *, append: bool) -> None:
@@ -279,6 +311,19 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def clean_fresh_output_dir(output_dir: Path) -> list[str]:
+    ensure_allowed_output_dir(output_dir)
+    if not output_dir.exists():
+        return []
+    removed: list[str] = []
+    for pattern in FRESH_RUN_PATTERNS:
+        for path in output_dir.glob(pattern):
+            if path.is_file():
+                path.unlink()
+                removed.append(path.name)
+    return sorted(removed)
 
 
 def build_runner_fetch_plan(
@@ -583,6 +628,36 @@ def _to_d2_t15_ledger(entry: D2T16LedgerEntry) -> FetchLedgerEntry:
     )
 
 
+def _reference_task(
+    *, endpoint: str, start_date: str, end_date: str, param_variant: str
+) -> SecurityMajorFetchTask:
+    payload = {
+        "endpoint": endpoint,
+        "ts_code": "__reference__",
+        "start_date": start_date,
+        "end_date": end_date,
+        "param_variant": param_variant,
+    }
+    digest = _task_hash(payload)
+    return SecurityMajorFetchTask(
+        task_id=f"reference:{endpoint}:{param_variant}:{digest[:8]}",
+        endpoint=endpoint,
+        ts_code="__reference__",
+        start_date=start_date,
+        end_date=end_date,
+        param_variant=param_variant,
+        task_hash=digest,
+    )
+
+
+def _write_task_ledger(writer: DuckDBStagingWriter, entry: D2T16LedgerEntry) -> None:
+    writer.conn.execute(
+        "DELETE FROM staging_fetch_ledger WHERE task_id = ? AND task_hash = ?",
+        [entry.task_id, entry.task_hash],
+    )
+    writer.write_ledger([_to_d2_t15_ledger(entry)])
+
+
 def fetch_task_with_retry(
     *,
     client: Any,
@@ -736,24 +811,110 @@ def fetch_task_with_retry(
     )
 
 
-def _safe_call_reference_method(
+def fetch_reference_with_ledger(
     *,
     client: Any,
-    method_name: str,
+    task: SecurityMajorFetchTask,
+    run_id: str,
+    variants: list[ProviderCallVariant],
     limiter: AdaptiveRequestLimiter,
-    params: dict[str, str],
+    worker_id: str = "reference",
+) -> tuple[list[dict[str, Any]], D2T16LedgerEntry]:
+    started_at = _utc_now()
+    started_monotonic = time.monotonic()
+    method = getattr(client, task.endpoint)
+    attempt_count = 0
+    unsupported_seen = False
+    last_error: Exception | None = None
+    last_category: str | None = None
+    last_variant = variants[0].param_variant
+    for variant_index, variant in enumerate(variants):
+        attempt_count += 1
+        last_variant = variant.param_variant
+        limiter.acquire()
+        try:
+            rows = _frame_records(method(**variant.params))
+            status = "succeeded" if rows else "empty_resolved"
+            if unsupported_seen and rows:
+                status = "succeeded_after_fallback"
+            limiter.record_result(None)
+            return rows, _ledger_entry(
+                run_id=run_id,
+                task=task,
+                chunk_policy="reference",
+                param_variant=variant.param_variant,
+                status=status,
+                attempt_count=attempt_count,
+                row_count=len(rows),
+                accepted_row_count=len(rows),
+                filtered_out_row_count=0,
+                error_category=None,
+                error_message_redacted=None,
+                started_at=started_at,
+                elapsed_seconds=time.monotonic() - started_monotonic,
+                worker_id=worker_id,
+            )
+        except Exception as exc:
+            last_error = exc
+            last_category = _classify_error(exc)
+            limiter.record_result(last_category)
+            if last_category == "unsupported_param_variant" and variant_index + 1 < len(
+                variants
+            ):
+                unsupported_seen = True
+                continue
+            break
+    return [], _ledger_entry(
+        run_id=run_id,
+        task=task,
+        chunk_policy="reference",
+        param_variant=last_variant,
+        status=last_category or "failed",
+        attempt_count=attempt_count,
+        row_count=0,
+        accepted_row_count=0,
+        filtered_out_row_count=0,
+        error_category=last_category or "failed",
+        error_message_redacted=_redact_error(last_error) if last_error else None,
+        started_at=started_at,
+        elapsed_seconds=time.monotonic() - started_monotonic,
+        worker_id=worker_id,
+    )
+
+
+def _write_reference_ledger(
+    *,
+    entry: D2T16LedgerEntry,
+    writer: DuckDBStagingWriter,
+    ledger_path: Path,
+    reporter: ProgressReporter,
+    limiter: AdaptiveRequestLimiter,
+) -> None:
+    _write_task_ledger(writer, entry)
+    _write_jsonl(ledger_path, [asdict(entry)], append=True)
+    reporter.record(entry, limiter.snapshot())
+
+
+def _prepare_reference_tables(writer: DuckDBStagingWriter) -> None:
+    for table in (
+        "staging_security_universe",
+        "staging_security_mapping_diagnostics",
+        "staging_trade_calendar",
+        "staging_stock_basic",
+    ):
+        writer.conn.execute(f"DELETE FROM {table}")
+
+
+def _filter_stock_basic_rows(
+    rows: list[dict[str, Any]], securities: list[dict[str, str]]
 ) -> list[dict[str, Any]]:
-    method = getattr(client, method_name, None)
-    if method is None:
-        return []
-    limiter.acquire()
-    try:
-        rows = _frame_records(method(**params))
-        limiter.record_result(None)
-        return rows
-    except Exception as exc:
-        limiter.record_result(_classify_error(exc))
-        raise
+    universe_ts_codes = {security["ts_code"] for security in securities}
+    filtered: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        ts_code = str(row.get("ts_code") or "")
+        if ts_code in universe_ts_codes and ts_code not in filtered:
+            filtered[ts_code] = row
+    return list(filtered.values())
 
 
 def write_reference_tables(
@@ -764,12 +925,42 @@ def write_reference_tables(
     start_date: str,
     end_date: str,
     limiter: AdaptiveRequestLimiter,
+    run_id: str,
+    ledger_path: Path,
+    reporter: ProgressReporter,
 ) -> dict[str, int]:
-    trade_calendar_rows = _safe_call_reference_method(
+    trade_cal_task = _reference_task(
+        endpoint="trade_cal",
+        start_date=start_date,
+        end_date=end_date,
+        param_variant="exchange_start_end",
+    )
+    trade_calendar_rows, trade_cal_ledger = fetch_reference_with_ledger(
         client=client,
-        method_name="trade_cal",
+        task=trade_cal_task,
+        run_id=run_id,
+        variants=[
+            ProviderCallVariant(
+                param_variant="exchange_start_end",
+                params={
+                    "exchange": "",
+                    "start_date": start_date,
+                    "end_date": end_date,
+                },
+            ),
+            ProviderCallVariant(
+                param_variant="start_end_fallback",
+                params={"start_date": start_date, "end_date": end_date},
+            ),
+        ],
         limiter=limiter,
-        params={"start_date": start_date, "end_date": end_date},
+    )
+    _write_reference_ledger(
+        entry=trade_cal_ledger,
+        writer=writer,
+        ledger_path=ledger_path,
+        reporter=reporter,
+        limiter=limiter,
     )
     if trade_calendar_rows:
         writer.write_trade_calendar(trade_calendar_rows)
@@ -779,14 +970,38 @@ def write_reference_tables(
         )
 
     stock_basic_rows: list[dict[str, Any]] = []
-    for security in securities:
-        rows = _safe_call_reference_method(
-            client=client,
-            method_name="stock_basic",
-            limiter=limiter,
-            params={"ts_code": security["ts_code"]},
+    for list_status in STOCK_BASIC_LIST_STATUSES:
+        task = _reference_task(
+            endpoint="stock_basic",
+            start_date=start_date,
+            end_date=end_date,
+            param_variant=f"exchange_list_status_{list_status}",
         )
+        rows, ledger = fetch_reference_with_ledger(
+            client=client,
+            task=task,
+            run_id=run_id,
+            variants=[
+                ProviderCallVariant(
+                    param_variant=f"exchange_list_status_{list_status}",
+                    params={"exchange": "", "list_status": list_status},
+                )
+            ],
+            limiter=limiter,
+        )
+        _write_reference_ledger(
+            entry=ledger,
+            writer=writer,
+            ledger_path=ledger_path,
+            reporter=reporter,
+            limiter=limiter,
+        )
+        if ledger.status not in COMPLETED_LEDGER_STATUSES:
+            raise D2T16ProviderRunnerError(
+                f"stock_basic reference fetch failed for list_status={list_status}"
+            )
         stock_basic_rows.extend(rows)
+    stock_basic_rows = _filter_stock_basic_rows(stock_basic_rows, securities)
     if stock_basic_rows:
         writer.write_stock_basic(stock_basic_rows)
     else:
@@ -851,9 +1066,17 @@ def run_provider_runner(
     rate_increase_per_minute: int = 100,
     rate_decrease_factor: float = 0.5,
     stop_after_tasks: int | None = None,
+    fresh: bool = False,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
+    if fresh and resume:
+        raise D2T16ProviderRunnerError("--fresh and --resume cannot be used together")
+    if fresh and retry_failed_only:
+        raise D2T16ProviderRunnerError(
+            "--fresh and --retry-failed-only cannot be used together"
+        )
     ensure_allowed_output_dir(output_dir)
+    fresh_removed_files = clean_fresh_output_dir(output_dir) if fresh else []
     output_dir.mkdir(parents=True, exist_ok=True)
     start_date = _date_yyyymmdd(start_date)
     end_date = _date_yyyymmdd(end_date)
@@ -894,6 +1117,8 @@ def run_provider_runner(
             "mapped_security_count": universe.metrics["mapped_security_count"],
             "unmapped_security_count": universe.metrics["unmapped_security_count"],
             "endpoints": list(endpoints),
+            "fresh": fresh,
+            "fresh_removed_files": fresh_removed_files,
             "limiter": limiter.snapshot(),
         }
         _write_json(output_dir / "d2_t16_run_summary.json", report)
@@ -922,10 +1147,41 @@ def run_provider_runner(
         resume=resume,
         retry_failed_only=retry_failed_only,
     )
+    if retry_failed_only and not tasks_to_run:
+        report = {
+            "run_id": run_id,
+            "task_id": "D2-T16",
+            "remote_provider_called": False,
+            "retry_failed_only_noop": True,
+            "reference_fetch_skipped": True,
+            "duckdb_staging_rewritten": False,
+            "task_count": len(tasks),
+            "executed_task_count": 0,
+            "configured_security_count": universe.metrics["configured_security_count"],
+            "mapped_security_count": universe.metrics["mapped_security_count"],
+            "unmapped_security_count": universe.metrics["unmapped_security_count"],
+        }
+        _write_json(output_dir / "d2_t16_run_summary.json", report)
+        return report
+
     max_workers = max(1, max_workers)
     writer = DuckDBStagingWriter(db_path)
     all_entries: list[D2T16LedgerEntry] = []
+    reference_task_count = 1 + len(STOCK_BASIC_LIST_STATUSES)
+    reporter = ProgressReporter(
+        path=progress_path,
+        run_id=run_id,
+        total_task_count=reference_task_count + len(tasks_to_run),
+        total_tasks_original=len(tasks),
+        skipped_resume_count=len(skipped_entries),
+        executed_task_count=len(tasks_to_run),
+        reference_task_count=reference_task_count,
+        main_task_count=len(tasks_to_run),
+        progress_interval_seconds=progress_interval_seconds,
+        progress_every_tasks=max(1, progress_every_tasks),
+    )
     try:
+        _prepare_reference_tables(writer)
         writer.write_security_universe(universe.securities)
         writer.write_security_mapping_diagnostics(universe.mapping_diagnostics)
         reference_counts = write_reference_tables(
@@ -935,13 +1191,9 @@ def run_provider_runner(
             start_date=start_date,
             end_date=end_date,
             limiter=limiter,
-        )
-        reporter = ProgressReporter(
-            path=progress_path,
             run_id=run_id,
-            total_task_count=len(tasks_to_run),
-            progress_interval_seconds=progress_interval_seconds,
-            progress_every_tasks=max(1, progress_every_tasks),
+            ledger_path=ledger_path,
+            reporter=reporter,
         )
         if skipped_entries:
             _write_jsonl(
@@ -973,12 +1225,19 @@ def run_provider_runner(
                 result = future.result()
                 entry = result.ledger
                 if result.rows:
-                    writer.write_endpoint_rows(result.task.endpoint, result.rows)
-                writer.write_ledger([_to_d2_t15_ledger(entry)])
+                    writer.write_endpoint_task_rows(
+                        result.task.endpoint, result.task, result.rows
+                    )
+                _write_task_ledger(writer, entry)
                 _write_jsonl(ledger_path, [asdict(entry)], append=True)
                 all_entries.append(entry)
                 reporter.record(entry, limiter.snapshot())
-        reporter.write(limiter.snapshot())
+    except KeyboardInterrupt:
+        reporter.set_status("interrupted", limiter.snapshot())
+        raise
+    except Exception:
+        reporter.set_status("failed", limiter.snapshot())
+        raise
     finally:
         writer.close()
 
@@ -1003,6 +1262,10 @@ def run_provider_runner(
         )
         _write_json(output_dir / "d2_t15_d3_handoff_candidate_report.json", handoff)
         write_hash_summary(output_dir)
+    final_progress_status = (
+        "completed_with_failures" if blocking_fetch_status_count else "completed"
+    )
+    reporter.set_status(final_progress_status, limiter.snapshot())
     report = {
         "run_id": run_id,
         "task_id": "D2-T16",
@@ -1010,6 +1273,10 @@ def run_provider_runner(
         "full": full,
         "task_count": len(tasks),
         "executed_task_count": len(tasks_to_run),
+        "reference_task_count": reference_task_count,
+        "skipped_resume_count": len(skipped_entries),
+        "fresh": fresh,
+        "fresh_removed_files": fresh_removed_files,
         "configured_security_count": universe.metrics["configured_security_count"],
         "mapped_security_count": universe.metrics["mapped_security_count"],
         "unmapped_security_count": universe.metrics["unmapped_security_count"],
@@ -1068,6 +1335,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--retry-failed-only", action="store_true")
+    parser.add_argument("--fresh", action="store_true")
     parser.add_argument("--dry-run-plan", action="store_true")
     parser.add_argument("--no-remote-fetch", action="store_true")
     parser.add_argument("--progress-interval-seconds", default=60.0, type=float)
@@ -1120,6 +1388,7 @@ def main() -> int:
         rate_increase_per_minute=args.rate_increase_per_minute,
         rate_decrease_factor=args.rate_decrease_factor,
         stop_after_tasks=args.stop_after_tasks,
+        fresh=args.fresh,
     )
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
     return 0
