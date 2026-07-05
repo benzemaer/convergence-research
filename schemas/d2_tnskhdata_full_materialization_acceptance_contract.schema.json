@@ -112,6 +112,11 @@
         {"contains": {"const": "tnskhdata_adjusted_price_candidate.jsonl"}},
         {"contains": {"const": "tnskhdata_date_domain_audit_report.json"}},
         {"contains": {"const": "tnskhdata_quality_report.json"}},
+        {
+          "contains": {
+            "const": "tnskhdata_unexpected_empty_primary_repair_report.json"
+          }
+        },
         {"contains": {"const": "tnskhdata_candidate_file_hash_summary.json"}}
       ]
     },

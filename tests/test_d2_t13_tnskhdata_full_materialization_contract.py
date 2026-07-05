@@ -60,6 +60,13 @@ class D2T13TnskhdataFullMaterializationContractTest(unittest.TestCase):
             self.validator.validate(changed)
 
         changed = copy.deepcopy(self.contract)
+        changed["output_artifact_names"].remove(
+            "tnskhdata_unexpected_empty_primary_repair_report.json"
+        )
+        with self.assertRaises(ValidationError):
+            self.validator.validate(changed)
+
+        changed = copy.deepcopy(self.contract)
         changed["formal_duckdb_write_authorized"] = True
         with self.assertRaises(ValidationError):
             self.validator.validate(changed)

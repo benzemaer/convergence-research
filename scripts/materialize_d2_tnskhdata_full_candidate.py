@@ -52,6 +52,7 @@ OUTPUT_NAMES = [
     "tnskhdata_adjusted_price_candidate.jsonl",
     "tnskhdata_fetch_verification_report.json",
     "tnskhdata_date_domain_audit_report.json",
+    "tnskhdata_unexpected_empty_primary_repair_report.json",
     "tnskhdata_quality_report.json",
     "tnskhdata_reconciliation_report.json",
     "tnskhdata_d2_acceptance_candidate_report.json",
@@ -1008,6 +1009,161 @@ def fetch_provider_evidence_parallel(
     return evidence
 
 
+PRIMARY_EMPTY_REPAIR_ENDPOINTS = {"daily", "stk_limit", "adj_factor"}
+
+
+def _parse_unexpected_empty_primary_entry(entry: Any) -> FetchTask:
+    if isinstance(entry, dict):
+        endpoint = str(entry.get("endpoint", ""))
+        trade_date = _date_yyyymmdd(entry.get("trade_date", ""))
+        partition_path = str(entry.get("partition_path") or entry.get("path") or "")
+    elif isinstance(entry, str):
+        partition_path = entry
+        normalized = entry.replace("\\", "/")
+        parts = normalized.split("/")
+        try:
+            marker_index = parts.index("partitions")
+            endpoint = parts[marker_index + 1]
+            trade_date = Path(parts[marker_index + 2]).stem
+        except (ValueError, IndexError):
+            raise D2T13MaterializationError(
+                "malformed unexpected-empty partition path"
+            ) from None
+    else:
+        raise D2T13MaterializationError("malformed unexpected-empty partition entry")
+    if endpoint not in PRIMARY_EMPTY_REPAIR_ENDPOINTS:
+        raise D2T13MaterializationError("unexpected-empty repair endpoint not allowed")
+    if not (len(trade_date) == 8 and trade_date.isdigit()):
+        raise D2T13MaterializationError("malformed unexpected-empty trade_date")
+    normalized_path = partition_path.replace("\\", "/")
+    expected_tail = f"/partitions/{endpoint}/{trade_date}.jsonl"
+    if partition_path and expected_tail not in normalized_path:
+        raise D2T13MaterializationError(
+            "unexpected-empty partition path does not match endpoint/date"
+        )
+    return FetchTask(
+        task_id=f"{endpoint}:{trade_date}",
+        endpoint=endpoint,
+        params={"trade_date": trade_date},
+        trade_date=trade_date,
+    )
+
+
+def _unexpected_empty_repair_tasks_from_report(output_dir: Path) -> list[FetchTask]:
+    path = output_dir / "tnskhdata_fetch_verification_report.json"
+    if not path.exists():
+        raise D2T13MaterializationError("missing fetch verification report")
+    report = _load_json(path)
+    entries = report.get("unexpected_empty_primary_partitions")
+    if not isinstance(entries, list):
+        raise D2T13MaterializationError("missing unexpected-empty partition list")
+    tasks_by_id: dict[str, FetchTask] = {}
+    for entry in entries:
+        task = _parse_unexpected_empty_primary_entry(entry)
+        tasks_by_id[task.task_id] = task
+    return [tasks_by_id[key] for key in sorted(tasks_by_id)]
+
+
+def repair_unexpected_empty_primary_partitions(
+    client: Any,
+    *,
+    output_dir: Path,
+    checkpoint_dir: Path | None,
+    initial_requests_per_minute: int = 30,
+    max_requests_per_minute: int = 60,
+    rate_increase_per_minute: int = 10,
+    rate_decrease_factor: float = 0.5,
+    retry_max_attempts: int = 8,
+    retry_backoff_seconds: float = 30.0,
+) -> dict[str, Any]:
+    tasks = _unexpected_empty_repair_tasks_from_report(output_dir)
+    writer = PartitionedJsonlStagingWriter(output_dir)
+    governor = AdaptiveRateGovernor(
+        initial_requests_per_minute=initial_requests_per_minute,
+        max_requests_per_minute=max_requests_per_minute,
+        rate_increase_per_minute=rate_increase_per_minute,
+        rate_decrease_factor=rate_decrease_factor,
+    )
+    existing = _load_ledger(checkpoint_dir)
+    ledger_rows = list(existing.values())
+    repaired: list[dict[str, Any]] = []
+    still_empty: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    for task in tasks:
+        result = _call_task_with_retry(
+            client,
+            task,
+            governor=governor,
+            retry_max_attempts=retry_max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+        )
+        if result.status == "succeeded":
+            path, digest = writer.write(result.task, result.rows)
+            result.artifact_partition_path = path
+            result.sha256 = digest
+            entry = {
+                "endpoint": task.endpoint,
+                "trade_date": task.trade_date,
+                "partition_path": path,
+                "row_count": len(result.rows),
+                "sha256": digest,
+            }
+            if result.rows:
+                repaired.append(entry)
+            else:
+                still_empty.append(
+                    {**entry, "repair_status": "still_empty_after_repair"}
+                )
+        else:
+            failed.append(
+                {
+                    "endpoint": task.endpoint,
+                    "trade_date": task.trade_date,
+                    "error_category": result.error_category,
+                    "error_message_redacted": result.error_message_redacted,
+                }
+            )
+        ledger_rows = [
+            row for row in ledger_rows if row.get("task_id") != result.task.task_id
+        ]
+        ledger_rows.append(_task_ledger_row(result))
+    _flush_fetch_progress(
+        checkpoint_dir=checkpoint_dir,
+        ledger_rows=ledger_rows,
+        governor=governor,
+    )
+    report = {
+        "repair_mode": "unexpected_empty_primary_only",
+        "input_unexpected_empty_primary_count": len(tasks),
+        "attempted_repair_count": len(tasks),
+        "repaired_non_empty_count": len(repaired),
+        "repaired_still_empty_count": len(still_empty),
+        "failed_repair_count": len(failed),
+        "rate_limit_count": sum(
+            1 for row in failed if row.get("error_category") == "rate_limit"
+        ),
+        "timeout_count": sum(
+            1 for row in failed if row.get("error_category") == "timeout"
+        ),
+        "provider_error_count": sum(
+            1
+            for row in failed
+            if row.get("error_category") not in {"rate_limit", "timeout"}
+        ),
+        "repaired_partitions": repaired,
+        "still_empty_partitions": still_empty,
+        "failed_partitions": failed,
+        "duckdb_written": False,
+        "d3_rows_generated": False,
+        "r0_state_generated": False,
+        "pro_bar_called": False,
+    }
+    _write_json(
+        output_dir / "tnskhdata_unexpected_empty_primary_repair_report.json", report
+    )
+    return report
+
+
 def _client_from_token(token: str) -> Any:
     if not token:
         raise D2T13MaterializationError("TNSKHDATA_TOKEN missing")
@@ -1655,8 +1811,10 @@ def _read_partition_status(
             "endpoint": endpoint,
             "suffix": suffix,
             "path": str(path),
+            "partition_path": str(path),
             "status": "partition_missing",
             "row_count": None,
+            "file_size": None,
             "sha256": None,
         }
     try:
@@ -1666,8 +1824,10 @@ def _read_partition_status(
             "endpoint": endpoint,
             "suffix": suffix,
             "path": str(path),
+            "partition_path": str(path),
             "status": "partition_malformed",
             "row_count": None,
+            "file_size": path.stat().st_size if path.exists() else None,
             "sha256": None,
         }
     if not all(isinstance(row, dict) for row in rows):
@@ -1675,8 +1835,10 @@ def _read_partition_status(
             "endpoint": endpoint,
             "suffix": suffix,
             "path": str(path),
+            "partition_path": str(path),
             "status": "partition_malformed",
             "row_count": None,
+            "file_size": path.stat().st_size,
             "sha256": None,
         }
     row_count = len(rows)
@@ -1690,12 +1852,23 @@ def _read_partition_status(
         status = "unexpected_empty_primary"
     else:
         status = "provider_empty"
+    trade_cal_is_open = suffix in open_dates
     return {
         "endpoint": endpoint,
         "suffix": suffix,
+        "trade_date": suffix,
         "path": str(path),
+        "partition_path": str(path),
         "status": status,
+        "empty_class": status if row_count == 0 else None,
+        "empty_reason": (
+            "open_date_primary_endpoint_returned_zero_rows"
+            if status == "unexpected_empty_primary"
+            else None
+        ),
+        "trade_cal_is_open": trade_cal_is_open,
         "row_count": row_count,
+        "file_size": path.stat().st_size,
         "sha256": _sha256_file(path),
     }
 
@@ -1748,7 +1921,16 @@ def verify_partitioned_fetch_completeness(
         if row["status"] == "partition_malformed"
     ]
     unexpected_empty_primary = [
-        row["path"]
+        {
+            "endpoint": row["endpoint"],
+            "trade_date": row["suffix"],
+            "partition_path": row["partition_path"],
+            "row_count": row["row_count"],
+            "file_size": row["file_size"],
+            "trade_cal_is_open": row["trade_cal_is_open"],
+            "empty_class": "unexpected_empty_primary",
+            "empty_reason": "open_date_primary_endpoint_returned_zero_rows",
+        }
         for row in partition_statuses
         if row["status"] == "unexpected_empty_primary"
     ]
@@ -2171,6 +2353,7 @@ def finalize_partitioned_reports(
             "tnskhdata_candidate_file_hash_summary.json",
             "tnskhdata_d2_acceptance_candidate_report.json",
             "tnskhdata_d3_handoff_candidate_report.json",
+            "tnskhdata_unexpected_empty_primary_repair_report.json",
         }
     }
     quality["artifact_hashes_complete"] = (
@@ -2296,6 +2479,7 @@ def materialize_full_candidate(
     pro_bar_sample_securities: int = 20,
     require_pro_bar_reconciliation: bool = False,
     repair_failed_only: bool = False,
+    repair_unexpected_empty_primary_only: bool = False,
     verify_fetch_only: bool = False,
     assemble_only: bool = False,
     finalize_only: bool = False,
@@ -2371,6 +2555,41 @@ def materialize_full_candidate(
         fetch_date_domain=fetch_date_domain,
         trade_cal_open_dates=trade_cal_open_dates,
     )
+    if repair_unexpected_empty_primary_only:
+        if client is None:
+            token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
+            client = _client_from_token(token)
+        repair_report = repair_unexpected_empty_primary_partitions(
+            client,
+            output_dir=output_dir,
+            checkpoint_dir=checkpoint_dir,
+            initial_requests_per_minute=initial_requests_per_minute,
+            max_requests_per_minute=max_requests_per_minute,
+            rate_increase_per_minute=rate_increase_per_minute,
+            rate_decrease_factor=rate_decrease_factor,
+            retry_max_attempts=retry_max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+        )
+        source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
+        return {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": plan.mode != "full",
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": "blocked_pending_provider_coverage",
+            "d3_handoff_decision": "d3_candidate_generation_blocked",
+            "r0_handoff_decision": "r0_blocked",
+            "quality_report": None,
+            "repair_report": repair_report,
+            "date_domain_audit_report": date_domain_audit,
+            "artifact_hashes": {},
+            "duckdb_written": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        }
     if no_remote_fetch or verify_fetch_only or assemble_only or finalize_only:
         verification = verify_partitioned_fetch_completeness(plan, output_dir)
         verification["date_domain_audit_report"] = date_domain_audit
@@ -2672,6 +2891,7 @@ def materialize_full_candidate(
         }
         for name in OUTPUT_NAMES
         if name != "tnskhdata_candidate_file_hash_summary.json"
+        and (output_dir / name).exists()
     }
     _write_json(output_dir / "tnskhdata_candidate_file_hash_summary.json", hash_summary)
     return {
@@ -2718,6 +2938,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--repair-failed-only", action="store_true")
+    parser.add_argument("--repair-unexpected-empty-primary-only", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path)
     parser.add_argument("--staging-store", type=Path)
     parser.add_argument(
@@ -2781,6 +3002,7 @@ def main() -> int:
         pro_bar_sample_securities=args.pro_bar_sample_securities,
         require_pro_bar_reconciliation=args.require_pro_bar_reconciliation,
         repair_failed_only=args.repair_failed_only,
+        repair_unexpected_empty_primary_only=args.repair_unexpected_empty_primary_only,
         verify_fetch_only=args.verify_fetch_only,
         assemble_only=args.assemble_only,
         finalize_only=args.finalize_only,
@@ -2797,6 +3019,7 @@ def main() -> int:
         "d3_handoff_decision": report["d3_handoff_decision"],
         "r0_handoff_decision": report["r0_handoff_decision"],
         "quality_report": report["quality_report"],
+        "repair_report": report.get("repair_report"),
     }
     print(json.dumps(redacted, ensure_ascii=False, sort_keys=True))
     return 0

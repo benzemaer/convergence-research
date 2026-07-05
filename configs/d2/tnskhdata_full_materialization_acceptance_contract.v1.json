@@ -63,6 +63,7 @@
     "tnskhdata_reconciliation_report.json",
     "tnskhdata_d2_acceptance_candidate_report.json",
     "tnskhdata_d3_handoff_candidate_report.json",
+    "tnskhdata_unexpected_empty_primary_repair_report.json",
     "tnskhdata_candidate_file_hash_summary.json"
   ],
   "acceptance_decision_enum": [
