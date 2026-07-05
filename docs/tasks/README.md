@@ -133,7 +133,7 @@ next_planned_task: D3-T07
 - `D2-T12` tnskhdata/Tushare证据源探针、统一代码映射与HiThink REST适配修复：completed via PR #44
 - `D2-T13` tnskhdata全量候选物化与D2验收交接：completed via PR #45; D2 acceptance remained blocked by listed-open provider coverage
 - `D2-T14` listed-open 行级 provider 修复诊断：closed / superseded by D2-T15; not merged
-- `D2-T15` 按证券主轴的 tnskhdata DuckDB 候选物化：in_progress via current PR
+- `D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁：in_progress via current PR
 - `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T15 acceptance decision
 
 D3-T07 remains blocked unless D2-T15 handoff decision explicitly allows D3 candidate generation.

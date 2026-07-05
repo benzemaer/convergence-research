@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,6 +10,7 @@ from pathlib import Path
 from scripts.materialize_d2_tnskhdata_security_major_duckdb_candidate import (
     ENDPOINTS,
     build_security_major_fetch_plan,
+    load_security_universe,
     make_date_chunks,
 )
 
@@ -69,12 +73,75 @@ class D2T15SecurityMajorFetchPlanTest(unittest.TestCase):
             readme,
         )
         self.assertIn(
-            "D2-T15` 按证券主轴的 tnskhdata DuckDB 候选物化："
+            "D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁："
             "in_progress via current PR",
             readme,
         )
         self.assertIn("D3-T07 remains blocked unless D2-T15 handoff", readme)
         self.assertIn("R0 remains blocked", readme)
+
+    def test_load_security_universe_reports_unmapped_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "universe.json"
+            path.write_text(
+                """
+                {
+                  "rows": [
+                    {
+                      "security_id": "CN.SZSE.000001",
+                      "universe_id": "u",
+                      "time_segment_id": "t"
+                    },
+                    {
+                      "security_id": "BAD.CODE",
+                      "universe_id": "u",
+                      "time_segment_id": "t"
+                    }
+                  ]
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            result = load_security_universe(path)
+
+            self.assertEqual(result.metrics["configured_security_count"], 2)
+            self.assertEqual(result.metrics["mapped_security_count"], 1)
+            self.assertEqual(result.metrics["unmapped_security_count"], 1)
+            self.assertEqual(len(result.securities), 1)
+            self.assertEqual(
+                result.mapping_diagnostics[1]["mapping_status"], "unresolved"
+            )
+
+    def test_dry_run_cli_reports_no_remote_and_future_runner_params(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "out"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/materialize_d2_tnskhdata_security_major_duckdb_candidate.py",
+                    "--dry-run-plan",
+                    "--sample-securities",
+                    "1",
+                    "--output-dir",
+                    str(output_dir),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            report = json.loads(completed.stdout)
+
+            self.assertFalse(report["remote_provider_called"])
+            self.assertEqual(report["configured_security_count"], 1)
+            self.assertEqual(report["mapped_security_count"], 1)
+            self.assertEqual(report["unmapped_security_count"], 0)
+            self.assertEqual(
+                report["future_remote_runner_parameters"],
+                ["--env-file", "--max-workers", "--resume"],
+            )
+            self.assertTrue((output_dir / "d2_t15_fetch_plan.jsonl").exists())
 
     def test_no_generated_artifacts_are_tracked(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

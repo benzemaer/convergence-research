@@ -104,9 +104,20 @@ class D2T15DuckDBQualityGateTest(unittest.TestCase):
             self.assertEqual(quality["expected_listed_open_security_date_count"], 4)
             self.assertEqual(quality["suspended_security_date_count"], 1)
             self.assertEqual(quality["listed_open_missing_daily_count"], 2)
-            self.assertEqual(quality["price_limit_daily_dependency_missing_count"], 3)
+            self.assertEqual(quality["price_limit_daily_dependency_missing_count"], 2)
             self.assertEqual(quality["unresolved_price_limit_status_count"], 0)
-            self.assertEqual(quality["unresolved_adjustment_factor_count"], 3)
+            self.assertEqual(quality["unresolved_adjustment_factor_count"], 2)
+            self.assertEqual(quality["adj_factor_carry_forward_required_count"], 1)
+            suspended_price_limit_status = writer.conn.execute(
+                """
+                SELECT price_limit_status
+                FROM d2_source_status
+                WHERE ts_code = '000002.SZ' AND trade_date = '20260105'
+                """
+            ).fetchone()[0]
+            self.assertEqual(
+                suspended_price_limit_status, "not_applicable_or_expected_empty"
+            )
             status = writer.conn.execute(
                 """
                 SELECT price_limit_status
@@ -115,8 +126,58 @@ class D2T15DuckDBQualityGateTest(unittest.TestCase):
                 """
             ).fetchone()[0]
             self.assertEqual(status, "daily_dependency_missing")
+            gap_types = {
+                row[0]
+                for row in writer.conn.execute(
+                    """
+                    SELECT DISTINCT gap_type
+                    FROM d2_coverage_gaps
+                    WHERE ts_code = '000002.SZ' AND trade_date = '20260105'
+                    """
+                ).fetchall()
+            }
+            self.assertEqual(gap_types, set())
             self.assertEqual(
                 d2_acceptance_decision(quality), "blocked_pending_provider_coverage"
+            )
+        finally:
+            writer.close()
+
+    def test_unmapped_security_blocks_acceptance(self) -> None:
+        writer = self.build_writer()
+        try:
+            writer.write_security_mapping_diagnostics(
+                [
+                    {
+                        "security_id": "CN.SZSE.000001",
+                        "ts_code": "000001.SZ",
+                        "mapping_status": "resolved",
+                        "mapping_blocking_reasons": [],
+                    },
+                    {
+                        "security_id": "BAD.CODE",
+                        "ts_code": "",
+                        "mapping_status": "unresolved",
+                        "mapping_blocking_reasons": ["unsupported_security_id_format"],
+                    },
+                ]
+            )
+
+            quality = compute_quality_gate(writer.conn)
+
+            self.assertEqual(quality["configured_security_count"], 2)
+            self.assertEqual(quality["mapped_security_count"], 1)
+            self.assertEqual(quality["unmapped_security_count"], 1)
+            self.assertEqual(
+                d2_acceptance_decision(
+                    {
+                        **quality,
+                        "listed_open_missing_daily_count": 0,
+                        "unresolved_adjustment_factor_count": 0,
+                        "unresolved_price_limit_status_count": 0,
+                    }
+                ),
+                "blocked_pending_provider_coverage",
             )
         finally:
             writer.close()

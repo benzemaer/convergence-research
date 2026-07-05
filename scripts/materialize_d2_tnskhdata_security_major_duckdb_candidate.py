@@ -62,6 +62,13 @@ class SecurityMajorFetchTask:
     task_hash: str
 
 
+@dataclass(frozen=True)
+class SecurityUniverseLoadResult:
+    securities: list[dict[str, str]]
+    mapping_diagnostics: list[dict[str, Any]]
+    metrics: dict[str, int]
+
+
 @dataclass
 class FetchLedgerEntry:
     task_id: str
@@ -182,12 +189,22 @@ def ensure_allowed_output_dir(path: Path) -> None:
 
 def load_security_universe(
     path: Path, limit: int | None = None
-) -> list[dict[str, str]]:
+) -> SecurityUniverseLoadResult:
     payload = _load_json(path)
     rows = payload.get("rows", [])
+    selected_rows = rows[:limit] if limit is not None else rows
     securities: list[dict[str, str]] = []
-    for row in rows:
+    diagnostics: list[dict[str, Any]] = []
+    for row in selected_rows:
         mapping = resolve_security_provider_codes(str(row["security_id"]))
+        diagnostics.append(
+            {
+                "security_id": str(row["security_id"]),
+                "ts_code": mapping.tnskhdata_ts_code or "",
+                "mapping_status": mapping.mapping_status,
+                "mapping_blocking_reasons": mapping.mapping_blocking_reasons,
+            }
+        )
         if mapping.mapping_status != "resolved" or not mapping.tnskhdata_ts_code:
             continue
         securities.append(
@@ -198,7 +215,15 @@ def load_security_universe(
                 "time_segment_id": str(row.get("time_segment_id", "")),
             }
         )
-    return securities[:limit] if limit is not None else securities
+    return SecurityUniverseLoadResult(
+        securities=securities,
+        mapping_diagnostics=diagnostics,
+        metrics={
+            "configured_security_count": len(selected_rows),
+            "mapped_security_count": len(securities),
+            "unmapped_security_count": len(selected_rows) - len(securities),
+        },
+    )
 
 
 def make_date_chunks(
@@ -314,6 +339,12 @@ class DuckDBStagingWriter:
               ts_code TEXT,
               universe_id TEXT,
               time_segment_id TEXT
+            );
+            CREATE TABLE IF NOT EXISTS staging_security_mapping_diagnostics (
+              security_id TEXT,
+              ts_code TEXT,
+              mapping_status TEXT,
+              mapping_blocking_reasons TEXT
             );
             CREATE TABLE IF NOT EXISTS staging_stock_basic (
               ts_code TEXT,
@@ -445,6 +476,25 @@ class DuckDBStagingWriter:
         ]
         self.conn.executemany(
             "INSERT INTO staging_security_universe VALUES (?, ?, ?, ?)", payload
+        )
+
+    def write_security_mapping_diagnostics(self, rows: list[dict[str, Any]]) -> None:
+        payload = [
+            (
+                row.get("security_id"),
+                row.get("ts_code"),
+                row.get("mapping_status"),
+                json.dumps(
+                    row.get("mapping_blocking_reasons", []),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+            )
+            for row in rows
+        ]
+        self.conn.executemany(
+            "INSERT INTO staging_security_mapping_diagnostics VALUES (?, ?, ?, ?)",
+            payload,
         )
 
     def write_trade_calendar(self, rows: list[dict[str, Any]]) -> None:
@@ -722,6 +772,7 @@ def compute_quality_gate(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
                  ELSE 'missing'
                END AS daily_status,
                CASE
+                 WHEN s.suspend_type = 'S' THEN 'not_applicable_or_expected_empty'
                  WHEN d.ts_code IS NULL THEN 'daily_dependency_missing'
                  WHEN l.ts_code IS NULL THEN 'stk_limit_missing'
                  ELSE 'resolved'
@@ -740,8 +791,14 @@ def compute_quality_gate(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         INSERT INTO d2_factor_evidence
         SELECT e.ts_code,
                e.trade_date,
-               CASE WHEN a.ts_code IS NULL THEN 'missing' ELSE 'resolved' END
+               CASE
+                 WHEN s.suspend_type = 'S' THEN 'not_applicable_or_carry_forward'
+                 WHEN a.ts_code IS NULL THEN 'missing'
+                 ELSE 'resolved'
+               END AS adjustment_factor_status
         FROM d2_expected_security_dates e
+        LEFT JOIN staging_suspend_d s
+          ON s.ts_code = e.ts_code AND s.suspend_date = e.trade_date
         LEFT JOIN staging_adj_factor a
           ON a.ts_code = e.ts_code AND a.trade_date = e.trade_date
         """
@@ -755,14 +812,43 @@ def compute_quality_gate(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         UNION ALL
         SELECT ts_code, trade_date, 'unresolved_adjustment_factor'
         FROM d2_factor_evidence
-        WHERE adjustment_factor_status != 'resolved'
+        WHERE adjustment_factor_status = 'missing'
         UNION ALL
         SELECT ts_code, trade_date, price_limit_status
         FROM d2_source_status
-        WHERE price_limit_status != 'resolved'
+        WHERE price_limit_status IN ('daily_dependency_missing', 'stk_limit_missing')
         """
     )
     metric_sql = {
+        "configured_security_count": """
+            SELECT CASE
+              WHEN (SELECT count(*) FROM staging_security_mapping_diagnostics) > 0
+              THEN (SELECT count(*) FROM staging_security_mapping_diagnostics)
+              ELSE (SELECT count(*) FROM staging_security_universe)
+            END
+        """,
+        "mapped_security_count": """
+            SELECT CASE
+              WHEN (SELECT count(*) FROM staging_security_mapping_diagnostics) > 0
+              THEN (
+                SELECT count(*)
+                FROM staging_security_mapping_diagnostics
+                WHERE mapping_status = 'resolved'
+              )
+              ELSE (SELECT count(*) FROM staging_security_universe)
+            END
+        """,
+        "unmapped_security_count": """
+            SELECT CASE
+              WHEN (SELECT count(*) FROM staging_security_mapping_diagnostics) > 0
+              THEN (
+                SELECT count(*)
+                FROM staging_security_mapping_diagnostics
+                WHERE mapping_status != 'resolved'
+              )
+              ELSE 0
+            END
+        """,
         "candidate_universe_row_count": """
             SELECT count(*) FROM staging_security_universe
         """,
@@ -797,7 +883,12 @@ def compute_quality_gate(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "unresolved_adjustment_factor_count": """
             SELECT count(*)
             FROM d2_factor_evidence
-            WHERE adjustment_factor_status != 'resolved'
+            WHERE adjustment_factor_status = 'missing'
+        """,
+        "adj_factor_carry_forward_required_count": """
+            SELECT count(*)
+            FROM d2_factor_evidence
+            WHERE adjustment_factor_status = 'not_applicable_or_carry_forward'
         """,
         "stk_limit_resolved_count": """
             SELECT count(*)
@@ -893,6 +984,7 @@ def d2_acceptance_decision(quality: dict[str, Any]) -> str:
         "listed_open_missing_daily_count",
         "unresolved_adjustment_factor_count",
         "unresolved_price_limit_status_count",
+        "unmapped_security_count",
         "provider_error_count",
         "rate_limit_count",
         "timeout_count",
@@ -911,6 +1003,26 @@ def d2_acceptance_decision(quality: dict[str, Any]) -> str:
     if any(quality.get(key, 0) for key in quality_blockers):
         return "blocked_pending_quality_resolution"
     return "accepted_for_d3_candidate_generation"
+
+
+def d2_acceptance_blocker_keys(quality: dict[str, Any]) -> list[str]:
+    blocker_keys = [
+        "listed_open_missing_daily_count",
+        "unresolved_adjustment_factor_count",
+        "unresolved_price_limit_status_count",
+        "unmapped_security_count",
+        "provider_error_count",
+        "rate_limit_count",
+        "timeout_count",
+        "duplicate_daily_key_count",
+        "duplicate_adj_factor_key_count",
+        "duplicate_stk_limit_key_count",
+        "duplicate_suspend_key_count",
+        "null_ohlc_count",
+        "non_positive_price_count",
+        "high_low_violation_count",
+    ]
+    return [key for key in blocker_keys if quality.get(key, 0)]
 
 
 def build_acceptance_reports(
@@ -932,9 +1044,7 @@ def build_acceptance_reports(
         "d3_rows_generated": False,
         "pcvt_values_generated": False,
         "r0_state_generated": False,
-        "quality_blockers": [
-            key for key, value in quality.items() if value and key.endswith("_count")
-        ],
+        "quality_blockers": d2_acceptance_blocker_keys(quality),
     }
     handoff = {
         "task_id": "D2-T15",
@@ -1014,16 +1124,32 @@ def _parse_args() -> argparse.Namespace:
         "--security-universe", default=DEFAULT_SECURITY_UNIVERSE, type=Path
     )
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, type=Path)
-    parser.add_argument("--env-file", type=Path)
+    parser.add_argument(
+        "--env-file",
+        type=Path,
+        help="Future remote runner parameter; not used by current scaffold.",
+    )
     parser.add_argument("--start-date", default=DEFAULT_START_DATE)
     parser.add_argument("--end-date", default=DEFAULT_END_DATE)
-    parser.add_argument("--max-workers", default=4, type=int)
+    parser.add_argument(
+        "--max-workers",
+        default=4,
+        type=int,
+        help="Future remote runner parameter; current PR does not fetch remotely.",
+    )
     parser.add_argument(
         "--chunk-policy",
         default="year",
         choices=("full-range", "year", "month"),
     )
-    parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Future remote runner parameter; current scaffold only defines "
+            "ledger semantics."
+        ),
+    )
     parser.add_argument("--dry-run-plan", action="store_true")
     parser.add_argument("--no-remote-fetch", action="store_true")
     parser.add_argument("--export-compatible-jsonl", action="store_true")
@@ -1036,11 +1162,11 @@ def main() -> int:
     args = _parse_args()
     ensure_allowed_output_dir(args.output_dir)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    securities = load_security_universe(
+    universe = load_security_universe(
         args.security_universe, limit=args.sample_securities
     )
     tasks = build_security_major_fetch_plan(
-        securities,
+        universe.securities,
         start_date=args.start_date,
         end_date=args.end_date,
         chunk_policy=args.chunk_policy,
@@ -1050,7 +1176,27 @@ def main() -> int:
             args.output_dir / "d2_t15_fetch_plan.jsonl",
             [asdict(task) for task in tasks],
         )
-        print(json.dumps({"task_count": len(tasks), "remote_provider_called": False}))
+        print(
+            json.dumps(
+                {
+                    "task_count": len(tasks),
+                    "remote_provider_called": False,
+                    "configured_security_count": universe.metrics[
+                        "configured_security_count"
+                    ],
+                    "mapped_security_count": universe.metrics["mapped_security_count"],
+                    "unmapped_security_count": universe.metrics[
+                        "unmapped_security_count"
+                    ],
+                    "future_remote_runner_parameters": [
+                        "--env-file",
+                        "--max-workers",
+                        "--resume",
+                    ],
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     db_path = args.output_dir / "d2_t15_tnskhdata_staging.duckdb"
     if args.no_remote_fetch:
