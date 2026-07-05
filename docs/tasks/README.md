@@ -18,7 +18,7 @@
 
 ```text
 current_stage: D2
-current_task: D2-T13
+current_task: D2-T15
 next_planned_task: D3-T07
 ```
 
@@ -131,10 +131,12 @@ next_planned_task: D3-T07
 - `D2-T10` adjusted price、质量标记与机械缺口正式候选物化：completed via PR #42
 - `D2-T11` 来源状态与复权证据补齐、D2验收与D3交接候选：completed via PR #43; D2/D3 remained blocked
 - `D2-T12` tnskhdata/Tushare证据源探针、统一代码映射与HiThink REST适配修复：completed via PR #44
-- `D2-T13` tnskhdata全量候选物化与D2验收交接：in_progress; owns DR-001 calendar-domain tnskhdata materialization from CSI800_STATIC_2026_06 membership/security mapping
-- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T13 acceptance decision
+- `D2-T13` tnskhdata全量候选物化与D2验收交接：completed via PR #45; D2 acceptance remained blocked by listed-open provider coverage
+- `D2-T14` listed-open 行级 provider 修复诊断：closed / superseded by D2-T15; not merged
+- `D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁：in_progress via current PR
+- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T15 acceptance decision
 
-D3-T07 remains blocked unless D2-T13 handoff decision explicitly allows D3 candidate generation.
+D3-T07 remains blocked unless D2-T15 handoff decision explicitly allows D3 candidate generation.
 R0 remains blocked.
 
 完成标准：
