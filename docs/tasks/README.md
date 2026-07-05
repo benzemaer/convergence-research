@@ -18,7 +18,7 @@
 
 ```text
 current_stage: D2
-current_task: D2-T13
+current_task: D2-T14
 next_planned_task: D3-T07
 ```
 
@@ -131,7 +131,8 @@ next_planned_task: D3-T07
 - `D2-T10` adjusted price、质量标记与机械缺口正式候选物化：completed via PR #42
 - `D2-T11` 来源状态与复权证据补齐、D2验收与D3交接候选：completed via PR #43; D2/D3 remained blocked
 - `D2-T12` tnskhdata/Tushare证据源探针、统一代码映射与HiThink REST适配修复：completed via PR #44
-- `D2-T13` tnskhdata全量候选物化与D2验收交接：in_progress; owns DR-001 calendar-domain tnskhdata materialization from CSI800_STATIC_2026_06 membership/security mapping
+- `D2-T13` tnskhdata全量候选物化与D2验收交接：completed via PR #45; D2 acceptance remains blocked pending provider coverage
+- `D2-T14` listed-open 行级 provider 修复诊断：in_progress via current PR
 - `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T13 acceptance decision
 
 D3-T07 remains blocked unless D2-T13 handoff decision explicitly allows D3 candidate generation.
@@ -159,7 +160,7 @@ D2-T09 返回 D2 formal enablement 后，`D3-T07` remains blocked pending D2 for
 - `D3-T03` 组件引用、source lineage 与 no-bypass 校验器：completed via PR #37
 - `D3-T04` 基础质量指标与 PCVT input readiness 契约：completed via PR #38
 - `D3-T05` 标准日频观测合成构建与最小集成测试：completed via PR #39
-- `D3-T06` `data_version`、quality report 与 manifest 发布门禁：in_progress
+- `D3-T06` `data_version`、quality report 与 manifest 发布门禁：completed via PR #40
 - `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布：blocked pending D2 formal materialization
 - `D3-T08` D3 阶段验收与 R0 交接契约：planned
 

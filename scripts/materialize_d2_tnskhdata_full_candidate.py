@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -59,6 +60,30 @@ OUTPUT_NAMES = [
     "tnskhdata_candidate_file_hash_summary.json",
 ]
 FORBIDDEN_OUTPUT_TOKENS = ("data/raw", "data/external", "marketdb", ".duckdb", ".day")
+D2_T14_BLOCKER_COLUMNS = [
+    "security_id",
+    "ts_code",
+    "trade_date",
+    "trading_status",
+    "daily_applicability",
+    "price_limit_applicability",
+    "adjustment_factor_applicability",
+    "suspension_status",
+    "st_status",
+    "price_limit_status",
+    "adjustment_factor_status",
+    "partition_path",
+    "blocker_type",
+    "source_candidate_file",
+]
+UNRESOLVED_PRICE_LIMIT_STATUSES = {
+    "unknown",
+    "unresolved",
+    "provider_empty_or_unclassified",
+    "",
+    None,
+}
+APPLICABLE_STATUSES = {"applicable", "applicable_unresolved"}
 
 
 class D2T13MaterializationError(ValueError):
@@ -315,6 +340,141 @@ def _date_yyyymmdd(value: Any) -> str:
         except ValueError:
             continue
     return text[:10].replace("-", "")
+
+
+def _blocker_key(row: dict[str, Any]) -> tuple[str, str]:
+    return (str(row.get("ts_code", "")), _date_yyyymmdd(row.get("trade_date", "")))
+
+
+def _write_csv(path: Path, rows: list[dict[str, Any]], columns: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in columns})
+
+
+def _read_csv(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise D2T13MaterializationError(
+            f"missing blocker file: {path}; "
+            "run --export-listed-open-provider-blockers first"
+        )
+    with path.open(newline="", encoding="utf-8") as handle:
+        return [dict(row) for row in csv.DictReader(handle)]
+
+
+def _csv_blocker_row(
+    row: dict[str, Any],
+    *,
+    blocker_type: str,
+    source_candidate_file: str,
+    endpoint: str,
+) -> dict[str, Any]:
+    trade_date = _date_yyyymmdd(row.get("trading_date") or row.get("trade_date"))
+    return {
+        "security_id": row.get("security_id", ""),
+        "ts_code": row.get("ts_code", ""),
+        "trade_date": trade_date,
+        "trading_status": row.get("trading_status", ""),
+        "daily_applicability": row.get("daily_applicability", ""),
+        "price_limit_applicability": row.get("price_limit_applicability", ""),
+        "adjustment_factor_applicability": row.get(
+            "adjustment_factor_applicability", ""
+        ),
+        "suspension_status": row.get("suspension_status", ""),
+        "st_status": row.get("st_status", ""),
+        "price_limit_status": row.get("price_limit_status", ""),
+        "adjustment_factor_status": row.get("adjustment_factor_status", ""),
+        "partition_path": f"partitions/{endpoint}/{trade_date}.jsonl",
+        "blocker_type": blocker_type,
+        "source_candidate_file": source_candidate_file,
+    }
+
+
+def export_listed_open_provider_blockers(
+    output_dir: Path, *, prefix: str = "d2_t13"
+) -> dict[str, Any]:
+    source_status_path = output_dir / "tnskhdata_source_status_candidate.jsonl"
+    factor_path = output_dir / "tnskhdata_factor_evidence_candidate.jsonl"
+    source_rows = _read_jsonl(source_status_path)
+    factor_rows = _read_jsonl(factor_path)
+    listed_open_rows = [
+        _csv_blocker_row(
+            row,
+            blocker_type="listed_open_missing_daily",
+            source_candidate_file=source_status_path.name,
+            endpoint="daily",
+        )
+        for row in source_rows
+        if row.get("trading_status") == "listed_open_missing_daily"
+        or row.get("daily_applicability") == "applicable_unresolved"
+    ]
+    price_limit_rows = [
+        _csv_blocker_row(
+            row,
+            blocker_type="unresolved_price_limit",
+            source_candidate_file=source_status_path.name,
+            endpoint="stk_limit",
+        )
+        for row in source_rows
+        if row.get("price_limit_applicability") in APPLICABLE_STATUSES
+        and row.get("price_limit_status") in UNRESOLVED_PRICE_LIMIT_STATUSES
+    ]
+    adj_factor_rows = [
+        _csv_blocker_row(
+            row,
+            blocker_type="unresolved_adj_factor",
+            source_candidate_file=factor_path.name,
+            endpoint="adj_factor",
+        )
+        for row in factor_rows
+        if row.get("adjustment_factor_applicability") in APPLICABLE_STATUSES
+        and row.get("adjustment_factor_status") != "resolved"
+    ]
+    outputs = {
+        "listed_open_missing_daily": listed_open_rows,
+        "unresolved_price_limit": price_limit_rows,
+        "unresolved_adj_factor": adj_factor_rows,
+    }
+    name_map = {
+        "listed_open_missing_daily": f"{prefix}_listed_open_missing_daily_rows.csv",
+        "unresolved_price_limit": f"{prefix}_unresolved_price_limit_rows.csv",
+        "unresolved_adj_factor": f"{prefix}_unresolved_adj_factor_rows.csv",
+    }
+    for key, rows in outputs.items():
+        _write_csv(output_dir / name_map[key], rows, D2_T14_BLOCKER_COLUMNS)
+    listed_keys = [_blocker_key(row) for row in listed_open_rows]
+    price_keys = [_blocker_key(row) for row in price_limit_rows]
+    all_keys = listed_keys + price_keys + [_blocker_key(row) for row in adj_factor_rows]
+    duplicate_count = len(all_keys) - len(set(all_keys))
+    summary = {
+        "listed_open_missing_daily_count": len(listed_open_rows),
+        "unresolved_price_limit_count": len(price_limit_rows),
+        "unresolved_adj_factor_count": len(adj_factor_rows),
+        "daily_price_limit_overlap_count": len(
+            set(listed_keys).intersection(price_keys)
+        ),
+        "unique_security_count": len({key[0] for key in all_keys if key[0]}),
+        "unique_trade_date_count": len({key[1] for key in all_keys if key[1]}),
+        "blocker_key_duplicate_count": duplicate_count,
+        "generated_from": [
+            "tnskhdata_source_status_candidate.jsonl",
+            "tnskhdata_factor_evidence_candidate.jsonl",
+        ],
+        "remote_provider_called": False,
+        "duckdb_written": False,
+        "d3_rows_generated": False,
+        "r0_state_generated": False,
+    }
+    summary_name = (
+        f"{prefix}_provider_blocker_summary.json"
+        if prefix == "d2_t13_remaining"
+        else "d2_t13_provider_blocker_summary.json"
+    )
+    _write_json(output_dir / summary_name, summary)
+    return summary
 
 
 def _calendar_dates(start_date: str, end_date: str) -> list[str]:
@@ -1159,6 +1319,522 @@ def repair_unexpected_empty_primary_partitions(
     }
     _write_json(
         output_dir / "tnskhdata_unexpected_empty_primary_repair_report.json", report
+    )
+    return report
+
+
+def _is_provider_param_error(exc: Exception) -> bool:
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(
+        token in text
+        for token in ("argument", "parameter", "unexpected", "schema", "field")
+    )
+
+
+def _matching_rows(
+    rows: list[dict[str, Any]],
+    *,
+    ts_code: str,
+    trade_date: str,
+    date_field: str = "trade_date",
+) -> tuple[list[dict[str, Any]], int]:
+    matched = [
+        dict(row)
+        for row in rows
+        if str(row.get("ts_code")) == ts_code
+        and _date_yyyymmdd(row.get(date_field) or row.get("trade_date")) == trade_date
+    ]
+    return matched, max(0, len(rows) - len(matched))
+
+
+def _call_repair_endpoint(
+    client: Any,
+    endpoint: str,
+    *,
+    ts_code: str,
+    trade_date: str,
+    date_field: str = "trade_date",
+) -> dict[str, Any]:
+    method = getattr(client, endpoint)
+    row_level_param_call_count = 0
+    date_only_fallback_call_count = 0
+    date_only_fallback_rows_filtered_out_count = 0
+    provider_error_count = 0
+    rate_limit_count = 0
+    timeout_count = 0
+    row_level_param_error = False
+    if endpoint == "suspend_d":
+        variants = [
+            {"suspend_date": trade_date, "ts_code": ts_code},
+            {"trade_date": trade_date, "ts_code": ts_code},
+        ]
+    else:
+        variants = [
+            {"trade_date": trade_date, "ts_code": ts_code},
+            {"start_date": trade_date, "end_date": trade_date, "ts_code": ts_code},
+        ]
+    for params in variants:
+        try:
+            row_level_param_call_count += 1
+            rows = _frame_records(method(**params))
+            matched, filtered = _matching_rows(
+                rows, ts_code=ts_code, trade_date=trade_date, date_field=date_field
+            )
+            date_only_fallback_rows_filtered_out_count += filtered
+            return {
+                "rows": matched,
+                "row_level_param_call_count": row_level_param_call_count,
+                "date_only_fallback_call_count": date_only_fallback_call_count,
+                "date_only_fallback_rows_filtered_out_count": (
+                    date_only_fallback_rows_filtered_out_count
+                ),
+                "provider_error_count": provider_error_count,
+                "rate_limit_count": rate_limit_count,
+                "timeout_count": timeout_count,
+                "error": None,
+            }
+        except Exception as exc:
+            category = classify_provider_error(exc)
+            rate_limit_count += int(category == "rate_limit")
+            timeout_count += int(category == "timeout")
+            provider_error_count += int(category not in {"rate_limit", "timeout"})
+            if not _is_provider_param_error(exc):
+                return {
+                    "rows": [],
+                    "row_level_param_call_count": row_level_param_call_count,
+                    "date_only_fallback_call_count": date_only_fallback_call_count,
+                    "date_only_fallback_rows_filtered_out_count": (
+                        date_only_fallback_rows_filtered_out_count
+                    ),
+                    "provider_error_count": provider_error_count,
+                    "rate_limit_count": rate_limit_count,
+                    "timeout_count": timeout_count,
+                    "error": _redact_error(exc),
+                }
+            row_level_param_error = True
+    if row_level_param_error and endpoint in {"daily", "stk_limit"}:
+        try:
+            date_only_fallback_call_count += 1
+            rows = _frame_records(method(trade_date=trade_date))
+            matched, filtered = _matching_rows(
+                rows, ts_code=ts_code, trade_date=trade_date, date_field=date_field
+            )
+            date_only_fallback_rows_filtered_out_count += filtered
+            return {
+                "rows": matched,
+                "row_level_param_call_count": row_level_param_call_count,
+                "date_only_fallback_call_count": date_only_fallback_call_count,
+                "date_only_fallback_rows_filtered_out_count": (
+                    date_only_fallback_rows_filtered_out_count
+                ),
+                "provider_error_count": provider_error_count,
+                "rate_limit_count": rate_limit_count,
+                "timeout_count": timeout_count,
+                "error": None,
+            }
+        except Exception as exc:
+            category = classify_provider_error(exc)
+            rate_limit_count += int(category == "rate_limit")
+            timeout_count += int(category == "timeout")
+            provider_error_count += int(category not in {"rate_limit", "timeout"})
+            return {
+                "rows": [],
+                "row_level_param_call_count": row_level_param_call_count,
+                "date_only_fallback_call_count": date_only_fallback_call_count,
+                "date_only_fallback_rows_filtered_out_count": (
+                    date_only_fallback_rows_filtered_out_count
+                ),
+                "provider_error_count": provider_error_count,
+                "rate_limit_count": rate_limit_count,
+                "timeout_count": timeout_count,
+                "error": _redact_error(exc),
+            }
+    return {
+        "rows": [],
+        "row_level_param_call_count": row_level_param_call_count,
+        "date_only_fallback_call_count": date_only_fallback_call_count,
+        "date_only_fallback_rows_filtered_out_count": (
+            date_only_fallback_rows_filtered_out_count
+        ),
+        "provider_error_count": provider_error_count,
+        "rate_limit_count": rate_limit_count,
+        "timeout_count": timeout_count,
+        "error": "row-level parameters unsupported",
+    }
+
+
+def _endpoint_key(row: dict[str, Any], endpoint: str) -> tuple[str, str]:
+    date_field = "suspend_date" if endpoint == "suspend_d" else "trade_date"
+    return (str(row.get("ts_code", "")), _date_yyyymmdd(row.get(date_field)))
+
+
+def _normalize_repair_rows(
+    rows: list[dict[str, Any]], *, endpoint: str, trade_date: str
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        if endpoint == "suspend_d":
+            item["suspend_date"] = _date_yyyymmdd(
+                item.get("suspend_date") or item.get("trade_date") or trade_date
+            )
+            item.setdefault("suspend_type", "S")
+        else:
+            item["trade_date"] = _date_yyyymmdd(item.get("trade_date") or trade_date)
+        normalized.append(item)
+    return normalized
+
+
+def merge_repair_rows_into_partition(
+    output_dir: Path,
+    endpoint: str,
+    trade_date: str,
+    fetched_rows: list[dict[str, Any]],
+    target_keys: set[tuple[str, str]],
+) -> dict[str, Any]:
+    path = _partition_file(output_dir, endpoint, trade_date)
+    existing = _read_jsonl(path)
+    existing_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    duplicate_non_target = 0
+    for row in existing:
+        key = _endpoint_key(row, endpoint)
+        if key in existing_by_key and key not in target_keys:
+            duplicate_non_target += 1
+        existing_by_key[key] = row
+    target_duplicate_count = 0
+    accepted_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in fetched_rows:
+        key = _endpoint_key(row, endpoint)
+        if key not in target_keys:
+            continue
+        if key in accepted_by_key:
+            target_duplicate_count += 1
+        accepted_by_key[key] = row
+    if duplicate_non_target:
+        return {
+            "written": False,
+            "unchanged": True,
+            "target_key_duplicate_count": target_duplicate_count,
+            "preexisting_duplicate_non_target_key_count": duplicate_non_target,
+            "sha256": _sha256_file(path) if path.exists() else None,
+        }
+    if not accepted_by_key:
+        return {
+            "written": False,
+            "unchanged": True,
+            "target_key_duplicate_count": target_duplicate_count,
+            "preexisting_duplicate_non_target_key_count": duplicate_non_target,
+            "sha256": _sha256_file(path) if path.exists() else None,
+        }
+    existing_by_key.update(accepted_by_key)
+    merged = [
+        existing_by_key[key]
+        for key in sorted(existing_by_key, key=lambda item: (item[1], item[0]))
+    ]
+    _write_jsonl(path, merged)
+    return {
+        "written": True,
+        "unchanged": False,
+        "target_key_duplicate_count": target_duplicate_count,
+        "preexisting_duplicate_non_target_key_count": duplicate_non_target,
+        "sha256": _sha256_file(path),
+    }
+
+
+def _quality_snapshot(output_dir: Path) -> dict[str, Any]:
+    quality = (
+        _load_json(output_dir / "tnskhdata_quality_report.json")
+        if (output_dir / "tnskhdata_quality_report.json").exists()
+        else {}
+    )
+    d2 = (
+        _load_json(output_dir / "tnskhdata_d2_acceptance_candidate_report.json")
+        if (output_dir / "tnskhdata_d2_acceptance_candidate_report.json").exists()
+        else {}
+    )
+    return {
+        "missing_daily_unexpected_count": quality.get(
+            "missing_daily_unexpected_count", 0
+        ),
+        "listed_open_missing_daily_count": quality.get(
+            "listed_open_missing_daily_count", 0
+        ),
+        "unresolved_price_limit_status_count": quality.get(
+            "unresolved_price_limit_status_count", 0
+        ),
+        "unresolved_adjustment_factor_count": quality.get(
+            "unresolved_adjustment_factor_count", 0
+        ),
+        "d2_acceptance_decision": d2.get(
+            "d2_acceptance_decision", "blocked_pending_provider_coverage"
+        ),
+    }
+
+
+def _quality_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    keys = [
+        "missing_daily_unexpected_count",
+        "listed_open_missing_daily_count",
+        "unresolved_price_limit_status_count",
+        "unresolved_adjustment_factor_count",
+    ]
+    return {
+        key: int(before.get(key, 0) or 0) - int(after.get(key, 0) or 0) for key in keys
+    }
+
+
+def _dedupe_blockers(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    duplicate_count = 0
+    for row in rows:
+        key = _blocker_key(row)
+        if key in by_key:
+            duplicate_count += 1
+        by_key[key] = row
+    return [by_key[key] for key in sorted(by_key)], duplicate_count
+
+
+def run_no_remote_post_repair_pipeline(
+    plan: FetchPlan, output_dir: Path
+) -> dict[str, Any]:
+    verification = verify_partitioned_fetch_completeness(plan, output_dir)
+    _write_json(output_dir / "tnskhdata_fetch_verification_report.json", verification)
+    quality = None
+    if verification["fetch_completeness_decision"] == "complete":
+        quality = assemble_partitioned_artifacts(plan, output_dir, verification)
+        _write_json(output_dir / "tnskhdata_quality_report.json", quality)
+    finalized = finalize_partitioned_reports(plan, output_dir, verification, quality)
+    return {"verification": verification, "quality": quality, "finalized": finalized}
+
+
+def repair_listed_open_provider_blockers(
+    client: Any,
+    *,
+    output_dir: Path,
+    plan: FetchPlan | None = None,
+) -> dict[str, Any]:
+    missing_rows_raw = _read_csv(
+        output_dir / "d2_t13_listed_open_missing_daily_rows.csv"
+    )
+    price_rows_raw = _read_csv(output_dir / "d2_t13_unresolved_price_limit_rows.csv")
+    factor_rows_raw = _read_csv(output_dir / "d2_t13_unresolved_adj_factor_rows.csv")
+    missing_rows, missing_dupes = _dedupe_blockers(missing_rows_raw)
+    price_rows, price_dupes = _dedupe_blockers(price_rows_raw)
+    factor_rows, factor_dupes = _dedupe_blockers(factor_rows_raw)
+    report: dict[str, Any] = {
+        "repair_mode": "listed_open_row_level_primary_provider_repair",
+        "input_listed_open_missing_daily_count": len(missing_rows_raw),
+        "input_unresolved_price_limit_count": len(price_rows_raw),
+        "input_unresolved_adj_factor_count": len(factor_rows_raw),
+        "daily_repair_attempted_count": len(missing_rows),
+        "daily_repair_resolved_count": 0,
+        "daily_still_missing_count": 0,
+        "daily_repair_failed_count": 0,
+        "stk_limit_repair_attempted_count": len(price_rows),
+        "stk_limit_repair_resolved_count": 0,
+        "stk_limit_still_unresolved_count": 0,
+        "stk_limit_repair_failed_count": 0,
+        "adj_factor_repair_attempted_count": len(factor_rows),
+        "adj_factor_repair_resolved_count": 0,
+        "adj_factor_still_unresolved_count": 0,
+        "adj_factor_repair_failed_count": 0,
+        "suspend_repair_attempted_count": 0,
+        "suspend_repair_resolved_count": 0,
+        "suspend_reclassified_suspended_count": 0,
+        "suspend_repair_failed_count": 0,
+        "row_level_param_call_count": 0,
+        "date_only_fallback_call_count": 0,
+        "date_only_fallback_rows_filtered_out_count": 0,
+        "provider_error_count": 0,
+        "rate_limit_count": 0,
+        "timeout_count": 0,
+        "partition_merge_written_count": 0,
+        "partition_merge_unchanged_count": 0,
+        "target_key_duplicate_count": missing_dupes + price_dupes + factor_dupes,
+        "preexisting_duplicate_non_target_key_count": 0,
+        "quality_before": _quality_snapshot(output_dir),
+        "remaining_blocker_files": [],
+        "canonical_source_for_repair": "tnskhdata_primary_endpoints",
+        "pro_bar_called": False,
+        "pro_bar_canonical_write_allowed": False,
+        "duckdb_written": False,
+        "d3_rows_generated": False,
+        "r0_state_generated": False,
+    }
+
+    def absorb(result: dict[str, Any]) -> None:
+        for key in [
+            "row_level_param_call_count",
+            "date_only_fallback_call_count",
+            "date_only_fallback_rows_filtered_out_count",
+            "provider_error_count",
+            "rate_limit_count",
+            "timeout_count",
+        ]:
+            report[key] += result.get(key, 0)
+
+    def merge(endpoint: str, trade_date: str, rows: list[dict[str, Any]]) -> None:
+        if not rows:
+            return
+        target_keys = {_endpoint_key(row, endpoint) for row in rows}
+        merge_result = merge_repair_rows_into_partition(
+            output_dir, endpoint, trade_date, rows, target_keys
+        )
+        report["partition_merge_written_count"] += int(merge_result["written"])
+        report["partition_merge_unchanged_count"] += int(merge_result["unchanged"])
+        report["target_key_duplicate_count"] += merge_result[
+            "target_key_duplicate_count"
+        ]
+        report["preexisting_duplicate_non_target_key_count"] += merge_result[
+            "preexisting_duplicate_non_target_key_count"
+        ]
+
+    still_missing_daily: list[dict[str, Any]] = []
+    for blocker in missing_rows:
+        ts_code, trade_date = _blocker_key(blocker)
+        result = _call_repair_endpoint(
+            client, "daily", ts_code=ts_code, trade_date=trade_date
+        )
+        absorb(result)
+        rows = _normalize_repair_rows(
+            result["rows"], endpoint="daily", trade_date=trade_date
+        )
+        if rows:
+            report["daily_repair_resolved_count"] += 1
+            merge("daily", trade_date, rows)
+        elif result.get("error"):
+            report["daily_repair_failed_count"] += 1
+            still_missing_daily.append(blocker)
+        else:
+            report["daily_still_missing_count"] += 1
+            still_missing_daily.append(blocker)
+
+    for blocker in price_rows:
+        ts_code, trade_date = _blocker_key(blocker)
+        result = _call_repair_endpoint(
+            client, "stk_limit", ts_code=ts_code, trade_date=trade_date
+        )
+        absorb(result)
+        rows = _normalize_repair_rows(
+            result["rows"], endpoint="stk_limit", trade_date=trade_date
+        )
+        if rows:
+            report["stk_limit_repair_resolved_count"] += 1
+            merge("stk_limit", trade_date, rows)
+        elif result.get("error"):
+            report["stk_limit_repair_failed_count"] += 1
+        else:
+            report["stk_limit_still_unresolved_count"] += 1
+
+    for blocker in factor_rows:
+        ts_code, trade_date = _blocker_key(blocker)
+        result = _call_repair_endpoint(
+            client, "adj_factor", ts_code=ts_code, trade_date=trade_date
+        )
+        absorb(result)
+        rows = _normalize_repair_rows(
+            result["rows"], endpoint="adj_factor", trade_date=trade_date
+        )
+        if rows:
+            report["adj_factor_repair_resolved_count"] += 1
+            merge("adj_factor", trade_date, rows)
+        elif result.get("error"):
+            report["adj_factor_repair_failed_count"] += 1
+        else:
+            report["adj_factor_still_unresolved_count"] += 1
+
+    for blocker in still_missing_daily:
+        ts_code, trade_date = _blocker_key(blocker)
+        report["suspend_repair_attempted_count"] += 1
+        result = _call_repair_endpoint(
+            client,
+            "suspend_d",
+            ts_code=ts_code,
+            trade_date=trade_date,
+            date_field="suspend_date",
+        )
+        absorb(result)
+        rows = _normalize_repair_rows(
+            result["rows"], endpoint="suspend_d", trade_date=trade_date
+        )
+        if rows:
+            report["suspend_repair_resolved_count"] += 1
+            report["suspend_reclassified_suspended_count"] += sum(
+                1 for row in rows if row.get("suspend_type") == "S"
+            )
+            merge("suspend_d", trade_date, rows)
+        elif result.get("error"):
+            report["suspend_repair_failed_count"] += 1
+
+    if plan is not None:
+        run_no_remote_post_repair_pipeline(plan, output_dir)
+        remaining = export_listed_open_provider_blockers(
+            output_dir, prefix="d2_t13_remaining"
+        )
+        if any(
+            remaining.get(key, 0)
+            for key in [
+                "listed_open_missing_daily_count",
+                "unresolved_price_limit_count",
+                "unresolved_adj_factor_count",
+            ]
+        ):
+            report["remaining_blocker_files"] = [
+                "d2_t13_remaining_listed_open_missing_daily_rows.csv",
+                "d2_t13_remaining_unresolved_price_limit_rows.csv",
+                "d2_t13_remaining_unresolved_adj_factor_rows.csv",
+                "d2_t13_remaining_provider_blocker_summary.json",
+            ]
+    report["quality_after"] = _quality_snapshot(output_dir)
+    report["quality_delta"] = _quality_delta(
+        report["quality_before"], report["quality_after"]
+    )
+    _write_json(output_dir / "d2_t13_listed_open_provider_repair_report.json", report)
+    return report
+
+
+def diagnose_missing_with_pro_bar(client: Any, *, output_dir: Path) -> dict[str, Any]:
+    missing_rows, _ = _dedupe_blockers(
+        _read_csv(output_dir / "d2_t13_listed_open_missing_daily_rows.csv")
+    )
+    report = {
+        "diagnostic_mode": "pro_bar_missing_row_availability_only",
+        "input_missing_daily_count": len(missing_rows),
+        "pro_bar_diagnostic_attempted_count": len(missing_rows),
+        "pro_bar_diagnostic_returned_count": 0,
+        "pro_bar_diagnostic_no_row_count": 0,
+        "pro_bar_provider_error_count": 0,
+        "canonical_daily_partition_written": False,
+        "canonical_adj_factor_partition_written": False,
+        "canonical_adjusted_price_written": False,
+        "d2_acceptance_changed": False,
+        "pro_bar_canonical_write_allowed": False,
+        "duckdb_written": False,
+        "d3_rows_generated": False,
+        "r0_state_generated": False,
+    }
+    pro_bar = getattr(client, "pro_bar")
+    for row in missing_rows:
+        ts_code, trade_date = _blocker_key(row)
+        try:
+            records = _frame_records(
+                pro_bar(
+                    ts_code=ts_code,
+                    start_date=trade_date,
+                    end_date=trade_date,
+                    adj="qfq",
+                )
+            )
+        except Exception:
+            report["pro_bar_provider_error_count"] += 1
+            continue
+        matched, _ = _matching_rows(records, ts_code=ts_code, trade_date=trade_date)
+        if matched:
+            report["pro_bar_diagnostic_returned_count"] += 1
+        else:
+            report["pro_bar_diagnostic_no_row_count"] += 1
+    _write_json(
+        output_dir / "d2_t13_pro_bar_missing_row_diagnostic_report.json", report
     )
     return report
 
@@ -2814,6 +3490,9 @@ def materialize_full_candidate(
     require_pro_bar_reconciliation: bool = False,
     repair_failed_only: bool = False,
     repair_unexpected_empty_primary_only: bool = False,
+    export_listed_open_provider_blockers_only: bool = False,
+    repair_listed_open_provider_blockers_only: bool = False,
+    diagnose_missing_with_pro_bar_only: bool = False,
     verify_fetch_only: bool = False,
     assemble_only: bool = False,
     finalize_only: bool = False,
@@ -2839,7 +3518,11 @@ def materialize_full_candidate(
     if contract.get("local_staging_write_authorized") is not True:
         raise D2T13MaterializationError("local staging write must be authorized")
     local_only_mode = (
-        verify_fetch_only or assemble_only or finalize_only or no_remote_fetch
+        verify_fetch_only
+        or assemble_only
+        or finalize_only
+        or no_remote_fetch
+        or export_listed_open_provider_blockers_only
     )
     if not enable_remote_fetch and client is None and not local_only_mode:
         raise D2T13MaterializationError(
@@ -2889,6 +3572,84 @@ def materialize_full_candidate(
         fetch_date_domain=fetch_date_domain,
         trade_cal_open_dates=trade_cal_open_dates,
     )
+    if export_listed_open_provider_blockers_only:
+        summary = export_listed_open_provider_blockers(output_dir)
+        source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
+        return {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": plan.mode != "full",
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": "blocked_pending_provider_coverage",
+            "d3_handoff_decision": "d3_candidate_generation_blocked",
+            "r0_handoff_decision": "r0_blocked",
+            "quality_report": None,
+            "repair_report": None,
+            "provider_blocker_summary": summary,
+            "date_domain_audit_report": date_domain_audit,
+            "artifact_hashes": {},
+            "duckdb_written": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        }
+    if repair_listed_open_provider_blockers_only:
+        if client is None:
+            token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
+            client = _client_from_token(token)
+        repair_report = repair_listed_open_provider_blockers(
+            client, output_dir=output_dir, plan=plan
+        )
+        source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
+        return {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": plan.mode != "full",
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": repair_report["quality_after"][
+                "d2_acceptance_decision"
+            ],
+            "d3_handoff_decision": "d3_candidate_generation_blocked",
+            "r0_handoff_decision": "r0_blocked",
+            "quality_report": repair_report["quality_after"],
+            "repair_report": repair_report,
+            "date_domain_audit_report": date_domain_audit,
+            "artifact_hashes": {},
+            "duckdb_written": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        }
+    if diagnose_missing_with_pro_bar_only:
+        if client is None:
+            token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
+            client = _client_from_token(token)
+        diagnostic_report = diagnose_missing_with_pro_bar(client, output_dir=output_dir)
+        source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
+        return {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": plan.mode != "full",
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": "blocked_pending_provider_coverage",
+            "d3_handoff_decision": "d3_candidate_generation_blocked",
+            "r0_handoff_decision": "r0_blocked",
+            "quality_report": None,
+            "repair_report": None,
+            "pro_bar_diagnostic_report": diagnostic_report,
+            "date_domain_audit_report": date_domain_audit,
+            "artifact_hashes": {},
+            "duckdb_written": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        }
     if repair_unexpected_empty_primary_only:
         if client is None:
             token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
@@ -3274,6 +4035,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--repair-failed-only", action="store_true")
     parser.add_argument("--repair-unexpected-empty-primary-only", action="store_true")
+    parser.add_argument("--export-listed-open-provider-blockers", action="store_true")
+    parser.add_argument("--repair-listed-open-provider-blockers", action="store_true")
+    parser.add_argument("--diagnose-missing-with-pro-bar", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path)
     parser.add_argument("--staging-store", type=Path)
     parser.add_argument(
@@ -3338,6 +4102,13 @@ def main() -> int:
         require_pro_bar_reconciliation=args.require_pro_bar_reconciliation,
         repair_failed_only=args.repair_failed_only,
         repair_unexpected_empty_primary_only=args.repair_unexpected_empty_primary_only,
+        export_listed_open_provider_blockers_only=(
+            args.export_listed_open_provider_blockers
+        ),
+        repair_listed_open_provider_blockers_only=(
+            args.repair_listed_open_provider_blockers
+        ),
+        diagnose_missing_with_pro_bar_only=args.diagnose_missing_with_pro_bar,
         verify_fetch_only=args.verify_fetch_only,
         assemble_only=args.assemble_only,
         finalize_only=args.finalize_only,
@@ -3355,6 +4126,8 @@ def main() -> int:
         "r0_handoff_decision": report["r0_handoff_decision"],
         "quality_report": report["quality_report"],
         "repair_report": report.get("repair_report"),
+        "provider_blocker_summary": report.get("provider_blocker_summary"),
+        "pro_bar_diagnostic_report": report.get("pro_bar_diagnostic_report"),
     }
     print(json.dumps(redacted, ensure_ascii=False, sort_keys=True))
     return 0

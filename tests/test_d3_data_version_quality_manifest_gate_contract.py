@@ -198,9 +198,9 @@ class D3DataVersionQualityManifestGateContractTest(unittest.TestCase):
             {"data/raw", "data/external", "MarketDB", ".duckdb", ".day"},
         )
 
-    def test_readme_advances_to_d3_t06_and_preserves_stage_boundaries(self) -> None:
-        self.assertIn("current_stage: D3", self.readme)
-        self.assertIn("current_task: D3-T06", self.readme)
+    def test_readme_preserves_d3_t06_completion_and_stage_boundaries(self) -> None:
+        self.assertIn("current_stage: D2", self.readme)
+        self.assertIn("current_task: D2-T14", self.readme)
         self.assertIn("next_planned_task: D3-T07", self.readme)
         for snippet in [
             "D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35",
@@ -209,7 +209,8 @@ class D3DataVersionQualityManifestGateContractTest(unittest.TestCase):
             "completed via PR #37",
             "D3-T04` 基础质量指标与 PCVT input readiness 契约：completed via PR #38",
             "D3-T05` 标准日频观测合成构建与最小集成测试：completed via PR #39",
-            "D3-T06` `data_version`、quality report 与 manifest 发布门禁：in_progress",
+            "D3-T06` `data_version`、quality report 与 manifest 发布门禁："
+            "completed via PR #40",
             "D3-T08` D3 阶段验收与 R0 交接契约：planned",
         ]:
             self.assertIn(snippet, self.readme)
