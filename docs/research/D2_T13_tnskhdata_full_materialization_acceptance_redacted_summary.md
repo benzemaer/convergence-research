@@ -66,13 +66,17 @@ are not D2 acceptance evidence. `--repair-failed-only` limits repair runs to
 failed trade-date tasks and does not refetch completed dates.
 
 Endpoint staging is no longer loaded into memory as whole endpoint lists during
-the fetch stage. Final artifact assembly remains blocked until a streaming or
-local-staging SQL assembly pass completes.
+the fetch stage. Partitioned assembly is allowed after fetch completeness passes,
+but D2 acceptance remains blocked until provider coverage and quality gates pass.
 
 The no-remote verification/finalize command was executed after the endpoint
-fetch rerun. Partition counts are complete for every endpoint, but verification
-found 35 open-date zero-byte primary partitions, so fetch completeness remains
-`incomplete`. No sample run result is used as D2 acceptance evidence.
+fetch rerun with `fetch_date_domain = candidate`. Partition counts are complete
+for every candidate-date endpoint and all JSONL partitions are parseable, so
+`fetch_completeness_decision = complete`. Verification found 35 open-date
+zero-row primary partitions; these are classified as
+`unexpected_empty_primary_partitions`, not malformed partitions. Provider
+coverage therefore remains blocked. No sample run result is used as D2
+acceptance evidence.
 
 ```json
 {
@@ -94,7 +98,11 @@ found 35 open-date zero-byte primary partitions, so fetch completeness remains
   "verify_fetch_only_executed": true,
   "assemble_only_executed": false,
   "finalize_only_executed": true,
-  "fetch_completeness_decision": "incomplete",
+  "fetch_date_domain": "candidate",
+  "default_fetch_date_domain": "calendar",
+  "trade_cal_used_as_fetch_task_cutter_by_default": false,
+  "fetch_completeness_decision": "complete",
+  "provider_coverage_decision": "blocked_pending_provider_coverage",
   "candidate_artifact_output_dir": "data/generated/d2/d2_t13_tnskhdata_full_candidate/",
   "candidate_universe_row_count": 1671919,
   "mapped_row_count": null,
@@ -118,8 +126,8 @@ found 35 open-date zero-byte primary partitions, so fetch completeness remains
   "unresolved_st_status_count": null,
   "unresolved_price_limit_status_count": null,
   "unresolved_adjustment_factor_count": null,
-  "amount_unit_status": "not_evaluated_full_run_incomplete",
-  "volume_unit_status": "not_evaluated_full_run_incomplete",
+  "amount_unit_status": "not_evaluated_assembly_not_run",
+  "volume_unit_status": "not_evaluated_assembly_not_run",
   "duplicate_key_count": null,
   "null_ohlc_count": null,
   "non_positive_price_count": null,
@@ -158,14 +166,18 @@ found 35 open-date zero-byte primary partitions, so fetch completeness remains
     "stock_st": 2426,
     "suspend_d": 2426
   },
-  "missing_partition_count": 0,
-  "malformed_partition_count": 35,
-  "malformed_partition_by_endpoint": {
+  "partition_missing_count": 0,
+  "partition_malformed_count": 0,
+  "provider_empty_count": 0,
+  "expected_empty_count": 1541,
+  "allowed_empty_count": 1093,
+  "unexpected_empty_primary_partition_count": 35,
+  "unexpected_empty_primary_partition_by_endpoint": {
     "daily": 12,
     "stk_limit": 12,
     "adj_factor": 11
   },
-  "malformed_partition_trade_dates": [
+  "unexpected_empty_primary_partition_trade_dates": [
     "20171207",
     "20171211",
     "20171212",
@@ -186,6 +198,7 @@ found 35 open-date zero-byte primary partitions, so fetch completeness remains
   "endpoint_partitions_loaded_into_memory": false,
   "keyboard_interrupt_cancel_futures": true,
   "sample_acceptance_decision": null,
+  "artifact_hashes_complete": false,
   "d2_acceptance_decision": "blocked_pending_provider_coverage",
   "d3_handoff_decision": "d3_candidate_generation_blocked",
   "r0_handoff_decision": "r0_blocked",

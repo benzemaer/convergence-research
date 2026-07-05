@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from scripts.materialize_d2_tnskhdata_full_candidate import (
+    build_endpoint_tasks,
     build_fetch_plan,
     fetch_provider_evidence,
 )
@@ -130,6 +131,30 @@ class D2T13TnskhdataProviderFetchPlanningTest(unittest.TestCase):
             )
         )
         self.assertEqual(evidence["_metrics"][0]["primary_provider_error_count"], 1)
+
+    def test_calendar_fetch_date_domain_does_not_use_trade_cal_open_cut(self) -> None:
+        rows = [
+            {
+                "security_id": "XSHE.000001",
+                "trading_date": "20260630",
+                "universe_id": "u",
+                "time_segment_id": "t",
+            }
+        ]
+        plan = build_fetch_plan(
+            rows,
+            full=True,
+            sample_securities=None,
+            sample_dates_per_security=None,
+            start_date="20260629",
+            end_date="20260701",
+            fetch_date_domain="calendar",
+        )
+        tasks = build_endpoint_tasks(plan)
+        daily_dates = sorted(
+            task.trade_date for task in tasks if task.endpoint == "daily"
+        )
+        self.assertEqual(daily_dates, ["20260629", "20260630", "20260701"])
 
     def test_pro_bar_failure_is_reconciliation_warning_not_primary_error(self) -> None:
         rows = [

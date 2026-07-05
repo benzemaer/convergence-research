@@ -58,6 +58,14 @@ class D2T13FinalizeGateTest(unittest.TestCase):
         quality["artifact_hashes_complete"] = False
         self.assertEqual(acceptance_decision(quality), "blocked_pending_reconciliation")
 
+    def test_unexpected_empty_primary_blocks_provider_coverage(self) -> None:
+        quality = self._quality()
+        quality["provider_coverage_decision"] = "blocked_pending_provider_coverage"
+        quality["unexpected_empty_primary_partition_count"] = 1
+        self.assertEqual(
+            acceptance_decision(quality), "blocked_pending_provider_coverage"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

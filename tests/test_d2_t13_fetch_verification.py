@@ -32,7 +32,10 @@ class D2T13FetchVerificationTest(unittest.TestCase):
     def _write_complete_partitions(self, root: Path) -> None:
         for status in ("L", "D", "P", "G"):
             _write_jsonl(root / "partitions" / "stock_basic" / f"{status}.jsonl", [])
-        _write_jsonl(root / "partitions" / "trade_cal" / "range.jsonl", [])
+        _write_jsonl(
+            root / "partitions" / "trade_cal" / "range.jsonl",
+            [{"cal_date": "20260630", "is_open": 1}],
+        )
         for endpoint in ("daily", "stk_limit", "adj_factor"):
             _write_jsonl(
                 root / "partitions" / endpoint / "20260630.jsonl",
@@ -66,6 +69,62 @@ class D2T13FetchVerificationTest(unittest.TestCase):
             report = verify_partitioned_fetch_completeness(self._plan(), root)
             self.assertEqual(report["fetch_completeness_decision"], "incomplete")
             self.assertTrue(report["malformed_partitions"])
+
+    def test_closed_date_daily_empty_is_expected_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_complete_partitions(root)
+            _write_jsonl(
+                root / "partitions" / "trade_cal" / "range.jsonl",
+                [{"cal_date": "20260630", "is_open": 0}],
+            )
+            _write_jsonl(root / "partitions" / "daily" / "20260630.jsonl", [])
+            report = verify_partitioned_fetch_completeness(self._plan(), root)
+            self.assertEqual(report["fetch_completeness_decision"], "complete")
+            self.assertIn(
+                str(root / "partitions" / "daily" / "20260630.jsonl"),
+                report["expected_empty_partitions"],
+            )
+
+    def test_open_date_daily_empty_blocks_provider_coverage_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_complete_partitions(root)
+            _write_jsonl(root / "partitions" / "daily" / "20260630.jsonl", [])
+            report = verify_partitioned_fetch_completeness(self._plan(), root)
+            self.assertEqual(report["fetch_completeness_decision"], "complete")
+            self.assertEqual(
+                report["provider_coverage_decision"],
+                "blocked_pending_provider_coverage",
+            )
+            self.assertEqual(report["unexpected_empty_primary_partition_count"], 1)
+            self.assertFalse(report["malformed_partitions"])
+
+    def test_status_empty_partitions_are_allowed_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_complete_partitions(root)
+            report = verify_partitioned_fetch_completeness(self._plan(), root)
+            self.assertEqual(report["fetch_completeness_decision"], "complete")
+            self.assertEqual(report["allowed_empty_count"], 2)
+
+    def test_zero_byte_jsonl_is_provider_empty_not_malformed_without_trade_cal(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._write_complete_partitions(root)
+            _write_jsonl(root / "partitions" / "trade_cal" / "range.jsonl", [])
+            (root / "partitions" / "daily" / "20260630.jsonl").write_text(
+                "", encoding="utf-8"
+            )
+            report = verify_partitioned_fetch_completeness(self._plan(), root)
+            self.assertEqual(report["fetch_completeness_decision"], "complete")
+            self.assertIn(
+                str(root / "partitions" / "daily" / "20260630.jsonl"),
+                report["provider_empty_partitions"],
+            )
+            self.assertFalse(report["malformed_partitions"])
 
 
 if __name__ == "__main__":

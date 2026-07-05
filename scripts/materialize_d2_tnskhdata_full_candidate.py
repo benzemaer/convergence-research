@@ -11,7 +11,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +66,7 @@ class FetchPlan:
     ts_codes: list[str]
     trade_dates: list[str]
     mode: str
+    fetch_date_domain: str = "calendar"
 
 
 @dataclass(frozen=True)
@@ -311,6 +312,17 @@ def _date_yyyymmdd(value: Any) -> str:
     return text[:10].replace("-", "")
 
 
+def _calendar_dates(start_date: str, end_date: str) -> list[str]:
+    start = datetime.strptime(_date_yyyymmdd(start_date), "%Y%m%d").date()
+    end = datetime.strptime(_date_yyyymmdd(end_date), "%Y%m%d").date()
+    dates: list[str] = []
+    current = start
+    while current <= end:
+        dates.append(current.strftime("%Y%m%d"))
+        current += timedelta(days=1)
+    return dates
+
+
 def _read_env_file(path: Path | None) -> dict[str, str]:
     if path is None or not path.exists():
         return {}
@@ -414,7 +426,13 @@ def build_fetch_plan(
     full: bool,
     sample_securities: int | None,
     sample_dates_per_security: int | None,
+    start_date: str = DEFAULT_START_DATE,
+    end_date: str = DEFAULT_END_DATE,
+    fetch_date_domain: str = "candidate",
+    trade_cal_open_dates: list[str] | None = None,
 ) -> FetchPlan:
+    if fetch_date_domain not in {"calendar", "candidate", "trade-cal-open"}:
+        raise D2T13MaterializationError("unsupported fetch_date_domain")
     mapped_rows = []
     for row in rows:
         mapping = resolve_security_provider_codes(row["security_id"])
@@ -436,11 +454,23 @@ def build_fetch_plan(
             )
             sampled.extend(dates[-(sample_dates_per_security or 5) :])
         mapped_rows = sampled
+    candidate_dates = sorted({row["trading_date"] for row in mapped_rows})
+    if fetch_date_domain == "calendar":
+        trade_dates = _calendar_dates(start_date, end_date)
+    elif fetch_date_domain == "candidate":
+        trade_dates = candidate_dates
+    else:
+        if trade_cal_open_dates is None:
+            raise D2T13MaterializationError(
+                "trade-cal-open fetch_date_domain requires explicit open dates"
+            )
+        trade_dates = sorted({_date_yyyymmdd(date) for date in trade_cal_open_dates})
     return FetchPlan(
         rows=mapped_rows,
         ts_codes=sorted({row["ts_code"] for row in mapped_rows if row.get("ts_code")}),
-        trade_dates=sorted({row["trading_date"] for row in mapped_rows}),
+        trade_dates=trade_dates,
         mode="full" if full else "sample",
+        fetch_date_domain=fetch_date_domain,
     )
 
 
@@ -1339,6 +1369,14 @@ def acceptance_decision(quality: dict[str, Any]) -> str:
         return "blocked_pending_tnskhdata_full_materialization_run"
     if quality.get("fetch_completeness_decision", "complete") != "complete":
         return "blocked_pending_provider_coverage"
+    if quality.get("provider_coverage_decision", "complete") != "complete":
+        return "blocked_pending_provider_coverage"
+    if quality.get("unexpected_empty_primary_partition_count", 0):
+        return "blocked_pending_provider_coverage"
+    if quality.get("partition_malformed_count", 0) or quality.get(
+        "partition_missing_count", 0
+    ):
+        return "blocked_pending_provider_coverage"
     if quality.get("artifact_hashes_complete") is False:
         return "blocked_pending_reconciliation"
     if not quality.get("all_tasks_completed", True):
@@ -1465,6 +1503,65 @@ def _valid_jsonl_file(path: Path) -> bool:
     return True
 
 
+def _read_partition_status(
+    output_dir: Path,
+    endpoint: str,
+    suffix: str,
+    *,
+    open_dates: set[str],
+    closed_dates: set[str],
+) -> dict[str, Any]:
+    path = _partition_file(output_dir, endpoint, suffix)
+    if not path.exists():
+        return {
+            "endpoint": endpoint,
+            "suffix": suffix,
+            "path": str(path),
+            "status": "partition_missing",
+            "row_count": None,
+            "sha256": None,
+        }
+    try:
+        rows = _read_jsonl(path)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {
+            "endpoint": endpoint,
+            "suffix": suffix,
+            "path": str(path),
+            "status": "partition_malformed",
+            "row_count": None,
+            "sha256": None,
+        }
+    if not all(isinstance(row, dict) for row in rows):
+        return {
+            "endpoint": endpoint,
+            "suffix": suffix,
+            "path": str(path),
+            "status": "partition_malformed",
+            "row_count": None,
+            "sha256": None,
+        }
+    row_count = len(rows)
+    if row_count > 0:
+        status = "succeeded_non_empty"
+    elif endpoint in {"stock_st", "suspend_d"}:
+        status = "allowed_empty"
+    elif suffix in closed_dates:
+        status = "expected_empty"
+    elif suffix in open_dates and endpoint in {"daily", "stk_limit", "adj_factor"}:
+        status = "unexpected_empty_primary"
+    else:
+        status = "provider_empty"
+    return {
+        "endpoint": endpoint,
+        "suffix": suffix,
+        "path": str(path),
+        "status": status,
+        "row_count": row_count,
+        "sha256": _sha256_file(path),
+    }
+
+
 def verify_partitioned_fetch_completeness(
     plan: FetchPlan, output_dir: Path
 ) -> dict[str, Any]:
@@ -1476,35 +1573,61 @@ def verify_partitioned_fetch_completeness(
         for row in trade_cal_rows
         if str(row.get("is_open")) == "1"
     }
-    missing: list[str] = []
-    malformed: list[str] = []
-    zero_byte: list[str] = []
-    empty_allowed: list[str] = []
+    closed_dates = {
+        _date_yyyymmdd(row.get("cal_date"))
+        for row in trade_cal_rows
+        if str(row.get("is_open")) == "0"
+    }
+    partition_statuses: list[dict[str, Any]] = []
     endpoint_counts: dict[str, int] = {}
     endpoint_hashes: dict[str, dict[str, str]] = {}
     date_endpoints = ("daily", "stk_limit", "adj_factor", "stock_st", "suspend_d")
-    empty_allowed_endpoints = {"stock_st", "suspend_d"}
     for endpoint in date_endpoints:
         endpoint_hashes[endpoint] = {}
         count = 0
         for trade_date in sorted(expected_dates):
-            path = _partition_file(output_dir, endpoint, trade_date)
-            if not path.exists():
-                missing.append(str(path))
-                continue
-            count += 1
-            if path.stat().st_size == 0:
-                zero_byte.append(str(path))
-                if endpoint in empty_allowed_endpoints or trade_date not in open_dates:
-                    empty_allowed.append(str(path))
-                else:
-                    malformed.append(str(path))
-                    continue
-            if not _valid_jsonl_file(path):
-                malformed.append(str(path))
-                continue
-            endpoint_hashes[endpoint][trade_date] = _sha256_file(path)
+            status = _read_partition_status(
+                output_dir,
+                endpoint,
+                trade_date,
+                open_dates=open_dates,
+                closed_dates=closed_dates,
+            )
+            partition_statuses.append(status)
+            if status["status"] != "partition_missing":
+                count += 1
+            if status["sha256"]:
+                endpoint_hashes[endpoint][trade_date] = status["sha256"]
         endpoint_counts[endpoint] = count
+    missing = [
+        row["path"]
+        for row in partition_statuses
+        if row["status"] == "partition_missing"
+    ]
+    malformed = [
+        row["path"]
+        for row in partition_statuses
+        if row["status"] == "partition_malformed"
+    ]
+    unexpected_empty_primary = [
+        row["path"]
+        for row in partition_statuses
+        if row["status"] == "unexpected_empty_primary"
+    ]
+    provider_empty = [
+        row["path"] for row in partition_statuses if row["status"] == "provider_empty"
+    ]
+    expected_empty = [
+        row["path"] for row in partition_statuses if row["status"] == "expected_empty"
+    ]
+    allowed_empty = [
+        row["path"] for row in partition_statuses if row["status"] == "allowed_empty"
+    ]
+    succeeded_non_empty = [
+        row["path"]
+        for row in partition_statuses
+        if row["status"] == "succeeded_non_empty"
+    ]
     for status in ("L", "D", "P", "G"):
         path = _partition_file(output_dir, "stock_basic", status)
         if not path.exists():
@@ -1515,18 +1638,36 @@ def verify_partitioned_fetch_completeness(
         missing.append(str(trade_cal_path))
     elif not _valid_jsonl_file(trade_cal_path):
         malformed.append(str(trade_cal_path))
-    decision = "complete" if not missing and not malformed else "incomplete"
+    fetch_decision = "complete" if not missing and not malformed else "incomplete"
+    coverage_decision = (
+        "complete"
+        if fetch_decision == "complete" and not unexpected_empty_primary
+        else "blocked_pending_provider_coverage"
+    )
     return {
         "run_mode": plan.mode,
         "sample_mode": plan.mode != "full",
+        "fetch_date_domain": plan.fetch_date_domain,
         "expected_trade_date_count": len(expected_dates),
         "endpoint_partition_counts": endpoint_counts,
+        "partition_statuses": partition_statuses,
         "missing_partitions": missing,
         "malformed_partitions": malformed,
-        "zero_byte_partitions": zero_byte,
-        "empty_but_allowed_partitions": empty_allowed,
+        "partition_missing_count": len(missing),
+        "partition_malformed_count": len(malformed),
+        "provider_empty_partitions": provider_empty,
+        "expected_empty_partitions": expected_empty,
+        "allowed_empty_partitions": allowed_empty,
+        "unexpected_empty_primary_partitions": unexpected_empty_primary,
+        "succeeded_non_empty_partitions": succeeded_non_empty,
+        "provider_empty_count": len(provider_empty),
+        "expected_empty_count": len(expected_empty),
+        "allowed_empty_count": len(allowed_empty),
+        "unexpected_empty_primary_partition_count": len(unexpected_empty_primary),
+        "succeeded_non_empty_count": len(succeeded_non_empty),
         "partition_sha256": endpoint_hashes,
-        "fetch_completeness_decision": decision,
+        "fetch_completeness_decision": fetch_decision,
+        "provider_coverage_decision": coverage_decision,
     }
 
 
@@ -1736,6 +1877,12 @@ def assemble_partitioned_artifacts(
         "sample_mode": plan.mode != "full",
         "fetch_stage_only": False,
         "fetch_completeness_decision": verification["fetch_completeness_decision"],
+        "provider_coverage_decision": verification["provider_coverage_decision"],
+        "unexpected_empty_primary_partition_count": verification[
+            "unexpected_empty_primary_partition_count"
+        ],
+        "partition_malformed_count": verification["partition_malformed_count"],
+        "partition_missing_count": verification["partition_missing_count"],
         "all_tasks_completed": verification["fetch_completeness_decision"]
         == "complete",
         "artifact_hashes_complete": False,
@@ -1780,6 +1927,14 @@ def finalize_partitioned_reports(
                 "fetch_completeness_decision": verification[
                     "fetch_completeness_decision"
                 ],
+                "provider_coverage_decision": verification[
+                    "provider_coverage_decision"
+                ],
+                "unexpected_empty_primary_partition_count": verification[
+                    "unexpected_empty_primary_partition_count"
+                ],
+                "partition_malformed_count": verification["partition_malformed_count"],
+                "partition_missing_count": verification["partition_missing_count"],
                 "all_tasks_completed": False,
                 "artifact_hashes_complete": False,
                 "candidate_universe_row_count": len(plan.rows),
@@ -1808,10 +1963,7 @@ def finalize_partitioned_reports(
                 "null_ohlc_count": None,
                 "non_positive_price_count": None,
                 "high_low_violation_count": None,
-                "primary_provider_error_count": len(
-                    verification.get("malformed_partitions", [])
-                )
-                + len(verification.get("missing_partitions", [])),
+                "primary_provider_error_count": 0,
                 "historical_rate_limit_count": 0,
                 "unrecovered_rate_limit_count": 0,
                 "historical_timeout_count": 0,
@@ -1819,6 +1971,21 @@ def finalize_partitioned_reports(
                 "rate_limit_count": 0,
                 "timeout_count": 0,
             }
+    quality.update(
+        {
+            "fetch_completeness_decision": verification["fetch_completeness_decision"],
+            "provider_coverage_decision": verification["provider_coverage_decision"],
+            "unexpected_empty_primary_partition_count": verification[
+                "unexpected_empty_primary_partition_count"
+            ],
+            "partition_malformed_count": verification["partition_malformed_count"],
+            "partition_missing_count": verification["partition_missing_count"],
+            "all_tasks_completed": verification["fetch_completeness_decision"]
+            == "complete",
+        }
+    )
+    if quality.get("daily_raw_row_count") is None:
+        quality["primary_provider_error_count"] = 0
     _write_json(output_dir / "tnskhdata_fetch_verification_report.json", verification)
     source_snapshot_id = (
         f"tnskhdata_d2_t13_{plan.trade_dates[0]}_{plan.trade_dates[-1]}_full"
@@ -1841,11 +2008,14 @@ def finalize_partitioned_reports(
             "tnskhdata_d3_handoff_candidate_report.json",
         }
     }
-    quality["artifact_hashes_complete"] = verification[
-        "fetch_completeness_decision"
-    ] == "complete" and all(
-        (output_dir / name).exists() for name in pre_decision_expected
+    quality["artifact_hashes_complete"] = (
+        verification["fetch_completeness_decision"] == "complete"
+        and quality.get("daily_raw_row_count") is not None
+        and all((output_dir / name).exists() for name in pre_decision_expected)
     )
+    if quality.get("daily_raw_row_count") is None:
+        quality["amount_unit_status"] = "not_evaluated_assembly_not_run"
+        quality["volume_unit_status"] = "not_evaluated_assembly_not_run"
     decision = acceptance_decision(
         {
             **quality,
@@ -1870,6 +2040,10 @@ def finalize_partitioned_reports(
                 key
                 for key in (
                     "fetch_completeness_decision",
+                    "provider_coverage_decision",
+                    "unexpected_empty_primary_partition_count",
+                    "partition_malformed_count",
+                    "partition_missing_count",
                     "unmapped_row_count",
                     "missing_daily_count",
                     "unresolved_trading_status_count",
@@ -1959,6 +2133,7 @@ def materialize_full_candidate(
     assemble_only: bool = False,
     finalize_only: bool = False,
     no_remote_fetch: bool = False,
+    fetch_date_domain: str = "calendar",
 ) -> dict[str, Any]:
     started = time.time()
     if (
@@ -1990,11 +2165,27 @@ def materialize_full_candidate(
     if resume and checkpoint_dir:
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
     rows = _load_candidate_universe(candidate_universe, start_date, end_date)
+    trade_cal_open_dates = None
+    if fetch_date_domain == "trade-cal-open":
+        trade_cal_path = _partition_file(output_dir, "trade_cal", "range")
+        if not trade_cal_path.exists():
+            raise D2T13MaterializationError(
+                "trade-cal-open fetch_date_domain requires pre-fetched trade_cal"
+            )
+        trade_cal_open_dates = [
+            _date_yyyymmdd(row.get("cal_date"))
+            for row in _read_jsonl(trade_cal_path)
+            if str(row.get("is_open")) == "1"
+        ]
     plan = build_fetch_plan(
         rows,
         full=full,
         sample_securities=sample_securities,
         sample_dates_per_security=sample_dates_per_security,
+        start_date=start_date,
+        end_date=end_date,
+        fetch_date_domain=fetch_date_domain,
+        trade_cal_open_dates=trade_cal_open_dates,
     )
     if no_remote_fetch or verify_fetch_only or assemble_only or finalize_only:
         verification = verify_partitioned_fetch_completeness(plan, output_dir)
@@ -2015,6 +2206,7 @@ def materialize_full_candidate(
             if finalized
             else "blocked_pending_provider_coverage"
             if verification["fetch_completeness_decision"] != "complete"
+            or verification["provider_coverage_decision"] != "complete"
             else "blocked_pending_reconciliation"
         )
         d3_decision = (
@@ -2223,6 +2415,10 @@ def materialize_full_candidate(
             key
             for key in (
                 "unmapped_row_count",
+                "provider_coverage_decision",
+                "unexpected_empty_primary_partition_count",
+                "partition_malformed_count",
+                "partition_missing_count",
                 "missing_daily_count",
                 "unresolved_trading_status_count",
                 "unresolved_suspension_status_count",
@@ -2262,11 +2458,17 @@ def materialize_full_candidate(
             "fetch_completeness_decision": "complete"
             if quality.get("all_tasks_completed", True)
             else "incomplete",
+            "provider_coverage_decision": "complete"
+            if quality.get("all_tasks_completed", True)
+            else "blocked_pending_provider_coverage",
             "expected_trade_date_count": len(plan.trade_dates),
             "expected_date_endpoint_partition_count": len(plan.trade_dates) * 5,
-            "missing_partition_count": 0,
-            "malformed_partition_count": 0,
-            "zero_byte_partition_count": 0,
+            "partition_missing_count": 0,
+            "partition_malformed_count": 0,
+            "unexpected_empty_primary_partition_count": 0,
+            "provider_empty_count": 0,
+            "expected_empty_count": 0,
+            "allowed_empty_count": 0,
             "endpoint_partition_counts": quality.get("endpoint_task_counts", {}),
             "all_tasks_completed": quality.get("all_tasks_completed", True),
             "failed_task_counts": quality.get("failed_task_counts", {}),
@@ -2317,6 +2519,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--verify-fetch-only", action="store_true")
     parser.add_argument("--assemble-only", action="store_true")
     parser.add_argument("--finalize-only", action="store_true")
+    parser.add_argument(
+        "--fetch-date-domain",
+        default="calendar",
+        choices=("calendar", "candidate", "trade-cal-open"),
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--repair-failed-only", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path)
@@ -2384,6 +2591,7 @@ def main() -> int:
         assemble_only=args.assemble_only,
         finalize_only=args.finalize_only,
         no_remote_fetch=args.no_remote_fetch,
+        fetch_date_domain=args.fetch_date_domain,
     )
     redacted = {
         "run_id": report["run_id"],
