@@ -69,8 +69,10 @@ Endpoint staging is no longer loaded into memory as whole endpoint lists during
 the fetch stage. Final artifact assembly remains blocked until a streaming or
 local-staging SQL assembly pass completes.
 
-Because the full run is incomplete, the D2 acceptance decision remains blocked.
-No sample run result is used as D2 acceptance evidence.
+The no-remote verification/finalize command was executed after the endpoint
+fetch rerun. Partition counts are complete for every endpoint, but verification
+found 35 open-date zero-byte primary partitions, so fetch completeness remains
+`incomplete`. No sample run result is used as D2 acceptance evidence.
 
 ```json
 {
@@ -89,6 +91,10 @@ No sample run result is used as D2 acceptance evidence.
   "final_requests_per_minute": null,
   "rate_increase_events": null,
   "rate_decrease_events": null,
+  "verify_fetch_only_executed": true,
+  "assemble_only_executed": false,
+  "finalize_only_executed": true,
+  "fetch_completeness_decision": "incomplete",
   "candidate_artifact_output_dir": "data/generated/d2/d2_t13_tnskhdata_full_candidate/",
   "candidate_universe_row_count": 1671919,
   "mapped_row_count": null,
@@ -145,13 +151,42 @@ No sample run result is used as D2 acceptance evidence.
     "legacy_checkpoint_completed_trade_dates": 111
   },
   "failed_task_counts": {},
+  "endpoint_partition_counts": {
+    "daily": 2426,
+    "stk_limit": 2426,
+    "adj_factor": 2426,
+    "stock_st": 2426,
+    "suspend_d": 2426
+  },
+  "missing_partition_count": 0,
+  "malformed_partition_count": 35,
+  "malformed_partition_by_endpoint": {
+    "daily": 12,
+    "stk_limit": 12,
+    "adj_factor": 11
+  },
+  "malformed_partition_trade_dates": [
+    "20171207",
+    "20171211",
+    "20171212",
+    "20171213",
+    "20220615",
+    "20220616",
+    "20220620",
+    "20220621",
+    "20220622",
+    "20260506",
+    "20260507",
+    "20260511",
+    "20260512"
+  ],
   "legacy_checkpoint_migration_supported": true,
   "legacy_completed_dates_are_resume_hints_only": true,
   "repair_failed_only_supported": true,
   "endpoint_partitions_loaded_into_memory": false,
   "keyboard_interrupt_cancel_futures": true,
   "sample_acceptance_decision": null,
-  "d2_acceptance_decision": "blocked_pending_tnskhdata_full_materialization_run",
+  "d2_acceptance_decision": "blocked_pending_provider_coverage",
   "d3_handoff_decision": "d3_candidate_generation_blocked",
   "r0_handoff_decision": "r0_blocked",
   "duckdb_written": false,

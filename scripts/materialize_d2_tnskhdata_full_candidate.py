@@ -46,6 +46,7 @@ OUTPUT_NAMES = [
     "tnskhdata_source_status_candidate.jsonl",
     "tnskhdata_factor_evidence_candidate.jsonl",
     "tnskhdata_adjusted_price_candidate.jsonl",
+    "tnskhdata_fetch_verification_report.json",
     "tnskhdata_quality_report.json",
     "tnskhdata_reconciliation_report.json",
     "tnskhdata_d2_acceptance_candidate_report.json",
@@ -265,6 +266,13 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _append_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
 
 
 def _sha256_file(path: Path) -> str:
@@ -1327,9 +1335,21 @@ def build_quality_report(
 def acceptance_decision(quality: dict[str, Any]) -> str:
     if quality.get("run_mode") != "full" or quality.get("sample_mode") is not False:
         return "blocked_pending_tnskhdata_full_materialization_run"
+    if quality.get("fetch_stage_only") is True:
+        return "blocked_pending_tnskhdata_full_materialization_run"
+    if quality.get("fetch_completeness_decision", "complete") != "complete":
+        return "blocked_pending_provider_coverage"
+    if quality.get("artifact_hashes_complete") is False:
+        return "blocked_pending_reconciliation"
     if not quality.get("all_tasks_completed", True):
         return "blocked_pending_provider_coverage"
-    if quality["primary_provider_error_count"] or quality["rate_limit_count"]:
+    if (
+        quality["primary_provider_error_count"]
+        or quality.get(
+            "unrecovered_rate_limit_count", quality.get("rate_limit_count", 0)
+        )
+        or quality.get("unrecovered_timeout_count", quality.get("timeout_count", 0))
+    ):
         return "blocked_pending_provider_coverage"
     if (
         quality["duplicate_key_count"]
@@ -1433,6 +1453,476 @@ def build_fetch_stage_quality_report(
     }
 
 
+def _partition_file(output_dir: Path, endpoint: str, suffix: str) -> Path:
+    return output_dir / "partitions" / endpoint / f"{suffix}.jsonl"
+
+
+def _valid_jsonl_file(path: Path) -> bool:
+    try:
+        _read_jsonl(path)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return False
+    return True
+
+
+def verify_partitioned_fetch_completeness(
+    plan: FetchPlan, output_dir: Path
+) -> dict[str, Any]:
+    expected_dates = set(plan.trade_dates)
+    trade_cal_path = _partition_file(output_dir, "trade_cal", "range")
+    trade_cal_rows = _read_jsonl(trade_cal_path) if trade_cal_path.exists() else []
+    open_dates = {
+        _date_yyyymmdd(row.get("cal_date"))
+        for row in trade_cal_rows
+        if str(row.get("is_open")) == "1"
+    }
+    missing: list[str] = []
+    malformed: list[str] = []
+    zero_byte: list[str] = []
+    empty_allowed: list[str] = []
+    endpoint_counts: dict[str, int] = {}
+    endpoint_hashes: dict[str, dict[str, str]] = {}
+    date_endpoints = ("daily", "stk_limit", "adj_factor", "stock_st", "suspend_d")
+    empty_allowed_endpoints = {"stock_st", "suspend_d"}
+    for endpoint in date_endpoints:
+        endpoint_hashes[endpoint] = {}
+        count = 0
+        for trade_date in sorted(expected_dates):
+            path = _partition_file(output_dir, endpoint, trade_date)
+            if not path.exists():
+                missing.append(str(path))
+                continue
+            count += 1
+            if path.stat().st_size == 0:
+                zero_byte.append(str(path))
+                if endpoint in empty_allowed_endpoints or trade_date not in open_dates:
+                    empty_allowed.append(str(path))
+                else:
+                    malformed.append(str(path))
+                    continue
+            if not _valid_jsonl_file(path):
+                malformed.append(str(path))
+                continue
+            endpoint_hashes[endpoint][trade_date] = _sha256_file(path)
+        endpoint_counts[endpoint] = count
+    for status in ("L", "D", "P", "G"):
+        path = _partition_file(output_dir, "stock_basic", status)
+        if not path.exists():
+            missing.append(str(path))
+        elif not _valid_jsonl_file(path):
+            malformed.append(str(path))
+    if not trade_cal_path.exists():
+        missing.append(str(trade_cal_path))
+    elif not _valid_jsonl_file(trade_cal_path):
+        malformed.append(str(trade_cal_path))
+    decision = "complete" if not missing and not malformed else "incomplete"
+    return {
+        "run_mode": plan.mode,
+        "sample_mode": plan.mode != "full",
+        "expected_trade_date_count": len(expected_dates),
+        "endpoint_partition_counts": endpoint_counts,
+        "missing_partitions": missing,
+        "malformed_partitions": malformed,
+        "zero_byte_partitions": zero_byte,
+        "empty_but_allowed_partitions": empty_allowed,
+        "partition_sha256": endpoint_hashes,
+        "fetch_completeness_decision": decision,
+    }
+
+
+def _rows_by_date(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(row["trading_date"], []).append(row)
+    return grouped
+
+
+def _truncate_candidate_artifacts(output_dir: Path) -> None:
+    for name in OUTPUT_NAMES:
+        if name.endswith(".jsonl"):
+            path = output_dir / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("", encoding="utf-8")
+
+
+def _copy_small_partition_artifacts(
+    output_dir: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    stock_basic: list[dict[str, Any]] = []
+    for status in ("L", "D", "P", "G"):
+        stock_basic.extend(
+            _read_jsonl(_partition_file(output_dir, "stock_basic", status))
+        )
+    trade_cal = _read_jsonl(_partition_file(output_dir, "trade_cal", "range"))
+    _write_jsonl(output_dir / "tnskhdata_stock_basic_candidate.jsonl", stock_basic)
+    _write_jsonl(output_dir / "tnskhdata_trade_calendar_candidate.jsonl", trade_cal)
+    return stock_basic, trade_cal
+
+
+def assemble_partitioned_artifacts(
+    plan: FetchPlan, output_dir: Path, verification: dict[str, Any]
+) -> dict[str, Any]:
+    if verification["fetch_completeness_decision"] != "complete":
+        raise D2T13MaterializationError("fetch partitions incomplete")
+    _truncate_candidate_artifacts(output_dir)
+    stock_basic, trade_cal = _copy_small_partition_artifacts(output_dir)
+    rows_by_date = _rows_by_date(plan.rows)
+    source_snapshot_id = (
+        f"tnskhdata_d2_t13_{plan.trade_dates[0]}_{plan.trade_dates[-1]}_full"
+    )
+    artifact_sha256 = hashlib.sha256(
+        json.dumps(
+            {
+                "source_snapshot_id": source_snapshot_id,
+                "row_count": len(plan.rows),
+                "trade_dates": plan.trade_dates,
+                "ts_code_count": len(plan.ts_codes),
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    counters = {
+        "candidate_universe_row_count": len(plan.rows),
+        "mapped_row_count": sum(
+            1 for row in plan.rows if row.get("mapping_status") == "resolved"
+        ),
+        "unmapped_row_count": sum(
+            1 for row in plan.rows if row.get("mapping_status") != "resolved"
+        ),
+        "daily_raw_row_count": 0,
+        "source_status_row_count": 0,
+        "factor_evidence_row_count": 0,
+        "adjusted_price_row_count": 0,
+        "missing_daily_count": 0,
+        "missing_stk_limit_count": 0,
+        "missing_adj_factor_count": 0,
+        "missing_trade_cal_count": 0,
+        "missing_stock_basic_count": 0,
+        "missing_stock_st_count": 0,
+        "missing_suspend_count": 0,
+        "unresolved_trading_status_count": 0,
+        "unresolved_suspension_status_count": 0,
+        "unresolved_st_status_count": 0,
+        "unresolved_price_limit_status_count": 0,
+        "unresolved_adjustment_factor_count": 0,
+        "duplicate_key_count": len(plan.rows)
+        - len({(row["security_id"], row["trading_date"]) for row in plan.rows}),
+        "null_ohlc_count": 0,
+        "non_positive_price_count": 0,
+        "high_low_violation_count": 0,
+        "amount_null_count": 0,
+        "volume_null_count": 0,
+    }
+    unresolved = {"unknown", "unresolved", "provider_empty_or_unclassified", None, ""}
+    for trade_date in plan.trade_dates:
+        date_plan = FetchPlan(
+            rows=rows_by_date.get(trade_date, []),
+            ts_codes=plan.ts_codes,
+            trade_dates=[trade_date],
+            mode=plan.mode,
+        )
+        evidence = {
+            "stock_basic": stock_basic,
+            "trade_cal": trade_cal,
+            "daily": _read_jsonl(_partition_file(output_dir, "daily", trade_date)),
+            "stk_limit": _read_jsonl(
+                _partition_file(output_dir, "stk_limit", trade_date)
+            ),
+            "adj_factor": _read_jsonl(
+                _partition_file(output_dir, "adj_factor", trade_date)
+            ),
+            "stock_st": _read_jsonl(
+                _partition_file(output_dir, "stock_st", trade_date)
+            ),
+            "suspend_d": _read_jsonl(
+                _partition_file(output_dir, "suspend_d", trade_date)
+            ),
+            "_metrics": [{"primary_provider_error_count": 0, "rate_limit_count": 0}],
+        }
+        _append_jsonl(
+            output_dir / "tnskhdata_stk_limit_candidate.jsonl", evidence["stk_limit"]
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_adj_factor_candidate.jsonl", evidence["adj_factor"]
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_stock_st_candidate.jsonl", evidence["stock_st"]
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_suspend_candidate.jsonl", evidence["suspend_d"]
+        )
+        outputs = build_candidate_outputs(
+            date_plan,
+            evidence,
+            source_snapshot_id=source_snapshot_id,
+            artifact_sha256=artifact_sha256,
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_daily_raw_candidate.jsonl", outputs["raw"]
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_source_status_candidate.jsonl",
+            outputs["source_status"],
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_factor_evidence_candidate.jsonl",
+            outputs["factor_evidence"],
+        )
+        _append_jsonl(
+            output_dir / "tnskhdata_adjusted_price_candidate.jsonl",
+            outputs["adjusted_price"],
+        )
+        counters["daily_raw_row_count"] += len(outputs["raw"])
+        counters["source_status_row_count"] += len(outputs["source_status"])
+        counters["factor_evidence_row_count"] += len(outputs["factor_evidence"])
+        counters["adjusted_price_row_count"] += len(outputs["adjusted_price"])
+        counters["missing_daily_count"] += len(date_plan.rows) - len(outputs["raw"])
+        counters["missing_adj_factor_count"] += sum(
+            1
+            for row in outputs["factor_evidence"]
+            if row["adjustment_factor_status"] != "resolved"
+        )
+        counters["missing_trade_cal_count"] += (
+            0
+            if any(
+                _date_yyyymmdd(row.get("cal_date")) == trade_date for row in trade_cal
+            )
+            else 1
+        )
+        counters["unresolved_trading_status_count"] += sum(
+            1 for row in outputs["source_status"] if row["trading_status"] in unresolved
+        )
+        counters["unresolved_suspension_status_count"] += sum(
+            1
+            for row in outputs["source_status"]
+            if row["suspension_status"] in unresolved
+        )
+        counters["unresolved_st_status_count"] += sum(
+            1 for row in outputs["source_status"] if row["st_status"] in unresolved
+        )
+        counters["unresolved_price_limit_status_count"] += sum(
+            1
+            for row in outputs["source_status"]
+            if row["price_limit_status"] in unresolved
+        )
+        counters["unresolved_adjustment_factor_count"] += sum(
+            1
+            for row in outputs["factor_evidence"]
+            if row["adjustment_factor_status"] != "resolved"
+        )
+        for row in outputs["raw"]:
+            if any(
+                row.get(field) is None
+                for field in ("raw_open", "raw_high", "raw_low", "raw_close")
+            ):
+                counters["null_ohlc_count"] += 1
+            if any(
+                (row.get(field) or 0) <= 0
+                for field in ("raw_open", "raw_high", "raw_low", "raw_close")
+            ):
+                counters["non_positive_price_count"] += 1
+            if (
+                row.get("raw_high") is not None
+                and row.get("raw_low") is not None
+                and row["raw_high"] < row["raw_low"]
+            ):
+                counters["high_low_violation_count"] += 1
+            if row.get("amount_thousand_yuan") is None:
+                counters["amount_null_count"] += 1
+            if row.get("volume_lot") is None:
+                counters["volume_null_count"] += 1
+    return {
+        "run_mode": plan.mode,
+        "sample_mode": plan.mode != "full",
+        "fetch_stage_only": False,
+        "fetch_completeness_decision": verification["fetch_completeness_decision"],
+        "all_tasks_completed": verification["fetch_completeness_decision"]
+        == "complete",
+        "artifact_hashes_complete": False,
+        "security_count": len({row["security_id"] for row in plan.rows}),
+        "trading_date_min": min(plan.trade_dates, default=None),
+        "trading_date_max": max(plan.trade_dates, default=None),
+        "amount_unit_status": "unknown"
+        if counters["amount_null_count"]
+        else "resolved_thousand_yuan",
+        "volume_unit_status": "unknown"
+        if counters["volume_null_count"]
+        else "resolved_lot",
+        "primary_provider_error_count": 0,
+        "historical_rate_limit_count": 0,
+        "unrecovered_rate_limit_count": 0,
+        "historical_timeout_count": 0,
+        "unrecovered_timeout_count": 0,
+        "rate_limit_count": 0,
+        "timeout_count": 0,
+        **counters,
+    }
+
+
+def finalize_partitioned_reports(
+    plan: FetchPlan,
+    output_dir: Path,
+    verification: dict[str, Any],
+    quality: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if quality is None:
+        quality_path = output_dir / "tnskhdata_quality_report.json"
+        if (
+            quality_path.exists()
+            and verification["fetch_completeness_decision"] == "complete"
+        ):
+            quality = _load_json(quality_path)
+        else:
+            quality = {
+                "run_mode": plan.mode,
+                "sample_mode": plan.mode != "full",
+                "fetch_stage_only": False,
+                "fetch_completeness_decision": verification[
+                    "fetch_completeness_decision"
+                ],
+                "all_tasks_completed": False,
+                "artifact_hashes_complete": False,
+                "candidate_universe_row_count": len(plan.rows),
+                "mapped_row_count": sum(
+                    1 for row in plan.rows if row.get("mapping_status") == "resolved"
+                ),
+                "unmapped_row_count": sum(
+                    1 for row in plan.rows if row.get("mapping_status") != "resolved"
+                ),
+                "daily_raw_row_count": None,
+                "source_status_row_count": None,
+                "factor_evidence_row_count": None,
+                "adjusted_price_row_count": None,
+                "security_count": len({row["security_id"] for row in plan.rows}),
+                "trading_date_min": min(plan.trade_dates, default=None),
+                "trading_date_max": max(plan.trade_dates, default=None),
+                "missing_daily_count": None,
+                "unresolved_trading_status_count": None,
+                "unresolved_suspension_status_count": None,
+                "unresolved_st_status_count": None,
+                "unresolved_price_limit_status_count": None,
+                "unresolved_adjustment_factor_count": None,
+                "amount_unit_status": "not_evaluated_fetch_incomplete",
+                "volume_unit_status": "not_evaluated_fetch_incomplete",
+                "duplicate_key_count": None,
+                "null_ohlc_count": None,
+                "non_positive_price_count": None,
+                "high_low_violation_count": None,
+                "primary_provider_error_count": len(
+                    verification.get("malformed_partitions", [])
+                )
+                + len(verification.get("missing_partitions", [])),
+                "historical_rate_limit_count": 0,
+                "unrecovered_rate_limit_count": 0,
+                "historical_timeout_count": 0,
+                "unrecovered_timeout_count": 0,
+                "rate_limit_count": 0,
+                "timeout_count": 0,
+            }
+    _write_json(output_dir / "tnskhdata_fetch_verification_report.json", verification)
+    source_snapshot_id = (
+        f"tnskhdata_d2_t13_{plan.trade_dates[0]}_{plan.trade_dates[-1]}_full"
+    )
+    _write_json(
+        output_dir / "tnskhdata_reconciliation_report.json",
+        {
+            "pro_bar_usage": "reconciliation_only",
+            "pro_bar_reconciliation_status": "not_requested_finalize_only",
+            "source_snapshot_id": source_snapshot_id,
+        },
+    )
+    pre_decision_expected = {
+        name
+        for name in OUTPUT_NAMES
+        if name
+        not in {
+            "tnskhdata_candidate_file_hash_summary.json",
+            "tnskhdata_d2_acceptance_candidate_report.json",
+            "tnskhdata_d3_handoff_candidate_report.json",
+        }
+    }
+    quality["artifact_hashes_complete"] = verification[
+        "fetch_completeness_decision"
+    ] == "complete" and all(
+        (output_dir / name).exists() for name in pre_decision_expected
+    )
+    decision = acceptance_decision(
+        {
+            **quality,
+            "rate_limit_count": quality.get("unrecovered_rate_limit_count", 0),
+            "timeout_count": quality.get("unrecovered_timeout_count", 0),
+        }
+    )
+    d3_decision = (
+        "d3_candidate_generation_allowed"
+        if decision == "accepted_for_d3_candidate_generation"
+        else "d3_candidate_generation_blocked"
+    )
+    _write_json(output_dir / "tnskhdata_quality_report.json", quality)
+    _write_json(
+        output_dir / "tnskhdata_d2_acceptance_candidate_report.json",
+        {
+            "run_id": source_snapshot_id,
+            "run_mode": "full",
+            "sample_mode": False,
+            "d2_acceptance_decision": decision,
+            "quality_blockers": [
+                key
+                for key in (
+                    "fetch_completeness_decision",
+                    "unmapped_row_count",
+                    "missing_daily_count",
+                    "unresolved_trading_status_count",
+                    "unresolved_suspension_status_count",
+                    "unresolved_st_status_count",
+                    "unresolved_price_limit_status_count",
+                    "unresolved_adjustment_factor_count",
+                    "duplicate_key_count",
+                    "null_ohlc_count",
+                    "non_positive_price_count",
+                    "high_low_violation_count",
+                    "unrecovered_rate_limit_count",
+                    "unrecovered_timeout_count",
+                )
+                if quality.get(key)
+                and quality.get(key)
+                not in {"complete", "resolved_thousand_yuan", "resolved_lot"}
+            ],
+            "duckdb_written": False,
+            "formal_duckdb_write_authorized": False,
+            "data_version_published": False,
+            "d3_generation_authorized": False,
+            "r0_state_generation_authorized": False,
+        },
+    )
+    _write_json(
+        output_dir / "tnskhdata_d3_handoff_candidate_report.json",
+        {
+            "d3_handoff_decision": d3_decision,
+            "d3_generation_authorized": False,
+            "d3_rows_generated": False,
+            "r0_state_generation_authorized": False,
+            "r0_state_generated": False,
+        },
+    )
+    hash_summary = {
+        name: {
+            "sha256": _sha256_file(output_dir / name),
+            "size_bytes": (output_dir / name).stat().st_size,
+        }
+        for name in OUTPUT_NAMES
+        if name != "tnskhdata_candidate_file_hash_summary.json"
+        and (output_dir / name).exists()
+    }
+    _write_json(output_dir / "tnskhdata_candidate_file_hash_summary.json", hash_summary)
+    return {
+        "d2_acceptance_decision": decision,
+        "d3_handoff_decision": d3_decision,
+        "quality_report": quality,
+        "artifact_hashes": hash_summary,
+    }
+
+
 def materialize_full_candidate(
     *,
     contract: dict[str, Any],
@@ -1465,6 +1955,10 @@ def materialize_full_candidate(
     pro_bar_sample_securities: int = 20,
     require_pro_bar_reconciliation: bool = False,
     repair_failed_only: bool = False,
+    verify_fetch_only: bool = False,
+    assemble_only: bool = False,
+    finalize_only: bool = False,
+    no_remote_fetch: bool = False,
 ) -> dict[str, Any]:
     started = time.time()
     if (
@@ -1484,7 +1978,10 @@ def materialize_full_candidate(
             raise D2T13MaterializationError(f"{flag} must remain false")
     if contract.get("local_staging_write_authorized") is not True:
         raise D2T13MaterializationError("local staging write must be authorized")
-    if not enable_remote_fetch and client is None:
+    local_only_mode = (
+        verify_fetch_only or assemble_only or finalize_only or no_remote_fetch
+    )
+    if not enable_remote_fetch and client is None and not local_only_mode:
         raise D2T13MaterializationError(
             "remote fetch must be enabled unless fake client is injected"
         )
@@ -1499,6 +1996,51 @@ def materialize_full_candidate(
         sample_securities=sample_securities,
         sample_dates_per_security=sample_dates_per_security,
     )
+    if no_remote_fetch or verify_fetch_only or assemble_only or finalize_only:
+        verification = verify_partitioned_fetch_completeness(plan, output_dir)
+        _write_json(
+            output_dir / "tnskhdata_fetch_verification_report.json", verification
+        )
+        quality = None
+        if assemble_only and verification["fetch_completeness_decision"] == "complete":
+            quality = assemble_partitioned_artifacts(plan, output_dir, verification)
+            _write_json(output_dir / "tnskhdata_quality_report.json", quality)
+        finalized = None
+        if finalize_only:
+            finalized = finalize_partitioned_reports(
+                plan, output_dir, verification, quality
+            )
+        decision = (
+            finalized["d2_acceptance_decision"]
+            if finalized
+            else "blocked_pending_provider_coverage"
+            if verification["fetch_completeness_decision"] != "complete"
+            else "blocked_pending_reconciliation"
+        )
+        d3_decision = (
+            finalized["d3_handoff_decision"]
+            if finalized
+            else "d3_candidate_generation_blocked"
+        )
+        source_snapshot_id = f"tnskhdata_d2_t13_{start_date}_{end_date}_{plan.mode}"
+        return {
+            "run_id": source_snapshot_id,
+            "source_snapshot_id": source_snapshot_id,
+            "run_mode": plan.mode,
+            "sample_mode": plan.mode != "full",
+            "sample_acceptance_decision": None,
+            "d2_acceptance_decision": decision,
+            "d3_handoff_decision": d3_decision,
+            "r0_handoff_decision": "r0_blocked",
+            "quality_report": finalized["quality_report"] if finalized else quality,
+            "fetch_verification_report": verification,
+            "artifact_hashes": finalized["artifact_hashes"] if finalized else {},
+            "duckdb_written": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        }
     if client is None:
         token = load_tnskhdata_token(env_file, allow_tushare_fallback=True)
         client = _client_from_token(token)
@@ -1713,6 +2255,27 @@ def materialize_full_candidate(
     _write_json(output_dir / "tnskhdata_reconciliation_report.json", reconciliation)
     _write_json(output_dir / "tnskhdata_d2_acceptance_candidate_report.json", d2_report)
     _write_json(output_dir / "tnskhdata_d3_handoff_candidate_report.json", d3_report)
+    _write_json(
+        output_dir / "tnskhdata_fetch_verification_report.json",
+        {
+            "verification_mode": "execution_metrics",
+            "fetch_completeness_decision": "complete"
+            if quality.get("all_tasks_completed", True)
+            else "incomplete",
+            "expected_trade_date_count": len(plan.trade_dates),
+            "expected_date_endpoint_partition_count": len(plan.trade_dates) * 5,
+            "missing_partition_count": 0,
+            "malformed_partition_count": 0,
+            "zero_byte_partition_count": 0,
+            "endpoint_partition_counts": quality.get("endpoint_task_counts", {}),
+            "all_tasks_completed": quality.get("all_tasks_completed", True),
+            "failed_task_counts": quality.get("failed_task_counts", {}),
+            "notes": [
+                "Report derived from current execution metrics; partition-only "
+                "verification is produced by --verify-fetch-only."
+            ],
+        },
+    )
     hash_summary = {
         name: {
             "sha256": _sha256_file(output_dir / name),
@@ -1750,6 +2313,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--end-date", default=DEFAULT_END_DATE)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, type=Path)
     parser.add_argument("--enable-remote-fetch", action="store_true")
+    parser.add_argument("--no-remote-fetch", action="store_true")
+    parser.add_argument("--verify-fetch-only", action="store_true")
+    parser.add_argument("--assemble-only", action="store_true")
+    parser.add_argument("--finalize-only", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--repair-failed-only", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path)
@@ -1813,6 +2380,10 @@ def main() -> int:
         pro_bar_sample_securities=args.pro_bar_sample_securities,
         require_pro_bar_reconciliation=args.require_pro_bar_reconciliation,
         repair_failed_only=args.repair_failed_only,
+        verify_fetch_only=args.verify_fetch_only,
+        assemble_only=args.assemble_only,
+        finalize_only=args.finalize_only,
+        no_remote_fetch=args.no_remote_fetch,
     )
     redacted = {
         "run_id": report["run_id"],
