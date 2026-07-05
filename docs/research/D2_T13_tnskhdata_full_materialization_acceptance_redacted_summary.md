@@ -69,11 +69,10 @@ daily rows only exist for listed, open, applicable dates. Pre-listing,
 post-delist, suspended, and non-trading dates are expected `not_applicable`
 gaps, not provider defects.
 
-The previous pre-fix quality report blocked D2 acceptance because it compared
-daily row counts against the full calendar skeleton and counted non-applicable
-gaps as unresolved. This PR changes the gate so only
-`listed_open_missing_daily` / `missing_daily_unexpected_count` can block daily
-coverage.
+The revised local finalize now reaches complete fetch/provider/hash gates, but
+D2 acceptance remains blocked because there are still listed-open applicable
+gaps. These are true provider coverage blockers, not calendar-domain
+not-applicable gaps.
 
 ```json
 {
@@ -95,6 +94,8 @@ coverage.
   "candidate_price_artifact_superseded": true,
   "candidate_price_artifact_date_domain_ignored": true,
   "d2_t09_candidate_raw_market_prices_is_superseded_diagnostic_input_only": true,
+  "fetch_completeness_decision": "complete",
+  "provider_coverage_decision": "complete",
   "fetch_stage_only": false,
   "artifact_hashes_complete": true,
   "amount_unit_status": "resolved_thousand_yuan",
@@ -107,11 +108,13 @@ coverage.
   "factor_evidence_row_count": 3067200,
   "adjusted_price_row_count": 1730769,
   "daily_row_count_interpretation": "daily rows cover listed/open/applicable dates, not every security-calendar date",
-  "missing_daily_unexpected_count_gate": "must_be_zero",
-  "listed_open_missing_daily_count_gate": "must_be_zero",
+  "missing_daily_unexpected_count": 20297,
+  "listed_open_missing_daily_count": 20297,
+  "unresolved_price_limit_status_count": 20297,
+  "unresolved_adjustment_factor_count": 1,
   "pre_listing_and_non_trading_dates": "not_applicable_not_provider_defects",
-  "d2_acceptance_decision": "pending_local_finalize_rerun_after_lifecycle_gate_fix",
-  "d3_handoff_decision": "d3_candidate_generation_blocked_pending_review"
+  "d2_acceptance_decision": "blocked_pending_provider_coverage",
+  "d3_handoff_decision": "d3_candidate_generation_blocked"
 }
 ```
 
@@ -138,7 +141,7 @@ zero, artifact hashes are complete, units are resolved, duplicate keys are
 zero, and no fatal quality blockers remain.
 
 Sample acceptance cannot promote D2. D3 candidate generation remains blocked
-until a full local finalize with the revised lifecycle applicability gate passes
-and its aggregate redacted summary is reviewed. D3 data version publication,
-PCVT, R0, labels, returns, backtests, and portfolio outputs remain outside this
-PR.
+because `missing_daily_unexpected_count`, `listed_open_missing_daily_count`,
+`unresolved_price_limit_status_count`, and `unresolved_adjustment_factor_count`
+are not zero in the current local result. D3 data version publication, PCVT,
+R0, labels, returns, backtests, and portfolio outputs remain outside this PR.
