@@ -617,6 +617,58 @@ class DuckDBStagingWriter:
             return len(payload)
         raise D2T15MaterializationError(f"unsupported endpoint: {endpoint}")
 
+    def write_endpoint_task_rows(
+        self, endpoint: str, task: Any, rows: list[dict[str, Any]]
+    ) -> int:
+        if endpoint == "daily":
+            self.conn.execute(
+                """
+                DELETE FROM staging_daily_raw
+                WHERE ts_code = ?
+                  AND trade_date BETWEEN ? AND ?
+                """,
+                [task.ts_code, task.start_date, task.end_date],
+            )
+        elif endpoint == "adj_factor":
+            self.conn.execute(
+                """
+                DELETE FROM staging_adj_factor
+                WHERE ts_code = ?
+                  AND trade_date BETWEEN ? AND ?
+                """,
+                [task.ts_code, task.start_date, task.end_date],
+            )
+        elif endpoint == "stock_st":
+            self.conn.execute(
+                """
+                DELETE FROM staging_stock_st
+                WHERE ts_code = ?
+                  AND trade_date BETWEEN ? AND ?
+                """,
+                [task.ts_code, task.start_date, task.end_date],
+            )
+        elif endpoint == "suspend_d":
+            self.conn.execute(
+                """
+                DELETE FROM staging_suspend_d
+                WHERE ts_code = ?
+                  AND suspend_date BETWEEN ? AND ?
+                """,
+                [task.ts_code, task.start_date, task.end_date],
+            )
+        elif endpoint == "stk_limit":
+            self.conn.execute(
+                """
+                DELETE FROM staging_stk_limit
+                WHERE ts_code = ?
+                  AND trade_date BETWEEN ? AND ?
+                """,
+                [task.ts_code, task.start_date, task.end_date],
+            )
+        else:
+            raise D2T15MaterializationError(f"unsupported endpoint: {endpoint}")
+        return self.write_endpoint_rows(endpoint, rows)
+
     def write_ledger(self, entries: list[FetchLedgerEntry]) -> None:
         self.conn.executemany(
             "INSERT INTO staging_fetch_ledger VALUES "
