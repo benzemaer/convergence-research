@@ -119,7 +119,7 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
 
     def test_readme_records_d2_t11_done_without_unlocking_d3_or_r0(self) -> None:
         self.assertIn("current_stage: D2", self.readme)
-        self.assertIn("current_task: D2-T16", self.readme)
+        self.assertIn("current_task: D2-T17", self.readme)
         self.assertIn("next_planned_task: D3-T07", self.readme)
         self.assertIn("D2-T09` HiThink 主行情源", self.readme)
         self.assertIn(
@@ -147,7 +147,7 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
             "D2 acceptance remained blocked by listed-open provider coverage",
             self.readme,
         )
-        self.assertIn("D3-T07 remains blocked unless D2-T16 handoff", self.readme)
+        self.assertIn("D3-T07 remains blocked unless D2-T17 handoff", self.readme)
         self.assertIn("R0 remains blocked", self.readme)
 
 

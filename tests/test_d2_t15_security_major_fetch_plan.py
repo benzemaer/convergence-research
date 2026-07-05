@@ -61,7 +61,7 @@ class D2T15SecurityMajorFetchPlanTest(unittest.TestCase):
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn("current_stage: D2", readme)
-        self.assertIn("current_task: D2-T16", readme)
+        self.assertIn("current_task: D2-T17", readme)
         self.assertIn("next_planned_task: D3-T07", readme)
         self.assertIn(
             "D2-T13` tnskhdata全量候选物化与D2验收交接：completed via PR #45",
@@ -76,7 +76,7 @@ class D2T15SecurityMajorFetchPlanTest(unittest.TestCase):
             "D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁：completed via PR #47",
             readme,
         )
-        self.assertIn("D3-T07 remains blocked unless D2-T16 handoff", readme)
+        self.assertIn("D3-T07 remains blocked unless D2-T17 handoff", readme)
         self.assertIn("R0 remains blocked", readme)
 
     def test_load_security_universe_reports_unmapped_rows(self) -> None:

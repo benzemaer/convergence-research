@@ -637,18 +637,17 @@ class D2T16ProviderRunnerTest(unittest.TestCase):
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn("current_stage: D2", readme)
-        self.assertIn("current_task: D2-T16", readme)
+        self.assertIn("current_task: D2-T17", readme)
         self.assertIn("next_planned_task: D3-T07", readme)
         self.assertIn(
             "D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁：completed via PR #47",
             readme,
         )
         self.assertIn(
-            "D2-T16` 按证券主轴的 tnskhdata 远程拉取 runner："
-            "in_progress via current PR",
+            "D2-T16` 按证券主轴的 tnskhdata 远程拉取 runner：completed via PR #48",
             readme,
         )
-        self.assertIn("D3-T07 remains blocked unless D2-T16 handoff", readme)
+        self.assertIn("D3-T07 remains blocked unless D2-T17 handoff", readme)
         self.assertIn("R0 remains blocked", readme)
 
 

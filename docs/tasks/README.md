@@ -18,7 +18,7 @@
 
 ```text
 current_stage: D2
-current_task: D2-T16
+current_task: D2-T17
 next_planned_task: D3-T07
 ```
 
@@ -134,10 +134,11 @@ next_planned_task: D3-T07
 - `D2-T13` tnskhdata全量候选物化与D2验收交接：completed via PR #45; D2 acceptance remained blocked by listed-open provider coverage
 - `D2-T14` listed-open 行级 provider 修复诊断：closed / superseded by D2-T15; not merged
 - `D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁：completed via PR #47
-- `D2-T16` 按证券主轴的 tnskhdata 远程拉取 runner：in_progress via current PR
-- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T16 acceptance decision
+- `D2-T16` 按证券主轴的 tnskhdata 远程拉取 runner：completed via PR #48
+- `D2-T17` 按 endpoint 配置 D2 runner chunk 策略：in_progress via current PR
+- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T17 acceptance decision
 
-D3-T07 remains blocked unless D2-T16 handoff decision explicitly allows D3 candidate generation.
+D3-T07 remains blocked unless D2-T17 handoff decision explicitly allows D3 candidate generation.
 R0 remains blocked.
 
 完成标准：
