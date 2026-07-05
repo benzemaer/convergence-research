@@ -24,7 +24,6 @@ from scripts.run_d2_t12_provider_remediation_probe import (  # noqa: E402,I001
     build_adj_factor_snapshot_revision,
     classify_st_status,
     classify_suspension_status,
-    classify_trading_status,
     derive_price_limit_status,
 )
 
@@ -1407,6 +1406,97 @@ def _raw_daily(row: dict[str, Any], daily: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def classify_calendar_domain_applicability(
+    *,
+    trading_date: Any,
+    stock_basic: dict[str, Any] | None,
+    trade_cal: dict[str, Any] | None,
+    daily_row: dict[str, Any] | None,
+    suspend_row: dict[str, Any] | None,
+) -> dict[str, str]:
+    trade_date = _date_yyyymmdd(trading_date)
+    stock_basic = stock_basic or {}
+    trade_cal = trade_cal or {}
+    list_date = _date_yyyymmdd(stock_basic.get("list_date"))
+    delist_date = _date_yyyymmdd(stock_basic.get("delist_date"))
+    is_open = str(trade_cal.get("is_open"))
+    if not trade_cal:
+        return {
+            "trading_status": "calendar_date_not_in_trade_cal",
+            "daily_applicability": "not_applicable",
+            "price_limit_applicability": "not_applicable",
+            "adjustment_factor_applicability": "not_applicable",
+        }
+    if is_open == "0":
+        return {
+            "trading_status": "non_trading_day",
+            "daily_applicability": "not_applicable",
+            "price_limit_applicability": "not_applicable",
+            "adjustment_factor_applicability": "not_applicable",
+        }
+    if list_date and trade_date < list_date:
+        return {
+            "trading_status": "pre_listing",
+            "daily_applicability": "not_applicable",
+            "price_limit_applicability": "not_applicable",
+            "adjustment_factor_applicability": "not_applicable",
+        }
+    if delist_date and trade_date > delist_date:
+        return {
+            "trading_status": "post_delist",
+            "daily_applicability": "not_applicable",
+            "price_limit_applicability": "not_applicable",
+            "adjustment_factor_applicability": "not_applicable",
+        }
+    if str((suspend_row or {}).get("suspend_type")) == "S":
+        return {
+            "trading_status": "suspended",
+            "daily_applicability": "not_applicable_or_expected_empty",
+            "price_limit_applicability": "not_applicable_or_expected_empty",
+            "adjustment_factor_applicability": (
+                "expected_or_carry_forward_policy_required"
+            ),
+        }
+    if daily_row:
+        return {
+            "trading_status": "trading",
+            "daily_applicability": "applicable_resolved",
+            "price_limit_applicability": "applicable",
+            "adjustment_factor_applicability": "applicable",
+        }
+    return {
+        "trading_status": "listed_open_missing_daily",
+        "daily_applicability": "applicable_unresolved",
+        "price_limit_applicability": "applicable_unresolved",
+        "adjustment_factor_applicability": "applicable_unresolved",
+    }
+
+
+def _not_applicable_factor(
+    *,
+    applicability: str,
+    source_snapshot_id: str,
+    artifact_sha256: str,
+) -> dict[str, Any]:
+    return {
+        "adjustment_factor": None,
+        "adjustment_factor_status": applicability,
+        "factor_as_of_time": None,
+        "factor_as_of_time_policy": "not_applicable",
+        "row_level_factor_as_of_time_available": False,
+        "adjustment_revision": None,
+        "adjustment_revision_class": "not_applicable",
+        "adjustment_revision_hash": None,
+        "provider_row_level_revision_available": False,
+        "point_in_time_eligibility_class": "not_applicable",
+        "point_in_time_eligible_for_eod_research": False,
+        "strict_provider_row_level_revision_eligible": False,
+        "point_in_time_eligible": False,
+        "source_snapshot_id": source_snapshot_id,
+        "source_snapshot_sha256": artifact_sha256,
+    }
+
+
 def build_candidate_outputs(
     plan: FetchPlan,
     evidence: dict[str, list[dict[str, Any]]],
@@ -1422,7 +1512,7 @@ def build_candidate_outputs(
     stk_limit_by_key = _by_ts_date(evidence["stk_limit"])
     adj_factor_by_key = _by_ts_date(evidence["adj_factor"])
     stock_st_by_key = _by_ts_date(evidence["stock_st"])
-    suspend_by_key = _by_ts_date(evidence["suspend_d"])
+    suspend_by_key = _by_ts_date(evidence["suspend_d"], date_field="suspend_date")
     raw_rows: list[dict[str, Any]] = []
     source_status_rows: list[dict[str, Any]] = []
     factor_rows: list[dict[str, Any]] = []
@@ -1439,31 +1529,70 @@ def build_candidate_outputs(
         suspend = suspend_by_key.get(key)
         if daily:
             raw_rows.append(_raw_daily(row, daily))
-        trading_status = classify_trading_status(
+        applicability = classify_calendar_domain_applicability(
             trading_date=row["trading_date"],
             stock_basic=stock_basic,
             trade_cal=trade_cal,
             daily_row=daily,
             suspend_row=suspend,
         )
+        trading_status = applicability["trading_status"]
+        if trading_status == "trading":
+            suspension_status = classify_suspension_status(
+                trading_status="normal_trading",
+                daily_row=daily,
+                suspend_row=suspend,
+            )
+        elif trading_status == "suspended":
+            suspension_status = "suspended"
+        elif trading_status == "listed_open_missing_daily":
+            suspension_status = "not_suspended"
+        else:
+            suspension_status = "not_applicable"
+        if trading_status in {
+            "calendar_date_not_in_trade_cal",
+            "non_trading_day",
+            "pre_listing",
+            "post_delist",
+        }:
+            st_status = {
+                "st_status": "not_applicable",
+                "st_status_evidence_method": "calendar_or_lifecycle",
+            }
+        else:
+            st_status = classify_st_status(
+                trading_status="normal_trading", stock_st_row=stock_st
+            )
+        price_limit_status = (
+            {
+                "price_limit_status": "not_applicable",
+                "limit_up_price": None,
+                "limit_down_price": None,
+                "price_limit_status_evidence_method": (
+                    "calendar_or_lifecycle_applicability"
+                ),
+            }
+            if applicability["price_limit_applicability"]
+            in {"not_applicable", "not_applicable_or_expected_empty"}
+            else derive_price_limit_status(
+                trading_status="normal_trading",
+                daily_row=daily,
+                stk_limit_row=stk_limit,
+            )
+        )
         source_status_rows.append(
             {
                 **row,
                 "source_registry_id": "tnskhdata",
                 "trading_status": trading_status,
-                "suspension_status": classify_suspension_status(
-                    trading_status=trading_status,
-                    daily_row=daily,
-                    suspend_row=suspend,
-                ),
-                **classify_st_status(
-                    trading_status=trading_status, stock_st_row=stock_st
-                ),
-                **derive_price_limit_status(
-                    trading_status=trading_status,
-                    daily_row=daily,
-                    stk_limit_row=stk_limit,
-                ),
+                "daily_applicability": applicability["daily_applicability"],
+                "price_limit_applicability": applicability["price_limit_applicability"],
+                "adjustment_factor_applicability": applicability[
+                    "adjustment_factor_applicability"
+                ],
+                "suspension_status": suspension_status,
+                **st_status,
+                **price_limit_status,
                 "limit_price_source": "tnskhdata_stk_limit" if stk_limit else None,
                 "is_trading_day": str(trade_cal.get("is_open")) == "1",
                 "trading_calendar_status": "open"
@@ -1473,16 +1602,28 @@ def build_candidate_outputs(
                 else "missing",
             }
         )
-        factor = build_adj_factor_snapshot_revision(
-            trading_date=row["trading_date"],
-            adj_factor_row=adj_factor or {},
-            source_snapshot_id=source_snapshot_id,
-            artifact_sha256=artifact_sha256,
+        factor = (
+            build_adj_factor_snapshot_revision(
+                trading_date=row["trading_date"],
+                adj_factor_row=adj_factor or {},
+                source_snapshot_id=source_snapshot_id,
+                artifact_sha256=artifact_sha256,
+            )
+            if applicability["adjustment_factor_applicability"]
+            in {"applicable", "applicable_unresolved"}
+            else _not_applicable_factor(
+                applicability=applicability["adjustment_factor_applicability"],
+                source_snapshot_id=source_snapshot_id,
+                artifact_sha256=artifact_sha256,
+            )
         )
         factor_rows.append(
             {
                 **row,
                 "source_registry_id": "tnskhdata",
+                "adjustment_factor_applicability": applicability[
+                    "adjustment_factor_applicability"
+                ],
                 "adjustment_factor_source": "tnskhdata_adj_factor"
                 if adj_factor
                 else None,
@@ -1554,6 +1695,33 @@ def build_quality_report(
     )
     metrics = evidence.get("_metrics", [{}])[0]
     unresolved = {"unknown", "unresolved", "provider_empty_or_unclassified", None, ""}
+    missing_daily_total = len(rows) - len(raw)
+    missing_daily_closed = sum(
+        1
+        for row in source_status
+        if row["trading_status"]
+        in {"calendar_date_not_in_trade_cal", "non_trading_day"}
+    )
+    missing_daily_pre_listing = sum(
+        1 for row in source_status if row["trading_status"] == "pre_listing"
+    )
+    missing_daily_post_delist = sum(
+        1 for row in source_status if row["trading_status"] == "post_delist"
+    )
+    missing_daily_suspended = sum(
+        1 for row in source_status if row["trading_status"] == "suspended"
+    )
+    listed_open_missing_daily = sum(
+        1
+        for row in source_status
+        if row["trading_status"] == "listed_open_missing_daily"
+    )
+    missing_daily_not_applicable = (
+        missing_daily_closed
+        + missing_daily_pre_listing
+        + missing_daily_post_delist
+        + missing_daily_suspended
+    )
     return {
         "run_mode": plan.mode,
         "sample_mode": plan.mode != "full",
@@ -1566,6 +1734,9 @@ def build_quality_report(
             else "trade_cal_open"
         ),
         "candidate_price_artifact_date_domain_ignored": True,
+        "lifecycle_evidence_source": "stock_basic",
+        "new_share_reconciliation_required": False,
+        "new_share_reconciliation_status": "not_requested_optional",
         "candidate_universe_row_count": len(rows),
         "mapped_row_count": sum(
             1 for row in rows if row.get("mapping_status") == "resolved"
@@ -1577,13 +1748,43 @@ def build_quality_report(
         "source_status_row_count": len(source_status),
         "factor_evidence_row_count": len(factor),
         "adjusted_price_row_count": len(outputs["adjusted_price"]),
+        "calendar_date_count": len({row["trading_date"] for row in rows}),
+        "trade_cal_open_date_count": len(
+            {
+                _date_yyyymmdd(row.get("cal_date"))
+                for row in evidence["trade_cal"]
+                if str(row.get("is_open")) == "1"
+            }
+        ),
         "security_count": len({row["security_id"] for row in rows}),
         "trading_date_min": min((row["trading_date"] for row in rows), default=None),
         "trading_date_max": max((row["trading_date"] for row in rows), default=None),
-        "missing_daily_count": len(rows) - len(raw),
+        "listed_open_security_date_count": sum(
+            1
+            for row in source_status
+            if row["daily_applicability"]
+            in {"applicable_resolved", "applicable_unresolved"}
+        ),
+        "pre_listing_security_date_count": missing_daily_pre_listing,
+        "post_delist_security_date_count": missing_daily_post_delist,
+        "non_trading_security_date_count": missing_daily_closed,
+        "suspended_security_date_count": missing_daily_suspended,
+        "missing_daily_count": missing_daily_total,
+        "missing_daily_total_count": missing_daily_total,
+        "missing_daily_closed_calendar_count": missing_daily_closed,
+        "missing_daily_pre_listing_count": missing_daily_pre_listing,
+        "missing_daily_post_delist_count": missing_daily_post_delist,
+        "missing_daily_suspended_count": missing_daily_suspended,
+        "missing_daily_not_applicable_count": missing_daily_not_applicable,
+        "missing_daily_unexpected_count": listed_open_missing_daily,
+        "listed_open_missing_daily_count": listed_open_missing_daily,
         "missing_stk_limit_count": max(0, len(rows) - len(evidence["stk_limit"])),
         "missing_adj_factor_count": sum(
-            1 for row in factor if row["adjustment_factor_status"] != "resolved"
+            1
+            for row in factor
+            if row["adjustment_factor_applicability"]
+            in {"applicable", "applicable_unresolved"}
+            and row["adjustment_factor_status"] != "resolved"
         ),
         "missing_trade_cal_count": max(
             0, len({row["trading_date"] for row in rows}) - len(evidence["trade_cal"])
@@ -1603,10 +1804,18 @@ def build_quality_report(
             1 for row in source_status if row["st_status"] in unresolved
         ),
         "unresolved_price_limit_status_count": sum(
-            1 for row in source_status if row["price_limit_status"] in unresolved
+            1
+            for row in source_status
+            if row["price_limit_applicability"]
+            in {"applicable", "applicable_unresolved"}
+            and row["price_limit_status"] in unresolved
         ),
         "unresolved_adjustment_factor_count": sum(
-            1 for row in factor if row["adjustment_factor_status"] != "resolved"
+            1
+            for row in factor
+            if row["adjustment_factor_applicability"]
+            in {"applicable", "applicable_unresolved"}
+            and row["adjustment_factor_status"] != "resolved"
         ),
         "amount_unit_status": "unknown"
         if any(row.get("amount_thousand_yuan") is None for row in raw)
@@ -1683,17 +1892,24 @@ def acceptance_decision(quality: dict[str, Any]) -> str:
         or quality["volume_unit_status"] != "resolved_lot"
     ):
         return "blocked_pending_quality_resolution"
+    if quality.get(
+        "source_status_row_count", quality.get("candidate_universe_row_count")
+    ) != quality.get("candidate_universe_row_count") or quality.get(
+        "factor_evidence_row_count", quality.get("candidate_universe_row_count")
+    ) != quality.get("candidate_universe_row_count"):
+        return "blocked_pending_provider_coverage"
     coverage_fields = [
-        "missing_daily_count",
+        "missing_daily_unexpected_count",
+        "listed_open_missing_daily_count",
         "unresolved_trading_status_count",
         "unresolved_suspension_status_count",
         "unresolved_st_status_count",
         "unresolved_price_limit_status_count",
         "unresolved_adjustment_factor_count",
     ]
-    if any(quality[field] for field in coverage_fields):
+    if any(quality.get(field, 0) for field in coverage_fields):
         return "blocked_pending_provider_coverage"
-    if quality["adjusted_price_row_count"] < quality["daily_raw_row_count"]:
+    if quality["adjusted_price_row_count"] != quality["daily_raw_row_count"]:
         return "blocked_pending_reconciliation"
     return "accepted_for_d3_candidate_generation"
 
@@ -1723,6 +1939,9 @@ def build_fetch_stage_quality_report(
             else "trade_cal_open"
         ),
         "candidate_price_artifact_date_domain_ignored": True,
+        "lifecycle_evidence_source": "stock_basic",
+        "new_share_reconciliation_required": False,
+        "new_share_reconciliation_status": "not_requested_optional",
         "fetch_stage_only": True,
         "candidate_universe_row_count": len(plan.rows),
         "mapped_row_count": sum(
@@ -1732,6 +1951,8 @@ def build_fetch_stage_quality_report(
             1 for row in plan.rows if row.get("mapping_status") != "resolved"
         ),
         "security_count": len({row["security_id"] for row in plan.rows}),
+        "calendar_date_count": len({row["trading_date"] for row in plan.rows}),
+        "trade_cal_open_date_count": None,
         "trading_date_min": min(
             (row["trading_date"] for row in plan.rows), default=None
         ),
@@ -1743,6 +1964,19 @@ def build_fetch_stage_quality_report(
         "factor_evidence_row_count": None,
         "adjusted_price_row_count": None,
         "missing_daily_count": None,
+        "missing_daily_total_count": None,
+        "missing_daily_closed_calendar_count": None,
+        "missing_daily_pre_listing_count": None,
+        "missing_daily_post_delist_count": None,
+        "missing_daily_suspended_count": None,
+        "missing_daily_not_applicable_count": None,
+        "missing_daily_unexpected_count": None,
+        "listed_open_missing_daily_count": None,
+        "listed_open_security_date_count": None,
+        "pre_listing_security_date_count": None,
+        "post_delist_security_date_count": None,
+        "non_trading_security_date_count": None,
+        "suspended_security_date_count": None,
         "missing_stk_limit_count": None,
         "missing_adj_factor_count": None,
         "missing_trade_cal_count": None,
@@ -2055,6 +2289,19 @@ def assemble_partitioned_artifacts(
         "factor_evidence_row_count": 0,
         "adjusted_price_row_count": 0,
         "missing_daily_count": 0,
+        "missing_daily_total_count": 0,
+        "missing_daily_closed_calendar_count": 0,
+        "missing_daily_pre_listing_count": 0,
+        "missing_daily_post_delist_count": 0,
+        "missing_daily_suspended_count": 0,
+        "missing_daily_not_applicable_count": 0,
+        "missing_daily_unexpected_count": 0,
+        "listed_open_missing_daily_count": 0,
+        "listed_open_security_date_count": 0,
+        "pre_listing_security_date_count": 0,
+        "post_delist_security_date_count": 0,
+        "non_trading_security_date_count": 0,
+        "suspended_security_date_count": 0,
         "missing_stk_limit_count": 0,
         "missing_adj_factor_count": 0,
         "missing_trade_cal_count": 0,
@@ -2137,10 +2384,63 @@ def assemble_partitioned_artifacts(
         counters["source_status_row_count"] += len(outputs["source_status"])
         counters["factor_evidence_row_count"] += len(outputs["factor_evidence"])
         counters["adjusted_price_row_count"] += len(outputs["adjusted_price"])
-        counters["missing_daily_count"] += len(date_plan.rows) - len(outputs["raw"])
+        missing_daily_total = len(date_plan.rows) - len(outputs["raw"])
+        missing_daily_closed = sum(
+            1
+            for row in outputs["source_status"]
+            if row["trading_status"]
+            in {"calendar_date_not_in_trade_cal", "non_trading_day"}
+        )
+        missing_daily_pre_listing = sum(
+            1
+            for row in outputs["source_status"]
+            if row["trading_status"] == "pre_listing"
+        )
+        missing_daily_post_delist = sum(
+            1
+            for row in outputs["source_status"]
+            if row["trading_status"] == "post_delist"
+        )
+        missing_daily_suspended = sum(
+            1
+            for row in outputs["source_status"]
+            if row["trading_status"] == "suspended"
+        )
+        listed_open_missing_daily = sum(
+            1
+            for row in outputs["source_status"]
+            if row["trading_status"] == "listed_open_missing_daily"
+        )
+        missing_daily_not_applicable = (
+            missing_daily_closed
+            + missing_daily_pre_listing
+            + missing_daily_post_delist
+            + missing_daily_suspended
+        )
+        counters["missing_daily_count"] += missing_daily_total
+        counters["missing_daily_total_count"] += missing_daily_total
+        counters["missing_daily_closed_calendar_count"] += missing_daily_closed
+        counters["missing_daily_pre_listing_count"] += missing_daily_pre_listing
+        counters["missing_daily_post_delist_count"] += missing_daily_post_delist
+        counters["missing_daily_suspended_count"] += missing_daily_suspended
+        counters["missing_daily_not_applicable_count"] += missing_daily_not_applicable
+        counters["missing_daily_unexpected_count"] += listed_open_missing_daily
+        counters["listed_open_missing_daily_count"] += listed_open_missing_daily
+        counters["listed_open_security_date_count"] += sum(
+            1
+            for row in outputs["source_status"]
+            if row["daily_applicability"]
+            in {"applicable_resolved", "applicable_unresolved"}
+        )
+        counters["pre_listing_security_date_count"] += missing_daily_pre_listing
+        counters["post_delist_security_date_count"] += missing_daily_post_delist
+        counters["non_trading_security_date_count"] += missing_daily_closed
+        counters["suspended_security_date_count"] += missing_daily_suspended
         counters["missing_adj_factor_count"] += sum(
             1
             for row in outputs["factor_evidence"]
+            if row["adjustment_factor_applicability"]
+            in {"applicable", "applicable_unresolved"}
             if row["adjustment_factor_status"] != "resolved"
         )
         counters["missing_trade_cal_count"] += (
@@ -2164,11 +2464,15 @@ def assemble_partitioned_artifacts(
         counters["unresolved_price_limit_status_count"] += sum(
             1
             for row in outputs["source_status"]
+            if row["price_limit_applicability"]
+            in {"applicable", "applicable_unresolved"}
             if row["price_limit_status"] in unresolved
         )
         counters["unresolved_adjustment_factor_count"] += sum(
             1
             for row in outputs["factor_evidence"]
+            if row["adjustment_factor_applicability"]
+            in {"applicable", "applicable_unresolved"}
             if row["adjustment_factor_status"] != "resolved"
         )
         for row in outputs["raw"]:
@@ -2204,6 +2508,9 @@ def assemble_partitioned_artifacts(
             else "trade_cal_open"
         ),
         "candidate_price_artifact_date_domain_ignored": True,
+        "lifecycle_evidence_source": "stock_basic",
+        "new_share_reconciliation_required": False,
+        "new_share_reconciliation_status": "not_requested_optional",
         "fetch_stage_only": False,
         "fetch_completeness_decision": verification["fetch_completeness_decision"],
         "provider_coverage_decision": verification["provider_coverage_decision"],
@@ -2216,6 +2523,14 @@ def assemble_partitioned_artifacts(
         == "complete",
         "artifact_hashes_complete": False,
         "security_count": len({row["security_id"] for row in plan.rows}),
+        "calendar_date_count": len(plan.trade_dates),
+        "trade_cal_open_date_count": len(
+            {
+                _date_yyyymmdd(row.get("cal_date"))
+                for row in trade_cal
+                if str(row.get("is_open")) == "1"
+            }
+        ),
         "trading_date_min": min(plan.trade_dates, default=None),
         "trading_date_max": max(plan.trade_dates, default=None),
         "amount_unit_status": "unknown"
@@ -2261,6 +2576,9 @@ def finalize_partitioned_reports(
                     else "trade_cal_open"
                 ),
                 "candidate_price_artifact_date_domain_ignored": True,
+                "lifecycle_evidence_source": "stock_basic",
+                "new_share_reconciliation_required": False,
+                "new_share_reconciliation_status": "not_requested_optional",
                 "fetch_stage_only": False,
                 "fetch_completeness_decision": verification[
                     "fetch_completeness_decision"
@@ -2287,9 +2605,24 @@ def finalize_partitioned_reports(
                 "factor_evidence_row_count": None,
                 "adjusted_price_row_count": None,
                 "security_count": len({row["security_id"] for row in plan.rows}),
+                "calendar_date_count": len(plan.trade_dates),
+                "trade_cal_open_date_count": None,
                 "trading_date_min": min(plan.trade_dates, default=None),
                 "trading_date_max": max(plan.trade_dates, default=None),
                 "missing_daily_count": None,
+                "missing_daily_total_count": None,
+                "missing_daily_closed_calendar_count": None,
+                "missing_daily_pre_listing_count": None,
+                "missing_daily_post_delist_count": None,
+                "missing_daily_suspended_count": None,
+                "missing_daily_not_applicable_count": None,
+                "missing_daily_unexpected_count": None,
+                "listed_open_missing_daily_count": None,
+                "listed_open_security_date_count": None,
+                "pre_listing_security_date_count": None,
+                "post_delist_security_date_count": None,
+                "non_trading_security_date_count": None,
+                "suspended_security_date_count": None,
                 "unresolved_trading_status_count": None,
                 "unresolved_suspension_status_count": None,
                 "unresolved_st_status_count": None,
@@ -2393,7 +2726,8 @@ def finalize_partitioned_reports(
                     "partition_malformed_count",
                     "partition_missing_count",
                     "unmapped_row_count",
-                    "missing_daily_count",
+                    "missing_daily_unexpected_count",
+                    "listed_open_missing_daily_count",
                     "unresolved_trading_status_count",
                     "unresolved_suspension_status_count",
                     "unresolved_st_status_count",
@@ -2824,7 +3158,8 @@ def materialize_full_candidate(
                 "unexpected_empty_primary_partition_count",
                 "partition_malformed_count",
                 "partition_missing_count",
-                "missing_daily_count",
+                "missing_daily_unexpected_count",
+                "listed_open_missing_daily_count",
                 "unresolved_trading_status_count",
                 "unresolved_suspension_status_count",
                 "unresolved_st_status_count",

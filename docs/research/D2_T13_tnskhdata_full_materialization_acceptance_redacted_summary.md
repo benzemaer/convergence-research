@@ -3,14 +3,14 @@
 ## Scope
 
 This summary records the D2-T13 tnskhdata full candidate materialization gate
-without committing generated artifacts. It contains aggregate counts, date range,
-coverage status, quality flags, acceptance decisions, source snapshot identity,
-and hashes only.
+without committing generated artifacts. It contains aggregate counts, date
+range, coverage status, quality flags, acceptance decisions, source snapshot
+identity, and hashes only.
 
-It does not contain row-level prices, source-symbol lists, security mapping rows,
-vendor payloads, raw provider responses, API tokens, generated artifact contents,
-DuckDB files, D3 rows, PCVT values, R0 states, labels, returns, backtests, or
-portfolio outputs.
+It does not contain row-level prices, source-symbol lists, security mapping
+rows, vendor payloads, raw provider responses, API tokens, generated artifact
+contents, DuckDB files, D3 rows, PCVT values, R0 states, labels, returns,
+backtests, or portfolio outputs.
 
 ## Date Boundary
 
@@ -22,7 +22,8 @@ The provider fetch window follows DR-001:
   "start_date": "20160101",
   "end_date": "20260630",
   "calendar_boundary": "closed_interval",
-  "trading_day_filter": "tnskhdata trade_cal"
+  "fetch_date_domain": "calendar",
+  "date_domain_source": "DR-001"
 }
 ```
 
@@ -41,6 +42,9 @@ calendar-domain materialization from DR-001 and the formal
   "deprecated_probe_only": ["HiThink raw"],
   "d1_raw_source": "tnskhdata daily",
   "d2_factor_source": "tnskhdata adj_factor",
+  "lifecycle_evidence_source": "stock_basic",
+  "new_share_reconciliation_required": false,
+  "new_share_reconciliation_status": "not_requested_optional",
   "status_sources": [
     "tnskhdata stock_basic",
     "tnskhdata trade_cal",
@@ -51,36 +55,25 @@ calendar-domain materialization from DR-001 and the formal
 }
 ```
 
-## Full Run Attempt Summary
+Optional future reconciliation: `new_share.issue_date` can be used later to
+cross-check `stock_basic.list_date` for post-2016 IPOs. It is diagnostic only
+and is not a D2-T13 blocker unless stock_basic lifecycle evidence is missing or
+contradictory.
 
-The D2-T13 script supports full remote fetch, resume checkpoints, and scoped
-sample runs. A full remote run was started locally with `--full`, using the
-DR-001 full date boundary in CLI arguments. The run exceeded the local execution
-window for this PR update and was stopped by the shell timeout before final
-candidate artifacts and full-run reports were written. The checkpoint can be
-used to resume without restarting completed trade-date fetches.
+## Local Assembly Summary
 
-This PR update adds the endpoint-worker runner, shared adaptive rate governor,
-partitioned local staging writer, fetch ledger, rate governor state, quality
-progress summary, and partial hash manifest hooks. The staging store is local
-and ignored; it is not a formal DuckDB publication.
+D2-T13 calendar-domain assembly completed locally. The 3,067,200
+source/factor rows are expected because the skeleton is 800 securities by 3,834
+calendar dates. The 1,730,769 daily and adjusted rows are plausible because
+daily rows only exist for listed, open, applicable dates. Pre-listing,
+post-delist, suspended, and non-trading dates are expected `not_applicable`
+gaps, not provider defects.
 
-The runner now migrates legacy `tnskhdata_fetch_checkpoint.json` records into
-the new fetch ledger when `fetch_ledger.jsonl` is absent, so resume does not
-restart from 2016. Legacy `completed_trade_dates` are only resume hints; they
-are not D2 acceptance evidence. `--repair-failed-only` limits repair runs to
-failed trade-date tasks and does not refetch completed dates.
-
-Endpoint staging is no longer loaded into memory as whole endpoint lists during
-the fetch stage. Partitioned assembly is allowed after fetch completeness passes,
-but D2 acceptance remains blocked until provider coverage and quality gates pass.
-
-The no-remote verification/finalize command was rerun with
-`fetch_date_domain = calendar`, the formal D2-T02 membership/security universe,
-and the D2-T09 parquet passed only as `candidate_price_artifact` for date-domain
-audit. D2-T09 candidate-domain partitions are not accepted D2-T13 evidence. The
-calendar-domain verify remains incomplete because the local staging directory
-does not yet contain the full DR-001 calendar endpoint partition set.
+The previous pre-fix quality report blocked D2 acceptance because it compared
+daily row counts against the full calendar skeleton and counted non-applicable
+gaps as unresolved. This PR changes the gate so only
+`listed_open_missing_daily` / `missing_daily_unexpected_count` can block daily
+coverage.
 
 ```json
 {
@@ -92,16 +85,6 @@ does not yet contain the full DR-001 calendar endpoint partition set.
   "staging_store_path_redacted": "data/generated/d2/d2_t13_tnskhdata_full_candidate/**",
   "formal_duckdb_write_authorized": false,
   "local_staging_write_authorized": true,
-  "worker_mode": "endpoint",
-  "max_workers": 7,
-  "initial_requests_per_minute": 200,
-  "max_requests_per_minute": 500,
-  "final_requests_per_minute": null,
-  "rate_increase_events": null,
-  "rate_decrease_events": null,
-  "verify_fetch_only_executed": true,
-  "assemble_only_executed": false,
-  "finalize_only_executed": true,
   "fetch_date_domain": "calendar",
   "canonical_fetch_date_domain": "calendar",
   "date_domain_source": "DR-001",
@@ -109,147 +92,53 @@ does not yet contain the full DR-001 calendar endpoint partition set.
   "dr001_end_date": "20260630",
   "closed_calendar_interval": true,
   "security_universe_source": "CSI800_STATIC_2026_06 membership / security mapping",
-  "candidate_price_artifact_date_min": "20160703",
-  "candidate_price_artifact_date_max": "20260702",
   "candidate_price_artifact_superseded": true,
   "candidate_price_artifact_date_domain_ignored": true,
   "d2_t09_candidate_raw_market_prices_is_superseded_diagnostic_input_only": true,
-  "trade_cal_used_as_fetch_task_cutter_by_default": false,
-  "fetch_completeness_decision": "incomplete",
-  "provider_coverage_decision": "blocked_pending_provider_coverage",
-  "candidate_artifact_output_dir": "data/generated/d2/d2_t13_tnskhdata_full_candidate/",
-  "candidate_universe_row_count": 3067200,
-  "mapped_row_count": 3067200,
-  "unmapped_row_count": null,
-  "daily_raw_row_count": null,
-  "source_status_row_count": null,
-  "factor_evidence_row_count": null,
-  "adjusted_price_row_count": null,
+  "fetch_stage_only": false,
+  "artifact_hashes_complete": true,
+  "amount_unit_status": "resolved_thousand_yuan",
+  "volume_unit_status": "resolved_lot",
+  "calendar_date_count": 3834,
   "security_count": 800,
-  "trading_date_min": "20160101",
-  "trading_date_max": "20260630",
-  "missing_daily_count": null,
-  "missing_stk_limit_count": null,
-  "missing_adj_factor_count": null,
-  "missing_trade_cal_count": null,
-  "missing_stock_basic_count": null,
-  "missing_stock_st_count": null,
-  "missing_suspend_count": null,
-  "unresolved_trading_status_count": null,
-  "unresolved_suspension_status_count": null,
-  "unresolved_st_status_count": null,
-  "unresolved_price_limit_status_count": null,
-  "unresolved_adjustment_factor_count": null,
-  "amount_unit_status": "not_evaluated_assembly_not_run",
-  "volume_unit_status": "not_evaluated_assembly_not_run",
-  "duplicate_key_count": null,
-  "null_ohlc_count": null,
-  "non_positive_price_count": null,
-  "high_low_violation_count": null,
-  "primary_provider_error_count": 0,
-  "reconciliation_provider_error_count": 0,
-  "pro_bar_reconciliation_status": "not_reached_full_run_incomplete",
-  "pro_bar_reconciliation_warning_count": 0,
-  "rate_limit_count": 0,
-  "timeout_count": 0,
-  "retry_count": null,
-  "successful_request_count": null,
-  "failed_request_count": null,
-  "resume_checkpoint_count": 111,
-  "last_successful_trade_date": "20161213",
-  "failed_trade_dates": [],
-  "request_count": 560,
-  "request_count_source": "derived_from_completed_trade_dates_after_counting_fix",
-  "endpoint_task_counts": {
-    "stock_basic": 4,
-    "trade_cal": 1,
-    "daily": 2426,
-    "stk_limit": 2426,
-    "adj_factor": 2426,
-    "stock_st": 2426,
-    "suspend_d": 2426
-  },
-  "completed_task_counts": {
-    "legacy_checkpoint_completed_trade_dates": 111
-  },
-  "failed_task_counts": {},
-  "expected_trade_date_count": 3834,
-  "endpoint_partition_counts": {
-    "daily": 0,
-    "stk_limit": 0,
-    "adj_factor": 0,
-    "stock_st": 0,
-    "suspend_d": 0
-  },
-  "partition_missing_count": 19175,
-  "partition_malformed_count": 0,
-  "provider_empty_count": 0,
-  "expected_empty_count": 0,
-  "allowed_empty_count": 0,
-  "unexpected_empty_primary_partition_count": 0,
-  "superseded_candidate_domain_unexpected_empty_primary_partition_count": 35,
-  "unexpected_empty_primary_partition_by_endpoint": {
-    "daily": 12,
-    "stk_limit": 12,
-    "adj_factor": 11
-  },
-  "unexpected_empty_primary_partition_trade_dates": [
-    "20171207",
-    "20171211",
-    "20171212",
-    "20171213",
-    "20220615",
-    "20220616",
-    "20220620",
-    "20220621",
-    "20220622",
-    "20260506",
-    "20260507",
-    "20260511",
-    "20260512"
-  ],
-  "legacy_checkpoint_migration_supported": true,
-  "legacy_completed_dates_are_resume_hints_only": true,
-  "repair_failed_only_supported": true,
-  "endpoint_partitions_loaded_into_memory": false,
-  "keyboard_interrupt_cancel_futures": true,
-  "sample_acceptance_decision": null,
-  "artifact_hashes_complete": false,
-  "d2_acceptance_decision": "blocked_pending_provider_coverage",
-  "d3_handoff_decision": "d3_candidate_generation_blocked",
-  "r0_handoff_decision": "r0_blocked",
-  "duckdb_written": false,
-  "data_version_published": false,
-  "d3_rows_generated": false,
-  "pcvt_values_generated": false,
-  "r0_state_generated": false
+  "candidate_universe_row_count": 3067200,
+  "daily_raw_row_count": 1730769,
+  "source_status_row_count": 3067200,
+  "factor_evidence_row_count": 3067200,
+  "adjusted_price_row_count": 1730769,
+  "daily_row_count_interpretation": "daily rows cover listed/open/applicable dates, not every security-calendar date",
+  "missing_daily_unexpected_count_gate": "must_be_zero",
+  "listed_open_missing_daily_count_gate": "must_be_zero",
+  "pre_listing_and_non_trading_dates": "not_applicable_not_provider_defects",
+  "d2_acceptance_decision": "pending_local_finalize_rerun_after_lifecycle_gate_fix",
+  "d3_handoff_decision": "d3_candidate_generation_blocked_pending_review"
 }
 ```
 
-## Artifact Hash Summary
+## Lifecycle Applicability Gate
 
-The full run did not complete, so no full-run artifact hash summary is claimed
-in this committed redacted summary. Previously generated sample artifacts under
-the ignored output directory are superseded for D2 acceptance purposes and are
-not used as full-run evidence.
+For each `security_id` by calendar date, D2-T13 classifies applicability before
+counting unresolved fields. Dates not in `trade_cal`, closed dates, pre-listing
+dates, and post-delist dates are `not_applicable` for daily, price-limit, and
+adjustment-factor evidence. Suspended listed open dates are treated as expected
+empty or carry-forward-policy-required according to provider evidence.
 
-```json
-{
-  "full_run_artifact_hashes_complete": false,
-  "full_run_hash_summary_sha256": null
-}
-```
+Only listed, open, not-suspended security dates with missing daily rows become
+`listed_open_missing_daily` and contribute to
+`missing_daily_unexpected_count`. Missing `stk_limit` or `adj_factor` rows only
+count as unresolved when the security date is listed, open, and not suspended.
 
 ## Acceptance Boundary
 
-D2 can only move to `accepted_for_d3_candidate_generation` when generated
-artifact hashes are complete, source status covers the candidate universe,
-factor evidence covers the candidate universe or is resolved as not applicable,
-adjusted price covers normal-trading rows with daily and factor evidence,
-price-limit status is resolved or not applicable, units are resolved, duplicate
-keys are zero, and no fatal quality blockers remain.
+D2 can only move to `accepted_for_d3_candidate_generation` when source status
+and factor evidence cover the full calendar skeleton, adjusted price row count
+equals daily raw row count, `missing_daily_unexpected_count` and
+`listed_open_missing_daily_count` are zero, unresolved status/factor counts are
+zero, artifact hashes are complete, units are resolved, duplicate keys are
+zero, and no fatal quality blockers remain.
 
-Sample acceptance cannot promote D2. Until the full tnskhdata materialization run
-finishes and the full-run artifact hash summary is complete, D2 remains blocked,
-D3 candidate generation remains blocked, and D3 data version publication, PCVT,
-R0, labels, returns, backtests, and portfolio outputs remain outside this PR.
+Sample acceptance cannot promote D2. D3 candidate generation remains blocked
+until a full local finalize with the revised lifecycle applicability gate passes
+and its aggregate redacted summary is reviewed. D3 data version publication,
+PCVT, R0, labels, returns, backtests, and portfolio outputs remain outside this
+PR.

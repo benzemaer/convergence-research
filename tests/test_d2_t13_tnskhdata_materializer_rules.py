@@ -73,7 +73,8 @@ class D2T13TnskhdataMaterializerRulesTest(unittest.TestCase):
         self.assertEqual(raw["amount_yuan"], 200000)
 
         status = outputs["source_status"][0]
-        self.assertEqual(status["trading_status"], "normal_trading")
+        self.assertEqual(status["trading_status"], "trading")
+        self.assertEqual(status["daily_applicability"], "applicable_resolved")
         self.assertEqual(status["suspension_status"], "not_suspended")
         self.assertEqual(status["st_status"], "st")
         self.assertEqual(status["price_limit_status"], "limit_up_touched_or_closed")
