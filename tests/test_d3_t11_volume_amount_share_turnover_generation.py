@@ -396,10 +396,15 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
             read_only=True,
         )
         try:
-            row = conn.execute(f"SELECT * FROM {OUTPUT_TABLE}").fetchdf().iloc[0]
-            columns = set(
-                conn.execute(f"PRAGMA table_info('{OUTPUT_TABLE}')").fetchdf()["name"]
-            )
+            cursor = conn.execute(f"SELECT * FROM {OUTPUT_TABLE}")
+            column_names = [description[0] for description in cursor.description]
+            row = dict(zip(column_names, cursor.fetchone(), strict=True))
+            columns = {
+                row[1]
+                for row in conn.execute(
+                    f"PRAGMA table_info('{OUTPUT_TABLE}')"
+                ).fetchall()
+            }
         finally:
             conn.close()
         self.assertEqual(row["volume_shares"], 10000)
