@@ -188,6 +188,10 @@ CONFIGS = (
         ROOT / "configs/d3/d3_t08_research_dataset_registry_contract.v1.json",
     ),
     (
+        ROOT / "schemas/d3_t10_field_availability_probe_gap_fill_contract.schema.json",
+        ROOT / "configs/d3/d3_t10_field_availability_probe_gap_fill_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/r0/r0_t01_pcvt_candidate_spec.schema.json",
         ROOT / "configs/r0/r0_t01_pcvt_candidate_spec.v1.json",
     ),

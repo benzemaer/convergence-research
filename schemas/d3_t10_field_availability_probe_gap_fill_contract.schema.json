@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d3_t10_field_availability_probe_gap_fill_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "placement_rationale",
+    "depends_on",
+    "formal_data_version_authorized",
+    "duckdb_write_authorized",
+    "pcvt_metric_calculation_authorized",
+    "pcvt_percentile_generation_authorized",
+    "pcvt_score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "real_provider_probe_authorized",
+    "provider_probe_raw_payload_commit_authorized",
+    "credential_commit_authorized",
+    "field_probe_matrix_columns",
+    "r0_indicator_ids",
+    "tnskhdata_probe",
+    "standardization_rules",
+    "quality_status_fields",
+    "quality_rules",
+    "provider_turnover_crosscheck",
+    "generic_d3_fields_to_add",
+    "future_alternative_v_candidates",
+    "r0_baseline_unchanged",
+    "r0_baseline_v_indicators",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/d3_t10_field_availability_probe_gap_fill_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "D3_T10_FIELD_AVAILABILITY_PROBE_GAP_FILL_CONTRACT_V1"
+    },
+    "task_id": { "const": "D3-T10" },
+    "contract_status": { "const": "accepted" },
+    "contract_scope": {
+      "const": "d3_field_availability_probe_and_generic_market_field_gap_fill"
+    },
+    "placement_rationale": { "type": "string", "minLength": 1 },
+    "depends_on": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        {
+          "contains": {
+            "const": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"
+          }
+        },
+        { "contains": { "const": "R0_T01_PCVT_CANDIDATE_SPEC_V1" } },
+        {
+          "contains": {
+            "const": "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1"
+          }
+        }
+      ]
+    },
+    "formal_data_version_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "pcvt_metric_calculation_authorized": { "const": false },
+    "pcvt_percentile_generation_authorized": { "const": false },
+    "pcvt_score_generation_authorized": { "const": false },
+    "pcvt_state_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "real_provider_probe_authorized": { "const": true },
+    "provider_probe_raw_payload_commit_authorized": { "const": false },
+    "credential_commit_authorized": { "const": false },
+    "field_probe_matrix_columns": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "field_name" } },
+        { "contains": { "const": "required_by" } },
+        { "contains": { "const": "required_for_indicator" } },
+        { "contains": { "const": "current_status" } },
+        { "contains": { "const": "blocking_reason" } },
+        { "contains": { "const": "suggested_fix" } }
+      ]
+    },
+    "r0_indicator_ids": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "P1_NATR14" } },
+        { "contains": { "const": "P2_LogRange20" } },
+        { "contains": { "const": "C1_LogMASpread_5_60" } },
+        { "contains": { "const": "C2_AdjVWAPSpread_5_60" } },
+        { "contains": { "const": "T1_ER20" } },
+        { "contains": { "const": "T2_AbsTrendT20" } },
+        { "contains": { "const": "V1_VolShrink20_60" } },
+        { "contains": { "const": "V2_AmountLevel20Pct" } }
+      ]
+    },
+    "tnskhdata_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_env_names",
+        "cookie_allowed",
+        "raw_payload_output_allowed",
+        "sample_security_count_min",
+        "sample_security_count_max",
+        "sample_trading_day_count_min",
+        "sample_trading_day_count_max",
+        "daily_call",
+        "daily_basic_call"
+      ],
+      "properties": {
+        "token_env_names": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "TNSKHDATA_TOKEN" } }
+          ]
+        },
+        "cookie_allowed": { "const": false },
+        "raw_payload_output_allowed": { "const": false },
+        "sample_security_count_min": { "const": 3 },
+        "sample_security_count_max": { "const": 5 },
+        "sample_trading_day_count_min": { "const": 3 },
+        "sample_trading_day_count_max": { "const": 5 },
+        "daily_call": { "type": "string" },
+        "daily_basic_call": { "type": "string" }
+      }
+    },
+    "standardization_rules": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "required": [
+        "volume_unit",
+        "volume_shares_formula",
+        "amount_unit",
+        "amount_yuan_formula",
+        "daily_vwap_formula",
+        "total_share_unit",
+        "total_share_shares_formula",
+        "float_share_unit",
+        "float_share_shares_formula",
+        "free_share_unit",
+        "free_share_shares_formula",
+        "turnover_float_formula",
+        "turnover_free_formula"
+      ],
+      "properties": {
+        "volume_unit": { "const": "hand" },
+        "volume_shares_formula": { "const": "volume_raw * 100" },
+        "amount_unit": { "const": "thousand_yuan" },
+        "amount_yuan_formula": { "const": "amount_raw * 1000" },
+        "daily_vwap_formula": { "const": "amount_yuan / volume_shares" },
+        "total_share_unit": { "const": "ten_thousand_shares" },
+        "total_share_shares_formula": { "const": "total_share_raw * 10000" },
+        "float_share_unit": { "const": "ten_thousand_shares" },
+        "float_share_shares_formula": { "const": "float_share_raw * 10000" },
+        "free_share_unit": { "const": "ten_thousand_shares" },
+        "free_share_shares_formula": { "const": "free_share_raw * 10000" },
+        "turnover_float_formula": { "const": "volume_shares / float_share_shares" },
+        "turnover_free_formula": { "const": "volume_shares / free_share_shares" }
+      }
+    },
+    "quality_status_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "amount_volume_unit_status" } },
+        { "contains": { "const": "daily_vwap_range_status" } },
+        { "contains": { "const": "share_field_status" } },
+        { "contains": { "const": "turnover_field_status" } },
+        { "contains": { "const": "provider_turnover_crosscheck_status" } }
+      ]
+    },
+    "quality_rules": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "zero_volume_flag must not be interpreted as low participation" } },
+        { "contains": { "const": "unit unknown must not be treated as ready" } }
+      ]
+    },
+    "provider_turnover_crosscheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "derived_turnover_rate_pct",
+        "derived_turnover_rate_f_pct",
+        "turnover_rate_tolerance_pct",
+        "turnover_rate_f_tolerance_pct"
+      ],
+      "properties": {
+        "derived_turnover_rate_pct": { "const": "turnover_float * 100" },
+        "derived_turnover_rate_f_pct": { "const": "turnover_free * 100" },
+        "turnover_rate_tolerance_pct": { "type": "number" },
+        "turnover_rate_f_tolerance_pct": { "type": "number" }
+      }
+    },
+    "generic_d3_fields_to_add": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "amount_yuan" } },
+        { "contains": { "const": "volume_shares" } },
+        { "contains": { "const": "float_share_shares" } },
+        { "contains": { "const": "free_share_shares" } },
+        { "contains": { "const": "turnover_float" } },
+        { "contains": { "const": "turnover_free" } },
+        { "contains": { "const": "turnover_rate" } },
+        { "contains": { "const": "turnover_rate_f" } }
+      ]
+    },
+    "future_alternative_v_candidates": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "TurnoverShrink20_60" } },
+        { "contains": { "const": "FreeTurnoverShrink20_60" } },
+        { "contains": { "const": "TurnoverLevel20Pct" } },
+        { "contains": { "const": "FreeTurnoverLevel20Pct" } }
+      ]
+    },
+    "r0_baseline_unchanged": { "const": true },
+    "r0_baseline_v_indicators": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "V1_VolShrink20_60" } },
+        { "contains": { "const": "V2_AmountLevel20Pct" } },
+        { "not": { "contains": { "const": "TurnoverShrink20_60" } } }
+      ]
+    },
+    "prohibited_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "pcvt_values" } },
+        { "contains": { "const": "pcvt_scores" } },
+        { "contains": { "const": "pcvt_states" } },
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "future_returns" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "formal_data_version" } },
+        { "contains": { "const": "raw_provider_payload" } },
+        { "contains": { "const": "cookie" } },
+        { "contains": { "const": "credential" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

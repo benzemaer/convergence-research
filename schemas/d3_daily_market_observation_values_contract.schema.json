@@ -33,6 +33,7 @@
     "pcvt_dependency_mapping",
     "r0_source_policy",
     "future_or_blocked_fields",
+    "d3_t10_standardized_replacements",
     "prohibited_fields",
     "depends_on"
   ],
@@ -73,6 +74,8 @@
         "raw_trading_value_fields",
         "continuous_research_price_fields",
         "participation_value_fields",
+        "share_turnover_value_fields",
+        "corporate_action_comparability_fields",
         "trading_constraint_value_fields",
         "quality_summary_fields",
         "pcvt_input_readiness_fields",
@@ -112,9 +115,38 @@
             {"contains": {"const": "amount"}},
             {"contains": {"const": "amount_unit"}},
             {"contains": {"const": "volume_unit"}},
+            {"contains": {"const": "volume_shares"}},
+            {"contains": {"const": "amount_yuan"}},
             {"contains": {"const": "amount_volume_unit_status"}},
             {"not": {"contains": {"const": "turnover"}}},
             {"not": {"contains": {"const": "float_shares"}}}
+          ]
+        },
+        "share_turnover_value_fields": {
+          "allOf": [
+            {"$ref": "#/$defs/string_array"},
+            {"contains": {"const": "total_share_shares"}},
+            {"contains": {"const": "float_share_shares"}},
+            {"contains": {"const": "free_share_shares"}},
+            {"contains": {"const": "turnover_rate"}},
+            {"contains": {"const": "turnover_rate_f"}},
+            {"contains": {"const": "turnover_float"}},
+            {"contains": {"const": "turnover_free"}},
+            {"contains": {"const": "share_field_status"}},
+            {"contains": {"const": "turnover_field_status"}},
+            {"contains": {"const": "provider_turnover_crosscheck_status"}}
+          ]
+        },
+        "corporate_action_comparability_fields": {
+          "allOf": [
+            {"$ref": "#/$defs/string_array"},
+            {"contains": {"const": "corporate_action_types_in_window"}},
+            {"contains": {"const": "share_comparability_corporate_action_in_window"}},
+            {"contains": {"const": "adjusted_vwap_policy"}},
+            {"contains": {"const": "adjusted_volume"}},
+            {"contains": {"const": "common_corporate_action_basis_policy"}},
+            {"contains": {"const": "common_share_basis_policy"}},
+            {"contains": {"const": "volume_comparability_policy"}}
           ]
         },
         "trading_constraint_value_fields": {
@@ -287,6 +319,93 @@
       "properties": {
         "turnover": {"enum": ["blocked_pending_source_contract", "future_field_not_required_by_d3_t02"]},
         "float_shares": {"enum": ["blocked_pending_source_contract", "future_field_not_required_by_d3_t02"]}
+      }
+    },
+    "d3_t10_standardization_rules": {
+      "type": "object",
+      "required": [
+        "volume_unit",
+        "volume_shares_formula",
+        "amount_unit",
+        "amount_yuan_formula",
+        "daily_vwap_formula",
+        "total_share_unit",
+        "total_share_shares_formula",
+        "float_share_unit",
+        "float_share_shares_formula",
+        "free_share_unit",
+        "free_share_shares_formula",
+        "turnover_float_formula",
+        "turnover_free_formula"
+      ],
+      "properties": {
+        "volume_unit": {"const": "hand"},
+        "volume_shares_formula": {"const": "volume_raw * 100"},
+        "amount_unit": {"const": "thousand_yuan"},
+        "amount_yuan_formula": {"const": "amount_raw * 1000"},
+        "daily_vwap_formula": {"const": "amount_yuan / volume_shares"},
+        "total_share_unit": {"const": "ten_thousand_shares"},
+        "total_share_shares_formula": {"const": "total_share_raw * 10000"},
+        "float_share_unit": {"const": "ten_thousand_shares"},
+        "float_share_shares_formula": {"const": "float_share_raw * 10000"},
+        "free_share_unit": {"const": "ten_thousand_shares"},
+        "free_share_shares_formula": {"const": "free_share_raw * 10000"},
+        "turnover_float_formula": {"const": "volume_shares / float_share_shares"},
+        "turnover_free_formula": {"const": "volume_shares / free_share_shares"}
+      }
+    },
+    "d3_t10_standardized_replacements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turnover", "float_shares"],
+      "properties": {
+        "turnover": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"const": "turnover_float"},
+            {"const": "turnover_free"}
+          ]
+        },
+        "float_shares": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"const": "float_share_shares"},
+            {"const": "free_share_shares"}
+          ]
+        }
+      }
+    },
+    "d3_t10_future_alternative_v_policy": {
+      "type": "object",
+      "required": [
+        "r0_baseline_unchanged",
+        "baseline_v_indicators",
+        "future_alternative_v_candidates",
+        "direct_baseline_replacement_authorized_by_d3_t10"
+      ],
+      "properties": {
+        "r0_baseline_unchanged": {"const": true},
+        "baseline_v_indicators": {
+          "allOf": [
+            {"$ref": "#/$defs/string_array"},
+            {"contains": {"const": "V1_VolShrink20_60"}},
+            {"contains": {"const": "V2_AmountLevel20Pct"}}
+          ]
+        },
+        "future_alternative_v_candidates": {
+          "allOf": [
+            {"$ref": "#/$defs/string_array"},
+            {"contains": {"const": "TurnoverShrink20_60"}},
+            {"contains": {"const": "FreeTurnoverShrink20_60"}},
+            {"contains": {"const": "TurnoverLevel20Pct"}},
+            {"contains": {"const": "FreeTurnoverLevel20Pct"}}
+          ]
+        },
+        "direct_baseline_replacement_authorized_by_d3_t10": {"const": false}
       }
     },
     "prohibited_fields": {"$ref": "#/$defs/prohibited_fields"},

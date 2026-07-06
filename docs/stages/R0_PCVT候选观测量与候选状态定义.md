@@ -451,6 +451,10 @@ Percentile_{W,t}(LogAmount20_t)
 - 供应商成交额是否包含集合竞价、盘后大宗或其他特殊成交必须说明；R0 版本中必须固定口径。
 - 本指标衡量的是“相对自身历史的低参与”，不是跨股票绝对流动性。R1 与后续阶段仍需按市值、流动性或可交易性分层分析。
 
+### 9.3 Turnover 替代口径的后续边界
+
+D3-T10 若成功补全 `float_share_shares`、`free_share_shares`、`turnover_float` 与 `turnover_free`，后续可在 R0-T09 或 R1 sensitivity 中预声明 `TurnoverShrink20_60`、`FreeTurnoverShrink20_60`、`TurnoverLevel20Pct` 或 `FreeTurnoverLevel20Pct` 作为 V 层替代口径。该补全只表示 D3 通用观测层具备换手率和股本标准化字段，不得在 D3-T10 中直接修改 R0 baseline；R0 baseline 仍为 `V1_VolShrink20_60` 与 `V2_AmountLevel20Pct`。
+
 ---
 
 ## 10. 历史分位体系、资格判定与统一评分
