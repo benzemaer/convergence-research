@@ -18,8 +18,8 @@
 
 ```text
 current_stage: D3
-current_task: D3-T07 candidate daily observation from D2-T20
-next_planned_task: D3-T08 PCVT input readiness and feature-base quality checks
+current_task: D3-T08 research dataset registry and route-agnostic base quality
+next_planned_task: R0-T01 PCVT candidate indicator specification
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -46,6 +46,17 @@ current_stage: D3
 current_task: D3-T06
 next_planned_task: D3-T07
 ```
+D3-T07 candidate observation PR 合并前的阶段索引仍为：
+```text
+current_stage: D3
+current_task: D3-T07 candidate daily observation from D2-T20
+next_planned_task: D3-T08 PCVT input readiness and feature-base quality checks
+```
+D3-T07 PR 合并前的任务队列曾包含：
+`D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表：in_progress；
+`D3-T08` PCVT input readiness and feature-base quality checks：planned。
+R0 remains blocked until D3 output is accepted by later gates.
+R0 历史状态快照：状态：blocked until D3 output is accepted by later gates。
 
 ## G0：样本宇宙与时间边界
 
@@ -139,9 +150,9 @@ next_planned_task: D3-T07
 - `D2-T18` provider coverage blocker 诊断与最小修复策略：completed / diagnostics available after PR #50
 - `D2-T19` targeted repair and coverage policy evidence：completed / stk_limit targeted repair succeeded; daily repair empty due to listing pause
 - `D2-T20` fast coverage policy acceptance：completed via PR #52; evidence-verified research candidate accepted for D3 candidate generation
-- `D3-T07` 标准日频观测表 candidate 生成：in_progress via current PR; reads D2-T20 evidence-verified candidate only
+- `D3-T07` 标准日频观测表 candidate 生成：completed via PR #53; reads D2-T20 evidence-verified candidate only
 
-D3-T07 candidate generation may read D2-T20 candidate output. Formal data_version remains blocked until an explicit release gate. R0 remains blocked until D3 output is accepted by later gates.
+D3-T07 candidate generation may read D2-T20 candidate output. Formal data_version remains blocked until explicit release gate. R0 state remains blocked until PCVT candidate indicators and later gates are accepted.
 
 完成标准：
 
@@ -165,12 +176,12 @@ formal data_version、formal source promotion 与 R0 交接仍未授权。
 - `D3-T04` 基础质量指标与 PCVT input readiness 契约：completed via PR #38
 - `D3-T05` 标准日频观测合成构建与最小集成测试：completed via PR #39
 - `D3-T06` `data_version`、quality report 与 manifest 发布门禁：completed via PR #40
-- `D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表：in_progress
-- `D3-T08` PCVT input readiness and feature-base quality checks：planned
+- `D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表：completed via PR #53
+- `D3-T08` 研究基础数据集 registry 与路线无关质量审计：in_progress
 
 ## R0：PCVT 候选观测量与候选状态定义
 
-状态：blocked until D3 output is accepted by later gates
+状态：blocked until PCVT candidate indicators and later gates are accepted
 
 - `R0-T01` PCVT 候选指标定义
 - `R0-T02` `q = 10 / 20 / 30` 结构检验
