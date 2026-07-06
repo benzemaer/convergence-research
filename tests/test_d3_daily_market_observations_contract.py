@@ -139,18 +139,28 @@ class D3DailyMarketObservationsContractTest(unittest.TestCase):
 
     def test_readme_advances_to_d3_t02_and_keeps_d3_t01_completed(self) -> None:
         self.assertIn("current_stage: D3", self.readme)
-        self.assertIn("current_task: D3-T06", self.readme)
-        self.assertIn("next_planned_task: D3-T07", self.readme)
+        self.assertIn(
+            "current_task: D3-T07 candidate daily observation from D2-T20",
+            self.readme,
+        )
+        self.assertIn(
+            "next_planned_task: D3-T08 PCVT input readiness and "
+            "feature-base quality checks",
+            self.readme,
+        )
         self.assertIn(
             "D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35",
             self.readme,
         )
         self.assertIn(
-            "D3-T07` 标准日频观测表正式生成与 candidate data_version 发布",
+            "D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表",
             self.readme,
         )
-        self.assertIn("blocked pending D2 formal materialization", self.readme)
-        self.assertIn("D3-T08` D3 阶段验收与 R0 交接契约", self.readme)
+        self.assertIn("formal data_version remains blocked", self.readme)
+        self.assertIn(
+            "D3-T08` PCVT input readiness and feature-base quality checks",
+            self.readme,
+        )
 
     def test_readme_preserves_d2_formal_blocking_semantics(self) -> None:
         self.assertIn(
@@ -173,7 +183,10 @@ class D3DailyMarketObservationsContractTest(unittest.TestCase):
             self.assertNotIn(phrase, self.readme)
         self.assertIn("D3 generation", self.readme)
         self.assertIn("仍未授权", self.readme)
-        self.assertIn("状态：blocked until D3 contract", self.readme)
+        self.assertIn(
+            "状态：blocked until D3 output is accepted by later gates",
+            self.readme,
+        )
 
 
 if __name__ == "__main__":

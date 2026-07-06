@@ -180,6 +180,10 @@ CONFIGS = (
         ROOT / "configs/d3/data_version_quality_manifest_gate_contract.v1.json",
     ),
     (
+        ROOT / "schemas/d3_t07_candidate_daily_observation_contract.schema.json",
+        ROOT / "configs/d3/d3_t07_candidate_daily_observation_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),

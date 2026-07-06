@@ -200,8 +200,15 @@ class D3DataVersionQualityManifestGateContractTest(unittest.TestCase):
 
     def test_readme_advances_to_d3_t06_and_preserves_stage_boundaries(self) -> None:
         self.assertIn("current_stage: D3", self.readme)
-        self.assertIn("current_task: D3-T06", self.readme)
-        self.assertIn("next_planned_task: D3-T07", self.readme)
+        self.assertIn(
+            "current_task: D3-T07 candidate daily observation from D2-T20",
+            self.readme,
+        )
+        self.assertIn(
+            "next_planned_task: D3-T08 PCVT input readiness and "
+            "feature-base quality checks",
+            self.readme,
+        )
         for snippet in [
             "D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35",
             "D3-T02` D3 标准数值观测 view/table 契约：completed via PR #36",
@@ -209,11 +216,14 @@ class D3DataVersionQualityManifestGateContractTest(unittest.TestCase):
             "completed via PR #37",
             "D3-T04` 基础质量指标与 PCVT input readiness 契约：completed via PR #38",
             "D3-T05` 标准日频观测合成构建与最小集成测试：completed via PR #39",
-            "D3-T06` `data_version`、quality report 与 manifest 发布门禁：in_progress",
-            "D3-T08` D3 阶段验收与 R0 交接契约：planned",
+            "D3-T06` `data_version`、quality report 与 manifest "
+            "发布门禁：completed via PR #40",
+            "D3-T07` 从 D2-T20 evidence-verified candidate "
+            "生成标准日频观测表：in_progress",
+            "D3-T08` PCVT input readiness and feature-base quality checks：planned",
         ]:
             self.assertIn(snippet, self.readme)
-        self.assertIn("blocked pending D2 formal materialization", self.readme)
+        self.assertIn("formal data_version remains blocked", self.readme)
 
 
 if __name__ == "__main__":
