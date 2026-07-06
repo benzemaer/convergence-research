@@ -262,7 +262,10 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
     def test_readme_advances_to_d3_t10_and_keeps_r0_t03_planned(self) -> None:
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn("current_stage: D3", text)
-        self.assertIn("current_task: D3-T10 D3 字段可用性探针与字段缺口补全", text)
+        self.assertIn(
+            "current_task: D3-T11 量额股本换手字段全量候选物化与数据更新",
+            text,
+        )
         self.assertIn(
             "next_planned_task: R0-T03 PCVT raw metric engine 与合成测试", text
         )
@@ -281,7 +284,12 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
             text,
         )
         self.assertIn("R0-T03` PCVT raw metric engine 与合成测试：planned", text)
-        self.assertIn("D3-T10` D3 字段可用性探针与字段缺口补全：in_progress", text)
+        self.assertIn(
+            "D3-T10` D3 字段可用性探针与字段缺口补全：completed via PR #58", text
+        )
+        self.assertIn(
+            "D3-T11` 量额股本换手字段全量候选物化与数据更新：in_progress", text
+        )
 
 
 if __name__ == "__main__":

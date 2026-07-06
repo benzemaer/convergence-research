@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d3_t11_volume_amount_share_turnover_candidate_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "target_table",
+    "primary_key",
+    "provider",
+    "provider_endpoints",
+    "daily_basic_required_fields",
+    "standardized_fields",
+    "comparability_policy_fields",
+    "formal_data_version_authorized",
+    "pcvt_metric_calculation_authorized",
+    "pcvt_score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "provider_raw_payload_commit_authorized",
+    "credential_commit_authorized",
+    "r0_baseline_unchanged",
+    "r0_baseline_v_indicators",
+    "turnover_based_v_metrics_policy",
+    "required_outputs",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/d3_t11_volume_amount_share_turnover_candidate_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "D3_T11_VOLUME_AMOUNT_SHARE_TURNOVER_CANDIDATE_CONTRACT_V1"
+    },
+    "task_id": { "const": "D3-T11" },
+    "contract_status": { "const": "accepted" },
+    "contract_scope": {
+      "const": "d3_candidate_full_materialization_volume_amount_share_turnover_fields"
+    },
+    "depends_on": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        {
+          "contains": {
+            "const": "D3_T10_FIELD_AVAILABILITY_PROBE_GAP_FILL_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1"
+          }
+        }
+      ]
+    },
+    "target_table": {
+      "const": "d3_t11_volume_amount_share_turnover_candidate"
+    },
+    "primary_key": {
+      "prefixItems": [{ "const": "ts_code" }, { "const": "trade_date" }],
+      "minItems": 2,
+      "maxItems": 2,
+      "type": "array"
+    },
+    "provider": { "const": "tnskhdata" },
+    "provider_endpoints": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "daily_basic" } }
+      ]
+    },
+    "daily_basic_required_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "ts_code" } },
+        { "contains": { "const": "trade_date" } },
+        { "contains": { "const": "turnover_rate" } },
+        { "contains": { "const": "turnover_rate_f" } },
+        { "contains": { "const": "total_share" } },
+        { "contains": { "const": "float_share" } },
+        { "contains": { "const": "free_share" } },
+        { "contains": { "const": "limit_status" } }
+      ]
+    },
+    "standardized_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "volume_shares" } },
+        { "contains": { "const": "amount_yuan" } },
+        { "contains": { "const": "daily_vwap" } },
+        { "contains": { "const": "float_share_shares" } },
+        { "contains": { "const": "free_share_shares" } },
+        { "contains": { "const": "turnover_float" } },
+        { "contains": { "const": "turnover_free" } },
+        { "contains": { "const": "provider_turnover_crosscheck_status" } }
+      ]
+    },
+    "comparability_policy_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "adjusted_vwap_policy" } },
+        { "contains": { "const": "common_share_basis_policy" } },
+        { "contains": { "const": "volume_comparability_policy" } }
+      ]
+    },
+    "formal_data_version_authorized": { "const": false },
+    "pcvt_metric_calculation_authorized": { "const": false },
+    "pcvt_score_generation_authorized": { "const": false },
+    "pcvt_state_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "provider_raw_payload_commit_authorized": { "const": false },
+    "credential_commit_authorized": { "const": false },
+    "r0_baseline_unchanged": { "const": true },
+    "r0_baseline_v_indicators": {
+      "prefixItems": [
+        { "const": "V1_VolShrink20_60" },
+        { "const": "V2_AmountLevel20Pct" }
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "type": "array"
+    },
+    "turnover_based_v_metrics_policy": { "type": "string", "minLength": 1 },
+    "required_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        {
+          "contains": {
+            "const": "d3_t11_volume_amount_share_turnover_candidate.duckdb"
+          }
+        },
+        { "contains": { "const": "d3_t11_r0_handoff_report.json" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "pcvt_values" } },
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "future_returns" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "formal_data_version" } },
+        { "contains": { "const": "raw_provider_payload" } },
+        { "contains": { "const": "credential" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}
