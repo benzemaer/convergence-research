@@ -173,8 +173,14 @@ class D2T17EndpointChunkRunnerTest(unittest.TestCase):
         )
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
-        self.assertIn("current_task: D2-T17", readme)
-        self.assertIn("D3-T07 remains blocked unless D2-T17 handoff", readme)
+        self.assertIn(
+            "current_task: D2-T18 provider coverage blocker diagnostics",
+            readme,
+        )
+        self.assertIn(
+            "D3-T07 remains blocked until D2 coverage blockers are resolved",
+            readme,
+        )
         for token in (
             "D3 rows",
             "PCVT",
