@@ -6,6 +6,7 @@ import argparse
 import csv
 import json
 import shutil
+import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -13,7 +14,11 @@ from typing import Any
 
 import duckdb
 
-from scripts.materialize_d2_tnskhdata_security_major_duckdb_candidate import (
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.materialize_d2_tnskhdata_security_major_duckdb_candidate import (  # noqa: E402
     build_acceptance_reports,
     compute_quality_gate,
 )

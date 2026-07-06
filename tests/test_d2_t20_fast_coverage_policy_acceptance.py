@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -375,6 +377,23 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             readme,
         )
         self.assertIn("R0 remains blocked until D3 output exists", readme)
+
+    def test_cli_help_runs_from_repo_root(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/apply_d2_t20_fast_coverage_policy.py",
+                "--help",
+            ],
+            check=False,
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--source-duckdb", result.stdout)
+        self.assertIn("--authorize-d3-candidate", result.stdout)
 
 
 if __name__ == "__main__":
