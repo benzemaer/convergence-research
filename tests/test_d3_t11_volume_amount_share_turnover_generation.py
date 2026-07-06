@@ -14,6 +14,8 @@ import duckdb
 from scripts.generate_d3_t11_volume_amount_share_turnover_candidate import (
     OUTPUT_TABLE,
     generate_d3_t11_volume_amount_share_turnover_candidate,
+    load_env_file,
+    read_security_universe_as_tnskhdata_codes,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,6 +65,13 @@ class ZeroVolumeClient:
         ]
 
 
+class FailingClient:
+    def daily_basic(
+        self, *, ts_code: str, start_date: str, end_date: str
+    ) -> list[dict[str, Any]]:
+        raise AssertionError("provider should not be called")
+
+
 class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -75,6 +84,21 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
         self.output_dir = (
             self.base
             / "data/generated/d3/d3_t11_volume_amount_share_turnover_candidate"
+        )
+        self.universe_path = (
+            self.base / "configs/d2/csi800_static_2026_06_membership_alignment.v1.json"
+        )
+        self.universe_path.parent.mkdir(parents=True)
+        self.universe_path.write_text(
+            json.dumps(
+                {
+                    "rows": [
+                        {"security_id": "CN.SZSE.000001"},
+                        {"security_id": "CN.SSE.600000"},
+                    ]
+                }
+            ),
+            encoding="utf-8",
         )
         self._write_source_duckdb(vol=100.0, amount=100.0)
 
@@ -125,6 +149,8 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
             [
                 sys.executable,
                 "scripts/generate_d3_t11_volume_amount_share_turnover_candidate.py",
+                "--env-file",
+                str(self.base / "missing.env"),
                 "--securities-file",
                 str(self.securities_file),
                 "--start-date",
@@ -145,6 +171,89 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("blocked_missing_tnskhdata_token", result.stdout)
         self.assertNotIn("Traceback", result.stderr)
+
+    def test_security_universe_resolves_tnskhdata_codes(self) -> None:
+        self.assertEqual(
+            read_security_universe_as_tnskhdata_codes(self.universe_path),
+            ["000001.SZ", "600000.SH"],
+        )
+
+    def test_env_file_loads_token_without_report_echo(self) -> None:
+        old_value = os.environ.pop("TNSKHDATA_TOKEN", None)
+        env_file = self.base / ".env.local"
+        env_file.write_text("TNSKHDATA_TOKEN=fake-token\n", encoding="utf-8")
+        try:
+            load_env_file(env_file)
+            self.assertEqual(os.environ["TNSKHDATA_TOKEN"], "fake-token")
+            summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+                securities_file=self.securities_file,
+                start_date="20260601",
+                end_date="20260601",
+                d3_t07_duckdb=self.d3_db,
+                output_dir=self.output_dir,
+                dry_run=True,
+            )
+            self.assertNotIn("fake-token", json.dumps(summary))
+            self.assertNotIn(
+                "fake-token",
+                (self.output_dir / "d3_t11_generation_summary.json").read_text(
+                    encoding="utf-8"
+                ),
+            )
+        finally:
+            os.environ.pop("TNSKHDATA_TOKEN", None)
+            if old_value is not None:
+                os.environ["TNSKHDATA_TOKEN"] = old_value
+
+    def test_default_cli_dry_run_uses_security_universe(self) -> None:
+        env_file = self.base / ".env.local"
+        env_file.write_text("TNSKHDATA_TOKEN=fake-token\n", encoding="utf-8")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/generate_d3_t11_volume_amount_share_turnover_candidate.py",
+                "--dry-run",
+                "--env-file",
+                str(env_file),
+                "--security-universe",
+                str(self.universe_path),
+                "--d3-t07-duckdb",
+                str(self.d3_db),
+                "--output-dir",
+                str(self.output_dir),
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        summary = json.loads(result.stdout)
+        self.assertFalse(summary["remote_provider_called"])
+        self.assertEqual(summary["planned_security_count"], 2)
+        self.assertEqual(summary["configured_security_count"], 2)
+        self.assertEqual(summary["resolved_tnskhdata_security_count"], 2)
+        self.assertFalse(summary["pcvt_values_generated"])
+        self.assertFalse(summary["r0_state_generated"])
+        self.assertFalse(summary["formal_data_version_published"])
+
+    def test_missing_d3_t07_source_blocks_before_provider_call(self) -> None:
+        self.d3_db.unlink()
+        summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+            security_universe=self.universe_path,
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            provider_client=FailingClient(),
+            allow_low_security_count=True,
+        )
+        self.assertEqual(
+            summary["d3_t11_generation_decision"],
+            "blocked_missing_d3_t07_source_duckdb",
+        )
+        self.assertFalse(summary["remote_provider_called"])
+        self.assertFalse(summary["candidate_generated"])
 
     def test_fake_provider_generates_standardized_candidate_rows(self) -> None:
         summary = generate_d3_t11_volume_amount_share_turnover_candidate(

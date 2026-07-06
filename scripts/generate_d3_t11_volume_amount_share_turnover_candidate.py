@@ -25,16 +25,33 @@ from scripts.d3_t10_field_standardization import (  # noqa: E402
     combine_standardized_fields,
     forbidden_output_names,
 )
+from scripts.resolve_security_provider_codes import (  # noqa: E402
+    resolve_security_provider_codes,
+)
 
 TASK_ID = "D3-T11"
 SOURCE_TASK_ID = "D3-T07"
 DEFAULT_CONTRACT = (
     ROOT / "configs/d3/d3_t11_volume_amount_share_turnover_candidate_contract.v1.json"
 )
+DEFAULT_SECURITY_UNIVERSE = (
+    ROOT / "configs/d2/csi800_static_2026_06_membership_alignment.v1.json"
+)
+DEFAULT_START_DATE = "20160101"
+DEFAULT_END_DATE = "20260630"
+DEFAULT_D3_T07_DUCKDB = (
+    ROOT
+    / "data/generated/d3/d3_t07_candidate_daily_observation/"
+    / "d3_t07_candidate_daily_observation.duckdb"
+)
+DEFAULT_OUTPUT_DIR = (
+    ROOT / "data/generated/d3/d3_t11_volume_amount_share_turnover_candidate"
+)
 OUTPUT_DUCKDB_NAME = "d3_t11_volume_amount_share_turnover_candidate.duckdb"
 OUTPUT_TABLE = "d3_t11_volume_amount_share_turnover_candidate"
 SOURCE_TABLE = "d3_candidate_daily_observation"
 TOKEN_ENV_NAMES = ("TNSKHDATA_TOKEN", "TUSHARE_TOKEN", "TNS_TOKEN")
+MIN_RESOLVED_SECURITY_COUNT = 790
 FORBIDDEN_OUTPUT_FILES = {
     "data_version.json",
     "formal_manifest.json",
@@ -118,6 +135,21 @@ def token_from_env() -> str | None:
     return None
 
 
+def load_env_file(path: Path | None) -> None:
+    if path is None or not path.exists():
+        return
+    allowed = set(TOKEN_ENV_NAMES)
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        if key not in allowed or os.environ.get(key):
+            continue
+        os.environ[key] = value.strip().strip('"').strip("'")
+
+
 def real_tnskhdata_client(token: str) -> TnskhdataClient:
     try:
         import tnskhdata as ts  # type: ignore[import-not-found]
@@ -160,6 +192,22 @@ def guard_d3_t07_duckdb(path: Path) -> None:
         raise D3T11GenerationError("d3-t07-duckdb path is outside D3 boundaries")
     if "data/generated/d3/d3_t07_candidate_daily_observation/" not in normalized:
         raise D3T11GenerationError("d3-t07-duckdb must be under D3-T07 output")
+
+
+def guard_security_universe_path(path: Path) -> None:
+    normalized = _norm(path)
+    forbidden_patterns = (
+        "data/raw",
+        "data/external",
+        "marketdb",
+        ".day",
+        "data/generated/d1",
+        "data/generated/d2",
+    )
+    if any(pattern in normalized for pattern in forbidden_patterns):
+        raise D3T11GenerationError("security universe path is outside config boundary")
+    if "configs/d2/" not in normalized:
+        raise D3T11GenerationError("security universe must be a D2 config artifact")
 
 
 def remove_previous_outputs(output_dir: Path, *, resume: bool) -> None:
@@ -210,6 +258,56 @@ def read_security_list(path: Path) -> list[str]:
             continue
         result.append(value.split(",")[0].strip())
     return sorted(set(result))
+
+
+def resolve_security_universe(path: Path) -> tuple[list[str], dict[str, Any]]:
+    guard_security_universe_path(path)
+    payload = _load_json(path)
+    rows = payload.get("rows", [])
+    resolved: list[str] = []
+    unresolved: list[dict[str, Any]] = []
+    for row in rows:
+        security_id = str(row.get("security_id", "")).strip()
+        mapping = resolve_security_provider_codes(security_id)
+        if mapping.mapping_status == "resolved" and mapping.tnskhdata_ts_code:
+            resolved.append(mapping.tnskhdata_ts_code)
+        else:
+            unresolved.append(
+                {
+                    "security_id": security_id,
+                    "mapping_status": mapping.mapping_status,
+                    "mapping_blocking_reasons": mapping.mapping_blocking_reasons,
+                }
+            )
+    unique_resolved = sorted(set(resolved))
+    summary = {
+        "security_universe": str(path),
+        "configured_security_count": len(rows),
+        "resolved_tnskhdata_security_count": len(unique_resolved),
+        "unresolved_security_count": len(unresolved),
+        "unresolved_mappings": unresolved,
+    }
+    return unique_resolved, summary
+
+
+def read_security_universe_as_tnskhdata_codes(path: Path) -> list[str]:
+    codes, _summary = resolve_security_universe(path)
+    return codes
+
+
+def resolve_input_securities(
+    *, securities_file: Path | None, security_universe: Path
+) -> tuple[list[str], dict[str, Any]]:
+    if securities_file is not None:
+        codes = read_security_list(securities_file)
+        return codes, {
+            "security_universe": str(securities_file),
+            "configured_security_count": len(codes),
+            "resolved_tnskhdata_security_count": len(codes),
+            "unresolved_security_count": 0,
+            "unresolved_mappings": [],
+        }
+    return resolve_security_universe(security_universe)
 
 
 def source_rows(
@@ -690,11 +788,14 @@ def write_hash_summary(output_dir: Path) -> None:
     _write_json(output_dir / "d3_t11_file_hash_summary.json", {"files": files})
 
 
-def blocked_missing_token(output_dir: Path, *, run_id: str) -> dict[str, Any]:
+def blocked_missing_token(
+    output_dir: Path, *, run_id: str, security_summary: dict[str, Any]
+) -> dict[str, Any]:
     summary = {
         "task_id": TASK_ID,
         "run_id": run_id,
         "d3_t11_generation_decision": "blocked_missing_tnskhdata_token",
+        **security_summary,
         "remote_provider_called": False,
         "candidate_generated": False,
         "pcvt_values_generated": False,
@@ -705,19 +806,84 @@ def blocked_missing_token(output_dir: Path, *, run_id: str) -> dict[str, Any]:
     return summary
 
 
+def blocked_low_security_count(
+    output_dir: Path, *, run_id: str, security_summary: dict[str, Any]
+) -> dict[str, Any]:
+    summary = {
+        "task_id": TASK_ID,
+        "run_id": run_id,
+        "d3_t11_generation_decision": "blocked_low_resolved_security_count",
+        **security_summary,
+        "remote_provider_called": False,
+        "candidate_generated": False,
+        "pcvt_values_generated": False,
+        "r0_state_generated": False,
+        "formal_data_version_published": False,
+    }
+    _write_json(output_dir / "d3_t11_generation_summary.json", summary)
+    _write_json(
+        output_dir / "d3_t11_provider_call_summary.json",
+        {
+            "task_id": TASK_ID,
+            **security_summary,
+            "remote_provider_called": False,
+            "provider_raw_payload_committed": False,
+            "credential_committed": False,
+            "calls": [],
+        },
+    )
+    return summary
+
+
+def blocked_missing_d3_t07_source(
+    output_dir: Path,
+    *,
+    run_id: str,
+    d3_t07_duckdb: Path,
+    security_summary: dict[str, Any],
+) -> dict[str, Any]:
+    summary = {
+        "task_id": TASK_ID,
+        "run_id": run_id,
+        "d3_t11_generation_decision": "blocked_missing_d3_t07_source_duckdb",
+        "d3_t07_duckdb": str(d3_t07_duckdb),
+        **security_summary,
+        "remote_provider_called": False,
+        "candidate_generated": False,
+        "pcvt_values_generated": False,
+        "r0_state_generated": False,
+        "formal_data_version_published": False,
+    }
+    _write_json(output_dir / "d3_t11_generation_summary.json", summary)
+    _write_json(
+        output_dir / "d3_t11_provider_call_summary.json",
+        {
+            "task_id": TASK_ID,
+            **security_summary,
+            "remote_provider_called": False,
+            "provider_raw_payload_committed": False,
+            "credential_committed": False,
+            "calls": [],
+        },
+    )
+    return summary
+
+
 def generate_d3_t11_volume_amount_share_turnover_candidate(
     *,
-    securities_file: Path,
-    start_date: str,
-    end_date: str,
-    d3_t07_duckdb: Path,
-    output_dir: Path,
+    securities_file: Path | None = None,
+    security_universe: Path = DEFAULT_SECURITY_UNIVERSE,
+    start_date: str = DEFAULT_START_DATE,
+    end_date: str = DEFAULT_END_DATE,
+    d3_t07_duckdb: Path = DEFAULT_D3_T07_DUCKDB,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
     provider: str = "tnskhdata",
     resume: bool = False,
     max_retries: int = 2,
     sleep_seconds: float = 0.0,
     sample_securities: int | None = None,
     dry_run: bool = False,
+    allow_low_security_count: bool = False,
     contract: Path = DEFAULT_CONTRACT,
     provider_client: TnskhdataClient | None = None,
     code_commit: str = "unknown",
@@ -727,13 +893,16 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
     remove_previous_outputs(output_dir, resume=resume)
     _load_json(contract)
     run_id = _utc_run_id()
-    securities = read_security_list(securities_file)
+    securities, security_summary = resolve_input_securities(
+        securities_file=securities_file, security_universe=security_universe
+    )
     selected = securities[:sample_securities] if sample_securities else securities
     if dry_run:
         summary = {
             "task_id": TASK_ID,
             "run_id": run_id,
             "dry_run": True,
+            **security_summary,
             "planned_security_count": len(selected),
             "remote_provider_called": False,
             "pcvt_values_generated": False,
@@ -742,12 +911,31 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
         }
         _write_json(output_dir / "d3_t11_generation_summary.json", summary)
         return summary
+    if (
+        not allow_low_security_count
+        and securities_file is None
+        and sample_securities is None
+        and security_summary["resolved_tnskhdata_security_count"]
+        < MIN_RESOLVED_SECURITY_COUNT
+    ):
+        return blocked_low_security_count(
+            output_dir, run_id=run_id, security_summary=security_summary
+        )
+    if not d3_t07_duckdb.exists():
+        return blocked_missing_d3_t07_source(
+            output_dir,
+            run_id=run_id,
+            d3_t07_duckdb=d3_t07_duckdb,
+            security_summary=security_summary,
+        )
 
     client = provider_client
     if client is None:
         token = token_from_env()
         if not token:
-            return blocked_missing_token(output_dir, run_id=run_id)
+            return blocked_missing_token(
+                output_dir, run_id=run_id, security_summary=security_summary
+            )
         client = real_tnskhdata_client(token)
 
     d3_rows = source_rows(
@@ -789,6 +977,23 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
         provider_calls=provider_calls,
         run_id=run_id,
     )
+    for report_name in (
+        "d3_t11_generation_summary.json",
+        "d3_t11_field_coverage_report.json",
+        "d3_t11_quality_report.json",
+        "d3_t11_provider_call_summary.json",
+        "d3_t11_r0_handoff_report.json",
+    ):
+        path = output_dir / report_name
+        payload = _load_json(path)
+        payload.update(security_summary)
+        if report_name == "d3_t11_generation_summary.json":
+            payload["start_date"] = start_date
+            payload["end_date"] = end_date
+        _write_json(path, payload)
+        if report_name == "d3_t11_generation_summary.json":
+            summary = payload
+    write_hash_summary(output_dir)
     for forbidden in FORBIDDEN_OUTPUT_FILES | {
         f"{name}.csv" for name in forbidden_output_names()
     }:
@@ -799,25 +1004,36 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--securities-file", required=True, type=Path)
-    parser.add_argument("--start-date", required=True)
-    parser.add_argument("--end-date", required=True)
-    parser.add_argument("--d3-t07-duckdb", required=True, type=Path)
-    parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--security-universe", type=Path, default=DEFAULT_SECURITY_UNIVERSE
+    )
+    parser.add_argument("--securities-file", type=Path)
+    parser.add_argument("--start-date", default=DEFAULT_START_DATE)
+    parser.add_argument("--end-date", default=DEFAULT_END_DATE)
+    parser.add_argument("--d3-t07-duckdb", type=Path, default=DEFAULT_D3_T07_DUCKDB)
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--env-file", type=Path)
     parser.add_argument("--provider", default="tnskhdata")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--max-retries", type=int, default=2)
     parser.add_argument("--sleep-seconds", type=float, default=0.0)
     parser.add_argument("--sample-securities", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--allow-low-security-count", action="store_true")
     parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
     return parser.parse_args()
 
 
 def main() -> int:
     args = _parse_args()
+    default_env_file = ROOT / ".env.local"
+    if args.env_file:
+        load_env_file(args.env_file)
+    elif default_env_file.exists():
+        load_env_file(default_env_file)
     summary = generate_d3_t11_volume_amount_share_turnover_candidate(
         securities_file=args.securities_file,
+        security_universe=args.security_universe,
         start_date=args.start_date,
         end_date=args.end_date,
         d3_t07_duckdb=args.d3_t07_duckdb,
@@ -828,6 +1044,7 @@ def main() -> int:
         sleep_seconds=args.sleep_seconds,
         sample_securities=args.sample_securities,
         dry_run=args.dry_run,
+        allow_low_security_count=args.allow_low_security_count,
         contract=args.contract,
     )
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
