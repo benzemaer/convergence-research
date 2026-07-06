@@ -64,6 +64,7 @@ def evaluate_c2_readiness(row_or_context: Mapping[str, Any]) -> ReadinessResult:
             "raw_high",
             "daily_vwap_range_status",
             "corporate_action_flag",
+            "adjusted_vwap_policy",
             "trading_status",
         ),
     )
