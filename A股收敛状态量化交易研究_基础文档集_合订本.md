@@ -30,6 +30,7 @@
 | `docs/03_可复现研究工程标准.md` | 可复现研究工程标准（Reproducible Research Engineering Standard） | 规定仓库、代码、测试、运行、CI、版本与审计要求 |
 | `docs/04_阶段与门禁框架.md` | 阶段与门禁框架（Stage–Gate Framework） | 定义 D0–D3、R0–R6 与 G0–G7 的关系 |
 | `docs/05_证据与产物治理政策.md` | 证据与产物治理政策（Evidence & Artifact Governance Policy） | 规定候选、验证、冻结、发布及结论边界 |
+| `docs/stages/` | 研究阶段纲领稳定入口 | 保存 R0–R6 阶段纲领，用于阶段级设计说明和下游交接；不作为正式产物、运行记录或门禁证据目录 |
 | `templates/` | 正式记录模板 | 用于 Step 设计、运行清单、实验记录和决策记录 |
 
 ## 启动顺序
@@ -236,6 +237,8 @@ draft → candidate → validated → frozen → released
 > 研究对象：[待决策：市场、证券范围与频率]
 > 生效条件：经审核冻结后，作为项目最高层研究约束
 
+研究阶段纲领稳定入口位于 `docs/stages/`，当前执行 task 状态以 `docs/tasks/README.md` 为准；研究章程不维护 `current_task`。
+
 ---
 
 ## 1. 研究目的
@@ -397,6 +400,8 @@ draft → candidate → validated → frozen → released
 所有 ID 必须包含状态定义版本、数据版本和配置版本，以防不同版本结果混合。
 
 ## 3. PCVT 候选观测量
+
+R0 的具体候选指标、score、strict / weak 规则、`S_PCT` / `S_PCVT` 状态族和 R0 task 路线图由 `docs/stages/R0_PCVT候选观测量与候选状态定义.md` 承载。本文件只固定研究设计边界，不复制 R0 阶段纲领全文。
 
 ### P：价格压缩
 
@@ -691,6 +696,7 @@ logs/
 ```
 
 具体实现可以调整，但输入快照、代码、配置、测试、产物、manifest 和实验记录必须有明确边界。
+`docs/stages/` 是 R0–R6 阶段纲领稳定入口，用于保存阶段级目标、边界、定义、路线图和交接说明；它不替代 task 文档、运行 manifest、数据/产物 manifest、decision record 或 G0–G7 证据。
 上例中的 `scripts/ d0/ d1/ d2/ d3/ r0/ ... r6/` 是早期目录边界示意，不改变 D3-T09
 确立后的 R 阶段规则：D0–D3 历史 scripts 可以保留现状；从 R0 开始，R 阶段核心逻辑必须进入
 `src/r0` 至 `src/r6`；R 阶段如有脚本入口，只能作为调用 `src` 模块的薄 wrapper，不得作为核心实现入口。
@@ -890,7 +896,7 @@ D0 → D1 → D2 → D3
 
 ## 6. Task-as-Step 的最小结构
 
-Task 是本仓库中 Step 的实现载体。一个 Step 不再以独立的 `Sxx` 路径命名；执行、审核和关闭均以 `D3-T09`、`R0-T01` 这类 task 为最小治理单元。
+Task 是本仓库中 Step 的实现载体。一个 Step 不再以独立的 `Sxx` 路径命名；执行、审核和关闭均以 `D3-T09`、`R0-T01` 这类 task 为最小治理单元。阶段纲领位于 `docs/stages/`，是 Stage 级设计入口，用于说明阶段目标、边界、状态定义、task 路线图和下游交接；task 是 PR 级执行载体。阶段纲领不得替代 task 文件、manifest、decision record 或 G0–G7 门禁证据。
 
 ```text
 Stage
