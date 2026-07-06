@@ -62,11 +62,11 @@ class D2T15SecurityMajorFetchPlanTest(unittest.TestCase):
 
         self.assertIn("current_stage: D2", readme)
         self.assertIn(
-            "current_task: D2-T18 provider coverage blocker diagnostics",
+            "current_task: D2-T19 targeted repair and coverage policy evidence",
             readme,
         )
         self.assertIn(
-            "next_planned_task: D2-T19 targeted repair or policy decision",
+            "next_planned_task: D2-T20 policy acceptance or second targeted repair",
             readme,
         )
         self.assertIn(

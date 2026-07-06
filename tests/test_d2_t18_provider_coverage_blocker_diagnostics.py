@@ -327,21 +327,26 @@ class D2T18ProviderCoverageBlockerDiagnosticsTest(unittest.TestCase):
             summary["d2_acceptance_observed"], "blocked_pending_provider_coverage"
         )
 
-    def test_readme_advances_to_d2_t18_without_unlocking_d3_or_r0(self) -> None:
+    def test_readme_records_d2_t18_done_without_unlocking_d3_or_r0(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn("current_stage: D2", readme)
         self.assertIn(
-            "current_task: D2-T18 provider coverage blocker diagnostics",
+            "current_task: D2-T19 targeted repair and coverage policy evidence",
             readme,
         )
         self.assertIn(
-            "next_planned_task: D2-T19 targeted repair or policy decision",
+            "next_planned_task: D2-T20 policy acceptance or second targeted repair",
             readme,
         )
         self.assertIn(
             "D2-T17` 按 endpoint 配置 D2 runner chunk 策略：completed / "
             "runner available after PR #49",
+            readme,
+        )
+        self.assertIn(
+            "D2-T18` provider coverage blocker 诊断与最小修复策略："
+            "completed / diagnostics available after PR #50",
             readme,
         )
         self.assertIn(
