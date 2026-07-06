@@ -120,11 +120,12 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
     def test_readme_records_d2_t11_done_without_unlocking_d3_or_r0(self) -> None:
         self.assertIn("current_stage: D2", self.readme)
         self.assertIn(
-            "current_task: D2-T19 targeted repair and coverage policy evidence",
+            "current_task: D2-T20 fast coverage policy acceptance",
             self.readme,
         )
         self.assertIn(
-            "next_planned_task: D2-T20 policy acceptance or second targeted repair",
+            "next_planned_task: D3-T07 candidate generation from "
+            "D2-T20 policy candidate",
             self.readme,
         )
         self.assertIn("D2-T09` HiThink 主行情源", self.readme)
@@ -157,7 +158,7 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
             "D3-T07 remains blocked until D2 coverage blockers are resolved",
             self.readme,
         )
-        self.assertIn("R0 remains blocked", self.readme)
+        self.assertIn("R0 remains blocked until D3 output exists", self.readme)
 
 
 if __name__ == "__main__":
