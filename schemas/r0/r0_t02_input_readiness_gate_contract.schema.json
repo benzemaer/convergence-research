@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t02_input_readiness_gate_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "real_data_read_authorized",
+    "synthetic_test_only",
+    "duckdb_write_authorized",
+    "pcvt_metric_calculation_authorized",
+    "pcvt_percentile_generation_authorized",
+    "pcvt_score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "formal_data_version_authorized",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "readiness_status_vocabulary",
+    "reason_code_vocabulary",
+    "c2_gate",
+    "v1_gate",
+    "readiness_output_contract",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t02_input_readiness_gate_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1" },
+    "task_id": { "const": "R0-T02" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": {
+      "const": "input_readiness_gate_for_c2_v1_corporate_action_audit"
+    },
+    "depends_on": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "R0_T01_PCVT_CANDIDATE_SPEC_V1" } },
+        {
+          "contains": {
+            "const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"
+          }
+        },
+        { "contains": { "const": "D3_QUALITY_READINESS_CONTRACT_V1" } },
+        {
+          "contains": {
+            "const": "D2_MARKET_QUALITY_PCVT_DEPENDENCY_CONTRACT_V1"
+          }
+        }
+      ]
+    },
+    "real_data_read_authorized": { "const": false },
+    "synthetic_test_only": { "const": true },
+    "duckdb_write_authorized": { "const": false },
+    "pcvt_metric_calculation_authorized": { "const": false },
+    "pcvt_percentile_generation_authorized": { "const": false },
+    "pcvt_score_generation_authorized": { "const": false },
+    "pcvt_state_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "allowed_logical_input_sources": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d3_candidate_daily_observation" } },
+        { "contains": { "const": "d3_t08_research_dataset_registry" } },
+        { "contains": { "const": "d3_quality_readiness_contract" } },
+        { "contains": { "const": "r0_t01_pcvt_candidate_spec" } }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d1.raw_market_prices" } },
+        { "contains": { "const": "d2.adjusted_market_prices" } },
+        { "contains": { "const": "d2.market_price_quality_flags" } },
+        { "contains": { "const": "d2.membership_alignment" } },
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ]
+    },
+    "readiness_status_vocabulary": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "ready" } },
+        { "contains": { "const": "unknown" } },
+        { "contains": { "const": "diagnostic_required" } },
+        { "contains": { "const": "blocked" } },
+        { "contains": { "const": "not_applicable" } }
+      ]
+    },
+    "reason_code_vocabulary": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "ready_no_blocker" } },
+        { "contains": { "const": "missing_required_field" } },
+        { "contains": { "const": "amount_unit_unknown" } },
+        { "contains": { "const": "volume_unit_unknown" } },
+        { "contains": { "const": "amount_volume_unit_status_fail" } },
+        { "contains": { "const": "daily_vwap_range_unknown" } },
+        { "contains": { "const": "daily_vwap_range_fail" } },
+        { "contains": { "const": "adjusted_vwap_policy_missing" } },
+        {
+          "contains": {
+            "const": "corporate_action_window_without_common_basis"
+          }
+        },
+        { "contains": { "const": "volume_comparability_policy_missing" } },
+        {
+          "contains": {
+            "const": "corporate_action_volume_comparability_policy_missing"
+          }
+        },
+        { "contains": { "const": "suspension_in_window" } },
+        { "contains": { "const": "zero_volume_in_window" } },
+        { "contains": { "const": "window_not_full" } },
+        { "contains": { "const": "listing_age_insufficient" } },
+        { "contains": { "const": "d3_lineage_missing" } },
+        { "contains": { "const": "direct_d1_d2_bypass_detected" } },
+        { "contains": { "const": "unknown_not_false_guard" } }
+      ]
+    },
+    "c2_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indicator_id",
+        "required_fields",
+        "required_policy",
+        "rules",
+        "raw_vwap_across_corporate_action_window_forbidden_as_adjusted_vwap"
+      ],
+      "properties": {
+        "indicator_id": { "const": "C2_AdjVWAPSpread_5_60" },
+        "required_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "amount" } },
+            { "contains": { "const": "volume" } },
+            { "contains": { "const": "amount_unit" } },
+            { "contains": { "const": "volume_unit" } },
+            { "contains": { "const": "amount_volume_unit_status" } },
+            { "contains": { "const": "raw_low" } },
+            { "contains": { "const": "raw_high" } },
+            { "contains": { "const": "daily_vwap_range_status" } },
+            { "contains": { "const": "corporate_action_flag" } },
+            { "contains": { "const": "adjusted_vwap_policy" } },
+            { "contains": { "const": "trading_status" } }
+          ]
+        },
+        "required_policy": { "const": "adjusted_vwap_policy" },
+        "rules": { "$ref": "#/$defs/stringArray" },
+        "raw_vwap_across_corporate_action_window_forbidden_as_adjusted_vwap": {
+          "const": true
+        }
+      }
+    },
+    "v1_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indicator_id",
+        "required_fields",
+        "candidate_policy_fields",
+        "required_policy_any_of",
+        "observation_window",
+        "rules"
+      ],
+      "properties": {
+        "indicator_id": { "const": "V1_VolShrink20_60" },
+        "required_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "volume" } },
+            { "contains": { "const": "volume_unit" } },
+            { "contains": { "const": "trading_status" } },
+            { "contains": { "const": "corporate_action_flag" } },
+            { "contains": { "const": "suspension_flag" } }
+          ]
+        },
+        "candidate_policy_fields": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "adjusted_volume" } },
+            { "contains": { "const": "common_share_basis_policy" } },
+            { "contains": { "const": "volume_comparability_policy" } }
+          ]
+        },
+        "required_policy_any_of": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "volume_comparability_policy" } },
+            { "contains": { "const": "common_share_basis_policy" } }
+          ]
+        },
+        "observation_window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "recent_trading_days",
+            "prior_non_overlapping_trading_days",
+            "total_trading_days"
+          ],
+          "properties": {
+            "recent_trading_days": { "const": 20 },
+            "prior_non_overlapping_trading_days": { "const": 60 },
+            "total_trading_days": { "const": 80 }
+          }
+        },
+        "rules": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "readiness_output_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "future_report_object",
+        "future_summary_objects",
+        "real_output_generation_authorized",
+        "synthetic_fixture_outputs_only"
+      ],
+      "properties": {
+        "future_report_object": {
+          "const": "r0_t02_input_readiness_gate_report.json"
+        },
+        "future_summary_objects": {
+          "allOf": [
+            { "$ref": "#/$defs/stringArray" },
+            { "contains": { "const": "r0_t02_c2_v1_readiness_summary.csv" } },
+            {
+              "contains": {
+                "const": "r0_t02_blocking_reason_summary.csv"
+              }
+            }
+          ]
+        },
+        "real_output_generation_authorized": { "const": false },
+        "synthetic_fixture_outputs_only": { "const": true }
+      }
+    },
+    "prohibited_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "pcvt_values" } },
+        { "contains": { "const": "pcvt_percentiles" } },
+        { "contains": { "const": "pcvt_scores" } },
+        { "contains": { "const": "pcvt_states" } },
+        { "contains": { "const": "state_intervals" } },
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "future_returns" } },
+        { "contains": { "const": "breakout_direction" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "formal_data_version" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

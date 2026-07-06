@@ -192,6 +192,10 @@ CONFIGS = (
         ROOT / "configs/r0/r0_t01_pcvt_candidate_spec.v1.json",
     ),
     (
+        ROOT / "schemas/r0/r0_t02_input_readiness_gate_contract.schema.json",
+        ROOT / "configs/r0/r0_t02_input_readiness_gate_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),
