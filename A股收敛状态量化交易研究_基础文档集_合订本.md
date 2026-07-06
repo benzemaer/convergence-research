@@ -692,6 +692,49 @@ logs/
 
 具体实现可以调整，但输入快照、代码、配置、测试、产物、manifest 和实验记录必须有明确边界。
 
+## 3.1 R 阶段工程分层
+
+D0–D3 已形成的历史实现文件作为 legacy data-product implementation layer 保留。本规则不追溯迁移、重命名或删除既有 D 阶段 `scripts/`、`tests/`、`schemas/`、`configs/` 或 task 文件。若未来需要整理 D 阶段历史结构，必须另开专门 refactor PR，且不得混入研究逻辑变化。
+
+从 R0 开始，R0–R6 作为 research implementation layer 必须按阶段分层。若某阶段尚无实现文件，可以不创建空目录；一旦新增 R 阶段实现文件，必须放入对应阶段目录：
+
+```text
+src/
+  r0/
+  r1/
+  r2/
+  r3/
+  r4/
+  r5/
+  r6/
+tests/
+  r0/
+  r1/
+  r2/
+  r3/
+  r4/
+  r5/
+  r6/
+schemas/
+  r0/
+  r1/
+  r2/
+  r3/
+  r4/
+  r5/
+  r6/
+configs/
+  r0/
+  r1/
+  r2/
+  r3/
+  r4/
+  r5/
+  r6/
+```
+
+R 阶段核心研究逻辑不得新增到根级 `scripts/*.py`。R 阶段代码应以 `src/r0`、`src/r1` 等阶段目录为实现入口；如需 CLI 或薄入口，应优先使用 `src` 模块入口。未来若必须增加脚本入口，该脚本只能是薄 wrapper，不得承载核心研究逻辑，也不得与 D 阶段既有平铺入口混用。R 阶段测试、schema 和 config 应与 `src` 阶段分层保持一致。
+
 ## 4. 配置即研究定义
 
 所有正式参数必须来自版本化配置，包括：数据版本、宇宙、时间范围、指标窗口、阈值、分位规则、状态确认、缺口、冷却期、事件规则、标签窗口、对照组、并行、种子、内存和输出路径。
@@ -792,7 +835,7 @@ R0–R6：研究主线
 G0–G7：横向门禁
 ```
 
-D 阶段定义可复用数据产品；R 阶段回答研究问题；G 门禁决定某个具体 Step 是否可进入下一阶段。D 与 R 不构成一条简单串行流水线，而存在明确依赖。
+D 阶段定义可复用数据产品；R 阶段回答研究问题；G 门禁决定某个具体 task 是否可进入下一阶段。D 与 R 不构成一条简单串行流水线，而存在明确依赖。
 
 ## 2. 数据产品层：D0–D3
 
@@ -840,31 +883,30 @@ D0 → D1 → D2 → D3
 | G6 | 产物与结论审核 | 确认数据和结论在边界内成立 | 独立检查 schema、哈希、统计、差异和结论 |
 | G7 | 关闭与冻结 | 确认下游可依赖 | 实验记录、版本状态、下游允许用途明确 |
 
-未通过门禁时，Step 标记为 `blocked`。不得用后续阶段的成功掩盖前序门禁失败。
+未通过门禁时，task 标记为 `blocked`。不得用后续阶段的成功掩盖前序门禁失败。
 
 ## 6. Step 的最小结构
 
+Task 是本仓库中 Step 的实现载体。一个 Step 不再以独立的 `Sxx` 路径命名；执行、审核和关闭均以 `D3-T09`、`R0-T01` 这类 task 为最小治理单元。
+
 ```text
 Stage
-→ Step ID
-→ Design
-→ Tests
-→ Code
-→ Authorized Run
-→ Candidate Artifact
-→ Independent Review
-→ Close / Freeze
+→ Task ID
+→ Task document
+→ Design / Gate rules
+→ Tests / Validation
+→ Code / Config / Schema
+→ Authorized run, if any
+→ Candidate artifact, if any
+→ Independent review
+→ Close / Freeze decision
 ```
 
-推荐命名：
+`Task ID` 使用 `D/R阶段-T序号`，例如 `D3-T09`、`R0-T01`。task 文档是 step 的最小可审核载体，必须明确目标、非目标、输入、输出、验收标准、失败状态和回退方式。task 文档不得替代 run manifest、dataset manifest、artifact manifest、decision record 或 G0–G7 门禁证据。
 
-```text
-D2-S03_build_asof_adjusted_prices
-R1-S02_test_joint_state_against_null
-R3-S01_define_release_labels
-```
+一个 PR 只能实现一个 task。task 编号只表示阶段内执行顺序，不表示证据等级、冻结状态或研究结论强度。未通过门禁时，task 必须保持 `blocked`、`candidate`、`in_progress` 等对应状态，不得用后续成功追认前序失败。
 
-Step 编号只表示阶段内依赖顺序，不表示证据等级或版本质量。
+从 R0 开始，R0–R6 作为 research implementation layer 严格按阶段分层；D0–D3 已合并实现作为 legacy data-product implementation layer，历史平铺式 `scripts/`、`tests/`、`schemas/`、`configs/` 和 `docs/tasks/` 结构暂时保留。本治理规则不追溯迁移 D0–D3 文件。
 
 ## 7. 门禁与证据等级
 
