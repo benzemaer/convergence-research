@@ -18,9 +18,24 @@
 
 ```text
 current_stage: D3
-current_task: D3-T08 research dataset registry and route-agnostic base quality
-next_planned_task: R0-T01 PCVT candidate indicator specification
+current_task: D3-T09 R阶段工程分层与 Task-as-Step 规范收敛
+next_planned_task: R0-T01 PCVT 候选指标定义
 ```
+
+## 命名与路径规则
+
+从 D3-T09 / R0 开始，task、branch、task 文档和 PR 标题采用以下规范：
+
+```text
+branch: codex/d3-t09-r-stage-engineering-layout-task-as-step-governance
+task file path: docs/tasks/D3-T09_R阶段工程分层与Task-as-Step规范收敛.md
+task H1: # D3-T09 R阶段工程分层与 Task-as-Step 规范收敛
+PR title: [codex] D3-T09 R阶段工程分层与 Task-as-Step 规范收敛
+```
+
+branch 使用英文 slug。task 文件路径使用中文任务标题，可保留必要英文术语，例如 `Task-as-Step`、`PCVT`、`registry`。task H1 使用中文标题。PR 标题使用 `[codex] 阶段-任务号 中文标题`。
+
+不批量重命名历史 task 文件。历史英文或中英混排 task 文件继续保留，除非未来单独开 rename-only PR。`docs/tasks/` 继续平铺管理，不拆成 `d0/`、`d1/`、`d2/`、`d3/`、`r0/` 等子目录。
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
 `next_planned_task: D2-T03`；D2-T02 完成本 PR 后当前索引继续推进到 D2-T03 / D2-T04。
@@ -57,6 +72,17 @@ D3-T07 PR 合并前的任务队列曾包含：
 `D3-T08` PCVT input readiness and feature-base quality checks：planned。
 R0 remains blocked until D3 output is accepted by later gates.
 R0 历史状态快照：状态：blocked until D3 output is accepted by later gates。
+D3-T08 research dataset registry PR 合并前的阶段索引仍为：
+```text
+current_stage: D3
+current_task: D3-T08 research dataset registry and route-agnostic base quality
+next_planned_task: R0-T01 PCVT candidate indicator specification
+```
+D3-T08 research dataset registry PR 合并前的任务队列曾包含：
+`D3-T08` 研究基础数据集 registry 与路线无关质量审计：in_progress。
+formal data_version remains blocked until explicit release gate.
+R0 state remains blocked until PCVT candidate indicators and later gates are accepted.
+D3-T08 合并后进入 D3-T09 governance convergence；R0 仍未开始，R0-T01 将在 D3-T09 合并后单独开启。
 
 ## G0：样本宇宙与时间边界
 
@@ -151,6 +177,7 @@ R0 历史状态快照：状态：blocked until D3 output is accepted by later ga
 - `D2-T19` targeted repair and coverage policy evidence：completed / stk_limit targeted repair succeeded; daily repair empty due to listing pause
 - `D2-T20` fast coverage policy acceptance：completed via PR #52; evidence-verified research candidate accepted for D3 candidate generation
 - `D3-T07` 标准日频观测表 candidate 生成：completed via PR #53; reads D2-T20 evidence-verified candidate only
+- `D3-T08` 研究基础数据集 registry 与路线无关质量审计：completed via PR #54
 
 D3-T07 candidate generation may read D2-T20 candidate output. Formal data_version remains blocked until explicit release gate. R0 state remains blocked until PCVT candidate indicators and later gates are accepted.
 
@@ -177,11 +204,12 @@ formal data_version、formal source promotion 与 R0 交接仍未授权。
 - `D3-T05` 标准日频观测合成构建与最小集成测试：completed via PR #39
 - `D3-T06` `data_version`、quality report 与 manifest 发布门禁：completed via PR #40
 - `D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表：completed via PR #53
-- `D3-T08` 研究基础数据集 registry 与路线无关质量审计：in_progress
+- `D3-T08` 研究基础数据集 registry 与路线无关质量审计：completed via PR #54
+- `D3-T09` R阶段工程分层与 Task-as-Step 规范收敛：in_progress
 
 ## R0：PCVT 候选观测量与候选状态定义
 
-状态：blocked until PCVT candidate indicators and later gates are accepted
+状态：blocked / planned until D3-T09 governance convergence is accepted
 
 - `R0-T01` PCVT 候选指标定义
 - `R0-T02` `q = 10 / 20 / 30` 结构检验
