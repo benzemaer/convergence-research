@@ -33,6 +33,7 @@
     "pcvt_dependency_mapping",
     "r0_source_policy",
     "future_or_blocked_fields",
+    "d3_t10_standardized_replacements",
     "prohibited_fields",
     "depends_on"
   ],
@@ -351,6 +352,31 @@
         "free_share_shares_formula": {"const": "free_share_raw * 10000"},
         "turnover_float_formula": {"const": "volume_shares / float_share_shares"},
         "turnover_free_formula": {"const": "volume_shares / free_share_shares"}
+      }
+    },
+    "d3_t10_standardized_replacements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turnover", "float_shares"],
+      "properties": {
+        "turnover": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"const": "turnover_float"},
+            {"const": "turnover_free"}
+          ]
+        },
+        "float_shares": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"const": "float_share_shares"},
+            {"const": "free_share_shares"}
+          ]
+        }
       }
     },
     "d3_t10_future_alternative_v_policy": {

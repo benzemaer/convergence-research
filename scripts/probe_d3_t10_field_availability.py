@@ -26,6 +26,14 @@ FIELD_REQUIREMENTS: dict[str, dict[str, Any]] = {
     "high": {"required_by": "D3", "indicators": ["P1_NATR14", "P2_LogRange20"]},
     "low": {"required_by": "D3", "indicators": ["P1_NATR14", "P2_LogRange20"]},
     "close": {"required_by": "D3", "indicators": ["P1_NATR14"]},
+    "raw_low": {
+        "required_by": "R0-T02",
+        "indicators": ["C2_AdjVWAPSpread_5_60"],
+    },
+    "raw_high": {
+        "required_by": "R0-T02",
+        "indicators": ["C2_AdjVWAPSpread_5_60"],
+    },
     "adjusted_open": {"required_by": "R0", "indicators": []},
     "adjusted_high": {
         "required_by": "R0",
@@ -135,8 +143,11 @@ INDICATOR_REQUIREMENTS = {
     "C2_AdjVWAPSpread_5_60": {
         "amount_yuan",
         "volume_shares",
+        "amount_volume_unit_status",
         "daily_vwap",
         "daily_vwap_range_status",
+        "raw_low",
+        "raw_high",
         "adjusted_vwap_policy",
     },
     "T1_ER20": {"adjusted_close"},
@@ -187,7 +198,31 @@ def available_fields_from_duckdb(path: Path, table: str = DEFAULT_TABLE) -> set[
         rows = conn.execute(f"PRAGMA table_info('{table}')").fetchall()
     finally:
         conn.close()
-    return {row[1] for row in rows}
+    return add_field_aliases({row[1] for row in rows})
+
+
+def add_field_aliases(fields: set[str]) -> set[str]:
+    alias_map = {
+        "raw_open": "open",
+        "raw_high": "high",
+        "raw_low": "low",
+        "raw_close": "close",
+        "open": "raw_open",
+        "high": "raw_high",
+        "low": "raw_low",
+        "close": "raw_close",
+        "adj_open": "adjusted_open",
+        "adj_high": "adjusted_high",
+        "adj_low": "adjusted_low",
+        "adj_close": "adjusted_close",
+        "adjusted_open": "adj_open",
+        "adjusted_high": "adj_high",
+        "adjusted_low": "adj_low",
+        "adjusted_close": "adj_close",
+    }
+    result = set(fields)
+    result.update(alias for field, alias in alias_map.items() if field in result)
+    return result
 
 
 def available_fields_from_contract(path: Path) -> set[str]:
@@ -197,18 +232,7 @@ def available_fields_from_contract(path: Path) -> set[str]:
     for value in payload.get("value_field_groups", {}).values():
         if isinstance(value, list):
             fields.update(str(item) for item in value)
-    alias_map = {
-        "raw_open": "open",
-        "raw_high": "high",
-        "raw_low": "low",
-        "raw_close": "close",
-        "adj_open": "adjusted_open",
-        "adj_high": "adjusted_high",
-        "adj_low": "adjusted_low",
-        "adj_close": "adjusted_close",
-    }
-    fields.update(alias for field, alias in alias_map.items() if field in fields)
-    return fields
+    return add_field_aliases(fields)
 
 
 def build_field_matrix(available_fields: set[str], source: str) -> list[dict[str, Any]]:

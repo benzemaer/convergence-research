@@ -299,6 +299,16 @@
     "derived_turnover_rate_pct_formula": "turnover_float * 100",
     "derived_turnover_rate_f_pct_formula": "turnover_free * 100"
   },
+  "d3_t10_standardized_replacements": {
+    "turnover": [
+      "turnover_float",
+      "turnover_free"
+    ],
+    "float_shares": [
+      "float_share_shares",
+      "free_share_shares"
+    ]
+  },
   "d3_t10_future_alternative_v_policy": {
     "r0_baseline_unchanged": true,
     "baseline_v_indicators": [

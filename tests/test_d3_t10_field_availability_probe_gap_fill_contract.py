@@ -134,6 +134,11 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
             policy["baseline_v_indicators"],
             ["V1_VolShrink20_60", "V2_AmountLevel20Pct"],
         )
+        replacements = self.d3_values_config["d3_t10_standardized_replacements"]
+        self.assertEqual(replacements["turnover"], ["turnover_float", "turnover_free"])
+        self.assertEqual(
+            replacements["float_shares"], ["float_share_shares", "free_share_shares"]
+        )
 
     def test_field_matrix_marks_missing_d3_t10_fields(self) -> None:
         available = {"adjusted_high", "adjusted_low", "adjusted_close", "amount"}
@@ -146,6 +151,41 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
         self.assertIn(
             "amount_yuan", statuses["C2_AdjVWAPSpread_5_60"]["missing_fields"]
         )
+
+    def test_c2_requires_raw_low_raw_high_and_amount_volume_unit_status(self) -> None:
+        matrix = build_field_matrix(
+            {
+                "amount_yuan",
+                "volume_shares",
+                "daily_vwap",
+                "daily_vwap_range_status",
+                "adjusted_vwap_policy",
+            },
+            "synthetic",
+        )
+        statuses = {row["indicator_id"]: row for row in indicator_status(matrix)}
+        c2 = statuses["C2_AdjVWAPSpread_5_60"]
+        self.assertFalse(c2["ready_by_schema"])
+        self.assertIn("raw_low", c2["missing_fields"])
+        self.assertIn("raw_high", c2["missing_fields"])
+        self.assertIn("amount_volume_unit_status", c2["missing_fields"])
+
+    def test_c2_ready_by_schema_when_all_required_fields_present(self) -> None:
+        matrix = build_field_matrix(
+            {
+                "amount_yuan",
+                "volume_shares",
+                "amount_volume_unit_status",
+                "daily_vwap",
+                "daily_vwap_range_status",
+                "raw_low",
+                "raw_high",
+                "adjusted_vwap_policy",
+            },
+            "synthetic",
+        )
+        statuses = {row["indicator_id"]: row for row in indicator_status(matrix)}
+        self.assertTrue(statuses["C2_AdjVWAPSpread_5_60"]["ready_by_schema"])
 
     def test_duckdb_probe_is_read_only_and_reports_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
