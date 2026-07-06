@@ -120,11 +120,11 @@ class D2FormalSourceRegistryContractTest(unittest.TestCase):
     def test_readme_records_d2_t11_done_without_unlocking_d3_or_r0(self) -> None:
         self.assertIn("current_stage: D2", self.readme)
         self.assertIn(
-            "current_task: D2-T18 provider coverage blocker diagnostics",
+            "current_task: D2-T19 targeted repair and coverage policy evidence",
             self.readme,
         )
         self.assertIn(
-            "next_planned_task: D2-T19 targeted repair or policy decision",
+            "next_planned_task: D2-T20 policy acceptance or second targeted repair",
             self.readme,
         )
         self.assertIn("D2-T09` HiThink 主行情源", self.readme)
