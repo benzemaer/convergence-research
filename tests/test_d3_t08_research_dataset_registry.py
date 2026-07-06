@@ -15,7 +15,10 @@ from jsonschema import Draft202012Validator
 from scripts.audit_d3_t08_research_dataset_registry import (
     OUTPUT_DUCKDB_NAME,
     TARGET_TABLES,
+    D3T08AuditError,
     audit_d3_t08_research_dataset_registry,
+    guard_source_d3_t07_duckdb,
+    guard_source_d3_t07_report,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -326,6 +329,56 @@ class D3T08ResearchDatasetRegistryTest(unittest.TestCase):
             "blocked_pending_d3_t07_candidate_observation",
         )
         self.assertFalse(summary["research_dataset_registry_generated"])
+
+    def test_source_path_guard_rejects_d2_raw_and_wrong_filename(self) -> None:
+        bad_paths = [
+            self.base
+            / "data"
+            / "generated"
+            / "d2"
+            / "d2_t20"
+            / "d3_t07_candidate_daily_observation.duckdb",
+            self.base / "data" / "raw" / "d3_t07_candidate_daily_observation.duckdb",
+            self.d3_t07_dir / "other.duckdb",
+        ]
+        for path in bad_paths:
+            with self.subTest(path=path):
+                with self.assertRaises(D3T08AuditError):
+                    guard_source_d3_t07_duckdb(path)
+        guard_source_d3_t07_duckdb(self.source_duckdb)
+
+    def test_report_path_guard_rejects_wrong_filename(self) -> None:
+        with self.assertRaises(D3T08AuditError):
+            guard_source_d3_t07_report(
+                self.d3_t07_dir / "other_quality.json",
+                expected_name="d3_t07_quality_report.json",
+            )
+        guard_source_d3_t07_report(
+            self.quality_report, expected_name="d3_t07_quality_report.json"
+        )
+        guard_source_d3_t07_report(
+            self.handoff_report,
+            expected_name="d3_t07_handoff_candidate_report.json",
+        )
+
+    def test_invalid_input_path_fails_before_outputs_are_created(self) -> None:
+        bad_duckdb = (
+            self.base
+            / "data"
+            / "generated"
+            / "d2"
+            / "d2_t20"
+            / "d3_t07_candidate_daily_observation.duckdb"
+        )
+        with self.assertRaises(D3T08AuditError):
+            audit_d3_t08_research_dataset_registry(
+                d3_t07_duckdb=bad_duckdb,
+                d3_t07_quality_report=self.quality_report,
+                d3_t07_handoff_report=self.handoff_report,
+                output_dir=self.d3_t08_dir,
+            )
+        self.assertFalse((self.d3_t08_dir / OUTPUT_DUCKDB_NAME).exists())
+        self.assertFalse((self.d3_t08_dir / "d3_t08_quality_report.json").exists())
 
     def test_accepted_synthetic_observation_generates_registry_tables(self) -> None:
         summary = self._run_audit()

@@ -138,6 +138,43 @@ def ensure_allowed_output_dir(path: Path) -> None:
         raise D3T08AuditError("output-dir must be under data/generated/d3/")
 
 
+def _is_forbidden_input_path(path: Path) -> bool:
+    normalized = _norm(path)
+    return any(
+        pattern in normalized
+        for pattern in (
+            "data/raw",
+            "data/external",
+            "marketdb",
+            ".day",
+            "data/generated/d2",
+            "data/generated/d1",
+        )
+    )
+
+
+def guard_source_d3_t07_duckdb(path: Path) -> None:
+    normalized = _norm(path)
+    if path.suffix.lower() != ".duckdb":
+        raise D3T08AuditError("d3-t07-duckdb must be a DuckDB file")
+    if path.name != "d3_t07_candidate_daily_observation.duckdb":
+        raise D3T08AuditError("d3-t07-duckdb filename is not a D3-T07 candidate")
+    if _is_forbidden_input_path(path):
+        raise D3T08AuditError("d3-t07-duckdb path is outside the D3-T07 boundary")
+    if "data/generated/d3/d3_t07_candidate_daily_observation/" not in normalized:
+        raise D3T08AuditError("d3-t07-duckdb must be under D3-T07 generated output")
+
+
+def guard_source_d3_t07_report(path: Path, *, expected_name: str) -> None:
+    normalized = _norm(path)
+    if path.name != expected_name:
+        raise D3T08AuditError(f"expected D3-T07 report file {expected_name}")
+    if _is_forbidden_input_path(path):
+        raise D3T08AuditError("D3-T07 report path is outside the D3-T07 boundary")
+    if "data/generated/d3/d3_t07_candidate_daily_observation/" not in normalized:
+        raise D3T08AuditError("D3-T07 report must be under D3-T07 generated output")
+
+
 def remove_previous_outputs(output_dir: Path) -> None:
     if not output_dir.exists():
         return
@@ -1173,6 +1210,13 @@ def audit_d3_t08_research_dataset_registry(
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> dict[str, Any]:
+    guard_source_d3_t07_duckdb(d3_t07_duckdb)
+    guard_source_d3_t07_report(
+        d3_t07_quality_report, expected_name="d3_t07_quality_report.json"
+    )
+    guard_source_d3_t07_report(
+        d3_t07_handoff_report, expected_name="d3_t07_handoff_candidate_report.json"
+    )
     ensure_allowed_output_dir(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     remove_previous_outputs(output_dir)
