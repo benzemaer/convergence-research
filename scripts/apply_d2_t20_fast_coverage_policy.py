@@ -216,7 +216,33 @@ def init_policy_tables(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def policy_plan() -> dict[str, Any]:
+def policy_plan(manifest: dict[str, Any] | None = None) -> dict[str, Any]:
+    if manifest:
+        adj_factor_targets = [
+            {
+                "ts_code": row.get("ts_code", ""),
+                "policy_type": row.get("policy_type", ""),
+                "recommended_policy": row.get("recommended_policy", ""),
+                "evidence_source": row.get("evidence_source", ""),
+                "normalized_response_sha256": row.get("normalized_response_sha256", ""),
+                "evidence_status": row.get("evidence_status", ""),
+                "factor_interval_count": len(row.get("factor_intervals", [])),
+            }
+            for row in manifest.get("adj_factor_policy_evidence", [])
+        ]
+    else:
+        adj_factor_targets = [
+            {
+                "ts_code": ts_code,
+                "policy_type": "neutral_factor_1",
+                "recommended_policy": "legacy_neutral_factor_1_policy_candidate",
+                "evidence_source": "",
+                "normalized_response_sha256": "",
+                "evidence_status": "not_required",
+                "factor_interval_count": 0,
+            }
+            for ts_code in NEUTRAL_FACTOR_TS_CODES
+        ]
     return {
         "task_id": "D2-T20",
         "listing_pause_intervals": [
@@ -229,15 +255,7 @@ def policy_plan() -> dict[str, Any]:
             }
             for ts_code, start_date, end_date in LISTING_PAUSE_INTERVALS
         ],
-        "neutral_adj_factor_overrides": [
-            {
-                "ts_code": ts_code,
-                "policy_type": "neutral_factor_1",
-                "policy_factor": 1.0,
-                "evidence_level": "policy_candidate_user_approved",
-            }
-            for ts_code in NEUTRAL_FACTOR_TS_CODES
-        ],
+        "adj_factor_policy_targets": adj_factor_targets,
         "formal_source_evidence": False,
         "data_version_published": False,
         "d3_rows_generated": False,
@@ -655,7 +673,7 @@ def apply_neutral_factor_policy(
         entries.append(
             PolicyLedgerEntry(
                 run_id=run_id,
-                policy_kind="neutral_adj_factor",
+                policy_kind="adj_factor_policy",
                 ts_code=ts_code,
                 start_date=start_date,
                 end_date=end_date,
@@ -1009,7 +1027,7 @@ def apply_d2_t20_policy(
     manifest = load_policy_evidence_manifest(policy_evidence_manifest)
     target_duckdb = copy_source_duckdb(source_duckdb, output_dir)
     run_id = _utc_run_id()
-    _write_json(output_dir / "d2_t20_policy_plan.json", policy_plan())
+    _write_json(output_dir / "d2_t20_policy_plan.json", policy_plan(manifest))
     conn = duckdb.connect(str(target_duckdb))
     try:
         before_quality = compute_quality_gate(conn)

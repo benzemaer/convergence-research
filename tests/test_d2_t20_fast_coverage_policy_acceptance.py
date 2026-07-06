@@ -195,6 +195,10 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         with (self.output_dir / name).open(newline="", encoding="utf-8") as handle:
             return list(csv.DictReader(handle))
 
+    def _read_jsonl(self, name: str) -> list[dict[str, object]]:
+        with (self.output_dir / name).open(encoding="utf-8") as handle:
+            return [json.loads(line) for line in handle if line.strip()]
+
     def test_source_duckdb_is_copied_and_source_is_not_modified(self) -> None:
         before_daily = self._source_daily_count()
 
@@ -592,6 +596,35 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             conn.close()
         self.assertEqual(rows, [("689009.SH", 1.0, 1.0332, 5, "hash_verified")])
         self.assertEqual(policy_rows, [("factor_interval", None)])
+
+    def test_policy_plan_and_ledger_match_manifest_recommended_policies(self) -> None:
+        self._run_authorized_with_evidence()
+
+        plan = json.loads(
+            (self.output_dir / "d2_t20_policy_plan.json").read_text(encoding="utf-8")
+        )
+        targets = {row["ts_code"]: row for row in plan["adj_factor_policy_targets"]}
+        self.assertNotIn("neutral_adj_factor_overrides", plan)
+        self.assertEqual(
+            targets["688981.SH"]["recommended_policy"],
+            "neutral_factor_1_policy_candidate",
+        )
+        self.assertEqual(targets["688981.SH"]["policy_type"], "neutral_factor_1")
+        self.assertEqual(
+            targets["689009.SH"]["recommended_policy"],
+            "factor_interval_policy_candidate",
+        )
+        self.assertEqual(targets["689009.SH"]["policy_type"], "factor_interval")
+        self.assertEqual(targets["689009.SH"]["factor_interval_count"], 5)
+
+        ledger = {
+            row["ts_code"]: row
+            for row in self._read_jsonl("d2_t20_policy_ledger.jsonl")
+            if row["policy_kind"] == "adj_factor_policy"
+        }
+        self.assertEqual(ledger["688981.SH"]["policy_type"], "neutral_factor_1")
+        self.assertEqual(ledger["689009.SH"]["policy_kind"], "adj_factor_policy")
+        self.assertEqual(ledger["689009.SH"]["policy_type"], "factor_interval")
 
     def test_repo_tracked_files_do_not_contain_removed_mistyped_target_terms(
         self,
