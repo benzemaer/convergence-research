@@ -174,11 +174,13 @@ class D2T17EndpointChunkRunnerTest(unittest.TestCase):
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn(
-            "current_task: D2-T20 fast coverage policy acceptance",
+            "current_task: D3-T07 candidate daily observation from D2-T20",
             readme,
         )
         self.assertIn(
-            "D3-T07 remains blocked until D2 coverage blockers are resolved",
+            "D3-T07 was later unblocked for research candidate generation by "
+            "D2-T20 evidence-verified candidate acceptance; formal data_version "
+            "remains blocked",
             readme,
         )
         for token in (

@@ -330,14 +330,14 @@ class D2T18ProviderCoverageBlockerDiagnosticsTest(unittest.TestCase):
     def test_readme_records_d2_t18_done_without_unlocking_d3_or_r0(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
-        self.assertIn("current_stage: D2", readme)
+        self.assertIn("current_stage: D3", readme)
         self.assertIn(
-            "current_task: D2-T20 fast coverage policy acceptance",
+            "current_task: D3-T07 candidate daily observation from D2-T20",
             readme,
         )
         self.assertIn(
-            "next_planned_task: D3-T07 candidate generation from "
-            "D2-T20 policy candidate",
+            "next_planned_task: D3-T08 PCVT input readiness and "
+            "feature-base quality checks",
             readme,
         )
         self.assertIn(
@@ -351,10 +351,15 @@ class D2T18ProviderCoverageBlockerDiagnosticsTest(unittest.TestCase):
             readme,
         )
         self.assertIn(
-            "D3-T07 remains blocked until D2 coverage blockers are resolved",
+            "D3-T07 was later unblocked for research candidate generation by "
+            "D2-T20 evidence-verified candidate acceptance; formal data_version "
+            "remains blocked",
             readme,
         )
-        self.assertIn("R0 remains blocked until D3 output exists", readme)
+        self.assertIn(
+            "R0 remains blocked until D3 output is accepted by later gates",
+            readme,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d3_t07_candidate_daily_observation_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "source_task_id",
+    "source_candidate",
+    "target_table",
+    "target_duckdb",
+    "d3_candidate_generation_authorized",
+    "formal_data_version_authorized",
+    "formal_source_promotion_authorized",
+    "r0_state_generation_authorized",
+    "labels_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "input_gate_required_fields",
+    "required_source_tables",
+    "primary_key",
+    "required_output_fields",
+    "effective_adj_factor_rules",
+    "listing_pause_policy",
+    "quality_blockers",
+    "required_outputs",
+    "prohibited_outputs",
+    "next_planned_task"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/d3_t07_candidate_daily_observation_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"
+    },
+    "task_id": { "const": "D3-T07" },
+    "contract_status": { "const": "accepted" },
+    "contract_scope": {
+      "const": "candidate_daily_observation_generation_from_d2_t20"
+    },
+    "source_task_id": { "const": "D2-T20" },
+    "source_candidate": { "type": "string" },
+    "target_table": { "const": "d3_candidate_daily_observation" },
+    "target_duckdb": { "const": "d3_t07_candidate_daily_observation.duckdb" },
+    "d3_candidate_generation_authorized": { "const": true },
+    "formal_data_version_authorized": { "const": false },
+    "formal_source_promotion_authorized": { "const": false },
+    "r0_state_generation_authorized": { "const": false },
+    "labels_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "input_gate_required_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d2_acceptance_decision" } },
+        { "contains": { "const": "d3_generation_authorized" } },
+        { "contains": { "const": "policy_based_acceptance" } },
+        { "contains": { "const": "policy_evidence_pending_hash" } },
+        { "contains": { "const": "formal_duckdb_write_authorized" } },
+        { "contains": { "const": "data_version_published" } },
+        { "contains": { "const": "d3_rows_generated" } },
+        { "contains": { "const": "r0_state_generated" } }
+      ]
+    },
+    "required_source_tables": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "staging_daily_raw" } },
+        { "contains": { "const": "d2_source_status" } },
+        { "contains": { "const": "d2_factor_evidence" } },
+        { "contains": { "const": "d2_policy_adj_factor_overrides" } },
+        { "contains": { "const": "d2_policy_corporate_action_evidence" } }
+      ]
+    },
+    "primary_key": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "ts_code" } },
+        { "contains": { "const": "trade_date" } }
+      ]
+    },
+    "required_output_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "effective_adj_factor" } },
+        { "contains": { "const": "adjusted_open" } },
+        { "contains": { "const": "adjusted_close" } },
+        { "contains": { "const": "policy_evidence_status" } },
+        { "contains": { "const": "row_provenance" } }
+      ]
+    },
+    "effective_adj_factor_rules": { "$ref": "#/$defs/stringArray" },
+    "listing_pause_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exclude_listing_pause_rows",
+        "is_listing_pause_in_output_must_be_false",
+        "zero_price_fill_authorized"
+      ],
+      "properties": {
+        "exclude_listing_pause_rows": { "const": true },
+        "is_listing_pause_in_output_must_be_false": { "const": true },
+        "zero_price_fill_authorized": { "const": false }
+      }
+    },
+    "quality_blockers": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "duplicate_observation_key_count" } },
+        { "contains": { "const": "null_ohlc_count" } },
+        { "contains": { "const": "non_positive_price_count" } },
+        { "contains": { "const": "high_low_violation_count" } },
+        { "contains": { "const": "missing_effective_adj_factor_count" } },
+        { "contains": { "const": "factor_interval_unresolved_count" } }
+      ]
+    },
+    "required_outputs": { "$ref": "#/$defs/stringArray" },
+    "prohibited_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "data_version.json" } },
+        { "contains": { "const": "labels.csv" } },
+        { "contains": { "const": "returns.csv" } },
+        { "contains": { "const": "backtest.csv" } },
+        { "contains": { "const": "portfolio.csv" } },
+        { "contains": { "const": "r0_state.csv" } }
+      ]
+    },
+    "next_planned_task": {
+      "const": "D3-T08 PCVT input readiness and feature-base quality checks"
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}

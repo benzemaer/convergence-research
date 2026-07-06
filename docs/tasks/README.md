@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D2
-current_task: D2-T20 fast coverage policy acceptance
-next_planned_task: D3-T07 candidate generation from D2-T20 policy candidate
+current_stage: D3
+current_task: D3-T07 candidate daily observation from D2-T20
+next_planned_task: D3-T08 PCVT input readiness and feature-base quality checks
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -38,8 +38,8 @@ D2-T06 候选探针执行前的任务队列仍为：
 D2-T07 进入契约门禁前的任务队列仍为：
 `D2-T08` D2 阶段验收与 D3 交接：planned。
 D2-T08 完成后曾进入 D3 contract queue；D2 formal materialization 未完成前，
-`D3-T07` remains blocked pending D2 formal materialization，`R0` remains blocked。
-D3-T07 remains blocked pending D2 formal materialization. R0 remains blocked.
+`D3-T07` remained blocked pending D2 formal materialization，`R0` remained blocked。
+D3-T07 was later unblocked for research candidate generation by D2-T20 evidence-verified candidate acceptance; formal data_version remains blocked.
 D3-T06 发布门禁 PR 合并时的阶段索引仍为：
 ```text
 current_stage: D3
@@ -138,11 +138,10 @@ next_planned_task: D3-T07
 - `D2-T17` 按 endpoint 配置 D2 runner chunk 策略：completed / runner available after PR #49
 - `D2-T18` provider coverage blocker 诊断与最小修复策略：completed / diagnostics available after PR #50
 - `D2-T19` targeted repair and coverage policy evidence：completed / stk_limit targeted repair succeeded; daily repair empty due to listing pause
-- `D2-T20` fast coverage policy acceptance：in_progress via current PR; policy evidence hardening upgraded to hash-verified candidate evidence
-- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked until coverage blockers are resolved and D2 acceptance is explicitly accepted by a later PR
+- `D2-T20` fast coverage policy acceptance：completed via PR #52; evidence-verified research candidate accepted for D3 candidate generation
+- `D3-T07` 标准日频观测表 candidate 生成：in_progress via current PR; reads D2-T20 evidence-verified candidate only
 
-D3-T07 remains blocked until D2 coverage blockers are resolved and D2 acceptance is explicitly accepted by a later PR.
-R0 remains blocked until D3 output exists.
+D3-T07 candidate generation may read D2-T20 candidate output. Formal data_version remains blocked until an explicit release gate. R0 remains blocked until D3 output is accepted by later gates.
 
 完成标准：
 
@@ -154,25 +153,24 @@ R0 remains blocked until D3 output exists.
 
 ## D3：跨研究复用的标准日频观测表与基础质量指标
 
-状态：planned
+状态：in_progress
 
-D2-T08 已完成 D2 acceptance 与 D3 handoff contract-only 验收，但 formal ingestion、
-真实 D2 raw price、真实 D2 adjusted price、真实 D2 quality flags、D3 generation 与
-R0 交接仍未授权。
-D2-T09 返回 D2 formal enablement 后，`D3-T07` remains blocked pending D2 formal materialization。
+D2-T08 已完成 D2 acceptance 与 D3 handoff contract-only 验收。D2-T20 已完成
+evidence-verified research candidate acceptance，并只授权 D3 candidate generation。
+formal data_version、formal source promotion 与 R0 交接仍未授权。
 
 - `D3-T01` `daily_market_observations` 语义与字段契约：completed via PR #35
 - `D3-T02` D3 标准数值观测 view/table 契约：completed via PR #36
 - `D3-T03` 组件引用、source lineage 与 no-bypass 校验器：completed via PR #37
 - `D3-T04` 基础质量指标与 PCVT input readiness 契约：completed via PR #38
 - `D3-T05` 标准日频观测合成构建与最小集成测试：completed via PR #39
-- `D3-T06` `data_version`、quality report 与 manifest 发布门禁：in_progress
-- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布：blocked pending D2 formal materialization
-- `D3-T08` D3 阶段验收与 R0 交接契约：planned
+- `D3-T06` `data_version`、quality report 与 manifest 发布门禁：completed via PR #40
+- `D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表：in_progress
+- `D3-T08` PCVT input readiness and feature-base quality checks：planned
 
 ## R0：PCVT 候选观测量与候选状态定义
 
-状态：blocked until D3 contract and later D3 data_version gates are accepted
+状态：blocked until D3 output is accepted by later gates
 
 - `R0-T01` PCVT 候选指标定义
 - `R0-T02` `q = 10 / 20 / 30` 结构检验
