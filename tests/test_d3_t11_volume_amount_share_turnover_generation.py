@@ -74,6 +74,19 @@ class FailingClient:
         raise AssertionError("provider should not be called")
 
 
+class RecordingRetryClient(FakeDailyBasicClient):
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def daily_basic(
+        self, *, ts_code: str, start_date: str, end_date: str
+    ) -> list[dict[str, Any]]:
+        self.calls.append(ts_code)
+        return super().daily_basic(
+            ts_code=ts_code, start_date=start_date, end_date=end_date
+        )
+
+
 class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -142,6 +155,78 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
             [vol, amount],
         )
         conn.close()
+
+    def _append_source_row(self, ts_code: str) -> None:
+        conn = duckdb.connect(str(self.d3_db))
+        try:
+            conn.execute(
+                """
+                INSERT INTO d3_candidate_daily_observation VALUES (
+                  ?, '20260601', 10, 11, 9, 10, 100, 100,
+                  'normal', 'none', false, false, false,
+                  'D2-T20', 'D3-T07', 'synthetic'
+                )
+                """,
+                [ts_code],
+            )
+        finally:
+            conn.close()
+
+    def _write_retry_previous_provider_summary(self) -> None:
+        summary_path = self.output_dir / "d3_t11_provider_call_summary.json"
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        payload["calls"] = [
+            {
+                "endpoint": "daily_basic",
+                "ts_code": "000001.SZ",
+                "status": "succeeded",
+                "attempt_count": 1,
+                "row_count": 1,
+            },
+            {
+                "endpoint": "daily_basic",
+                "ts_code": "002153.SZ",
+                "status": "failed",
+                "attempt_count": 4,
+                "error_type": "ConnectionError",
+                "row_count": 0,
+            },
+        ]
+        payload["call_count"] = 2
+        payload["succeeded_call_count"] = 1
+        payload["failed_call_count"] = 1
+        summary_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    def _prepare_retry_fixture(self) -> None:
+        self._append_source_row("002153.SZ")
+        self.securities_file.write_text("000001.SZ\n002153.SZ\n", encoding="utf-8")
+        generate_d3_t11_volume_amount_share_turnover_candidate(
+            securities_file=self.securities_file,
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            provider_client=FakeDailyBasicClient(),
+            code_commit="synthetic",
+        )
+        output_duckdb = (
+            self.output_dir / "d3_t11_volume_amount_share_turnover_candidate.duckdb"
+        )
+        conn = duckdb.connect(str(output_duckdb))
+        try:
+            conn.execute(
+                f"""
+                UPDATE {OUTPUT_TABLE}
+                SET daily_basic_close = NULL,
+                    float_share_shares = NULL,
+                    turnover_float = NULL,
+                    provider_turnover_crosscheck_status = 'missing_daily_basic'
+                WHERE ts_code = '002153.SZ'
+                """
+            )
+        finally:
+            conn.close()
+        self._write_retry_previous_provider_summary()
 
     def test_token_missing_runner_clean_exit_without_traceback(self) -> None:
         env = os.environ.copy()
@@ -419,6 +504,112 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
             )
         )
         self.assertTrue(provider["remote_provider_called"])
+
+    def test_retry_failed_only_retries_failed_stock_and_updates_reports(self) -> None:
+        self._prepare_retry_fixture()
+        client = RecordingRetryClient()
+
+        summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            provider_client=client,
+            retry_failed_only=True,
+            retry_ts_codes=["002153.SZ"],
+            code_commit="synthetic",
+        )
+
+        self.assertEqual(client.calls, ["002153.SZ"])
+        self.assertTrue(summary["retry_failed_only"])
+        self.assertEqual(summary["failed_call_count_before_retry"], 1)
+        self.assertEqual(summary["retried_call_count"], 1)
+        self.assertEqual(summary["recovered_call_count"], 1)
+        self.assertEqual(summary["failed_call_count_after_retry"], 0)
+        self.assertEqual(summary["succeeded_call_count"], 2)
+        self.assertEqual(summary["failed_call_count"], 0)
+        conn = duckdb.connect(
+            str(
+                self.output_dir / "d3_t11_volume_amount_share_turnover_candidate.duckdb"
+            ),
+            read_only=True,
+        )
+        try:
+            row = conn.execute(
+                f"""
+                SELECT float_share_shares, turnover_float,
+                       provider_turnover_crosscheck_status
+                FROM {OUTPUT_TABLE}
+                WHERE ts_code = '002153.SZ'
+                """
+            ).fetchone()
+        finally:
+            conn.close()
+        self.assertIsNotNone(row[0])
+        self.assertIsNotNone(row[1])
+        self.assertEqual(row[2], "valid")
+        provider = json.loads(
+            (self.output_dir / "d3_t11_provider_call_summary.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(provider["failed_call_count_before_retry"], 1)
+        self.assertEqual(provider["retried_call_count"], 1)
+        self.assertEqual(provider["recovered_call_count"], 1)
+        self.assertEqual(provider["failed_call_count_after_retry"], 0)
+        self.assertEqual(provider["failed_call_count"], 0)
+        self.assertEqual(provider["succeeded_call_count"], 2)
+        self.assertEqual(provider["retry_history"][0]["ts_code"], "002153.SZ")
+
+    def test_retry_failed_only_noop_when_no_failed_calls(self) -> None:
+        self._prepare_retry_fixture()
+        provider_path = self.output_dir / "d3_t11_provider_call_summary.json"
+        payload = json.loads(provider_path.read_text(encoding="utf-8"))
+        payload["calls"] = [
+            {
+                "endpoint": "daily_basic",
+                "ts_code": "000001.SZ",
+                "status": "succeeded",
+                "attempt_count": 1,
+                "row_count": 1,
+            }
+        ]
+        payload["failed_call_count"] = 0
+        provider_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            provider_client=FailingClient(),
+            retry_failed_only=True,
+            code_commit="synthetic",
+        )
+
+        self.assertEqual(
+            summary["d3_t11_generation_decision"], "retry_failed_only_noop"
+        )
+        self.assertFalse(summary["remote_provider_called"])
+        self.assertTrue(summary["candidate_generated"])
+
+    def test_retry_failed_only_blocks_when_previous_outputs_missing(self) -> None:
+        summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            provider_client=FailingClient(),
+            retry_failed_only=True,
+            code_commit="synthetic",
+        )
+
+        self.assertEqual(
+            summary["d3_t11_generation_decision"],
+            "blocked_retry_missing_previous_outputs",
+        )
+        self.assertFalse(summary["remote_provider_called"])
+        self.assertFalse(summary["candidate_generated"])
 
     def test_output_duckdb_does_not_replace_d2_t20_source(self) -> None:
         d2_source = (
