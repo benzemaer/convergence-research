@@ -74,10 +74,45 @@
     ],
     "participation_value_fields": [
       "volume",
+      "volume_raw",
       "amount",
+      "amount_raw",
       "amount_unit",
       "volume_unit",
-      "amount_volume_unit_status"
+      "volume_shares",
+      "amount_yuan",
+      "amount_volume_unit_status",
+      "zero_volume_flag",
+      "zero_amount_flag"
+    ],
+    "share_turnover_value_fields": [
+      "total_share_raw",
+      "total_share_unit",
+      "total_share_shares",
+      "float_share_raw",
+      "float_share_unit",
+      "float_share_shares",
+      "free_share_raw",
+      "free_share_unit",
+      "free_share_shares",
+      "turnover_rate",
+      "turnover_rate_f",
+      "turnover_float",
+      "turnover_free",
+      "turnover_field_status",
+      "share_field_status",
+      "provider_turnover_crosscheck_status",
+      "total_mv",
+      "circ_mv"
+    ],
+    "corporate_action_comparability_fields": [
+      "corporate_action_types_in_window",
+      "share_comparability_corporate_action_in_window",
+      "adjusted_vwap_policy",
+      "adjusted_volume",
+      "common_corporate_action_basis_policy",
+      "common_share_basis_policy",
+      "volume_comparability_policy"
     ],
     "trading_constraint_value_fields": [
       "trading_status",
@@ -241,6 +276,42 @@
   "future_or_blocked_fields": {
     "turnover": "blocked_pending_source_contract",
     "float_shares": "blocked_pending_source_contract"
+  },
+  "d3_t10_standardization_rules": {
+    "volume_raw": "daily.vol",
+    "volume_unit": "hand",
+    "volume_shares_formula": "volume_raw * 100",
+    "amount_raw": "daily.amount",
+    "amount_unit": "thousand_yuan",
+    "amount_yuan_formula": "amount_raw * 1000",
+    "daily_vwap_formula": "amount_yuan / volume_shares",
+    "total_share_raw": "daily_basic.total_share",
+    "total_share_unit": "ten_thousand_shares",
+    "total_share_shares_formula": "total_share_raw * 10000",
+    "float_share_raw": "daily_basic.float_share",
+    "float_share_unit": "ten_thousand_shares",
+    "float_share_shares_formula": "float_share_raw * 10000",
+    "free_share_raw": "daily_basic.free_share",
+    "free_share_unit": "ten_thousand_shares",
+    "free_share_shares_formula": "free_share_raw * 10000",
+    "turnover_float_formula": "volume_shares / float_share_shares",
+    "turnover_free_formula": "volume_shares / free_share_shares",
+    "derived_turnover_rate_pct_formula": "turnover_float * 100",
+    "derived_turnover_rate_f_pct_formula": "turnover_free * 100"
+  },
+  "d3_t10_future_alternative_v_policy": {
+    "r0_baseline_unchanged": true,
+    "baseline_v_indicators": [
+      "V1_VolShrink20_60",
+      "V2_AmountLevel20Pct"
+    ],
+    "future_alternative_v_candidates": [
+      "TurnoverShrink20_60",
+      "FreeTurnoverShrink20_60",
+      "TurnoverLevel20Pct",
+      "FreeTurnoverLevel20Pct"
+    ],
+    "direct_baseline_replacement_authorized_by_d3_t10": false
   },
   "prohibited_fields": [
     "pcvt_value",
