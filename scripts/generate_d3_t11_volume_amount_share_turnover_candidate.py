@@ -25,6 +25,9 @@ from scripts.d3_t10_field_standardization import (  # noqa: E402
     combine_standardized_fields,
     forbidden_output_names,
 )
+from scripts.generate_d3_t07_candidate_daily_observation import (  # noqa: E402
+    generate_d3_t07_candidate_daily_observation,
+)
 from scripts.resolve_security_provider_codes import (  # noqa: E402
     resolve_security_provider_codes,
 )
@@ -43,6 +46,21 @@ DEFAULT_D3_T07_DUCKDB = (
     ROOT
     / "data/generated/d3/d3_t07_candidate_daily_observation/"
     / "d3_t07_candidate_daily_observation.duckdb"
+)
+DEFAULT_D2_T20_DUCKDB = (
+    ROOT
+    / "data/generated/d2/d2_t20_fast_coverage_policy_candidate/"
+    / "d2_t15_tnskhdata_staging.duckdb"
+)
+DEFAULT_D2_T20_ACCEPTANCE_REPORT = (
+    ROOT
+    / "data/generated/d2/d2_t20_fast_coverage_policy_candidate/"
+    / "d2_t20_acceptance_candidate_report.json"
+)
+DEFAULT_D2_T20_HANDOFF_REPORT = (
+    ROOT
+    / "data/generated/d2/d2_t20_fast_coverage_policy_candidate/"
+    / "d2_t20_handoff_candidate_report.json"
 )
 DEFAULT_OUTPUT_DIR = (
     ROOT / "data/generated/d3/d3_t11_volume_amount_share_turnover_candidate"
@@ -869,6 +887,135 @@ def blocked_missing_d3_t07_source(
     return summary
 
 
+def _redacted_d3_t07_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    allowed_keys = {
+        "task_id",
+        "source_task_id",
+        "run_id",
+        "d3_t07_generation_decision",
+        "d3_rows_generated",
+        "data_version_published",
+        "r0_state_generated",
+        "output_duckdb",
+    }
+    return {key: summary.get(key) for key in allowed_keys if key in summary}
+
+
+def ensure_d3_t07_source_available(
+    *,
+    d3_t07_duckdb: Path,
+    auto_generate_d3_t07_from_d2_t20: bool,
+    d2_t20_duckdb: Path,
+    d2_t20_acceptance_report: Path,
+    d2_t20_handoff_report: Path,
+    start_date: str,
+    end_date: str,
+    sample_securities: int | None,
+) -> dict[str, Any]:
+    if d3_t07_duckdb.exists():
+        return {
+            "d3_t07_source_status": "available",
+            "d3_t07_auto_generated": False,
+            "d3_t07_source_path": str(d3_t07_duckdb),
+            "blocking_reasons": [],
+        }
+    if not auto_generate_d3_t07_from_d2_t20:
+        return {
+            "d3_t07_source_status": "blocked_missing_d3_t07_source",
+            "d3_t07_auto_generated": False,
+            "remote_provider_called": False,
+            "blocking_reasons": ["missing_d3_t07_duckdb"],
+        }
+
+    required_inputs = {
+        "missing_d2_t20_duckdb": d2_t20_duckdb,
+        "missing_d2_t20_acceptance_report": d2_t20_acceptance_report,
+        "missing_d2_t20_handoff_report": d2_t20_handoff_report,
+    }
+    missing = ["missing_d3_t07_duckdb"]
+    missing.extend(
+        reason for reason, path in required_inputs.items() if not path.exists()
+    )
+    if len(missing) > 1:
+        return {
+            "d3_t07_source_status": "blocked_missing_d2_t20_inputs",
+            "d3_t07_auto_generated": False,
+            "remote_provider_called": False,
+            "blocking_reasons": missing,
+        }
+
+    summary = generate_d3_t07_candidate_daily_observation(
+        d2_t20_duckdb=d2_t20_duckdb,
+        d2_t20_acceptance_report=d2_t20_acceptance_report,
+        d2_t20_handoff_report=d2_t20_handoff_report,
+        output_dir=d3_t07_duckdb.parent,
+        sample_securities=sample_securities,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    redacted_summary = _redacted_d3_t07_summary(summary)
+    if summary.get("d3_t07_generation_decision") != "accepted_candidate_observation":
+        return {
+            "d3_t07_source_status": "blocked_d3_t07_generation_failed",
+            "d3_t07_auto_generated": True,
+            "d3_t07_generation_summary": redacted_summary,
+            "remote_provider_called": False,
+            "blocking_reasons": ["d3_t07_generation_failed"],
+        }
+    if not d3_t07_duckdb.exists():
+        return {
+            "d3_t07_source_status": "blocked_d3_t07_output_missing",
+            "d3_t07_auto_generated": True,
+            "d3_t07_generation_summary": redacted_summary,
+            "remote_provider_called": False,
+            "blocking_reasons": ["d3_t07_output_missing_after_generation"],
+        }
+    return {
+        "d3_t07_source_status": "auto_generated_from_d2_t20",
+        "d3_t07_auto_generated": True,
+        "d3_t07_source_path": str(d3_t07_duckdb),
+        "d2_t20_source_path": str(d2_t20_duckdb),
+        "d3_t07_generation_summary": redacted_summary,
+        "blocking_reasons": [],
+    }
+
+
+def blocked_source_preflight(
+    output_dir: Path,
+    *,
+    run_id: str,
+    security_summary: dict[str, Any],
+    source_preflight: dict[str, Any],
+) -> dict[str, Any]:
+    summary = {
+        "task_id": TASK_ID,
+        "run_id": run_id,
+        "d3_t11_generation_decision": source_preflight["d3_t07_source_status"],
+        **security_summary,
+        **source_preflight,
+        "remote_provider_called": False,
+        "candidate_generated": False,
+        "full_candidate_run_executed": False,
+        "pcvt_values_generated": False,
+        "r0_state_generated": False,
+        "formal_data_version_published": False,
+    }
+    _write_json(output_dir / "d3_t11_generation_summary.json", summary)
+    _write_json(
+        output_dir / "d3_t11_provider_call_summary.json",
+        {
+            "task_id": TASK_ID,
+            **security_summary,
+            **source_preflight,
+            "remote_provider_called": False,
+            "provider_raw_payload_committed": False,
+            "credential_committed": False,
+            "calls": [],
+        },
+    )
+    return summary
+
+
 def generate_d3_t11_volume_amount_share_turnover_candidate(
     *,
     securities_file: Path | None = None,
@@ -877,6 +1024,10 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
     end_date: str = DEFAULT_END_DATE,
     d3_t07_duckdb: Path = DEFAULT_D3_T07_DUCKDB,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
+    auto_generate_d3_t07_from_d2_t20: bool = True,
+    d2_t20_duckdb: Path = DEFAULT_D2_T20_DUCKDB,
+    d2_t20_acceptance_report: Path = DEFAULT_D2_T20_ACCEPTANCE_REPORT,
+    d2_t20_handoff_report: Path = DEFAULT_D2_T20_HANDOFF_REPORT,
     provider: str = "tnskhdata",
     resume: bool = False,
     max_retries: int = 2,
@@ -921,12 +1072,22 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
         return blocked_low_security_count(
             output_dir, run_id=run_id, security_summary=security_summary
         )
-    if not d3_t07_duckdb.exists():
-        return blocked_missing_d3_t07_source(
+    source_preflight = ensure_d3_t07_source_available(
+        d3_t07_duckdb=d3_t07_duckdb,
+        auto_generate_d3_t07_from_d2_t20=auto_generate_d3_t07_from_d2_t20,
+        d2_t20_duckdb=d2_t20_duckdb,
+        d2_t20_acceptance_report=d2_t20_acceptance_report,
+        d2_t20_handoff_report=d2_t20_handoff_report,
+        start_date=start_date,
+        end_date=end_date,
+        sample_securities=sample_securities,
+    )
+    if source_preflight["d3_t07_source_status"].startswith("blocked"):
+        return blocked_source_preflight(
             output_dir,
             run_id=run_id,
-            d3_t07_duckdb=d3_t07_duckdb,
             security_summary=security_summary,
+            source_preflight=source_preflight,
         )
 
     client = provider_client
@@ -987,6 +1148,7 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
         path = output_dir / report_name
         payload = _load_json(path)
         payload.update(security_summary)
+        payload.update(source_preflight)
         if report_name == "d3_t11_generation_summary.json":
             payload["start_date"] = start_date
             payload["end_date"] = end_date
@@ -1012,6 +1174,28 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--end-date", default=DEFAULT_END_DATE)
     parser.add_argument("--d3-t07-duckdb", type=Path, default=DEFAULT_D3_T07_DUCKDB)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--auto-generate-d3-t07-from-d2-t20",
+        dest="auto_generate_d3_t07_from_d2_t20",
+        action="store_true",
+        default=True,
+    )
+    parser.add_argument(
+        "--no-auto-generate-d3-t07-from-d2-t20",
+        dest="auto_generate_d3_t07_from_d2_t20",
+        action="store_false",
+    )
+    parser.add_argument("--d2-t20-duckdb", type=Path, default=DEFAULT_D2_T20_DUCKDB)
+    parser.add_argument(
+        "--d2-t20-acceptance-report",
+        type=Path,
+        default=DEFAULT_D2_T20_ACCEPTANCE_REPORT,
+    )
+    parser.add_argument(
+        "--d2-t20-handoff-report",
+        type=Path,
+        default=DEFAULT_D2_T20_HANDOFF_REPORT,
+    )
     parser.add_argument("--env-file", type=Path)
     parser.add_argument("--provider", default="tnskhdata")
     parser.add_argument("--resume", action="store_true")
@@ -1038,6 +1222,10 @@ def main() -> int:
         end_date=args.end_date,
         d3_t07_duckdb=args.d3_t07_duckdb,
         output_dir=args.output_dir,
+        auto_generate_d3_t07_from_d2_t20=args.auto_generate_d3_t07_from_d2_t20,
+        d2_t20_duckdb=args.d2_t20_duckdb,
+        d2_t20_acceptance_report=args.d2_t20_acceptance_report,
+        d2_t20_handoff_report=args.d2_t20_handoff_report,
         provider=args.provider,
         resume=args.resume,
         max_retries=args.max_retries,

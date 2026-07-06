@@ -8,11 +8,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import duckdb
 
 from scripts.generate_d3_t11_volume_amount_share_turnover_candidate import (
     OUTPUT_TABLE,
+    ensure_d3_t07_source_available,
     generate_d3_t11_volume_amount_share_turnover_candidate,
     load_env_file,
     read_security_universe_as_tnskhdata_codes,
@@ -237,6 +239,41 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
         self.assertFalse(summary["r0_state_generated"])
         self.assertFalse(summary["formal_data_version_published"])
 
+    def test_d3_t07_existing_source_preflight_is_available(self) -> None:
+        result = ensure_d3_t07_source_available(
+            d3_t07_duckdb=self.d3_db,
+            auto_generate_d3_t07_from_d2_t20=True,
+            d2_t20_duckdb=self.base / "missing.duckdb",
+            d2_t20_acceptance_report=self.base / "missing_acceptance.json",
+            d2_t20_handoff_report=self.base / "missing_handoff.json",
+            start_date="20260601",
+            end_date="20260601",
+            sample_securities=None,
+        )
+        self.assertEqual(result["d3_t07_source_status"], "available")
+        self.assertFalse(result["d3_t07_auto_generated"])
+
+    def test_missing_d3_t07_and_d2_t20_inputs_blocks_before_provider_call(self) -> None:
+        self.d3_db.unlink()
+        summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+            security_universe=self.universe_path,
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            d2_t20_duckdb=self.base / "missing.duckdb",
+            d2_t20_acceptance_report=self.base / "missing_acceptance.json",
+            d2_t20_handoff_report=self.base / "missing_handoff.json",
+            provider_client=FailingClient(),
+            allow_low_security_count=True,
+        )
+        self.assertEqual(
+            summary["d3_t11_generation_decision"],
+            "blocked_missing_d2_t20_inputs",
+        )
+        self.assertFalse(summary["remote_provider_called"])
+        self.assertFalse(summary["candidate_generated"])
+
     def test_missing_d3_t07_source_blocks_before_provider_call(self) -> None:
         self.d3_db.unlink()
         summary = generate_d3_t11_volume_amount_share_turnover_candidate(
@@ -245,15 +282,101 @@ class D3T11VolumeAmountShareTurnoverGenerationTest(unittest.TestCase):
             end_date="20260601",
             d3_t07_duckdb=self.d3_db,
             output_dir=self.output_dir,
+            auto_generate_d3_t07_from_d2_t20=False,
             provider_client=FailingClient(),
             allow_low_security_count=True,
         )
         self.assertEqual(
             summary["d3_t11_generation_decision"],
-            "blocked_missing_d3_t07_source_duckdb",
+            "blocked_missing_d3_t07_source",
         )
         self.assertFalse(summary["remote_provider_called"])
         self.assertFalse(summary["candidate_generated"])
+
+    def test_auto_generates_d3_t07_then_continues_d3_t11_fake_provider(self) -> None:
+        self.d3_db.unlink()
+        d2_duckdb = (
+            self.base / "data/generated/d2/d2_t20/d2_t15_tnskhdata_staging.duckdb"
+        )
+        d2_acceptance = self.base / "data/generated/d2/d2_t20/acceptance.json"
+        d2_handoff = self.base / "data/generated/d2/d2_t20/handoff.json"
+        d2_duckdb.parent.mkdir(parents=True)
+        d2_duckdb.write_text("synthetic d2 placeholder", encoding="utf-8")
+        d2_acceptance.write_text("{}", encoding="utf-8")
+        d2_handoff.write_text("{}", encoding="utf-8")
+
+        def fake_d3_t07_generator(**_kwargs: Any) -> dict[str, Any]:
+            self._write_source_duckdb(vol=100.0, amount=100.0)
+            return {
+                "task_id": "D3-T07",
+                "d3_t07_generation_decision": "accepted_candidate_observation",
+                "d3_rows_generated": True,
+                "data_version_published": False,
+                "r0_state_generated": False,
+                "output_duckdb": str(self.d3_db),
+            }
+
+        with patch(
+            (
+                "scripts.generate_d3_t11_volume_amount_share_turnover_candidate."
+                "generate_d3_t07_candidate_daily_observation"
+            ),
+            side_effect=fake_d3_t07_generator,
+        ):
+            summary = generate_d3_t11_volume_amount_share_turnover_candidate(
+                securities_file=self.securities_file,
+                start_date="20260601",
+                end_date="20260601",
+                d3_t07_duckdb=self.d3_db,
+                output_dir=self.output_dir,
+                d2_t20_duckdb=d2_duckdb,
+                d2_t20_acceptance_report=d2_acceptance,
+                d2_t20_handoff_report=d2_handoff,
+                provider_client=FakeDailyBasicClient(),
+                code_commit="synthetic",
+            )
+
+        self.assertGreater(summary["candidate_row_count"], 0)
+        self.assertEqual(summary["d3_t07_source_status"], "auto_generated_from_d2_t20")
+        self.assertTrue(summary["d3_t07_auto_generated"])
+        provider = json.loads(
+            (self.output_dir / "d3_t11_provider_call_summary.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertTrue(provider["remote_provider_called"])
+        self.assertFalse(summary["pcvt_values_generated"])
+        self.assertFalse(summary["r0_state_generated"])
+        self.assertFalse(summary["formal_data_version_published"])
+
+    def test_output_duckdb_does_not_replace_d2_t20_source(self) -> None:
+        d2_source = (
+            self.base / "data/generated/d2/d2_t20/d2_t15_tnskhdata_staging.duckdb"
+        )
+        d2_source.parent.mkdir(parents=True)
+        d2_source.write_text("synthetic d2 source", encoding="utf-8")
+        before = d2_source.read_bytes()
+        generate_d3_t11_volume_amount_share_turnover_candidate(
+            securities_file=self.securities_file,
+            start_date="20260601",
+            end_date="20260601",
+            d3_t07_duckdb=self.d3_db,
+            output_dir=self.output_dir,
+            provider_client=FakeDailyBasicClient(),
+            code_commit="synthetic",
+        )
+        self.assertEqual(d2_source.read_bytes(), before)
+        conn = duckdb.connect(
+            str(
+                self.output_dir / "d3_t11_volume_amount_share_turnover_candidate.duckdb"
+            ),
+            read_only=True,
+        )
+        try:
+            tables = {row[0] for row in conn.execute("SHOW TABLES").fetchall()}
+        finally:
+            conn.close()
+        self.assertEqual(tables, {OUTPUT_TABLE})
 
     def test_fake_provider_generates_standardized_candidate_rows(self) -> None:
         summary = generate_d3_t11_volume_amount_share_turnover_candidate(
