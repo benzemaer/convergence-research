@@ -16,6 +16,7 @@ from scripts.apply_d2_t20_fast_coverage_policy import (
     apply_d2_t20_policy,
     guard_output_dir,
     guard_source_duckdb,
+    load_policy_evidence_manifest,
 )
 from scripts.materialize_d2_tnskhdata_security_major_duckdb_candidate import (
     DuckDBStagingWriter,
@@ -32,6 +33,7 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         )
         self.source_duckdb = self.source_dir / CANONICAL_DUCKDB_NAME
         self.output_dir = self.base / "d2_t20_fast_coverage_policy_candidate"
+        self.manifest_path = Path("configs/d2/d2_t20_policy_evidence_manifest.v1.json")
         self._build_source_duckdb()
 
     def tearDown(self) -> None:
@@ -44,6 +46,7 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                 [
                     self._security("000155.SZ"),
                     self._security("688981.SH"),
+                    self._security("689009.SH"),
                 ]
             )
             writer.write_trade_calendar(
@@ -52,6 +55,8 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                     {"cal_date": "20160511", "is_open": "1"},
                     {"cal_date": "20200102", "is_open": "1"},
                     {"cal_date": "20200103", "is_open": "1"},
+                    {"cal_date": "20201029", "is_open": "1"},
+                    {"cal_date": "20201030", "is_open": "1"},
                 ]
             )
             writer.write_stock_basic(
@@ -66,6 +71,11 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                         "list_date": "20200101",
                         "delist_date": "",
                     },
+                    {
+                        "ts_code": "689009.SH",
+                        "list_date": "20201029",
+                        "delist_date": "",
+                    },
                 ]
             )
             writer.write_endpoint_rows(
@@ -73,6 +83,10 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                 [
                     self._daily("688981.SH", "20200102"),
                     self._daily("688981.SH", "20200103"),
+                    self._daily("688981.SH", "20201029"),
+                    self._daily("688981.SH", "20201030"),
+                    self._daily("689009.SH", "20201029"),
+                    self._daily("689009.SH", "20201030"),
                 ],
             )
             writer.write_endpoint_rows(
@@ -87,6 +101,10 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                 [
                     self._stk_limit("688981.SH", "20200102"),
                     self._stk_limit("688981.SH", "20200103"),
+                    self._stk_limit("688981.SH", "20201029"),
+                    self._stk_limit("688981.SH", "20201030"),
+                    self._stk_limit("689009.SH", "20201029"),
+                    self._stk_limit("689009.SH", "20201030"),
                 ],
             )
             compute_quality_gate(writer.conn)
@@ -135,6 +153,24 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             allow_user_attested_listing_pause=True,
             allow_neutral_adj_factor_policy=True,
             authorize_d3_candidate=True,
+        )
+
+    def _run_authorized_with_evidence(
+        self,
+        *,
+        output_dir: Path | None = None,
+        allow_pending_hash: bool = True,
+        manifest_path: Path | None = None,
+    ) -> dict[str, object]:
+        return apply_d2_t20_policy(
+            source_duckdb=self.source_duckdb,
+            output_dir=output_dir or self.output_dir,
+            allow_user_attested_listing_pause=True,
+            allow_neutral_adj_factor_policy=True,
+            authorize_d3_candidate=True,
+            policy_evidence_manifest=manifest_path or self.manifest_path,
+            require_policy_evidence=True,
+            allow_pending_evidence_hash=allow_pending_hash,
         )
 
     def _source_daily_count(self) -> int:
@@ -219,7 +255,8 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             policy_rows = conn.execute(
                 "SELECT ts_code, policy_type, policy_factor, evidence_level "
                 "FROM d2_policy_adj_factor_overrides "
-                "WHERE ts_code='688981.SH'"
+                "WHERE ts_code IN ('688981.SH', '689009.SH') "
+                "ORDER BY ts_code"
             ).fetchall()
             self.assertEqual(
                 policy_rows,
@@ -229,12 +266,24 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                         "neutral_factor_1",
                         1.0,
                         "policy_candidate_user_approved",
-                    )
+                    ),
+                    (
+                        "689009.SH",
+                        "neutral_factor_1",
+                        1.0,
+                        "policy_candidate_user_approved",
+                    ),
                 ],
             )
             self.assertEqual(
                 conn.execute(
                     "SELECT count(*) FROM staging_adj_factor WHERE ts_code='688981.SH'"
+                ).fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT count(*) FROM staging_adj_factor WHERE ts_code='689009.SH'"
                 ).fetchone()[0],
                 0,
             )
@@ -351,10 +400,194 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         notes = (self.output_dir / "d2_t20_d3_handoff_notes.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("user-attested", risk)
+        self.assertIn("manifest absent", risk)
         self.assertIn("neutral_factor_1", risk)
+        self.assertIn("688728.SH is supplementary observation only", risk)
         self.assertIn("listing_pause", notes)
         self.assertIn("policy rows", notes)
+        self.assertIn("policy_evidence_status", notes)
+        self.assertIn("neutral factor policy flags", notes)
+
+    def test_policy_evidence_manifest_is_readable(self) -> None:
+        manifest = load_policy_evidence_manifest(self.manifest_path)
+
+        self.assertIsNotNone(manifest)
+        assert manifest is not None
+        self.assertEqual(manifest["task_id"], "D2-T20")
+        self.assertEqual(manifest["manifest_id"], "d2_t20_policy_evidence_manifest.v1")
+        for row in manifest["listing_pause_intervals"]:
+            self.assertIn("ts_code", row)
+            self.assertIn("start_date", row)
+            self.assertIn("end_date", row)
+            roles = {
+                document["document_role"] for document in row["evidence_documents"]
+            }
+            self.assertEqual(
+                roles,
+                {"pause_listing_announcement", "resume_listing_announcement"},
+            )
+            for document in row["evidence_documents"]:
+                for key in ("source", "title", "announcement_date", "url", "sha256"):
+                    self.assertIn(key, document)
+        self.assertEqual(
+            {row["ts_code"] for row in manifest["adj_factor_policy_evidence"]},
+            {"688981.SH", "689009.SH"},
+        )
+        self.assertTrue(
+            all(
+                row["expected_d2_t18_policy_candidate"]
+                for row in manifest["adj_factor_policy_evidence"]
+            )
+        )
+        self.assertEqual(
+            {row["ts_code"] for row in manifest["supplementary_factor_observations"]},
+            {"688728.SH"},
+        )
+
+    def test_listing_pause_evidence_documents_are_written(self) -> None:
+        self._run_authorized_with_evidence()
+
+        conn = duckdb.connect(str(self.output_dir / CANONICAL_DUCKDB_NAME))
+        try:
+            rows = conn.execute(
+                """
+                SELECT ts_code, document_role, evidence_status
+                FROM d2_policy_evidence_documents
+                WHERE ts_code = '000155.SZ'
+                ORDER BY document_role
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+        self.assertEqual(
+            rows,
+            [
+                ("000155.SZ", "pause_listing_announcement", "pending_hash"),
+                ("000155.SZ", "resume_listing_announcement", "pending_hash"),
+            ],
+        )
+
+    def test_required_policy_evidence_without_pending_hash_blocks_acceptance(
+        self,
+    ) -> None:
+        self._run_authorized_with_evidence(allow_pending_hash=False)
+
+        acceptance = json.loads(
+            (self.output_dir / "d2_t20_acceptance_candidate_report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            acceptance["d2_acceptance_decision"], "blocked_pending_policy_evidence"
+        )
+        self.assertFalse(acceptance["policy_based_acceptance"])
+        self.assertTrue(acceptance["policy_evidence_pending_hash"])
+        self.assertEqual(
+            acceptance["policy_evidence_blocker"], "d2_t20_policy_evidence_hash_missing"
+        )
+        self.assertIn(
+            "d2_t20_policy_evidence_incomplete_or_mismatch",
+            acceptance["quality_blockers"],
+        )
+
+    def test_pending_hash_policy_evidence_can_accept_with_explicit_flag(self) -> None:
+        summary = self._run_authorized_with_evidence()
+
+        acceptance = json.loads(
+            (self.output_dir / "d2_t20_acceptance_candidate_report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            acceptance["d2_acceptance_decision"],
+            "accepted_for_d3_candidate_generation",
+        )
+        self.assertTrue(acceptance["policy_based_acceptance"])
+        self.assertTrue(acceptance["policy_evidence_pending_hash"])
+        self.assertEqual(
+            acceptance["policy_evidence_level"],
+            "official_announcement_pending_hash_and_policy_candidate",
+        )
+        self.assertTrue(summary["policy_evidence_gate_passed"])
+
+    def test_adj_factor_policy_evidence_target_mismatch_blocks(self) -> None:
+        manifest = load_policy_evidence_manifest(self.manifest_path)
+        assert manifest is not None
+        manifest["adj_factor_policy_evidence"] = [
+            row
+            for row in manifest["adj_factor_policy_evidence"]
+            if row["ts_code"] != "688981.SH"
+        ]
+        mismatch_path = self.base / "mismatch_manifest.json"
+        mismatch_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        self._run_authorized_with_evidence(
+            output_dir=self.base / "d2_t20_mismatch",
+            manifest_path=mismatch_path,
+        )
+
+        acceptance = json.loads(
+            (
+                self.base
+                / "d2_t20_mismatch"
+                / "d2_t20_acceptance_candidate_report.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            acceptance["d2_acceptance_decision"], "blocked_pending_policy_evidence"
+        )
+        self.assertEqual(
+            acceptance["policy_evidence_blocker"],
+            "d2_t20_policy_evidence_target_mismatch",
+        )
+
+    def test_supplementary_688728_does_not_replace_policy_target(self) -> None:
+        self._run_authorized_with_evidence()
+
+        conn = duckdb.connect(str(self.output_dir / CANONICAL_DUCKDB_NAME))
+        try:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT count(*) FROM d2_policy_adj_factor_overrides "
+                    "WHERE ts_code = '688728.SH'"
+                ).fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT count(*) FROM d2_policy_corporate_action_evidence "
+                    "WHERE ts_code = '688728.SH'"
+                ).fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
+    def test_factor_interval_evidence_does_not_create_provider_adj_factor_row(
+        self,
+    ) -> None:
+        self._run_authorized_with_evidence()
+
+        conn = duckdb.connect(str(self.output_dir / CANONICAL_DUCKDB_NAME))
+        try:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT count(*) FROM staging_adj_factor WHERE ts_code='689009.SH'"
+                ).fetchone()[0],
+                0,
+            )
+            rows = conn.execute(
+                """
+                SELECT ts_code, effective_adj_factor, evidence_status
+                FROM d2_policy_corporate_action_evidence
+                WHERE ts_code = '689009.SH'
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+        self.assertEqual(rows, [("689009.SH", 1.0, "pending_hash")])
 
     def test_readme_advances_to_d2_t20_and_keeps_r0_blocked(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")

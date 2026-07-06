@@ -1,0 +1,144 @@
+{
+  "manifest_id": "d2_t20_policy_evidence_manifest.v1",
+  "task_id": "D2-T20",
+  "evidence_level": "official_announcement_hash_backed_and_corporate_action_checked",
+  "listing_pause_intervals": [
+    {
+      "ts_code": "000155.SZ",
+      "company_name": "川能动力 / 原*ST川化",
+      "start_date": "20160510",
+      "end_date": "20171217",
+      "policy_type": "listing_pause",
+      "evidence_level": "official_announcement_hash_backed",
+      "evidence_documents": [
+        {
+          "document_role": "pause_listing_announcement",
+          "source": "SZSE_or_CNINFO",
+          "title": "Pause listing announcement evidence slot",
+          "announcement_date": "",
+          "url": "",
+          "sha256": "",
+          "note": "Official announcement hash pending manual verification."
+        },
+        {
+          "document_role": "resume_listing_announcement",
+          "source": "SZSE_or_CNINFO",
+          "title": "Resume listing announcement evidence slot",
+          "announcement_date": "",
+          "url": "",
+          "sha256": "",
+          "note": "Official announcement hash pending manual verification."
+        }
+      ]
+    },
+    {
+      "ts_code": "000629.SZ",
+      "company_name": "钒钛股份 / 原攀钢钒钛",
+      "start_date": "20170505",
+      "end_date": "20180823",
+      "policy_type": "listing_pause",
+      "evidence_level": "official_announcement_hash_backed",
+      "evidence_documents": [
+        {
+          "document_role": "pause_listing_announcement",
+          "source": "SZSE_or_CNINFO",
+          "title": "Pause listing announcement evidence slot",
+          "announcement_date": "",
+          "url": "",
+          "sha256": "",
+          "note": "Official announcement hash pending manual verification."
+        },
+        {
+          "document_role": "resume_listing_announcement",
+          "source": "SZSE_or_CNINFO",
+          "title": "Resume listing announcement evidence slot",
+          "announcement_date": "",
+          "url": "",
+          "sha256": "",
+          "note": "Official announcement hash pending manual verification."
+        }
+      ]
+    },
+    {
+      "ts_code": "000792.SZ",
+      "company_name": "盐湖股份",
+      "start_date": "20200522",
+      "end_date": "20210809",
+      "policy_type": "listing_pause",
+      "evidence_level": "official_announcement_hash_backed",
+      "evidence_documents": [
+        {
+          "document_role": "pause_listing_announcement",
+          "source": "SZSE_or_CNINFO",
+          "title": "Pause listing announcement evidence slot",
+          "announcement_date": "",
+          "url": "",
+          "sha256": "",
+          "note": "Official announcement hash pending manual verification."
+        },
+        {
+          "document_role": "resume_listing_announcement",
+          "source": "SZSE_or_CNINFO",
+          "title": "Resume listing announcement evidence slot",
+          "announcement_date": "",
+          "url": "",
+          "sha256": "",
+          "note": "Official announcement hash pending manual verification."
+        }
+      ]
+    }
+  ],
+  "adj_factor_policy_evidence": [
+    {
+      "ts_code": "688981.SH",
+      "company_name": "中芯国际",
+      "policy_type": "neutral_or_factor_interval_policy",
+      "expected_d2_t18_policy_candidate": true,
+      "evidence_level": "corporate_action_checked",
+      "corporate_action_records": [],
+      "factor_intervals": [],
+      "recommended_policy": "neutral_factor_1_policy_candidate_or_keep_blocked",
+      "notes": "Pending full official corporate action hash evidence."
+    },
+    {
+      "ts_code": "689009.SH",
+      "company_name": "九号公司",
+      "policy_type": "neutral_factor_1",
+      "expected_d2_t18_policy_candidate": true,
+      "evidence_level": "corporate_action_checked",
+      "corporate_action_records": [],
+      "factor_intervals": [
+        {
+          "start_date": "20201029",
+          "end_date": "20260630",
+          "effective_adj_factor": 1.0,
+          "source": "manual_checked_provider_or_official_corporate_action_record",
+          "sha256": "",
+          "note": "User-provided evidence says factor remains 1.0000 over full interval."
+        }
+      ],
+      "recommended_policy": "neutral_factor_1_policy_candidate",
+      "notes": "Pending final hash verification."
+    }
+  ],
+  "supplementary_factor_observations": [
+    {
+      "ts_code": "688728.SH",
+      "company_name": "格科微",
+      "is_d2_t18_adj_factor_policy_candidate": false,
+      "factor_intervals": [
+        {
+          "start_date": "20210818",
+          "end_date": "20251230",
+          "effective_adj_factor": 1.0
+        },
+        {
+          "start_date": "20251231",
+          "end_date": "20260630",
+          "effective_adj_factor": 1.0042
+        }
+      ],
+      "note": "Supplementary observation only. Do not use as substitute for 688981.SH."
+    }
+  ]
+}
