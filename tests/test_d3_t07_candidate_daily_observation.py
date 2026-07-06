@@ -49,6 +49,7 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         factor_interval: bool = True,
         duplicate_daily: bool = False,
         invalid_ohlc: bool = False,
+        missing_factor: bool = False,
     ) -> None:
         self.source_duckdb.parent.mkdir(parents=True, exist_ok=True)
         conn = duckdb.connect(str(self.source_duckdb))
@@ -147,6 +148,10 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
                 daily_rows.append(daily_rows[0])
             if invalid_ohlc:
                 daily_rows.append(("BAD.SZ", "20200102", None, 1.0, 1.0, 1.0, 1.0, 1.0))
+            if missing_factor:
+                daily_rows.append(
+                    ("MISS.SZ", "20200102", 15.0, 16.0, 14.0, 15.5, 150.0, 2325.0)
+                )
             conn.executemany(
                 "INSERT INTO staging_daily_raw VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 daily_rows,
@@ -191,6 +196,16 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
                         "resolved",
                     )
                 )
+            if missing_factor:
+                source_status_rows.append(
+                    (
+                        "MISS.SZ",
+                        "20200102",
+                        "listed_open_resolved_daily",
+                        "resolved",
+                        "resolved",
+                    )
+                )
             conn.executemany(
                 "INSERT INTO d2_source_status VALUES (?, ?, ?, ?, ?)",
                 source_status_rows,
@@ -203,6 +218,8 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
             ]
             if invalid_ohlc:
                 factor_rows.append(("BAD.SZ", "20200102", "resolved"))
+            if missing_factor:
+                factor_rows.append(("MISS.SZ", "20200102", "missing"))
             conn.executemany(
                 "INSERT INTO d2_factor_evidence VALUES (?, ?, ?)",
                 factor_rows,
@@ -306,6 +323,22 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
     def _output_conn(self) -> duckdb.DuckDBPyConnection:
         return duckdb.connect(str(self.d3_dir / OUTPUT_DUCKDB_NAME), read_only=True)
 
+    def _observation_count(self) -> int:
+        conn = self._output_conn()
+        try:
+            return int(
+                conn.execute(f"SELECT count(*) FROM {OBSERVATION_TABLE}").fetchone()[0]
+            )
+        finally:
+            conn.close()
+
+    def _handoff_report(self) -> dict[str, object]:
+        return json.loads(
+            (self.d3_dir / "d3_t07_handoff_candidate_report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
     def test_contract_json_passes_schema(self) -> None:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
@@ -345,6 +378,7 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         finally:
             conn.close()
         self.assertEqual(pause_count, 0)
+        self.assertEqual(len(rows), 3)
         self.assertEqual(
             rows,
             [
@@ -406,7 +440,11 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
             summary["d3_t07_generation_decision"],
             "blocked_pending_factor_interval_resolution",
         )
+        self.assertFalse(summary["d3_rows_generated"])
         self.assertEqual(quality["factor_interval_unresolved_count"], 1)
+        self.assertEqual(quality["generated_observation_row_count"], 0)
+        self.assertEqual(self._observation_count(), 0)
+        self.assertEqual(self._handoff_report()["d3_candidate_observation_path"], "")
 
     def test_duplicate_observation_key_blocks(self) -> None:
         self.source_duckdb.unlink()
@@ -420,7 +458,11 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         self.assertEqual(
             summary["d3_t07_generation_decision"], "blocked_pending_quality_resolution"
         )
+        self.assertFalse(summary["d3_rows_generated"])
         self.assertEqual(quality["duplicate_observation_key_count"], 1)
+        self.assertEqual(quality["generated_observation_row_count"], 0)
+        self.assertEqual(self._observation_count(), 0)
+        self.assertEqual(self._handoff_report()["d3_candidate_observation_path"], "")
 
     def test_invalid_ohlc_blocks(self) -> None:
         self.source_duckdb.unlink()
@@ -434,7 +476,29 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         self.assertEqual(
             summary["d3_t07_generation_decision"], "blocked_pending_quality_resolution"
         )
+        self.assertFalse(summary["d3_rows_generated"])
         self.assertEqual(quality["null_ohlc_count"], 1)
+        self.assertEqual(quality["generated_observation_row_count"], 0)
+        self.assertEqual(self._observation_count(), 0)
+        self.assertEqual(self._handoff_report()["d3_candidate_observation_path"], "")
+
+    def test_missing_effective_adj_factor_blocks_without_rows(self) -> None:
+        self.source_duckdb.unlink()
+        self._build_source_duckdb(missing_factor=True)
+
+        summary = self._run_generator()
+        quality = json.loads(
+            (self.d3_dir / "d3_t07_quality_report.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            summary["d3_t07_generation_decision"], "blocked_pending_quality_resolution"
+        )
+        self.assertFalse(summary["d3_rows_generated"])
+        self.assertEqual(quality["missing_effective_adj_factor_count"], 1)
+        self.assertEqual(quality["generated_observation_row_count"], 0)
+        self.assertEqual(self._observation_count(), 0)
+        self.assertEqual(self._handoff_report()["d3_candidate_observation_path"], "")
 
     def test_source_duckdb_and_staging_adj_factor_are_not_modified(self) -> None:
         before_hash = hashlib.sha256(self.source_duckdb.read_bytes()).hexdigest()

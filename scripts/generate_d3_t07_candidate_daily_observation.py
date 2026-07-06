@@ -35,6 +35,14 @@ FORBIDDEN_OUTPUT_NAMES = {
     "portfolio.csv",
     "r0_state.csv",
 }
+PRE_INSERT_BLOCKER_KEYS = (
+    "duplicate_observation_key_count",
+    "null_ohlc_count",
+    "non_positive_price_count",
+    "high_low_violation_count",
+    "missing_effective_adj_factor_count",
+    "factor_interval_unresolved_count",
+)
 
 
 class D3T07GenerationError(ValueError):
@@ -431,17 +439,7 @@ def compute_quality(
 
 
 def has_quality_blockers(quality: dict[str, Any]) -> bool:
-    return any(
-        int(quality.get(key, 0)) > 0
-        for key in (
-            "duplicate_observation_key_count",
-            "null_ohlc_count",
-            "non_positive_price_count",
-            "high_low_violation_count",
-            "missing_effective_adj_factor_count",
-            "factor_interval_unresolved_count",
-        )
-    )
+    return any(int(quality.get(key, 0)) > 0 for key in PRE_INSERT_BLOCKER_KEYS)
 
 
 def insert_candidate_rows(conn: duckdb.DuckDBPyConnection) -> None:
@@ -746,9 +744,10 @@ def generate_d3_t07_candidate_daily_observation(
             start_date=start_date,
             end_date=end_date,
         )
-        insert_candidate_rows(conn)
-        finalize_quality(conn, quality)
         blockers = has_quality_blockers(quality)
+        if not blockers:
+            insert_candidate_rows(conn)
+        finalize_quality(conn, quality)
         decision = (
             "blocked_pending_factor_interval_resolution"
             if quality["factor_interval_unresolved_count"] > 0
