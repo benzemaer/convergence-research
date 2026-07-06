@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R0
-current_task: R0-T01 PCVT 候选指标规格与状态族定义
-next_planned_task: R0-T02 输入 readiness gate 与 C2/V1 公司行为口径审计
+current_task: R0-T02 输入 readiness gate 与 C2/V1 公司行为口径审计
+next_planned_task: R0-T03 PCVT raw metric engine 与合成测试
 ```
 
 ## 命名与路径规则
@@ -211,8 +211,8 @@ formal data_version、formal source promotion 与 R0 交接仍未授权。
 
 状态：in_progress
 
-- `R0-T01` PCVT 候选指标规格、状态族与 candidate spec contract：in_progress
-- `R0-T02` 输入 readiness gate 与 C2/V1 公司行为口径审计：planned
+- `R0-T01` PCVT 候选指标规格、状态族与 candidate spec contract：completed via PR #56
+- `R0-T02` 输入 readiness gate 与 C2/V1 公司行为口径审计：in_progress
 - `R0-T03` PCVT raw metric engine 与合成测试：planned
 - `R0-T04` 严格过去分位、eligible 样本与 Score 体系：planned
 - `R0-T05` weak 维度规则、嵌套状态与互斥分层：planned

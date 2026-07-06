@@ -299,6 +299,7 @@ AdjVWAPSpread_{5\_60,t}
 - `DailyVWAP` 是成交价格中心，不等同于当前持仓者成本，报告中不得做超出该定义的解释。
 - 出现停牌、零成交、异常金额或极端单位错误时，应根据数据契约标记为 `unknown`，不得作为低参与的普通观察值。
 - R0-T02 必须先执行 C2 readiness gate：若 D3 仅声明 amount/volume 单位规则，但未提供可审计的 `adjusted_vwap_policy` 或等价共同公司行为基准，则 `AdjVWAPSpread_5_60` 不得被硬算为正式 C2 值。可执行策略为：无跨公司行为窗口且单位与 DailyVWAP 区间校验通过时可计算；跨分红、送转、配股、拆并股等窗口时，必须有共同基准转换，否则标记 `unknown` 或阻塞本配置。
+- R0-T02 将以独立 contract / schema / tests 固化 C2 输入 readiness gate；R0-T03 只能读取 R0-T02 允许为 `ready` 的输入条件，或按固定 reason 传播 `unknown / diagnostic_required / blocked`。
 
 ---
 
@@ -410,6 +411,7 @@ VolShrink20\_60_t=
 - 上市初期、重大解禁、复牌、代码变更、市场制度变化及数据字段变更应有独立标记。
 - 若 80 日原始成交量窗口内发生送转、拆并股、配股或其他改变股份数量可比性的公司行为，必须使用调整到共同股份基准的成交量，或将 `VolShrink20_60` 标记为 `unknown`；不得将数量级机械变化解释为缩量。
 - R0-T02 必须先执行 V1 readiness gate：若 80 日窗口内不存在影响股份数量可比性的公司行为，且成交量单位校验通过，可使用原始成交量计算；若窗口内存在送转、拆并股、配股等事件，则只有 D3 提供可审计的 `adjusted_volume`、`common_share_basis` 或等价 `volume_comparability_policy` 时才可计算，否则 `unknown_reason = corporate_action_volume_comparability_policy_missing`。
+- R0-T02 将以独立 contract / schema / tests 固化 V1 输入 readiness gate；R0-T03 只能读取 R0-T02 允许为 `ready` 的输入条件，或按固定 reason 传播 `unknown / diagnostic_required / blocked`。
 - 极端成交量不应静默截尾；若使用 winsorize 或对数化版本，只能作为 R1 替代口径并完整记录。
 
 ### 9.2 V2：AmountLevel20Pct
