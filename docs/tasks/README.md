@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D3
-current_task: D3-T09 R阶段工程分层与 Task-as-Step 规范收敛
-next_planned_task: R0-T01 PCVT 候选指标定义
+current_stage: R0
+current_task: R0-T01 PCVT 候选指标规格与状态族定义
+next_planned_task: R0-T02 输入 readiness gate 与 C2/V1 公司行为口径审计
 ```
 
 ## 命名与路径规则
@@ -205,14 +205,23 @@ formal data_version、formal source promotion 与 R0 交接仍未授权。
 - `D3-T06` `data_version`、quality report 与 manifest 发布门禁：completed via PR #40
 - `D3-T07` 从 D2-T20 evidence-verified candidate 生成标准日频观测表：completed via PR #53
 - `D3-T08` 研究基础数据集 registry 与路线无关质量审计：completed via PR #54
-- `D3-T09` R阶段工程分层与 Task-as-Step 规范收敛：in_progress
+- `D3-T09` R阶段工程分层与 Task-as-Step 规范收敛：completed
 
 ## R0：PCVT 候选观测量与候选状态定义
 
-状态：blocked / planned until D3-T09 governance convergence is accepted
+状态：in_progress
 
-- `R0-T01` PCVT 候选指标定义
-- `R0-T02` `q = 10 / 20 / 30` 结构检验
+- `R0-T01` PCVT 候选指标规格、状态族与 candidate spec contract：in_progress
+- `R0-T02` 输入 readiness gate 与 C2/V1 公司行为口径审计：planned
+- `R0-T03` PCVT raw metric engine 与合成测试：planned
+- `R0-T04` 严格过去分位、eligible 样本与 Score 体系：planned
+- `R0-T05` weak 维度规则、嵌套状态与互斥分层：planned
+- `R0-T06` 联合确认层、streak 与确认区间表：planned
+- `R0-T07` 主网格 candidate 状态日表与 manifest：planned
+- `R0-T08` R0 审计报告与 R1 交接：planned
+- `R0-T09` 替代指标口径敏感性骨架：optional
+- `R0-T10` Post-Up-Release Short-PCT 研究接口占位：optional
+- `R0-T11` R0 并行确定性与性能优化：optional
 
 ## R1：状态存在性、结构关系、稳定性与零模型检验
 

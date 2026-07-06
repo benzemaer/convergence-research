@@ -1,0 +1,329 @@
+{
+  "$schema": "../../schemas/r0/r0_t01_pcvt_candidate_spec.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "R0_T01_PCVT_CANDIDATE_SPEC_V1",
+  "task_id": "R0-T01",
+  "contract_status": "draft",
+  "contract_scope": "pcvt_candidate_indicator_spec_and_state_family",
+  "stage_spec_document": "docs/stages/R0_PCVT候选观测量与候选状态定义.md",
+  "real_data_read_authorized": false,
+  "duckdb_write_authorized": false,
+  "pcvt_metric_calculation_authorized": false,
+  "pcvt_percentile_generation_authorized": false,
+  "pcvt_score_generation_authorized": false,
+  "pcvt_state_generation_authorized": false,
+  "future_label_generation_authorized": false,
+  "returns_generation_authorized": false,
+  "backtest_generation_authorized": false,
+  "portfolio_generation_authorized": false,
+  "formal_data_version_authorized": false,
+  "price_usage_policy": {
+    "d3_candidate_observation_preserves_raw_ohlc_and_adjusted_ohlc": true,
+    "raw_fields": ["open", "high", "low", "close", "vol", "amount"],
+    "adjusted_fields": [
+      "adjusted_open",
+      "adjusted_high",
+      "adjusted_low",
+      "adjusted_close"
+    ],
+    "adjusted_price_derivation": "raw_ohlc_times_effective_adj_factor",
+    "pct_price_basis": "continuous_research_price_adjusted_fields",
+    "v_fact_basis": "raw_vol_amount",
+    "c2_daily_vwap_source": "raw_amount_divided_by_raw_volume",
+    "c2_alignment_requirement": "adjusted_vwap_policy_or_common_corporate_action_basis",
+    "forbidden_adjusted_price_label": "do_not_call_adjusted_fields_houfuquan"
+  },
+  "candidate_indicators": [
+    {
+      "indicator_id": "P1_NATR14",
+      "pcvt_layer": "P",
+      "raw_metric_name": "NATR14",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "continuous_research_price",
+      "required_fields": [
+        "adjusted_high",
+        "adjusted_low",
+        "adjusted_close",
+        "trading_status",
+        "corporate_action_flag"
+      ],
+      "observation_window": { "lookback_trading_days": 14, "smoothing": "wilder" },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "missing_prior_close",
+        "window_insufficient",
+        "suspension_in_window",
+        "adjustment_failure",
+        "nonpositive_adjusted_price"
+      ]
+    },
+    {
+      "indicator_id": "P2_LogRange20",
+      "pcvt_layer": "P",
+      "raw_metric_name": "LogRange20",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "continuous_research_price",
+      "required_fields": [
+        "adjusted_high",
+        "adjusted_low",
+        "trading_status",
+        "corporate_action_flag"
+      ],
+      "observation_window": { "lookback_trading_days": 20 },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "suspension_in_window",
+        "adjustment_failure",
+        "nonpositive_adjusted_price"
+      ]
+    },
+    {
+      "indicator_id": "C1_LogMASpread_5_60",
+      "pcvt_layer": "C",
+      "raw_metric_name": "LogMASpread_5_60",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "continuous_research_price",
+      "required_fields": [
+        "adjusted_close",
+        "trading_status",
+        "corporate_action_flag"
+      ],
+      "observation_window": { "moving_average_days": [5, 10, 20, 30, 60] },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "suspension_in_window",
+        "adjustment_failure",
+        "nonpositive_adjusted_price"
+      ]
+    },
+    {
+      "indicator_id": "C2_AdjVWAPSpread_5_60",
+      "pcvt_layer": "C",
+      "raw_metric_name": "AdjVWAPSpread_5_60",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "raw_amount_volume_aligned_to_continuous_research_price",
+      "required_fields": [
+        "amount",
+        "volume",
+        "raw_low",
+        "raw_high",
+        "amount_unit",
+        "volume_unit",
+        "amount_volume_unit_status",
+        "daily_vwap_range_status",
+        "adjusted_vwap_policy",
+        "corporate_action_flag"
+      ],
+      "observation_window": { "vwap_days": [5, 10, 20, 30, 60] },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "amount_volume_unit_failure",
+        "daily_vwap_range_failure",
+        "corporate_action_common_basis_missing",
+        "suspension_or_zero_volume_in_window"
+      ],
+      "c2_policy": {
+        "target_metric": "AdjVWAPSpread_5_60",
+        "raw_fact_fields": ["amount", "volume"],
+        "raw_price_fields": ["raw_low", "raw_high"],
+        "unit_fields": [
+          "amount_unit",
+          "volume_unit",
+          "amount_volume_unit_status"
+        ],
+        "daily_vwap_validation": "daily_vwap_range_status",
+        "required_policy": "adjusted_vwap_policy",
+        "corporate_action_window_rule": "if_window_crosses_dividend_bonus_split_merge_rights_issue_then_adjusted_vwap_or_common_corporate_action_basis_required_else_unknown_or_blocked",
+        "raw_vwap_across_corporate_action_window_forbidden_as_adjusted_vwap": true
+      }
+    },
+    {
+      "indicator_id": "T1_ER20",
+      "pcvt_layer": "T",
+      "raw_metric_name": "ER20",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "continuous_research_price",
+      "required_fields": [
+        "adjusted_close",
+        "trading_status",
+        "corporate_action_flag"
+      ],
+      "observation_window": { "lookback_trading_days": 20 },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "suspension_in_window",
+        "adjustment_failure",
+        "nonpositive_adjusted_price"
+      ]
+    },
+    {
+      "indicator_id": "T2_AbsTrendT20",
+      "pcvt_layer": "T",
+      "raw_metric_name": "AbsTrendT20",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "continuous_research_price",
+      "required_fields": [
+        "adjusted_close",
+        "trading_status",
+        "corporate_action_flag",
+        "price_limit_status"
+      ],
+      "observation_window": { "valid_trading_days": 20 },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "suspension_in_window",
+        "adjustment_failure",
+        "nonpositive_adjusted_price",
+        "mechanical_path_diagnostic_required"
+      ],
+      "t2_policy": {
+        "target_metric": "AbsTrendT20",
+        "price_basis": "adjusted_close",
+        "valid_trading_days": 20,
+        "residual_se_zero_slope_zero_rule": "may_define_abs_trend_t20_as_0_but_must_check_suspension_repeated_fill_and_nontradable_status",
+        "residual_se_zero_slope_nonzero_rule": "must_not_set_to_0_mark_strong_trend_or_invalid_for_T_or_unknown_diagnostic_required_when_mechanical_path_adjustment_failure_or_limit_constraints_dominate"
+      }
+    },
+    {
+      "indicator_id": "V1_VolShrink20_60",
+      "pcvt_layer": "V",
+      "raw_metric_name": "VolShrink20_60",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "raw_trading_fact",
+      "required_fields": [
+        "volume",
+        "volume_unit",
+        "trading_status",
+        "corporate_action_flag"
+      ],
+      "observation_window": {
+        "recent_trading_days": 20,
+        "prior_non_overlapping_trading_days": 60,
+        "total_trading_days": 80
+      },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "suspension_in_window",
+        "zero_volume_not_low_participation",
+        "corporate_action_volume_comparability_policy_missing"
+      ],
+      "v1_policy": {
+        "target_metric": "VolShrink20_60",
+        "raw_fact_field": "volume",
+        "unit_field": "volume_unit",
+        "observation_window": "recent_20_trading_days_over_prior_non_overlapping_60_trading_days",
+        "required_policy_any_of": [
+          "volume_comparability_policy",
+          "common_share_basis_policy"
+        ],
+        "corporate_action_window_rule": "if_80_day_window_has_bonus_split_merge_rights_issue_or_other_share_comparability_event_and_no_adjusted_volume_common_share_basis_or_volume_comparability_policy_then_unknown",
+        "suspension_and_zero_volume_not_ordinary_low_participation": true
+      }
+    },
+    {
+      "indicator_id": "V2_AmountLevel20Pct",
+      "pcvt_layer": "V",
+      "raw_metric_name": "AmountLevel20Pct",
+      "raw_value_direction": "lower_is_more_convergent",
+      "price_or_fact_basis": "raw_trading_fact",
+      "required_fields": ["amount", "amount_unit", "trading_status"],
+      "observation_window": { "average_amount_trading_days": 20 },
+      "percentile_required": true,
+      "score_formula": "1 - strict_past_percentile",
+      "unknown_conditions": [
+        "window_insufficient",
+        "suspension_in_window",
+        "amount_unit_failure",
+        "nonpositive_amount"
+      ]
+    }
+  ],
+  "percentile_policy": {
+    "scope": "per_security_strict_past_history",
+    "cross_sectional_percentile": false,
+    "current_value_in_reference_set": false,
+    "tie_method": "midrank",
+    "windows_W": [120, 250, 500]
+  },
+  "score_policy": {
+    "indicator_score_formula": "1 - percentile",
+    "higher_score_more_convergent": true
+  },
+  "dimension_score_policy": {
+    "score_D": "mean(score_D1, score_D2)",
+    "score_D_min": "min(score_D1, score_D2)",
+    "unknown_propagation": "if_any_indicator_unknown_then_dimension_score_unknown"
+  },
+  "dimension_rule": {
+    "baseline": "weak",
+    "weak_delta": 0.1,
+    "rule": "score_D_ge_1_minus_q_and_score_D_min_ge_1_minus_q_minus_delta",
+    "strict_rule_active": false,
+    "strict_sidecar_authorized": false
+  },
+  "state_family": {
+    "core_lines": ["S_PCT", "S_PCVT"],
+    "nested_states": {
+      "S_P": "P",
+      "S_PC": "P and C",
+      "S_PCT": "P and C and T",
+      "S_PCVT": "P and C and T and V"
+    },
+    "mutually_exclusive_layers": {
+      "E_P": "P and not C",
+      "E_PC": "P and C and not T",
+      "E_PCT": "P and C and T and not V",
+      "E_PCVT": "P and C and T and V"
+    },
+    "unknown_not_negation": true
+  },
+  "candidate_grid": {
+    "percentile_window_W": [120, 250, 500],
+    "low_quantile_q": [0.1, 0.2, 0.3],
+    "confirmation_days_K": [2, 3, 5],
+    "baseline": {
+      "W": 250,
+      "q": 0.2,
+      "K": 3,
+      "dimension_rule": "weak",
+      "weak_delta": 0.1
+    },
+    "main_grid_size": 27,
+    "dimension_rule_grid_authorized": false
+  },
+  "post_up_release_short_pct_boundary": {
+    "defined_in_r0": false,
+    "deferred_to": ["R3", "R4"],
+    "may_use_short_ma_sets_later": [
+      ["MA5", "MA10", "MA20"],
+      ["MA5", "MA10", "MA20", "MA30"]
+    ],
+    "must_not_modify_r0_state_ontology": true
+  },
+  "prohibited_outputs": [
+    "pcvt_values",
+    "pcvt_percentiles",
+    "pcvt_scores",
+    "pcvt_states",
+    "state_intervals",
+    "future_labels",
+    "future_returns",
+    "breakout_direction",
+    "backtest",
+    "portfolio",
+    "formal_data_version"
+  ]
+}

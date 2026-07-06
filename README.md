@@ -20,6 +20,7 @@
 | `docs/03_可复现研究工程标准.md` | 可复现研究工程标准（Reproducible Research Engineering Standard） | 规定仓库、代码、测试、运行、CI、版本与审计要求 |
 | `docs/04_阶段与门禁框架.md` | 阶段与门禁框架（Stage–Gate Framework） | 定义 D0–D3、R0–R6 与 G0–G7 的关系 |
 | `docs/05_证据与产物治理政策.md` | 证据与产物治理政策（Evidence & Artifact Governance Policy） | 规定候选、验证、冻结、发布及结论边界 |
+| `docs/stages/` | 研究阶段纲领稳定入口 | 保存 R0–R6 阶段纲领，用于阶段级设计说明和下游交接；不作为正式产物、运行记录或门禁证据目录 |
 | `templates/` | 正式记录模板 | 用于 Step 设计、运行清单、实验记录和决策记录 |
 
 ## 启动顺序
