@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/d3_t08_research_dataset_registry_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "source_task_id",
+    "source_table",
+    "target_duckdb",
+    "research_dataset_route_agnostic",
+    "dataset_registry_authorized",
+    "schema_catalog_authorized",
+    "field_catalog_authorized",
+    "dataset_fingerprint_authorized",
+    "base_quality_audit_authorized",
+    "pcvt_indicator_specific_readiness_authorized",
+    "pcvt_indicator_calculation_authorized",
+    "pcvt_values_generation_authorized",
+    "pcvt_scores_generation_authorized",
+    "state_labels_generation_authorized",
+    "r0_state_generation_authorized",
+    "labels_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "formal_data_version_authorized",
+    "input_gate_required_fields",
+    "d3_t07_quality_blockers",
+    "target_tables",
+    "base_quality_checks",
+    "window_capacity_policy",
+    "required_outputs",
+    "prohibited_fields",
+    "prohibited_outputs",
+    "next_planned_task"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/d3_t08_research_dataset_registry_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"
+    },
+    "task_id": { "const": "D3-T08" },
+    "contract_status": { "const": "accepted" },
+    "contract_scope": {
+      "const": "route_agnostic_research_dataset_registry_and_base_quality_audit"
+    },
+    "source_task_id": { "const": "D3-T07" },
+    "source_table": { "const": "d3_candidate_daily_observation" },
+    "target_duckdb": { "const": "d3_t08_research_dataset_registry.duckdb" },
+    "research_dataset_route_agnostic": { "const": true },
+    "dataset_registry_authorized": { "const": true },
+    "schema_catalog_authorized": { "const": true },
+    "field_catalog_authorized": { "const": true },
+    "dataset_fingerprint_authorized": { "const": true },
+    "base_quality_audit_authorized": { "const": true },
+    "pcvt_indicator_specific_readiness_authorized": { "const": false },
+    "pcvt_indicator_calculation_authorized": { "const": false },
+    "pcvt_values_generation_authorized": { "const": false },
+    "pcvt_scores_generation_authorized": { "const": false },
+    "state_labels_generation_authorized": { "const": false },
+    "r0_state_generation_authorized": { "const": false },
+    "labels_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "input_gate_required_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d3_t07_generation_decision" } },
+        { "contains": { "const": "d3_candidate_observation_generated" } },
+        { "contains": { "const": "formal_data_version_published" } },
+        { "contains": { "const": "labels_generated" } },
+        { "contains": { "const": "returns_generated" } },
+        { "contains": { "const": "pcvt_values_generated" } },
+        { "contains": { "const": "r0_state_generated" } }
+      ]
+    },
+    "d3_t07_quality_blockers": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "duplicate_observation_key_count" } },
+        { "contains": { "const": "null_ohlc_count" } },
+        { "contains": { "const": "non_positive_price_count" } },
+        { "contains": { "const": "high_low_violation_count" } },
+        { "contains": { "const": "missing_effective_adj_factor_count" } },
+        { "contains": { "const": "factor_interval_unresolved_count" } }
+      ]
+    },
+    "target_tables": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d3_research_dataset_registry" } },
+        { "contains": { "const": "d3_research_dataset_schema_catalog" } },
+        { "contains": { "const": "d3_research_dataset_field_quality" } },
+        { "contains": { "const": "d3_research_dataset_coverage_by_security" } },
+        { "contains": { "const": "d3_research_dataset_coverage_by_date" } },
+        { "contains": { "const": "d3_research_dataset_policy_usage" } },
+        { "contains": { "const": "d3_research_dataset_window_capacity" } }
+      ]
+    },
+    "base_quality_checks": { "$ref": "#/$defs/stringArray" },
+    "window_capacity_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_agnostic",
+        "indicator_id_specific_readiness",
+        "window_sizes",
+        "partition_key",
+        "order_key"
+      ],
+      "properties": {
+        "route_agnostic": { "const": true },
+        "indicator_id_specific_readiness": { "const": false },
+        "window_sizes": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "contains": { "const": 20 }
+        },
+        "partition_key": { "const": "ts_code" },
+        "order_key": { "const": "trade_date" }
+      }
+    },
+    "required_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "d3_t08_research_dataset_registry.duckdb" } },
+        { "contains": { "const": "d3_t08_quality_report.json" } },
+        { "contains": { "const": "d3_t08_handoff_candidate_report.json" } },
+        { "contains": { "const": "d3_t08_schema_catalog.csv" } },
+        { "contains": { "const": "d3_t08_window_capacity_summary.csv" } }
+      ]
+    },
+    "prohibited_fields": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "pcvt_value" } },
+        { "contains": { "const": "pcvt_score" } },
+        { "contains": { "const": "pcvt_state" } },
+        { "contains": { "const": "q_threshold" } },
+        { "contains": { "const": "state" } },
+        { "contains": { "const": "label" } },
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "backtest_signal" } },
+        { "contains": { "const": "portfolio_return" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "data_version.json" } },
+        { "contains": { "const": "formal_manifest.json" } },
+        { "contains": { "const": "labels.csv" } },
+        { "contains": { "const": "returns.csv" } },
+        { "contains": { "const": "future_outcomes.csv" } },
+        { "contains": { "const": "backtest.csv" } },
+        { "contains": { "const": "portfolio.csv" } },
+        { "contains": { "const": "r0_state.csv" } },
+        { "contains": { "const": "pcvt_values.csv" } },
+        { "contains": { "const": "pcvt_scores.csv" } },
+        { "contains": { "const": "state_labels.csv" } }
+      ]
+    },
+    "next_planned_task": {
+      "const": "R0-T01 PCVT candidate indicator specification"
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    }
+  }
+}
