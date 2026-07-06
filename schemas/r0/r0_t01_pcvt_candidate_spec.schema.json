@@ -1,0 +1,508 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t01_pcvt_candidate_spec.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "stage_spec_document",
+    "real_data_read_authorized",
+    "duckdb_write_authorized",
+    "pcvt_metric_calculation_authorized",
+    "pcvt_percentile_generation_authorized",
+    "pcvt_score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "formal_data_version_authorized",
+    "price_usage_policy",
+    "candidate_indicators",
+    "percentile_policy",
+    "score_policy",
+    "dimension_score_policy",
+    "dimension_rule",
+    "state_family",
+    "candidate_grid",
+    "post_up_release_short_pct_boundary",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t01_pcvt_candidate_spec.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T01_PCVT_CANDIDATE_SPEC_V1" },
+    "task_id": { "const": "R0-T01" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": {
+      "const": "pcvt_candidate_indicator_spec_and_state_family"
+    },
+    "stage_spec_document": {
+      "const": "docs/stages/R0_PCVT候选观测量与候选状态定义.md"
+    },
+    "real_data_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "pcvt_metric_calculation_authorized": { "const": false },
+    "pcvt_percentile_generation_authorized": { "const": false },
+    "pcvt_score_generation_authorized": { "const": false },
+    "pcvt_state_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "price_usage_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "d3_candidate_observation_preserves_raw_ohlc_and_adjusted_ohlc",
+        "raw_fields",
+        "adjusted_fields",
+        "adjusted_price_derivation",
+        "pct_price_basis",
+        "v_fact_basis",
+        "c2_daily_vwap_source",
+        "c2_alignment_requirement",
+        "forbidden_adjusted_price_label"
+      ],
+      "properties": {
+        "d3_candidate_observation_preserves_raw_ohlc_and_adjusted_ohlc": {
+          "const": true
+        },
+        "raw_fields": {
+          "type": "array",
+          "items": { "enum": ["open", "high", "low", "close", "vol", "amount"] },
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "adjusted_fields": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "adjusted_open",
+              "adjusted_high",
+              "adjusted_low",
+              "adjusted_close"
+            ]
+          },
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "adjusted_price_derivation": {
+          "const": "raw_ohlc_times_effective_adj_factor"
+        },
+        "pct_price_basis": {
+          "const": "continuous_research_price_adjusted_fields"
+        },
+        "v_fact_basis": { "const": "raw_vol_amount" },
+        "c2_daily_vwap_source": {
+          "const": "raw_amount_divided_by_raw_volume"
+        },
+        "c2_alignment_requirement": {
+          "const": "adjusted_vwap_policy_or_common_corporate_action_basis"
+        },
+        "forbidden_adjusted_price_label": {
+          "const": "do_not_call_adjusted_fields_houfuquan"
+        }
+      }
+    },
+    "candidate_indicators": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "allOf": [
+        { "contains": { "$ref": "#/$defs/P1_NATR14" } },
+        { "contains": { "$ref": "#/$defs/P2_LogRange20" } },
+        { "contains": { "$ref": "#/$defs/C1_LogMASpread_5_60" } },
+        { "contains": { "$ref": "#/$defs/C2_AdjVWAPSpread_5_60" } },
+        { "contains": { "$ref": "#/$defs/T1_ER20" } },
+        { "contains": { "$ref": "#/$defs/T2_AbsTrendT20" } },
+        { "contains": { "$ref": "#/$defs/V1_VolShrink20_60" } },
+        { "contains": { "$ref": "#/$defs/V2_AmountLevel20Pct" } },
+        {
+          "contains": { "properties": { "pcvt_layer": { "const": "P" } } },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": { "properties": { "pcvt_layer": { "const": "C" } } },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": { "properties": { "pcvt_layer": { "const": "T" } } },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": { "properties": { "pcvt_layer": { "const": "V" } } },
+          "minContains": 2,
+          "maxContains": 2
+        }
+      ],
+      "items": { "$ref": "#/$defs/indicator" }
+    },
+    "percentile_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "cross_sectional_percentile",
+        "current_value_in_reference_set",
+        "tie_method",
+        "windows_W"
+      ],
+      "properties": {
+        "scope": { "const": "per_security_strict_past_history" },
+        "cross_sectional_percentile": { "const": false },
+        "current_value_in_reference_set": { "const": false },
+        "tie_method": { "const": "midrank" },
+        "windows_W": {
+          "type": "array",
+          "prefixItems": [{ "const": 120 }, { "const": 250 }, { "const": 500 }],
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "score_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indicator_score_formula", "higher_score_more_convergent"],
+      "properties": {
+        "indicator_score_formula": { "const": "1 - percentile" },
+        "higher_score_more_convergent": { "const": true }
+      }
+    },
+    "dimension_score_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score_D", "score_D_min", "unknown_propagation"],
+      "properties": {
+        "score_D": { "const": "mean(score_D1, score_D2)" },
+        "score_D_min": { "const": "min(score_D1, score_D2)" },
+        "unknown_propagation": {
+          "const": "if_any_indicator_unknown_then_dimension_score_unknown"
+        }
+      }
+    },
+    "dimension_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "weak_delta",
+        "rule",
+        "strict_rule_active",
+        "strict_sidecar_authorized"
+      ],
+      "properties": {
+        "baseline": { "const": "weak" },
+        "weak_delta": { "const": 0.1 },
+        "rule": {
+          "const": "score_D_ge_1_minus_q_and_score_D_min_ge_1_minus_q_minus_delta"
+        },
+        "strict_rule_active": { "const": false },
+        "strict_sidecar_authorized": { "const": false }
+      }
+    },
+    "state_family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "core_lines",
+        "nested_states",
+        "mutually_exclusive_layers",
+        "unknown_not_negation"
+      ],
+      "properties": {
+        "core_lines": {
+          "type": "array",
+          "allOf": [
+            { "contains": { "const": "S_PCT" } },
+            { "contains": { "const": "S_PCVT" } }
+          ],
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "nested_states": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["S_P", "S_PC", "S_PCT", "S_PCVT"],
+          "properties": {
+            "S_P": { "const": "P" },
+            "S_PC": { "const": "P and C" },
+            "S_PCT": { "const": "P and C and T" },
+            "S_PCVT": { "const": "P and C and T and V" }
+          }
+        },
+        "mutually_exclusive_layers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["E_P", "E_PC", "E_PCT", "E_PCVT"],
+          "properties": {
+            "E_P": { "const": "P and not C" },
+            "E_PC": { "const": "P and C and not T" },
+            "E_PCT": { "const": "P and C and T and not V" },
+            "E_PCVT": { "const": "P and C and T and V" }
+          }
+        },
+        "unknown_not_negation": { "const": true }
+      }
+    },
+    "candidate_grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "percentile_window_W",
+        "low_quantile_q",
+        "confirmation_days_K",
+        "baseline",
+        "main_grid_size",
+        "dimension_rule_grid_authorized"
+      ],
+      "properties": {
+        "percentile_window_W": {
+          "type": "array",
+          "prefixItems": [{ "const": 120 }, { "const": 250 }, { "const": 500 }],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "low_quantile_q": {
+          "type": "array",
+          "prefixItems": [{ "const": 0.1 }, { "const": 0.2 }, { "const": 0.3 }],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "confirmation_days_K": {
+          "type": "array",
+          "prefixItems": [{ "const": 2 }, { "const": 3 }, { "const": 5 }],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["W", "q", "K", "dimension_rule", "weak_delta"],
+          "properties": {
+            "W": { "const": 250 },
+            "q": { "const": 0.2 },
+            "K": { "const": 3 },
+            "dimension_rule": { "const": "weak" },
+            "weak_delta": { "const": 0.1 }
+          }
+        },
+        "main_grid_size": { "const": 27 },
+        "dimension_rule_grid_authorized": { "const": false }
+      }
+    },
+    "post_up_release_short_pct_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defined_in_r0",
+        "deferred_to",
+        "may_use_short_ma_sets_later",
+        "must_not_modify_r0_state_ontology"
+      ],
+      "properties": {
+        "defined_in_r0": { "const": false },
+        "deferred_to": {
+          "type": "array",
+          "prefixItems": [{ "const": "R3" }, { "const": "R4" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "may_use_short_ma_sets_later": { "type": "array", "minItems": 2 },
+        "must_not_modify_r0_state_ontology": { "const": true }
+      }
+    },
+    "prohibited_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "pcvt_values" } },
+        { "contains": { "const": "pcvt_percentiles" } },
+        { "contains": { "const": "pcvt_scores" } },
+        { "contains": { "const": "pcvt_states" } },
+        { "contains": { "const": "state_intervals" } },
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "future_returns" } },
+        { "contains": { "const": "breakout_direction" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "formal_data_version" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "indicator": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "indicator_id",
+        "pcvt_layer",
+        "raw_metric_name",
+        "raw_value_direction",
+        "price_or_fact_basis",
+        "required_fields",
+        "observation_window",
+        "percentile_required",
+        "score_formula",
+        "unknown_conditions"
+      ],
+      "properties": {
+        "indicator_id": {
+          "enum": [
+            "P1_NATR14",
+            "P2_LogRange20",
+            "C1_LogMASpread_5_60",
+            "C2_AdjVWAPSpread_5_60",
+            "T1_ER20",
+            "T2_AbsTrendT20",
+            "V1_VolShrink20_60",
+            "V2_AmountLevel20Pct"
+          ]
+        },
+        "pcvt_layer": { "enum": ["P", "C", "T", "V"] },
+        "raw_metric_name": { "type": "string", "minLength": 1 },
+        "raw_value_direction": { "const": "lower_is_more_convergent" },
+        "price_or_fact_basis": { "type": "string", "minLength": 1 },
+        "required_fields": { "$ref": "#/$defs/stringArray" },
+        "observation_window": { "type": "object" },
+        "percentile_required": { "const": true },
+        "score_formula": { "const": "1 - strict_past_percentile" },
+        "unknown_conditions": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "P1_NATR14": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name"],
+      "properties": {
+        "indicator_id": { "const": "P1_NATR14" },
+        "pcvt_layer": { "const": "P" },
+        "raw_metric_name": { "const": "NATR14" }
+      }
+    },
+    "P2_LogRange20": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name"],
+      "properties": {
+        "indicator_id": { "const": "P2_LogRange20" },
+        "pcvt_layer": { "const": "P" },
+        "raw_metric_name": { "const": "LogRange20" }
+      }
+    },
+    "C1_LogMASpread_5_60": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name"],
+      "properties": {
+        "indicator_id": { "const": "C1_LogMASpread_5_60" },
+        "pcvt_layer": { "const": "C" },
+        "raw_metric_name": { "const": "LogMASpread_5_60" }
+      }
+    },
+    "C2_AdjVWAPSpread_5_60": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name", "c2_policy"],
+      "properties": {
+        "indicator_id": { "const": "C2_AdjVWAPSpread_5_60" },
+        "pcvt_layer": { "const": "C" },
+        "raw_metric_name": { "const": "AdjVWAPSpread_5_60" },
+        "c2_policy": {
+          "type": "object",
+          "required": [
+            "required_policy",
+            "raw_vwap_across_corporate_action_window_forbidden_as_adjusted_vwap"
+          ],
+          "properties": {
+            "required_policy": { "const": "adjusted_vwap_policy" },
+            "raw_vwap_across_corporate_action_window_forbidden_as_adjusted_vwap": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "T1_ER20": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name"],
+      "properties": {
+        "indicator_id": { "const": "T1_ER20" },
+        "pcvt_layer": { "const": "T" },
+        "raw_metric_name": { "const": "ER20" }
+      }
+    },
+    "T2_AbsTrendT20": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name", "t2_policy"],
+      "properties": {
+        "indicator_id": { "const": "T2_AbsTrendT20" },
+        "pcvt_layer": { "const": "T" },
+        "raw_metric_name": { "const": "AbsTrendT20" },
+        "t2_policy": {
+          "type": "object",
+          "required": ["residual_se_zero_slope_nonzero_rule"],
+          "properties": {
+            "residual_se_zero_slope_nonzero_rule": {
+              "type": "string",
+              "pattern": "must_not_set_to_0"
+            }
+          }
+        }
+      }
+    },
+    "V1_VolShrink20_60": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name", "v1_policy"],
+      "properties": {
+        "indicator_id": { "const": "V1_VolShrink20_60" },
+        "pcvt_layer": { "const": "V" },
+        "raw_metric_name": { "const": "VolShrink20_60" },
+        "v1_policy": {
+          "type": "object",
+          "required": [
+            "required_policy_any_of",
+            "suspension_and_zero_volume_not_ordinary_low_participation"
+          ],
+          "properties": {
+            "required_policy_any_of": {
+              "type": "array",
+              "allOf": [
+                { "contains": { "const": "volume_comparability_policy" } },
+                { "contains": { "const": "common_share_basis_policy" } }
+              ]
+            },
+            "suspension_and_zero_volume_not_ordinary_low_participation": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "V2_AmountLevel20Pct": {
+      "type": "object",
+      "required": ["indicator_id", "pcvt_layer", "raw_metric_name"],
+      "properties": {
+        "indicator_id": { "const": "V2_AmountLevel20Pct" },
+        "pcvt_layer": { "const": "V" },
+        "raw_metric_name": { "const": "AmountLevel20Pct" }
+      }
+    }
+  }
+}

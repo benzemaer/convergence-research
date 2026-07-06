@@ -8,7 +8,7 @@
 > 后续阶段：R1 结构验证 → R2 状态冻结  
 > 生效边界：本文件只定义候选观测量、候选参数配置与候选状态日表；不定义未来标签，不使用未来波动扩张、未来收益、未来突破方向或回测结果选择指标及参数。
 
-> v0.3 变更摘要：补充 `S_PCT` 与 `S_PCVT` 双主线定位；将 `weak` 维度规则列为预声明敏感性规则；明确 `score_P / score_C / score_T / score_V` 的连续分计算方式；补充 `AdjVWAPSpread_5_60` 与 `VolShrink20_60` 的 R0 readiness gate；明确“突破后回踩均线再突破”属于 R3/R4 的 Post-Up-Release Short-PCT 路径研究，不改写 R0 状态本体；新增 R0 task 级路线图。
+> v0.3 变更摘要：补充 `S_PCT` 与 `S_PCVT` 双主线定位；将 `weak` 维度规则确定为 R0 baseline，`strict` 不进入 baseline 或 sidecar；明确 `score_P / score_C / score_T / score_V` 的连续分计算方式；补充 `AdjVWAPSpread_5_60` 与 `VolShrink20_60` 的 R0 readiness gate；明确“突破后回踩均线再突破”属于 R3/R4 的 Post-Up-Release Short-PCT 路径研究，不改写 R0 状态本体；新增 R0 task 级路线图和 R0-T01 candidate spec contract。
 
 ---
 
@@ -24,7 +24,7 @@ R0 的正式最低输出包括：
 2. 候选参数配置集与统一评分规则；
 3. 单指标、单维度、PCT 与 PCVT 的候选状态日表；
 4. `score_P / score_C / score_T / score_V` 及 `score_*_min` 等连续维度分诊断字段；
-5. strict 基线规则与 weak 预声明敏感性规则下的状态频率、覆盖率和差异摘要；
+5. weak baseline 规则下的状态频率、覆盖率和 `score_*_min` 边界诊断摘要；
 6. 每日 `valid / invalid / unknown` 状态及可追溯计算元数据；
 7. 供 R1 使用的覆盖率、层内相关性和候选状态频率基础统计；
 8. R0 task 级路线图和 R1 交接清单。
@@ -593,16 +593,7 @@ score_D(t)=\frac{Score_{D1,t}+Score_{D2,t}}{2},\qquad
 score_{D,min}(t)=\min(Score_{D1,t},Score_{D2,t})
 \]
 
-在两项均具资格时，基线维度状态采用非补偿性的 strict 规则：
-
-\[
-D^{strict}_t=
-\mathbb{1}(I_{D1,t}=1\land I_{D2,t}=1)
-\]
-
-若任一指标为 `unknown`，则 \(D^{strict}_t=unknown\)，而不是 0。strict 规则是 R0 主网格基线，因为它要求同一维度的“核心水平”与“动态或跨尺度特征”同时成立，避免由单项极端分数补偿另一项不成立。
-
-v0.3 同时预声明 weak 规则作为敏感性配置：
+在两项均具资格时，R0 baseline 维度状态采用非补偿性的 weak 规则：
 
 \[
 D^{weak}_t=
@@ -614,9 +605,9 @@ score_{D,min}(t)\ge 1-q-\delta
 \right)
 \]
 
-首版 weak 配置固定 \(\delta=0.10\)，不进入 \(W,q,K\) 的完全交叉主网格。以 \(q=20\%\) 为例，weak 要求维度均值分至少为 0.8，同时两个单项中较低者至少为 0.7。该规则允许轻微异步，但禁止一个指标极强、另一个指标明显不成立时被均值补偿通过。
+首版 weak 配置固定 \(\delta=0.10\)，不进入 \(W,q,K\) 的完全交叉主网格。以 \(q=20\%\) 为例，weak 要求维度均值分至少为 0.8，同时两个单项中较低者至少为 0.7。该规则允许轻微异步，但禁止一个指标极强、另一个指标明显不成立时被均值补偿通过。若任一指标为 `unknown`，则 \(D^{weak}_t=unknown\)，而不是 0。
 
-基础嵌套状态按所选 `dimension_rule` 生成。基线为 strict，weak 仅作为预声明敏感性输出：
+strict 曾作为备选维度规则讨论，但 R0 v0.3 当前决定不进入 baseline 或 sensitivity sidecar，以避免规则族扩张，并贴合维度内两个指标可能轻微异步的业务事实。基础嵌套状态按 baseline `dimension_rule = weak` 生成：
 
 \[
 S^{raw}_{P,t}=P^{raw}_t
@@ -748,8 +739,8 @@ R0 只需确保 `S_PCT` 能作为一般结构收敛状态被无前视生成。R3
 | `percentile_window_W` | 120, 250, 500 | 250 | 股票自身严格过去历史标尺 |
 | `low_quantile_q` | 10%, 20%, 30% | 20% | 单指标进入历史低位的阈值 |
 | `confirmation_days_K` | 2, 3, 5 | 3 | 联合状态的实时确认长度 |
-| `dimension_rule` | strict | strict | 主网格基线，层内双指标同时通过 |
-| `dimension_rule_sensitivity` | weak | weak_delta = 0.10 | 预声明敏感性输出，不与全部 W/q/K 完全交叉 |
+| `dimension_rule` | weak | weak | 主网格基线，要求 `score_D >= 1-q` 且 `score_D_min >= 1-q-delta` |
+| `weak_delta` | 0.10 | 0.10 | 固定维度内轻微异步容忍度，不进入参数网格 |
 
 主网格规模为：
 
@@ -757,7 +748,7 @@ R0 只需确保 `S_PCT` 能作为一般结构收敛状态被无前视生成。R3
 3\times3\times3=27
 \]
 
-这 27 个配置均应从相同冻结数据版本、相同股票宇宙和相同代码版本生成，并以 strict 维度规则作为主产物。weak 规则以固定 \(\delta=0.10\) 作为 sidecar sensitivity 输出，用于比较覆盖率、状态频率、碎片率、嵌套关系和与 strict 的差异；weak 不扩大为新的完全交叉主网格。所有配置用于 R1 的结构稳健性比较，不是为了按未来标签挑选最优组合。
+这 27 个配置均应从相同冻结数据版本、相同股票宇宙和相同代码版本生成，并以 weak 维度规则作为主产物。`weak_delta = 0.10` 固定，不扩大为新的完全交叉主网格；strict 不作为 R0 baseline 或 sidecar 输出。所有配置用于 R1 的结构稳健性比较，不是为了按未来标签挑选最优组合。
 
 `cooldown_days` 不应进入 R0 的状态本体网格。冷却期是事件去重和后续风险集构造规则，原则上在 R2 的状态事件规范或 R3 的释放设计中单独冻结。R0 可报告重复确认和相邻区间间隔，但不以冷却期改写日度状态。
 
@@ -926,14 +917,14 @@ R0 的 task 拆分遵循“一个 PR 实现一个 task”的治理边界。task 
 
 | Task | PR 标题建议 | 分支名建议 | 类型 | 目标与理由 |
 |---|---|---|---|---|
-| R0-T01 | `[codex] R0-T01 PCVT 候选指标规格与状态族定义` | `codex/r0-t01-pcvt-candidate-indicator-spec-state-family` | 必须 | 将本文件 v0.3 固化为仓库内可审核规格，明确八项指标、`S_PCT` / `S_PCVT` 双主线、禁止未来信息、strict 基线、weak 预声明敏感性、Post-Up-Release Short-PCT 后续边界。 |
+| R0-T01 | `[codex] R0-T01 PCVT 候选指标规格与状态族定义` | `codex/r0-t01-pcvt-candidate-indicator-spec-state-family` | 必须 | 将本文件 v0.3 固化为仓库内可审核规格，并落账为可机器校验的 R0-T01 candidate spec contract，明确八项指标、`S_PCT` / `S_PCVT` 双主线、禁止未来信息、weak baseline、strict inactive、Post-Up-Release Short-PCT 后续边界。 |
 | R0-T02 | `[codex] R0-T02 输入 readiness gate 与 C2/V1 公司行为口径审计` | `codex/r0-t02-input-readiness-c2-v1-corporate-action-gate` | 必须 | 审计 R0 是否具备合法输入。重点检查 amount/volume 单位、DailyVWAP 区间、`adjusted_vwap_policy`、`volume_comparability_policy`、公司行为窗口、停牌/零成交和 D3-only 读取边界。若 C2/V1 条件不足，必须输出 `unknown` 或 blocked，不得硬算。 |
 | R0-T03 | `[codex] R0-T03 PCVT raw metric engine 与合成测试` | `codex/r0-t03-pcvt-raw-metric-engine` | 必须 | 实现八项 raw 指标计算，包括窗口、单位、停牌、缺失、公司行为、SE=0 规则和 unknown reason 传播；先不使用未来标签，不输出交易信号。 |
 | R0-T04 | `[codex] R0-T04 严格过去分位、eligible 样本与 Score 体系` | `codex/r0-t04-strict-past-percentile-score-eligibility` | 必须 | 实现严格过去历史分位、中位秩并列处理、`W=120/250/500`、`common_eligible_sample`、指标 score、维度 score 和 `score_*_min`。这是 R0 防前视与可比较性的核心。 |
-| R0-T05 | `[codex] R0-T05 strict / weak 维度规则、嵌套状态与互斥分层` | `codex/r0-t05-strict-weak-dimension-state-logic` | 必须 | 生成 P/C/T/V、`S_P`、`S_PC`、`S_PCT`、`S_PCVT`、完整四维向量、unknown mask 和互斥分层。strict 为主网格；weak 固定 `delta=0.10` 作为预声明敏感性输出。 |
+| R0-T05 | `[codex] R0-T05 weak 维度规则、嵌套状态与互斥分层` | `codex/r0-t05-weak-dimension-state-logic` | 必须 | 生成 P/C/T/V、`S_P`、`S_PC`、`S_PCT`、`S_PCVT`、完整四维向量、unknown mask 和互斥分层。weak 为主网格 baseline，固定 `delta=0.10`；strict 不进入 baseline 或 sidecar。 |
 | R0-T06 | `[codex] R0-T06 联合确认层、streak 与确认区间表` | `codex/r0-t06-confirmation-streak-intervals` | 必须 | 实现 `K=2/3/5` 的实时确认、streak、`raw_start_date`、`confirmation_time`、`confirmed_start_date`、终止类型和确认区间表。确认不得回填为早期可得信号。 |
-| R0-T07 | `[codex] R0-T07 主网格 candidate 状态日表与 manifest` | `codex/r0-t07-main-grid-candidate-state-artifacts` | 必须 | 对 27 个 strict 主网格配置生成 candidate 状态日表、区间表和 manifest；写入 `candidate_config_id`、`config_hash`、`run_id`、`code_commit`、输入输出哈希和数据版本。 |
-| R0-T08 | `[codex] R0-T08 R0 审计报告与 R1 交接` | `codex/r0-t08-r0-acceptance-r1-handoff` | 必须 | 输出覆盖率、unknown 分布、C2/V1 readiness 影响、层内相关性、维度共现、`S_PCT`/`S_PCVT` 频率、strict vs weak 差异、嵌套一致性、确认层审计和 R1 handoff。 |
+| R0-T07 | `[codex] R0-T07 主网格 candidate 状态日表与 manifest` | `codex/r0-t07-main-grid-candidate-state-artifacts` | 必须 | 对 27 个 weak baseline 主网格配置生成 candidate 状态日表、区间表和 manifest；写入 `candidate_config_id`、`config_hash`、`run_id`、`code_commit`、输入输出哈希和数据版本。 |
+| R0-T08 | `[codex] R0-T08 R0 审计报告与 R1 交接` | `codex/r0-t08-r0-acceptance-r1-handoff` | 必须 | 输出覆盖率、unknown 分布、C2/V1 readiness 影响、层内相关性、维度共现、`S_PCT`/`S_PCVT` 频率、weak baseline 边界诊断、嵌套一致性、确认层审计和 R1 handoff。 |
 | R0-T09 | `[codex] R0-T09 替代指标口径敏感性骨架` | `codex/r0-t09-alternative-metric-sensitivity` | 可选 | 仅在 R1 需要时启用，用于一次改变一个构件的替代口径，例如 `NATR20`、`LogRange30`、`ER30`、`VolShrink30_90`。不得与全部 W/q/K 完全交叉，不得用未来表现筛选。 |
 | R0-T10 | `[codex] R0-T10 Post-Up-Release Short-PCT 研究接口占位` | `codex/r0-t10-post-release-short-pct-interface-placeholder` | 可选 | 只定义后续 R3/R4 所需的字段占位和边界说明，不计算释放、不定义未来路径、不改写 R0 状态。本 task 只有在需要提前对齐 R3/R4 接口时才做。 |
 | R0-T11 | `[codex] R0-T11 R0 并行确定性与性能优化` | `codex/r0-t11-deterministic-parallel-runtime` | 可选 | 仅当 27 主网格运行成本过高时启动。目标是保证单线程与并行 worker 在 schema、排序、哈希和关键统计量上确定一致。 |
@@ -942,5 +933,4 @@ R0 的 task 拆分遵循“一个 PR 实现一个 task”的治理边界。task 
 
 R0-T01 至 R0-T08 是进入 R1 的最低必要路线。它们分别覆盖定义、输入门禁、指标实现、分位与分数、状态逻辑、确认区间、candidate 产物和交接审计。缺少任一项，R1 都无法合法判断状态是否存在、是否稳定、是否超过零模型或是否具有超越 P 的结构增量。
 
-R0-T09 至 R0-T11 是可选任务。它们不应阻塞基线 R0 完成，除非 R0-T08 审计显示基线样本容量、C2/V1 可用性、weak/strict 差异或运行性能已经影响 R1 的可执行性。可选任务不得引入未来收益、未来突破方向、未来路径标签或回测结果。
-
+R0-T09 至 R0-T11 是可选任务。它们不应阻塞基线 R0 完成，除非 R0-T08 审计显示基线样本容量、C2/V1 可用性、weak baseline 边界或运行性能已经影响 R1 的可执行性。可选任务不得引入未来收益、未来突破方向、未来路径标签或回测结果。
