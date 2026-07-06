@@ -6,7 +6,7 @@ in_progress。本任务使用显式 policy override 推进 D2 research candidate
 
 ## 目标
 
-D2-T20 读取 D2-T19 repaired candidate DuckDB，复制到 D2-T20 output-dir，然后在复制库内应用两类显式 policy override：三段 `listing_pause` 区间，以及 688981.SH / 689009.SH 的 `neutral_factor_1` adjustment factor policy。目标是在不伪造 daily bar、不写 provider adj_factor rows 的前提下，将剩余 coverage blocker 清零，并输出 D2 acceptance candidate report 与 D3 handoff candidate report。本任务追加 `configs/d2/d2_t20_policy_evidence_manifest.v1.json` 作为 policy evidence manifest；若启用 `--require-policy-evidence`，acceptance 还必须通过 evidence gate。
+D2-T20 读取 D2-T19 repaired candidate DuckDB，复制到 D2-T20 output-dir，然后在复制库内应用两类显式 policy override：三段 `listing_pause` 区间，以及 688981.SH / 689009.SH 的 adjustment factor policy。目标是在不伪造 daily bar、不写 provider adj_factor rows 的前提下，将剩余 coverage blocker 清零，并输出 D2 acceptance candidate report 与 D3 handoff candidate report。本任务追加 `configs/d2/d2_t20_policy_evidence_manifest.v1.json` 作为 policy evidence manifest；若启用 `--require-policy-evidence`，acceptance 还必须通过 evidence gate。
 
 ## 非目标
 
@@ -39,7 +39,7 @@ Policy evidence 参数：
 --allow-pending-evidence-hash
 ```
 
-`--require-policy-evidence` 启用后，脚本必须校验 listing pause 官方公告 evidence slot、688981.SH / 689009.SH adjustment-factor policy target 以及 supplementary observation 不替代 policy target。当前 manifest 允许官方公告或 corporate action 证据先以 pending hash 进入 candidate acceptance，但必须显式传入 `--allow-pending-evidence-hash`；否则 sha256 为空会阻塞 acceptance。
+`--require-policy-evidence` 启用后，脚本必须校验 listing pause 公告 evidence、688981.SH / 689009.SH adjustment-factor policy target 和 tnskhdata `adj_factor` normalized response hash。当前 manifest 已由 Codex 联网下载或读取公告正文、计算 sha256，并调用 tnskhdata `adj_factor` 补齐因子 evidence；accepted run 不依赖 `--allow-pending-evidence-hash`。若 sha256 为空或 evidence_status 不是 `hash_verified`，acceptance 必须阻塞。
 
 ## 输出
 
@@ -80,16 +80,16 @@ d2_policy_corporate_action_evidence
 000792.SZ 20200522-20210809
 ```
 
-脚本在复制库内新增 `d2_policy_listing_pause_intervals`，以 `policy_type = listing_pause`、`applied_by_task = D2-T20` 记录。若 evidence manifest 的公告 sha256 已填充，`evidence_level = official_announcement_hash_backed`；若 sha256 为空且显式允许 pending hash，`evidence_level = official_announcement_pending_hash`。落在这些区间内的 security-date 标记为 `trading_status = listing_pause`、`daily_status = not_applicable_or_expected_empty`、`price_limit_status = not_applicable_or_expected_empty`，不再计入 listed-open missing daily 或 price-limit dependency blocker。
+脚本在复制库内新增 `d2_policy_listing_pause_intervals`，以 `policy_type = listing_pause`、`applied_by_task = D2-T20` 记录。若 evidence manifest 的公告 sha256 已填充且 `evidence_status = hash_verified`，`evidence_level = official_announcement_hash_backed`。落在这些区间内的 security-date 标记为 `trading_status = listing_pause`、`daily_status = not_applicable_or_expected_empty`、`price_limit_status = not_applicable_or_expected_empty`，不再计入 listed-open missing daily 或 price-limit dependency blocker。
 
-neutral adj_factor policy 固定用于：
+adjustment factor policy 固定用于：
 
 ```text
 688981.SH
 689009.SH
 ```
 
-脚本在复制库内新增 `d2_policy_adj_factor_overrides`，以 `policy_type = neutral_factor_1`、`policy_factor = 1.0`、`evidence_level = policy_candidate_user_approved`、`applied_by_task = D2-T20` 记录。对应 unresolved adjustment-factor rows 标记为 `neutral_factor_1_policy`，不再计入 unresolved adjustment factor blocker。不得向 `staging_adj_factor` 伪造 provider rows。688728.SH 只能作为 supplementary observation，不能替代 688981.SH 或 689009.SH policy evidence target；若 manifest target 与 D2-T18/D2-T19 policy candidate 不一致，acceptance 必须阻塞。
+脚本在复制库内新增 `d2_policy_adj_factor_overrides`，以 `evidence_level = tnskhdata_adj_factor_hash_verified`、`applied_by_task = D2-T20` 记录。688981.SH 的真实 tnskhdata `adj_factor` evidence 全区间为 1.0，因此使用 `policy_type = neutral_factor_1`、`policy_factor = 1.0`，对应 unresolved adjustment-factor rows 标记为 `neutral_factor_1_policy`。689009.SH 的真实 tnskhdata `adj_factor` evidence 存在非 1.0 区间，因此使用 `policy_type = factor_interval`、`policy_factor = NULL`，对应 unresolved rows 标记为 `factor_interval_policy`，区间写入 `d2_policy_corporate_action_evidence`。不得向 `staging_adj_factor` 伪造 provider rows；若 manifest target 与 D2-T18/D2-T19 policy candidate 不一致，acceptance 必须阻塞。
 
 ## 验收标准
 
@@ -105,15 +105,15 @@ stk_limit_resolved_count
 adj_factor_resolved_count
 ```
 
-显式授权齐全、blocker 清零且 evidence gate 通过时，`d2_acceptance_decision = accepted_for_d3_candidate_generation`，handoff report 可输出 `d3_candidate_generation_authorized`。若 evidence gate 仅因 sha256 为空而通过，acceptance report 必须标记 `policy_evidence_pending_hash = true` 与 `policy_evidence_level = official_announcement_pending_hash_and_policy_candidate`。即便如此，D2-T20 仍不生成 D3 rows、不发布 data_version、不生成 R0。
+显式授权齐全、blocker 清零且 evidence gate 通过时，`d2_acceptance_decision = accepted_for_d3_candidate_generation`，handoff report 可输出 `d3_candidate_generation_authorized`。accepted run 必须标记 `policy_evidence_pending_hash = false` 与 `policy_evidence_level = official_or_mirror_hash_verified_and_tnskhdata_adj_factor_verified`。即便如此，D2-T20 仍不生成 D3 rows、不发布 data_version、不生成 R0。
 
 ## 阻塞条件 / 失败状态
 
-若缺少 `--allow-user-attested-listing-pause`、`--allow-neutral-adj-factor-policy` 或 `--authorize-d3-candidate` 任一参数，不得 accepted。若 policy 后仍有 listed-open missing daily、daily dependency、price-limit unresolved、adjustment-factor unresolved 或其他 quality blocker，不得 accepted。若启用 `--require-policy-evidence` 但 manifest 缺失、listing pause 公告 slot 不完整、688981.SH / 689009.SH target 不匹配、688728.SH 被用作替代 target、sha256 为空且未显式允许 pending hash，`d2_acceptance_decision` 必须为 `blocked_pending_policy_evidence`。若 PR 生成 fake daily bar、0 price、formal data_version、D3 rows、R0 states、labels、returns、backtest 或 portfolio，PR 必须回退。
+若缺少 `--allow-user-attested-listing-pause`、`--allow-neutral-adj-factor-policy` 或 `--authorize-d3-candidate` 任一参数，不得 accepted。若 policy 后仍有 listed-open missing daily、daily dependency、price-limit unresolved、adjustment-factor unresolved 或其他 quality blocker，不得 accepted。若启用 `--require-policy-evidence` 但 manifest 缺失、listing pause 公告 slot 不完整、688981.SH / 689009.SH target 不匹配、sha256 为空、evidence_status 不是 `hash_verified`，`d2_acceptance_decision` 必须为 `blocked_pending_policy_evidence`。若 PR 生成 fake daily bar、0 price、formal data_version、D3 rows、R0 states、labels、returns、backtest 或 portfolio，PR 必须回退。
 
 ## 风险说明
 
-三段 listing_pause 目前有官方公告 evidence slot，但 sha256 仍可处于 pending hash 状态。688981.SH / 689009.SH 是唯一 adjustment-factor policy target；688728.SH 只是 supplementary observation。neutral factor 是 research candidate policy，不是 provider factor evidence，也不得升级任何 provider 为 formal source。D2-T20 只用于推进 D3 research candidate；未来 formal data_version 仍需补官方证据 hash 或替代数据源验证。
+三段 listing_pause 目前已有公告 evidence hash，其中 000155.SZ 暂停上市公告使用公告镜像 HTML/text fallback hash，其余公告使用 PDF hash。688981.SH / 689009.SH 是唯一 adjustment-factor policy target，且由真实 tnskhdata `adj_factor` normalized response hash 决定 neutral 或 factor_interval policy。该 evidence 仍只支撑 research candidate，不升级任何 provider 为 formal source。D2-T20 只用于推进 D3 research candidate；未来 formal data_version 仍需经过后续 gates。
 
 ## 回退方式
 

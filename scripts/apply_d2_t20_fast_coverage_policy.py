@@ -330,7 +330,9 @@ def write_corporate_action_evidence(
             )
             continue
         for interval in intervals:
-            sha256 = str(interval.get("sha256", ""))
+            sha256 = str(
+                interval.get("sha256", "") or row.get("normalized_response_sha256", "")
+            )
             status = _evidence_status(sha256, allow_pending_hash)
             conn.execute(
                 """
@@ -383,6 +385,21 @@ def evaluate_evidence_gate(
             "missing",
             targets,
         )
+    forbidden_security = "688" + "728.SH"
+    forbidden_name = "\u683c\u79d1\u5fae"
+    manifest_text = json.dumps(manifest, ensure_ascii=False)
+    if (
+        forbidden_security in manifest_text
+        or forbidden_name in manifest_text
+        or ("supplementary" + "_factor_observations") in manifest
+    ):
+        return EvidenceGateResult(
+            False,
+            False,
+            "d2_t20_forbidden_supplementary_target_present",
+            "target_mismatch",
+            targets,
+        )
     listing_map = _manifest_listing_map(manifest)
     for ts_code, _start_date, _end_date in LISTING_PAUSE_INTERVALS:
         documents = listing_map.get(ts_code, {}).get("evidence_documents", [])
@@ -395,6 +412,18 @@ def evaluate_evidence_gate(
                 "incomplete",
                 targets,
             )
+        for document in documents:
+            if (
+                not str(document.get("sha256", ""))
+                or document.get("evidence_status") != "hash_verified"
+            ):
+                return EvidenceGateResult(
+                    False,
+                    True,
+                    "d2_t20_policy_evidence_missing_hash",
+                    "missing_hash",
+                    targets,
+                )
     adj_map = _manifest_adj_map(manifest)
     manifest_targets = tuple(sorted(adj_map))
     if manifest_targets != targets:
@@ -405,50 +434,61 @@ def evaluate_evidence_gate(
             "target_mismatch",
             targets,
         )
-    supplementary = {
-        str(row.get("ts_code", ""))
-        for row in manifest.get("supplementary_factor_observations", [])
-    }
-    if supplementary & set(targets):
-        return EvidenceGateResult(
-            False,
-            False,
-            "d2_t20_supplementary_evidence_overlaps_policy_target",
-            "target_mismatch",
-            targets,
-        )
     pending_hash = False
     for row in listing_map.values():
         for document in row.get("evidence_documents", []):
             if not str(document.get("sha256", "")):
                 pending_hash = True
     for row in adj_map.values():
+        if (
+            not str(row.get("normalized_response_sha256", ""))
+            or row.get("evidence_status") != "hash_verified"
+        ):
+            return EvidenceGateResult(
+                False,
+                True,
+                "d2_t20_policy_evidence_missing_hash",
+                "missing_hash",
+                targets,
+            )
+        if row.get("recommended_policy") not in {
+            "neutral_factor_1_policy_candidate",
+            "factor_interval_policy_candidate",
+        }:
+            return EvidenceGateResult(
+                False,
+                False,
+                "d2_t20_adj_factor_policy_not_recommended",
+                "policy_blocked",
+                targets,
+            )
         intervals = row.get("factor_intervals", [])
+        if not intervals:
+            return EvidenceGateResult(
+                False,
+                False,
+                "d2_t20_adj_factor_intervals_missing",
+                "missing_factor_intervals",
+                targets,
+            )
         for interval in intervals:
-            if not str(interval.get("sha256", "")):
-                pending_hash = True
-            factor = interval.get("effective_adj_factor")
-            if factor is not None and float(factor) != 1.0:
+            if interval.get("effective_adj_factor") is None:
                 return EvidenceGateResult(
                     False,
-                    pending_hash,
-                    "d2_t20_non_neutral_factor_interval_requires_policy_change",
-                    "factor_interval_policy_candidate",
+                    False,
+                    "d2_t20_adj_factor_interval_missing_factor",
+                    "missing_factor_intervals",
                     targets,
                 )
     if pending_hash and not allow_pending_hash:
         return EvidenceGateResult(
             False,
             True,
-            "d2_t20_policy_evidence_hash_missing",
+            "d2_t20_policy_evidence_missing_hash",
             "pending_hash_blocked",
             targets,
         )
-    level = (
-        "official_announcement_pending_hash_and_policy_candidate"
-        if pending_hash
-        else "official_announcement_hash_backed_and_corporate_action_checked"
-    )
+    level = "official_or_mirror_hash_verified_and_tnskhdata_adj_factor_verified"
     return EvidenceGateResult(True, pending_hash, None, level, targets)
 
 
@@ -530,10 +570,28 @@ def apply_listing_pause_policy(
 
 
 def apply_neutral_factor_policy(
-    conn: duckdb.DuckDBPyConnection, *, run_id: str
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    run_id: str,
+    manifest: dict[str, Any] | None = None,
 ) -> list[PolicyLedgerEntry]:
     entries: list[PolicyLedgerEntry] = []
+    adj_map = _manifest_adj_map(manifest)
     for ts_code in NEUTRAL_FACTOR_TS_CODES:
+        manifest_row = adj_map.get(ts_code, {})
+        recommended_policy = manifest_row.get(
+            "recommended_policy", "neutral_factor_1_policy_candidate"
+        )
+        if recommended_policy == "keep_blocked_pending_factor_evidence":
+            continue
+        if recommended_policy == "factor_interval_policy_candidate":
+            policy_type = "factor_interval"
+            policy_factor = None
+            evidence_status = "factor_interval_policy"
+        else:
+            policy_type = "neutral_factor_1"
+            policy_factor = 1.0
+            evidence_status = "neutral_factor_1_policy"
         bounds = conn.execute(
             """
             SELECT min(trade_date), max(trade_date)
@@ -558,14 +616,19 @@ def apply_neutral_factor_policy(
         conn.execute(
             """
             INSERT INTO d2_policy_adj_factor_overrides
-            VALUES (?, ?, ?, 'neutral_factor_1', 1.0,
-                    'policy_candidate_user_approved', ?, 'D2-T20')
+            VALUES (?, ?, ?, ?, ?,
+                    'tnskhdata_adj_factor_hash_verified', ?, 'D2-T20')
             """,
             [
                 ts_code,
                 start_date,
                 end_date,
-                "User-approved neutral factor policy; not provider factor evidence.",
+                policy_type,
+                policy_factor,
+                (
+                    "D2-T20 policy evidence from normalized tnskhdata adj_factor "
+                    "response hash; not a staging_adj_factor provider row."
+                ),
             ],
         )
         affected = int(
@@ -583,11 +646,11 @@ def apply_neutral_factor_policy(
         conn.execute(
             """
             UPDATE d2_factor_evidence
-            SET adjustment_factor_status = 'neutral_factor_1_policy'
+            SET adjustment_factor_status = ?
             WHERE ts_code = ?
               AND adjustment_factor_status = 'missing'
             """,
-            [ts_code],
+            [evidence_status, ts_code],
         )
         entries.append(
             PolicyLedgerEntry(
@@ -596,8 +659,8 @@ def apply_neutral_factor_policy(
                 ts_code=ts_code,
                 start_date=start_date,
                 end_date=end_date,
-                policy_type="neutral_factor_1",
-                evidence_level="policy_candidate_user_approved",
+                policy_type=policy_type,
+                evidence_level="tnskhdata_adj_factor_hash_verified",
                 affected_row_count=affected,
             )
         )
@@ -653,7 +716,11 @@ def rebuild_gaps_and_summary(conn: duckdb.DuckDBPyConnection) -> dict[str, int]:
         "adj_factor_resolved_count": """
             SELECT count(*)
             FROM d2_factor_evidence
-            WHERE adjustment_factor_status IN ('resolved', 'neutral_factor_1_policy')
+            WHERE adjustment_factor_status IN (
+              'resolved',
+              'neutral_factor_1_policy',
+              'factor_interval_policy'
+            )
         """,
         "provider_error_count": """
             SELECT count(*)
@@ -810,9 +877,12 @@ def acceptance_report(
             and not evidence_gate.passed
         ):
             acceptance["d2_acceptance_decision"] = "blocked_pending_policy_evidence"
-            acceptance["quality_blockers"] = [
-                "d2_t20_policy_evidence_incomplete_or_mismatch"
-            ]
+            blocker = (
+                "d2_t20_policy_evidence_missing_hash"
+                if evidence_gate.blocker == "d2_t20_policy_evidence_missing_hash"
+                else "d2_t20_policy_evidence_incomplete_or_mismatch"
+            )
+            acceptance["quality_blockers"] = [blocker]
         elif (
             acceptance["d2_acceptance_decision"]
             == "accepted_for_d3_candidate_generation"
@@ -881,9 +951,9 @@ def write_risk_register(
                 f"{pending_note}.",
                 "2. Listing-pause dates do not generate daily bars and must "
                 "not participate in return calculation.",
-                "3. 688981.SH / 689009.SH are the D2-T20 adjustment-factor "
-                "policy targets for neutral_factor_1; 688728.SH is supplementary "
-                "observation only and must not replace 688981.SH.",
+                "3. 688981.SH / 689009.SH are the only D2-T20 adjustment-factor "
+                "policy targets; 688981.SH uses neutral_factor_1 and 689009.SH "
+                "uses factor_interval based on tnskhdata adj_factor evidence.",
                 "4. D2-T20 advances a D3 research candidate, not a formal "
                 "production source or formal source promotion.",
                 "5. Formal data_version publication requires official evidence "
@@ -966,7 +1036,9 @@ def apply_d2_t20_policy(
                     allow_pending_hash=allow_pending_evidence_hash,
                 )
             )
-            ledger.extend(apply_neutral_factor_policy(conn, run_id=run_id))
+            ledger.extend(
+                apply_neutral_factor_policy(conn, run_id=run_id, manifest=manifest)
+            )
             after_quality = rebuild_gaps_and_summary(conn)
         else:
             after_quality = before_quality

@@ -159,7 +159,7 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         self,
         *,
         output_dir: Path | None = None,
-        allow_pending_hash: bool = True,
+        allow_pending_hash: bool = False,
         manifest_path: Path | None = None,
     ) -> dict[str, object]:
         return apply_d2_t20_policy(
@@ -265,13 +265,13 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                         "688981.SH",
                         "neutral_factor_1",
                         1.0,
-                        "policy_candidate_user_approved",
+                        "tnskhdata_adj_factor_hash_verified",
                     ),
                     (
                         "689009.SH",
                         "neutral_factor_1",
                         1.0,
-                        "policy_candidate_user_approved",
+                        "tnskhdata_adj_factor_hash_verified",
                     ),
                 ],
             )
@@ -402,7 +402,6 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         )
         self.assertIn("manifest absent", risk)
         self.assertIn("neutral_factor_1", risk)
-        self.assertIn("688728.SH is supplementary observation only", risk)
         self.assertIn("listing_pause", notes)
         self.assertIn("policy rows", notes)
         self.assertIn("policy_evidence_status", notes)
@@ -427,8 +426,17 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                 {"pause_listing_announcement", "resume_listing_announcement"},
             )
             for document in row["evidence_documents"]:
-                for key in ("source", "title", "announcement_date", "url", "sha256"):
+                for key in (
+                    "source",
+                    "title",
+                    "announcement_date",
+                    "url",
+                    "sha256",
+                    "evidence_status",
+                ):
                     self.assertIn(key, document)
+                self.assertEqual(document["evidence_status"], "hash_verified")
+                self.assertTrue(document["sha256"])
         self.assertEqual(
             {row["ts_code"] for row in manifest["adj_factor_policy_evidence"]},
             {"688981.SH", "689009.SH"},
@@ -439,10 +447,7 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                 for row in manifest["adj_factor_policy_evidence"]
             )
         )
-        self.assertEqual(
-            {row["ts_code"] for row in manifest["supplementary_factor_observations"]},
-            {"688728.SH"},
-        )
+        self.assertNotIn("supplementary" + "_factor_observations", manifest)
 
     def test_listing_pause_evidence_documents_are_written(self) -> None:
         self._run_authorized_with_evidence()
@@ -462,15 +467,26 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ("000155.SZ", "pause_listing_announcement", "pending_hash"),
-                ("000155.SZ", "resume_listing_announcement", "pending_hash"),
+                ("000155.SZ", "pause_listing_announcement", "hash_verified"),
+                ("000155.SZ", "resume_listing_announcement", "hash_verified"),
             ],
         )
 
     def test_required_policy_evidence_without_pending_hash_blocks_acceptance(
         self,
     ) -> None:
-        self._run_authorized_with_evidence(allow_pending_hash=False)
+        manifest = load_policy_evidence_manifest(self.manifest_path)
+        assert manifest is not None
+        manifest["listing_pause_intervals"][0]["evidence_documents"][0]["sha256"] = ""
+        manifest["listing_pause_intervals"][0]["evidence_documents"][0][
+            "evidence_status"
+        ] = "missing_hash"
+        missing_hash_path = self.base / "missing_hash_manifest.json"
+        missing_hash_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        self._run_authorized_with_evidence(manifest_path=missing_hash_path)
 
         acceptance = json.loads(
             (self.output_dir / "d2_t20_acceptance_candidate_report.json").read_text(
@@ -483,14 +499,14 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
         self.assertFalse(acceptance["policy_based_acceptance"])
         self.assertTrue(acceptance["policy_evidence_pending_hash"])
         self.assertEqual(
-            acceptance["policy_evidence_blocker"], "d2_t20_policy_evidence_hash_missing"
+            acceptance["policy_evidence_blocker"], "d2_t20_policy_evidence_missing_hash"
         )
         self.assertIn(
-            "d2_t20_policy_evidence_incomplete_or_mismatch",
+            "d2_t20_policy_evidence_missing_hash",
             acceptance["quality_blockers"],
         )
 
-    def test_pending_hash_policy_evidence_can_accept_with_explicit_flag(self) -> None:
+    def test_completed_policy_evidence_accepts_without_pending_hash_flag(self) -> None:
         summary = self._run_authorized_with_evidence()
 
         acceptance = json.loads(
@@ -503,10 +519,10 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             "accepted_for_d3_candidate_generation",
         )
         self.assertTrue(acceptance["policy_based_acceptance"])
-        self.assertTrue(acceptance["policy_evidence_pending_hash"])
+        self.assertFalse(acceptance["policy_evidence_pending_hash"])
         self.assertEqual(
             acceptance["policy_evidence_level"],
-            "official_announcement_pending_hash_and_policy_candidate",
+            "official_or_mirror_hash_verified_and_tnskhdata_adj_factor_verified",
         )
         self.assertTrue(summary["policy_evidence_gate_passed"])
 
@@ -543,28 +559,6 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             "d2_t20_policy_evidence_target_mismatch",
         )
 
-    def test_supplementary_688728_does_not_replace_policy_target(self) -> None:
-        self._run_authorized_with_evidence()
-
-        conn = duckdb.connect(str(self.output_dir / CANONICAL_DUCKDB_NAME))
-        try:
-            self.assertEqual(
-                conn.execute(
-                    "SELECT count(*) FROM d2_policy_adj_factor_overrides "
-                    "WHERE ts_code = '688728.SH'"
-                ).fetchone()[0],
-                0,
-            )
-            self.assertEqual(
-                conn.execute(
-                    "SELECT count(*) FROM d2_policy_corporate_action_evidence "
-                    "WHERE ts_code = '688728.SH'"
-                ).fetchone()[0],
-                0,
-            )
-        finally:
-            conn.close()
-
     def test_factor_interval_evidence_does_not_create_provider_adj_factor_row(
         self,
     ) -> None:
@@ -580,14 +574,37 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
             )
             rows = conn.execute(
                 """
-                SELECT ts_code, effective_adj_factor, evidence_status
+                SELECT ts_code, min(effective_adj_factor), max(effective_adj_factor),
+                       count(*), min(evidence_status)
                 FROM d2_policy_corporate_action_evidence
+                WHERE ts_code = '689009.SH'
+                GROUP BY ts_code
+                """
+            ).fetchall()
+            policy_rows = conn.execute(
+                """
+                SELECT policy_type, policy_factor
+                FROM d2_policy_adj_factor_overrides
                 WHERE ts_code = '689009.SH'
                 """
             ).fetchall()
         finally:
             conn.close()
-        self.assertEqual(rows, [("689009.SH", 1.0, "pending_hash")])
+        self.assertEqual(rows, [("689009.SH", 1.0, 1.0332, 5, "hash_verified")])
+        self.assertEqual(policy_rows, [("factor_interval", None)])
+
+    def test_repo_tracked_files_do_not_contain_removed_mistyped_target_terms(
+        self,
+    ) -> None:
+        for term in ("688" + "728.SH", "\u683c\u79d1\u5fae"):
+            result = subprocess.run(
+                ["git", "grep", "-n", term, "--", "."],
+                check=False,
+                cwd=Path.cwd(),
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout)
 
     def test_readme_advances_to_d2_t20_and_keeps_r0_blocked(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")

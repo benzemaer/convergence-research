@@ -138,7 +138,7 @@ next_planned_task: D3-T07
 - `D2-T17` 按 endpoint 配置 D2 runner chunk 策略：completed / runner available after PR #49
 - `D2-T18` provider coverage blocker 诊断与最小修复策略：completed / diagnostics available after PR #50
 - `D2-T19` targeted repair and coverage policy evidence：completed / stk_limit targeted repair succeeded; daily repair empty due to listing pause
-- `D2-T20` fast coverage policy acceptance：in_progress via current PR; policy evidence hardening added with pending-hash gate
+- `D2-T20` fast coverage policy acceptance：in_progress via current PR; policy evidence hardening upgraded to hash-verified candidate evidence
 - `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked until coverage blockers are resolved and D2 acceptance is explicitly accepted by a later PR
 
 D3-T07 remains blocked until D2 coverage blockers are resolved and D2 acceptance is explicitly accepted by a later PR.
