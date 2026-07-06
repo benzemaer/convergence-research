@@ -198,6 +198,10 @@ CONFIGS = (
         / "configs/d3/d3_t11_volume_amount_share_turnover_candidate_contract.v1.json",
     ),
     (
+        ROOT / "schemas/d3_t12_open_candidate_gate_contract.schema.json",
+        ROOT / "configs/d3/d3_t12_open_candidate_gate_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/r0/r0_t01_pcvt_candidate_spec.schema.json",
         ROOT / "configs/r0/r0_t01_pcvt_candidate_spec.v1.json",
     ),

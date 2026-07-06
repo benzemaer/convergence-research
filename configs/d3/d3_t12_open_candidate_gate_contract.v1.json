@@ -1,0 +1,28 @@
+{
+  "$schema": "../../schemas/d3_t12_open_candidate_gate_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "D3_T12_OPEN_CANDIDATE_GATE_CONTRACT_V1",
+  "task_id": "D3-T12",
+  "contract_status": "accepted",
+  "contract_scope": "open_candidate_generation_and_consumer_readiness_decoupling",
+  "d3_candidate_generation_is_research_agnostic": true,
+  "downstream_consumer_readiness_evaluated_by_consumer_task": true,
+  "formal_release_gate_separate": true,
+  "r_stage_specific_readiness_not_hardcoded_in_d3": true,
+  "supported_consumer_stage_namespace": [
+    "R0",
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "future_research_routes"
+  ],
+  "formal_data_version_authorized": false,
+  "pcvt_metric_calculation_authorized": false,
+  "future_label_generation_authorized": false,
+  "returns_generation_authorized": false,
+  "backtest_generation_authorized": false,
+  "portfolio_generation_authorized": false
+}

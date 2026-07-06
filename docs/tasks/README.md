@@ -18,7 +18,7 @@
 
 ```text
 current_stage: D3
-current_task: D3-T11 量额股本换手字段全量候选物化与数据更新
+current_task: D3-T12 开放候选层门禁与下游消费审计解耦
 next_planned_task: R0-T03 PCVT raw metric engine 与合成测试
 ```
 
@@ -207,7 +207,10 @@ formal data_version、formal source promotion 与 R0 交接仍未授权。
 - `D3-T08` 研究基础数据集 registry 与路线无关质量审计：completed via PR #54
 - `D3-T09` R阶段工程分层与 Task-as-Step 规范收敛：completed
 - `D3-T10` D3 字段可用性探针与字段缺口补全：completed via PR #58
-- `D3-T11` 量额股本换手字段全量候选物化与数据更新：in_progress
+- `D3-T11` 量额股本换手字段全量候选物化与数据更新：completed via PR #59
+- `D3-T12` 开放候选层门禁与下游消费审计解耦：in_progress
+
+D3 是跨研究开放 candidate observation layer。D3 candidate generation 不等于 formal release，也不等于任一 R-stage readiness。R0-R6 或未来研究路线由各自消费 task 定义 consumer readiness profile；D3 只记录通用质量、evidence 和 lineage 状态。`policy_evidence_pending_hash` 是 candidate warning，不是 D3 candidate hard blocker。formal release gate 和下游 research consumer gate 后续仍可严格阻塞消费。
 
 ## R0：PCVT 候选观测量与候选状态定义
 

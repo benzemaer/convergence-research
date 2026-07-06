@@ -43,6 +43,15 @@ PRE_INSERT_BLOCKER_KEYS = (
     "missing_effective_adj_factor_count",
     "factor_interval_unresolved_count",
 )
+REQUIRED_D2_SOURCE_TABLES = {
+    "staging_daily_raw",
+    "d2_source_status",
+    "d2_factor_evidence",
+    "staging_stk_limit",
+    "staging_adj_factor",
+    "d2_policy_adj_factor_overrides",
+}
+POLICY_CORPORATE_ACTION_EVIDENCE_TABLE = "d2_policy_corporate_action_evidence"
 
 
 class D3T07GenerationError(ValueError):
@@ -117,13 +126,70 @@ def remove_previous_outputs(output_dir: Path) -> None:
                 target.unlink()
 
 
-def d2_t20_gate_passed(
+def consumer_readiness_payload() -> dict[str, Any]:
+    return {
+        "evaluated_by_d3": False,
+        "consumer_profiles": {},
+        "consumer_gate_policy": "evaluated_by_downstream_task",
+    }
+
+
+def research_readiness_payload() -> dict[str, Any]:
+    return {
+        "evaluated_by_d3": False,
+        "consumer_profiles": {},
+        "consumer_gate_policy": "evaluated_by_downstream_task",
+    }
+
+
+def d3_candidate_status_fields(
+    *,
+    generated: bool,
+    decision: str,
+    hard_blocking_reasons: list[str],
+    soft_warning_reasons: list[str],
+    policy_evidence_pending_hash: bool,
+) -> dict[str, Any]:
+    if hard_blocking_reasons:
+        gate_status = "blocked"
+    elif soft_warning_reasons:
+        gate_status = "passed_with_warnings"
+    else:
+        gate_status = "passed"
+    if not generated:
+        quality_tier = "blocked"
+    elif policy_evidence_pending_hash or soft_warning_reasons:
+        quality_tier = "candidate_evidence_pending"
+    else:
+        quality_tier = "candidate_observation"
+    readiness = consumer_readiness_payload()
+    return {
+        "candidate_observation_generated": generated,
+        "candidate_generation_decision": decision,
+        "candidate_generation_gate_status": gate_status,
+        "candidate_generation_hard_blocking_reasons": hard_blocking_reasons,
+        "candidate_generation_soft_warning_reasons": soft_warning_reasons,
+        "candidate_quality_tier": quality_tier,
+        "policy_evidence_pending_hash": policy_evidence_pending_hash,
+        "policy_evidence_readiness_status": (
+            "pending_hash" if policy_evidence_pending_hash else "not_pending"
+        ),
+        "formal_use_authorized": False,
+        "formal_release_required": True,
+        "consumer_readiness_evaluated_by_d3": False,
+        "consumer_readiness_policy": "evaluated_by_downstream_consumer_task",
+        "consumer_profiles": {},
+        "consumer_readiness": readiness,
+        "research_readiness": research_readiness_payload(),
+    }
+
+
+def d2_t20_candidate_materialization_gate(
     acceptance: dict[str, Any], handoff: dict[str, Any]
-) -> tuple[bool, list[str]]:
+) -> tuple[bool, list[str], list[str]]:
     expected = {
         "d2_acceptance_decision": "accepted_for_d3_candidate_generation",
         "policy_based_acceptance": True,
-        "policy_evidence_pending_hash": False,
         "formal_duckdb_write_authorized": False,
         "data_version_published": False,
         "d3_rows_generated": False,
@@ -142,7 +208,25 @@ def d2_t20_gate_passed(
         errors.append("handoff_d3_rows_generated")
     if handoff.get("r0_state_generated") is not False:
         errors.append("handoff_r0_state_generated")
-    return not errors, errors
+    warnings = []
+    if acceptance.get("policy_evidence_pending_hash") is True:
+        warnings.append("policy_evidence_pending_hash")
+    elif "policy_evidence_pending_hash" not in acceptance:
+        evidence_level = acceptance.get("policy_evidence_level")
+        if evidence_level != "tnskhdata_adj_factor_hash_verified":
+            warnings.append("policy_evidence_pending_hash")
+    elif acceptance.get("policy_evidence_pending_hash") is not False:
+        warnings.append("policy_evidence_pending_hash")
+    return not errors, errors, warnings
+
+
+def d2_t20_gate_passed(
+    acceptance: dict[str, Any], handoff: dict[str, Any]
+) -> tuple[bool, list[str]]:
+    hard_gate_passed, hard_blockers, _warnings = d2_t20_candidate_materialization_gate(
+        acceptance, handoff
+    )
+    return hard_gate_passed, hard_blockers
 
 
 def base_quality() -> dict[str, Any]:
@@ -170,9 +254,20 @@ def blocked_reports(
     run_id: str,
     reason: str,
     gate_errors: list[str] | None = None,
+    soft_warning_reasons: list[str] | None = None,
+    policy_evidence_pending_hash: bool = False,
 ) -> dict[str, Any]:
     quality = base_quality()
     quality["blocking_reasons"] = gate_errors or [reason]
+    quality.update(
+        d3_candidate_status_fields(
+            generated=False,
+            decision=reason,
+            hard_blocking_reasons=gate_errors or [reason],
+            soft_warning_reasons=soft_warning_reasons or [],
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
+        )
+    )
     summary = {
         "task_id": TASK_ID,
         "source_task_id": SOURCE_TASK_ID,
@@ -182,6 +277,15 @@ def blocked_reports(
         "data_version_published": False,
         "r0_state_generated": False,
     }
+    summary.update(
+        d3_candidate_status_fields(
+            generated=False,
+            decision=reason,
+            hard_blocking_reasons=gate_errors or [reason],
+            soft_warning_reasons=soft_warning_reasons or [],
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
+        )
+    )
     handoff = {
         "task_id": TASK_ID,
         "source_task_id": SOURCE_TASK_ID,
@@ -197,6 +301,15 @@ def blocked_reports(
             "D3-T08 PCVT input readiness and feature-base quality checks"
         ),
     }
+    handoff.update(
+        d3_candidate_status_fields(
+            generated=False,
+            decision=reason,
+            hard_blocking_reasons=gate_errors or [reason],
+            soft_warning_reasons=soft_warning_reasons or [],
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
+        )
+    )
     _write_json(output_dir / "d3_t07_generation_summary.json", summary)
     _write_json(output_dir / "d3_t07_quality_report.json", quality)
     _write_json(output_dir / "d3_t07_handoff_candidate_report.json", handoff)
@@ -239,6 +352,46 @@ def filtered_status_predicate(
             f") LIMIT {int(sample_securities)})"
         )
     return " AND ".join(predicates)
+
+
+def d2_source_table_names(conn: duckdb.DuckDBPyConnection) -> set[str]:
+    return {
+        row[0]
+        for row in conn.execute(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_catalog = 'd2'
+            """
+        ).fetchall()
+    }
+
+
+def d2_source_hard_blockers(conn: duckdb.DuckDBPyConnection) -> list[str]:
+    table_names = d2_source_table_names(conn)
+    blockers = [
+        f"missing_source_table:{table_name}"
+        for table_name in sorted(REQUIRED_D2_SOURCE_TABLES - table_names)
+    ]
+    if (
+        "d2_factor_evidence" in table_names
+        and POLICY_CORPORATE_ACTION_EVIDENCE_TABLE not in table_names
+    ):
+        factor_interval_count = int(
+            conn.execute(
+                """
+                SELECT count(*)
+                FROM d2.d2_factor_evidence
+                WHERE adjustment_factor_status = 'factor_interval_policy'
+                """
+            ).fetchone()[0]
+            or 0
+        )
+        if factor_interval_count > 0:
+            blockers.append(
+                f"missing_source_table:{POLICY_CORPORATE_ACTION_EVIDENCE_TABLE}"
+            )
+    return blockers
 
 
 def create_output_table(conn: duckdb.DuckDBPyConnection) -> None:
@@ -289,9 +442,25 @@ def create_candidate_view(
     sample_securities: int | None,
     start_date: str | None,
     end_date: str | None,
+    has_policy_corporate_action_evidence: bool,
 ) -> None:
     daily_predicate = filtered_daily_predicate(
         sample_securities=sample_securities, start_date=start_date, end_date=end_date
+    )
+    policy_evidence_source = (
+        "d2.d2_policy_corporate_action_evidence"
+        if has_policy_corporate_action_evidence
+        else """
+          (
+            SELECT CAST(NULL AS TEXT) AS ts_code,
+                   CAST(NULL AS TEXT) AS start_date,
+                   CAST(NULL AS TEXT) AS end_date,
+                   CAST(NULL AS DOUBLE) AS effective_adj_factor,
+                   CAST(NULL AS TEXT) AS evidence_status,
+                   CAST(NULL AS TEXT) AS evidence_level
+            WHERE false
+          )
+        """
     )
     conn.execute(
         f"""
@@ -304,7 +473,7 @@ def create_candidate_view(
                  min(p.evidence_status) AS interval_evidence_status,
                  min(p.evidence_level) AS interval_evidence_level
           FROM d2.staging_daily_raw d
-          LEFT JOIN d2.d2_policy_corporate_action_evidence p
+          LEFT JOIN {policy_evidence_source} p
             ON p.ts_code = d.ts_code
            AND d.trade_date BETWEEN p.start_date AND p.end_date
           WHERE {daily_predicate}
@@ -333,7 +502,11 @@ def create_candidate_view(
                  im.interval_evidence_status,
                  im.interval_evidence_level,
                  CASE
-                   WHEN f.adjustment_factor_status = 'resolved' THEN a.adj_factor
+                   WHEN f.adjustment_factor_status IN (
+                        'resolved',
+                        'not_applicable_or_carry_forward'
+                   )
+                   THEN a.adj_factor
                    WHEN f.adjustment_factor_status = 'neutral_factor_1_policy' THEN 1.0
                    WHEN f.adjustment_factor_status = 'factor_interval_policy'
                         AND im.interval_match_count = 1
@@ -715,16 +888,43 @@ def generate_d3_t07_candidate_daily_observation(
     _load_json(contract)
     acceptance = _load_json(d2_t20_acceptance_report)
     handoff = _load_json(d2_t20_handoff_report)
-    gate_ok, gate_errors = d2_t20_gate_passed(acceptance, handoff)
+    gate_ok, gate_errors, gate_warnings = d2_t20_candidate_materialization_gate(
+        acceptance, handoff
+    )
+    policy_evidence_pending_hash = "policy_evidence_pending_hash" in gate_warnings
     if not gate_ok:
         return blocked_reports(
             output_dir=output_dir,
             run_id=run_id,
             reason="blocked_pending_d2_t20_handoff",
             gate_errors=gate_errors,
+            soft_warning_reasons=gate_warnings,
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
         )
 
     output_duckdb = output_dir / OUTPUT_DUCKDB_NAME
+    preflight_conn = duckdb.connect(":memory:")
+    try:
+        preflight_conn.execute(
+            f"ATTACH '{str(d2_t20_duckdb).replace("'", "''")}' AS d2 (READ_ONLY)"
+        )
+        source_table_blockers = d2_source_hard_blockers(preflight_conn)
+        has_policy_corporate_action_evidence = (
+            POLICY_CORPORATE_ACTION_EVIDENCE_TABLE
+            in d2_source_table_names(preflight_conn)
+        )
+    finally:
+        preflight_conn.close()
+    if source_table_blockers:
+        return blocked_reports(
+            output_dir=output_dir,
+            run_id=run_id,
+            reason="blocked_pending_d2_t20_handoff",
+            gate_errors=source_table_blockers,
+            soft_warning_reasons=gate_warnings,
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
+        )
+
     conn = duckdb.connect(str(output_duckdb))
     try:
         conn.execute(
@@ -737,6 +937,7 @@ def generate_d3_t07_candidate_daily_observation(
             sample_securities=sample_securities,
             start_date=start_date,
             end_date=end_date,
+            has_policy_corporate_action_evidence=(has_policy_corporate_action_evidence),
         )
         quality = compute_quality(
             conn,
@@ -753,10 +954,29 @@ def generate_d3_t07_candidate_daily_observation(
             if quality["factor_interval_unresolved_count"] > 0
             else "blocked_pending_quality_resolution"
             if blockers
+            else "accepted_candidate_observation_with_warnings"
+            if gate_warnings
             else "accepted_candidate_observation"
         )
         quality["d3_t07_generation_decision"] = decision
         quality["d3_candidate_observation_accepted"] = not blockers
+        quality.update(
+            d3_candidate_status_fields(
+                generated=not blockers,
+                decision=decision,
+                hard_blocking_reasons=(
+                    [
+                        key
+                        for key in PRE_INSERT_BLOCKER_KEYS
+                        if int(quality.get(key, 0)) > 0
+                    ]
+                    if blockers
+                    else []
+                ),
+                soft_warning_reasons=gate_warnings,
+                policy_evidence_pending_hash=policy_evidence_pending_hash,
+            )
+        )
         _write_json(output_dir / "d3_t07_quality_report.json", quality)
         write_csv_reports(conn, output_dir=output_dir)
     finally:
@@ -773,6 +993,19 @@ def generate_d3_t07_candidate_daily_observation(
         "r0_state_generated": False,
         "output_duckdb": str(output_duckdb) if generated else "",
     }
+    summary.update(
+        d3_candidate_status_fields(
+            generated=generated,
+            decision=decision,
+            hard_blocking_reasons=(
+                [key for key in PRE_INSERT_BLOCKER_KEYS if int(quality.get(key, 0)) > 0]
+                if not generated
+                else []
+            ),
+            soft_warning_reasons=gate_warnings,
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
+        )
+    )
     handoff_report = {
         "task_id": TASK_ID,
         "source_task_id": SOURCE_TASK_ID,
@@ -788,6 +1021,19 @@ def generate_d3_t07_candidate_daily_observation(
             "D3-T08 PCVT input readiness and feature-base quality checks"
         ),
     }
+    handoff_report.update(
+        d3_candidate_status_fields(
+            generated=generated,
+            decision=decision,
+            hard_blocking_reasons=(
+                [key for key in PRE_INSERT_BLOCKER_KEYS if int(quality.get(key, 0)) > 0]
+                if not generated
+                else []
+            ),
+            soft_warning_reasons=gate_warnings,
+            policy_evidence_pending_hash=policy_evidence_pending_hash,
+        )
+    )
     _write_json(output_dir / "d3_t07_generation_summary.json", summary)
     _write_json(output_dir / "d3_t07_handoff_candidate_report.json", handoff_report)
     write_hash_summary(output_dir)

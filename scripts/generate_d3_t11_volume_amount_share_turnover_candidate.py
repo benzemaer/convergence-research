@@ -153,6 +153,44 @@ def token_from_env() -> str | None:
     return None
 
 
+def consumer_readiness_payload() -> dict[str, Any]:
+    return {
+        "evaluated_by_d3": False,
+        "consumer_profiles": {},
+        "consumer_gate_policy": "evaluated_by_downstream_task",
+    }
+
+
+def candidate_generation_fields(
+    *,
+    generated: bool,
+    warnings: list[str],
+    quality_blocking_reasons: list[str] | None = None,
+) -> dict[str, Any]:
+    quality_blocking_reasons = quality_blocking_reasons or []
+    if not generated:
+        decision = "blocked"
+        quality_tier = "blocked"
+    elif warnings:
+        decision = "accepted_with_warnings"
+        quality_tier = "candidate_evidence_pending"
+    elif quality_blocking_reasons:
+        decision = "accepted_with_warnings"
+        quality_tier = "candidate_observation_with_warnings"
+    else:
+        decision = "accepted"
+        quality_tier = "candidate_observation"
+    return {
+        "d3_candidate_generated": generated,
+        "d3_candidate_generation_decision": decision,
+        "candidate_quality_tier": quality_tier,
+        "formal_use_authorized": False,
+        "formal_release_required": True,
+        "consumer_readiness_evaluated_by_d3": False,
+        "consumer_readiness": consumer_readiness_payload(),
+    }
+
+
 def load_env_file(path: Path | None) -> None:
     if path is None or not path.exists():
         return
@@ -544,6 +582,25 @@ def insert_candidate_rows(
         desc[1]
         for desc in conn.execute(f"PRAGMA table_info('{OUTPUT_TABLE}')").fetchall()
     ]
+    try:
+        import pandas as pd  # type: ignore[import-not-found]
+    except ImportError:
+        pd = None
+    if pd is not None:
+        frame = pd.DataFrame.from_records(rows, columns=columns)
+        conn.register("d3_t11_candidate_rows_input", frame)
+        try:
+            column_sql = ", ".join(columns)
+            conn.execute(
+                f"""
+                INSERT OR REPLACE INTO {OUTPUT_TABLE} ({column_sql})
+                SELECT {column_sql}
+                FROM d3_t11_candidate_rows_input
+                """
+            )
+        finally:
+            conn.unregister("d3_t11_candidate_rows_input")
+        return
     placeholders = ", ".join("?" for _ in columns)
     conn.executemany(
         f"INSERT OR REPLACE INTO {OUTPUT_TABLE} ({', '.join(columns)}) "
@@ -648,6 +705,11 @@ def build_reports(
         "calls": provider_calls,
     }
     r0_ready = not blocking_reasons and row_count > 0
+    candidate_fields = candidate_generation_fields(
+        generated=row_count > 0,
+        warnings=[],
+        quality_blocking_reasons=blocking_reasons,
+    )
     no_research_outputs_key = (
         "d3_t11_does_not_generate_percentiles_scores_states_intervals_"
         "labels_returns_backtest_or_portfolio"
@@ -656,6 +718,10 @@ def build_reports(
         "task_id": TASK_ID,
         "source_task_id": SOURCE_TASK_ID,
         "r0_ready_candidate": r0_ready,
+        "r0_ready_candidate_deprecated": True,
+        "r0_ready_candidate_deprecation_note": (
+            "compatibility field only; D3 candidate generation is not R0 readiness"
+        ),
         "field_coverage_by_indicator": {
             "C2_AdjVWAPSpread_5_60": min(
                 field_coverage["amount_yuan"],
@@ -696,6 +762,7 @@ def build_reports(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    handoff.update(candidate_fields)
     summary = {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -708,6 +775,10 @@ def build_reports(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(candidate_fields)
+    quality.update(candidate_fields)
+    coverage.update(candidate_fields)
+    provider_summary.update(candidate_fields)
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(output_dir / "d3_t11_field_coverage_report.json", coverage)
     _write_json(output_dir / "d3_t11_quality_report.json", quality)
@@ -820,6 +891,13 @@ def blocked_missing_token(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=["blocked_missing_tnskhdata_token"],
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     return summary
 
@@ -838,6 +916,13 @@ def blocked_low_security_count(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=["blocked_low_resolved_security_count"],
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(
         output_dir / "d3_t11_provider_call_summary.json",
@@ -872,6 +957,13 @@ def blocked_missing_d3_t07_source(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=["blocked_missing_d3_t07_source_duckdb"],
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(
         output_dir / "d3_t11_provider_call_summary.json",
@@ -897,6 +989,12 @@ def _redacted_d3_t07_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "data_version_published",
         "r0_state_generated",
         "output_duckdb",
+        "candidate_quality_tier",
+        "candidate_generation_soft_warning_reasons",
+        "consumer_readiness_evaluated_by_d3",
+        "formal_use_authorized",
+        "formal_release_required",
+        "policy_evidence_pending_hash",
     }
     return {key: summary.get(key) for key in allowed_keys if key in summary}
 
@@ -913,10 +1011,26 @@ def ensure_d3_t07_source_available(
     sample_securities: int | None,
 ) -> dict[str, Any]:
     if d3_t07_duckdb.exists():
+        summary_path = d3_t07_duckdb.parent / "d3_t07_generation_summary.json"
+        d3_t07_summary = _load_json(summary_path) if summary_path.exists() else {}
+        soft_warning_reasons = d3_t07_summary.get(
+            "candidate_generation_soft_warning_reasons", []
+        )
+        if not isinstance(soft_warning_reasons, list):
+            soft_warning_reasons = []
         return {
-            "d3_t07_source_status": "available",
+            "d3_t07_source_status": (
+                "available_with_warnings" if soft_warning_reasons else "available"
+            ),
             "d3_t07_auto_generated": False,
             "d3_t07_source_path": str(d3_t07_duckdb),
+            "d3_t07_generation_decision": d3_t07_summary.get(
+                "d3_t07_generation_decision"
+            ),
+            "d3_t07_generation_summary": _redacted_d3_t07_summary(d3_t07_summary)
+            if d3_t07_summary
+            else {},
+            "d3_t07_soft_warning_reasons": soft_warning_reasons,
             "blocking_reasons": [],
         }
     if not auto_generate_d3_t07_from_d2_t20:
@@ -954,7 +1068,11 @@ def ensure_d3_t07_source_available(
         end_date=end_date,
     )
     redacted_summary = _redacted_d3_t07_summary(summary)
-    if summary.get("d3_t07_generation_decision") != "accepted_candidate_observation":
+    accepted_decisions = {
+        "accepted_candidate_observation",
+        "accepted_candidate_observation_with_warnings",
+    }
+    if summary.get("d3_t07_generation_decision") not in accepted_decisions:
         return {
             "d3_t07_source_status": "blocked_d3_t07_generation_failed",
             "d3_t07_auto_generated": True,
@@ -970,12 +1088,22 @@ def ensure_d3_t07_source_available(
             "remote_provider_called": False,
             "blocking_reasons": ["d3_t07_output_missing_after_generation"],
         }
+    soft_warning_reasons = summary.get("candidate_generation_soft_warning_reasons", [])
+    if not isinstance(soft_warning_reasons, list):
+        soft_warning_reasons = []
+    source_status = (
+        "auto_generated_from_d2_t20_with_warnings"
+        if soft_warning_reasons
+        else "auto_generated_from_d2_t20"
+    )
     return {
-        "d3_t07_source_status": "auto_generated_from_d2_t20",
+        "d3_t07_source_status": source_status,
         "d3_t07_auto_generated": True,
         "d3_t07_source_path": str(d3_t07_duckdb),
         "d2_t20_source_path": str(d2_t20_duckdb),
         "d3_t07_generation_summary": redacted_summary,
+        "d3_t07_generation_decision": summary.get("d3_t07_generation_decision"),
+        "d3_t07_soft_warning_reasons": soft_warning_reasons,
         "blocking_reasons": [],
     }
 
@@ -1000,6 +1128,13 @@ def blocked_source_preflight(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=source_preflight.get("d3_t07_soft_warning_reasons", []),
+            quality_blocking_reasons=source_preflight.get("blocking_reasons", []),
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(
         output_dir / "d3_t11_provider_call_summary.json",
@@ -1149,6 +1284,15 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
         payload = _load_json(path)
         payload.update(security_summary)
         payload.update(source_preflight)
+        d3_t07_warnings = source_preflight.get("d3_t07_soft_warning_reasons", [])
+        if isinstance(d3_t07_warnings, list) and d3_t07_warnings:
+            payload.update(
+                candidate_generation_fields(
+                    generated=payload.get("d3_candidate_generated", False) is True,
+                    warnings=d3_t07_warnings,
+                    quality_blocking_reasons=payload.get("blocking_reasons", []),
+                )
+            )
         if report_name == "d3_t11_generation_summary.json":
             payload["start_date"] = start_date
             payload["end_date"] = end_date
