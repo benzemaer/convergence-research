@@ -1,0 +1,166 @@
+{
+  "manifest_id": "d2_t20_policy_evidence_manifest.v1",
+  "task_id": "D2-T20",
+  "evidence_level": "official_or_mirror_hash_verified_and_tnskhdata_adj_factor_verified",
+  "listing_pause_intervals": [
+    {
+      "ts_code": "000155.SZ",
+      "company_name": "川能动力 / 原*ST川化",
+      "start_date": "20160510",
+      "end_date": "20171217",
+      "policy_type": "listing_pause",
+      "evidence_documents": [
+        {
+          "document_role": "pause_listing_announcement",
+          "source": "STCN_announcement_mirror",
+          "title": "川化股份有限公司关于股票暂停上市公告",
+          "announcement_date": "2016-05-09",
+          "url": "https://epaper.stcn.com/paper/zqsb/html/2016-05/09/content_823197.htm",
+          "hash_target": "html_or_text",
+          "sha256": "34eab2ec0d1e736a9bae504f9cab4cdc83ceb3614d7039a6d776acf73c815a02",
+          "evidence_status": "hash_verified",
+          "note": "HTML/text fallback; normalized visible text hashed because official PDF was not reliably downloadable."
+        },
+        {
+          "document_role": "resume_listing_announcement",
+          "source": "Sina_announcement_mirror",
+          "title": "川化股份有限公司恢复上市公告书",
+          "announcement_date": "2017-12-13",
+          "url": "https://file.finance.sina.com.cn/211.154.219.97%3A9494/MRGG/CNSESZ_STOCK/2017/2017-12/2017-12-13/3930609.PDF",
+          "hash_target": "pdf",
+          "sha256": "e99fd8a970ef6630d36adcfb7bcc9af2a22d710a8ea9b5307d871d8cbbe3a0e8",
+          "evidence_status": "hash_verified",
+          "note": "PDF hash; updated resume listing announcement."
+        }
+      ]
+    },
+    {
+      "ts_code": "000629.SZ",
+      "company_name": "攀钢钒钛 / 原*ST钒钛",
+      "start_date": "20170505",
+      "end_date": "20180823",
+      "policy_type": "listing_pause",
+      "evidence_documents": [
+        {
+          "document_role": "pause_listing_announcement",
+          "source": "CNINFO",
+          "title": "攀钢集团钒钛资源股份有限公司关于股票暂停上市公告",
+          "announcement_date": "2017-05-03",
+          "url": "https://static.cninfo.com.cn/finalpage/2017-05-04/1203473701.PDF",
+          "hash_target": "pdf",
+          "sha256": "14d7899e3edd5f85358efd109a35a1be2b088ee7d65dba898f5a69c718254f35",
+          "evidence_status": "hash_verified",
+          "note": "PDF hash; SZSE decision document 深证上〔2017〕278号 is cited by the announcement."
+        },
+        {
+          "document_role": "resume_listing_announcement",
+          "source": "SZSE",
+          "title": "攀钢集团钒钛资源股份有限公司恢复上市公告书",
+          "announcement_date": "2018-08-16",
+          "url": "http://disc.static.szse.cn/download/disc/disk01/finalpage/2018-08-16/f6dce7f8-b2b4-4cea-95ce-3544c443127a.PDF",
+          "hash_target": "pdf",
+          "sha256": "a3afdd5f0f8447858eca19267d97caecc4ad38edb45412035362b5ee1151694e",
+          "evidence_status": "hash_verified",
+          "note": "PDF hash; SZSE decision document 深证上〔2018〕353号 is cited by the announcement."
+        }
+      ]
+    },
+    {
+      "ts_code": "000792.SZ",
+      "company_name": "盐湖股份 / 原*ST盐湖",
+      "start_date": "20200522",
+      "end_date": "20210809",
+      "policy_type": "listing_pause",
+      "evidence_documents": [
+        {
+          "document_role": "pause_listing_announcement",
+          "source": "SZSE",
+          "title": "关于青海盐湖工业股份有限公司股票暂停上市的公告",
+          "announcement_date": "2020-05-20",
+          "url": "https://disc.static.szse.cn/download/disc/disk02/finalpage/2020-05-21/8fba7650-41c1-477d-8eda-7e92be248039.PDF",
+          "hash_target": "pdf",
+          "sha256": "c0eb9e4f648ae7845c522a4835a2d3e430821f6aadb734c22e9977c4f5369d8e",
+          "evidence_status": "hash_verified",
+          "note": "PDF hash from SZSE static disclosure."
+        },
+        {
+          "document_role": "resume_listing_announcement",
+          "source": "SZSE",
+          "title": "青海盐湖工业股份有限公司恢复上市公告书",
+          "announcement_date": "2021-08-03",
+          "url": "https://disc.static.szse.cn/download/disc/disk02/finalpage/2021-08-03/98aaca67-7c8d-4afb-bb61-e1aeaf7118f8.PDF",
+          "hash_target": "pdf",
+          "sha256": "72328b5d97c8926370e2a5a3d4b59685e2bb92a74eeb77eac311482acc2ba934",
+          "evidence_status": "hash_verified",
+          "note": "PDF hash from SZSE static disclosure."
+        }
+      ]
+    }
+  ],
+  "adj_factor_policy_evidence": [
+    {
+      "ts_code": "688981.SH",
+      "company_name": "中芯国际",
+      "policy_type": "neutral_factor_1",
+      "expected_d2_t18_policy_candidate": true,
+      "evidence_source": "tnskhdata.adj_factor",
+      "query_start_date": "20200716",
+      "query_end_date": "20260630",
+      "normalized_response_sha256": "50a8861244ae1b97f979c78ad54996558cf3288eae70f580098a9a1e74506ffb",
+      "evidence_status": "hash_verified",
+      "row_count": 1443,
+      "factor_intervals": [
+        {
+          "start_date": "20200716",
+          "end_date": "20260630",
+          "effective_adj_factor": 1.0,
+          "sha256": "50a8861244ae1b97f979c78ad54996558cf3288eae70f580098a9a1e74506ffb",
+          "note": "Normalized tnskhdata adj_factor rows are constant at 1.0."
+        }
+      ],
+      "recommended_policy": "neutral_factor_1_policy_candidate",
+      "notes": "Codex fetched tnskhdata adj_factor using D2-T19 missing factor interval."
+    },
+    {
+      "ts_code": "689009.SH",
+      "company_name": "九号公司",
+      "policy_type": "factor_interval",
+      "expected_d2_t18_policy_candidate": true,
+      "evidence_source": "tnskhdata.adj_factor",
+      "query_start_date": "20201029",
+      "query_end_date": "20260630",
+      "normalized_response_sha256": "93db7ee8bf1a758b85632dacaf5872efa7570ce2d83a22b5f90262a7ebe99d36",
+      "evidence_status": "hash_verified",
+      "row_count": 1376,
+      "factor_intervals": [
+        {
+          "start_date": "20201029",
+          "end_date": "20240523",
+          "effective_adj_factor": 1.0
+        },
+        {
+          "start_date": "20240524",
+          "end_date": "20250612",
+          "effective_adj_factor": 1.007
+        },
+        {
+          "start_date": "20250613",
+          "end_date": "20251030",
+          "effective_adj_factor": 1.026
+        },
+        {
+          "start_date": "20251031",
+          "end_date": "20251031",
+          "effective_adj_factor": 1.0332
+        },
+        {
+          "start_date": "20251103",
+          "end_date": "20260630",
+          "effective_adj_factor": 1.033
+        }
+      ],
+      "recommended_policy": "factor_interval_policy_candidate",
+      "notes": "Codex fetched tnskhdata adj_factor using D2-T19 missing factor interval; non-1.0 intervals require factor_interval policy."
+    }
+  ]
+}

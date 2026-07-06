@@ -62,11 +62,12 @@ class D2T15SecurityMajorFetchPlanTest(unittest.TestCase):
 
         self.assertIn("current_stage: D2", readme)
         self.assertIn(
-            "current_task: D2-T19 targeted repair and coverage policy evidence",
+            "current_task: D2-T20 fast coverage policy acceptance",
             readme,
         )
         self.assertIn(
-            "next_planned_task: D2-T20 policy acceptance or second targeted repair",
+            "next_planned_task: D3-T07 candidate generation from "
+            "D2-T20 policy candidate",
             readme,
         )
         self.assertIn(
@@ -86,7 +87,7 @@ class D2T15SecurityMajorFetchPlanTest(unittest.TestCase):
             "D3-T07 remains blocked until D2 coverage blockers are resolved",
             readme,
         )
-        self.assertIn("R0 remains blocked", readme)
+        self.assertIn("R0 remains blocked until D3 output exists", readme)
 
     def test_load_security_universe_reports_unmapped_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

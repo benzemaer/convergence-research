@@ -174,7 +174,7 @@ class D2T17EndpointChunkRunnerTest(unittest.TestCase):
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn(
-            "current_task: D2-T19 targeted repair and coverage policy evidence",
+            "current_task: D2-T20 fast coverage policy acceptance",
             readme,
         )
         self.assertIn(
