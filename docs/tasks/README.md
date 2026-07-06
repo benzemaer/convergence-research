@@ -18,8 +18,8 @@
 
 ```text
 current_stage: D2
-current_task: D2-T17
-next_planned_task: D3-T07
+current_task: D2-T18 provider coverage blocker diagnostics
+next_planned_task: D2-T19 targeted repair or policy decision
 ```
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
@@ -135,10 +135,12 @@ next_planned_task: D3-T07
 - `D2-T14` listed-open 行级 provider 修复诊断：closed / superseded by D2-T15; not merged
 - `D2-T15` 按证券主轴的 DuckDB 候选物化骨架与质量门禁：completed via PR #47
 - `D2-T16` 按证券主轴的 tnskhdata 远程拉取 runner：completed via PR #48
-- `D2-T17` 按 endpoint 配置 D2 runner chunk 策略：in_progress via current PR
-- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked pending D2-T17 acceptance decision
+- `D2-T17` 按 endpoint 配置 D2 runner chunk 策略：completed / runner available after PR #49
+- `D2-T18` provider coverage blocker 诊断与最小修复策略：in_progress via current PR
+- `D2-T19` targeted repair or policy decision：planned
+- `D3-T07` 标准日频观测表正式生成与 candidate data_version 发布门禁执行：blocked until coverage blockers are resolved and D2 acceptance is explicitly accepted by a later PR
 
-D3-T07 remains blocked unless D2-T17 handoff decision explicitly allows D3 candidate generation.
+D3-T07 remains blocked until D2 coverage blockers are resolved and D2 acceptance is explicitly accepted by a later PR.
 R0 remains blocked.
 
 完成标准：
