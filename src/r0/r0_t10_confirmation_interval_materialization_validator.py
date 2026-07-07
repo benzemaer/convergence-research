@@ -285,20 +285,16 @@ def _daily_stats(path: Path, table_name: str, errors: list[str]) -> dict[str, An
               sum(CASE WHEN validity_status != 'valid' AND raw_streak IS NOT NULL THEN 1 ELSE 0 END),
               sum(CASE WHEN confirmed_state = true AND (raw_state IS DISTINCT FROM true OR raw_streak < confirmation_k) THEN 1 ELSE 0 END),
               sum(CASE WHEN confirmed_state = true AND trading_date < confirmation_date THEN 1 ELSE 0 END),
-              sum(CASE WHEN d.state_name = 'S_PCVT' AND d.confirmed_state = true AND NOT EXISTS (
-                SELECT 1 FROM {quote_ident(table_name)} p
-                WHERE p.security_id = d.security_id
-                  AND p.trading_date = d.trading_date
-                  AND p.percentile_window_W = d.percentile_window_W
-                  AND abs(p.q - d.q) < 1e-12
-                  AND abs(p.weak_delta - d.weak_delta) < 1e-12
-                  AND p.confirmation_k = d.confirmation_k
-                  AND p.state_name = 'S_PCT'
-                  AND p.confirmed_state = true
-              ) THEN 1 ELSE 0 END)
+              sum(CASE WHEN confirmed_state = true THEN 1 ELSE 0 END)
             FROM {quote_ident(table_name)} d
             """
         ).fetchone()
+        confirmed_true_count = int(row[12] or 0)
+        confirmed_nested_invariant_hit_count = (
+            0
+            if confirmed_true_count == 0
+            else _confirmed_nested_invariant_hit_count(conn, table_name)
+        )
         coverage = _coverage(conn, table_name)
         distributions = {
             "confirmed_state": _distribution(conn, table_name, "confirmed_state"),
@@ -321,7 +317,8 @@ def _daily_stats(path: Path, table_name: str, errors: list[str]) -> dict[str, An
         "non_ready_streak_hit_count": int(row[9] or 0),
         "confirmed_state_invalid_hit_count": int(row[10] or 0),
         "backfill_hit_count": int(row[11] or 0),
-        "confirmed_nested_invariant_hit_count": int(row[12] or 0),
+        "confirmed_true_count": confirmed_true_count,
+        "confirmed_nested_invariant_hit_count": confirmed_nested_invariant_hit_count,
         **coverage,
         **distributions,
         **_field_guard_stats(schema),
@@ -398,6 +395,45 @@ def _interval_stats(path: Path, table_name: str, errors: list[str]) -> dict[str,
         **coverage,
         **_field_guard_stats(schema),
     }
+
+
+def _confirmed_nested_invariant_hit_count(conn: Any, table_name: str) -> int:
+    return int(
+        conn.execute(
+            f"""
+            WITH confirmed AS (
+              SELECT *
+              FROM {quote_ident(table_name)}
+              WHERE confirmed_state = true
+            ), pivoted AS (
+              SELECT
+                security_id,
+                trading_date,
+                percentile_window_W,
+                q,
+                weak_delta,
+                confirmation_k,
+                max(CASE WHEN state_name = 'S_P' THEN confirmed_state ELSE false END) AS s_p,
+                max(CASE WHEN state_name = 'S_PC' THEN confirmed_state ELSE false END) AS s_pc,
+                max(CASE WHEN state_name = 'S_PCT' THEN confirmed_state ELSE false END) AS s_pct,
+                max(CASE WHEN state_name = 'S_PCVT' THEN confirmed_state ELSE false END) AS s_pcvt
+              FROM confirmed
+              GROUP BY
+                security_id,
+                trading_date,
+                percentile_window_W,
+                q,
+                weak_delta,
+                confirmation_k
+            )
+            SELECT count(*)
+            FROM pivoted
+            WHERE (s_pcvt = true AND s_pct IS DISTINCT FROM true)
+               OR (s_pct = true AND s_pc IS DISTINCT FROM true)
+               OR (s_pc = true AND s_p IS DISTINCT FROM true)
+            """
+        ).fetchone()[0]
+    )
 
 
 def _validate_counts(
@@ -610,7 +646,17 @@ def _select_daily_recompute_samples(path: Path) -> list[dict[str, Any]]:
     try:
         rows = conn.execute(
             f"""
-            WITH ranked AS (
+            WITH chosen_security AS (
+              SELECT security_id
+              FROM {quote_ident(DAILY_CONFIRMATION_TABLE_NAME)}
+              GROUP BY security_id
+              ORDER BY security_id
+              LIMIT 8
+            ), candidate AS (
+              SELECT d.*
+              FROM {quote_ident(DAILY_CONFIRMATION_TABLE_NAME)} d
+              JOIN chosen_security s USING (security_id)
+            ), ranked AS (
               SELECT *,
                 row_number() OVER (
                   PARTITION BY percentile_window_W, q, confirmation_k, state_name
@@ -628,7 +674,7 @@ def _select_daily_recompute_samples(path: Path) -> list[dict[str, Any]]:
                   PARTITION BY validity_status
                   ORDER BY security_id, trading_date, percentile_window_W, q, state_name, confirmation_k
                 ) AS status_rank
-              FROM {quote_ident(DAILY_CONFIRMATION_TABLE_NAME)}
+              FROM candidate
             )
             SELECT DISTINCT *
             FROM ranked

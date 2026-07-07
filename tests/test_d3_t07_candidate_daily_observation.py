@@ -657,12 +657,11 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
 
         self.assertIn("current_stage: D3", readme)
         self.assertIn(
-            "current_task: R0-T10-04 R0-T07 confirmation / interval 物化",
+            "current_task: R0-T10-05 authorized input manifest 与 27 组 full-grid 执行",
             readme,
         )
         self.assertIn(
-            "next_planned_task: R0-T10-05 authorized input manifest "
-            "与 27 组 full-grid 执行",
+            "next_planned_task: R0-T11 R0 审计报告与 R1 交接",
             readme,
         )
         self.assertIn(
