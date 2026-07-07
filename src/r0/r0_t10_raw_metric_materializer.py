@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import multiprocessing
 import traceback
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -321,7 +322,11 @@ def _run_chunks(
     chunk_iter = _iter_security_chunks(plan, chunk_size_securities)
     results: list[dict[str, Any]] = []
     pending: set[concurrent.futures.Future[dict[str, Any]]] = set()
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as pool:
+    mp_context = multiprocessing.get_context("spawn")
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=max_workers,
+        mp_context=mp_context,
+    ) as pool:
         while True:
             while len(pending) < max_workers:
                 try:
