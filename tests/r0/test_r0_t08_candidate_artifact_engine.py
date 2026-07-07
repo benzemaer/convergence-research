@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.r0.candidate_artifact_engine import (
     BLOCKED,
+    LEGACY_V1_FIELD_NAMES,
     UNKNOWN,
     VALID,
     assemble_candidate_daily_rows,
@@ -263,6 +264,7 @@ class R0T08CandidateArtifactEngineTest(unittest.TestCase):
 
         self.assertEqual(row["NATR14_raw"], 0.11)
         self.assertEqual(row["LogAmount20_raw"], 0.18)
+        self.assertEqual(row["TurnoverShrink20_60_raw"], 0.17)
         self.assertEqual(row["AmountLevel20Pct"], 0.21)
         self.assertNotIn("AmountLevel20Pct_raw", row)
         self.assertTrue(row["S_PCVT_conf"])
@@ -389,6 +391,10 @@ class R0T08CandidateArtifactEngineTest(unittest.TestCase):
         self.assertIn(
             "null_field_counts", manifest["field_availability"]["daily_state_artifact"]
         )
+        self.assertIn(
+            "TurnoverShrink20_60_raw",
+            manifest["field_availability"]["daily_state_artifact"]["required_fields"],
+        )
 
     def test_forbidden_outputs_and_lineage_guards(self) -> None:
         forbidden = assert_no_forbidden_candidate_outputs(
@@ -419,6 +425,53 @@ class R0T08CandidateArtifactEngineTest(unittest.TestCase):
                 result = check_candidate_lineage([source])
                 self.assertEqual(result.validity_status, BLOCKED)
                 self.assertIn("direct_real_data_source_forbidden", result.reason_codes)
+
+    def test_legacy_v1_fields_are_forbidden_as_keys_and_sequence_values(self) -> None:
+        for legacy_name in sorted(LEGACY_V1_FIELD_NAMES):
+            with self.subTest(location="key", legacy_name=legacy_name):
+                result = assert_no_forbidden_candidate_outputs({legacy_name: 0.1})
+                self.assertEqual(result.validity_status, BLOCKED)
+                self.assertIn("legacy_v1_field_forbidden", result.reason_codes)
+
+            with self.subTest(location="schema_list", legacy_name=legacy_name):
+                result = assert_no_forbidden_candidate_outputs(
+                    {"candidate_daily_state_required_fields": [legacy_name]}
+                )
+                self.assertEqual(result.validity_status, BLOCKED)
+                self.assertIn("legacy_v1_field_forbidden", result.reason_codes)
+
+    def test_r0_t08_valid_outputs_do_not_use_legacy_v1_names(self) -> None:
+        daily_rows = assembled_daily_rows()
+        interval_rows = assemble_confirmed_interval_rows(
+            confirmed_interval_results=[interval()],
+            run_id=RUN_ID,
+            code_commit=CODE_COMMIT,
+            input_data_version=INPUT_DATA_VERSION,
+            source_lineage=LINEAGE,
+        )
+        manifest = build_candidate_manifest(
+            daily_rows=daily_rows,
+            interval_rows=interval_rows,
+            run_id=RUN_ID,
+            created_at="2026-07-07T00:00:00Z",
+            code_commit=CODE_COMMIT,
+            repository="benzemaer/convergence-research",
+            input_data_version=INPUT_DATA_VERSION,
+            input_sources=LINEAGE,
+            input_hashes={"synthetic": "abc123"},
+            input_row_counts={"daily": len(daily_rows)},
+        )
+        serialized = json.dumps(
+            {
+                "daily_rows": daily_rows,
+                "interval_rows": interval_rows,
+                "manifest": manifest,
+            },
+            sort_keys=True,
+        )
+        for legacy_name in LEGACY_V1_FIELD_NAMES:
+            with self.subTest(legacy_name=legacy_name):
+                self.assertNotIn(legacy_name, serialized)
 
     def test_writer_uses_tmpdir_and_is_deterministic(self) -> None:
         daily_rows = assembled_daily_rows()

@@ -150,6 +150,12 @@ FORBIDDEN_OUTPUT_FIELDS = {
     "buy_signal",
     "sell_signal",
 }
+LEGACY_V1_FIELD_NAMES = {
+    "VolShrink20_60_raw",
+    "V1_VolShrink20_60",
+    "VolShrink20_60",
+    "volume_shrink_20_60",
+}
 PROHIBITED_SOURCES = (
     "d1.raw_market_prices",
     "d2.adjusted_market_prices",
@@ -474,11 +480,17 @@ def file_content_hash(path: str | Path) -> str:
 
 
 def assert_no_forbidden_candidate_outputs(payload: Mapping[str, Any]) -> GuardResult:
-    reasons = [
+    forbidden_reasons = [
         "forbidden_output_field"
         for key in _walk_keys(payload)
         if str(key).lower() in FORBIDDEN_OUTPUT_FIELDS
     ]
+    legacy_reasons = [
+        "legacy_v1_field_forbidden"
+        for value in _walk_keys_and_sequence_strings(payload)
+        if value in LEGACY_V1_FIELD_NAMES
+    ]
+    reasons = [*forbidden_reasons, *legacy_reasons]
     if reasons:
         return GuardResult(BLOCKED, _unique_reasons(reasons))
     return GuardResult(VALID, ("valid_no_blocker",))
@@ -961,6 +973,21 @@ def _walk_keys(value: Any) -> list[str]:
         for nested in value:
             keys.extend(_walk_keys(nested))
     return keys
+
+
+def _walk_keys_and_sequence_strings(value: Any) -> list[str]:
+    values: list[str] = []
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            values.append(str(key))
+            values.extend(_walk_keys_and_sequence_strings(nested))
+    elif isinstance(value, list | tuple):
+        for nested in value:
+            if isinstance(nested, str):
+                values.append(nested)
+            else:
+                values.extend(_walk_keys_and_sequence_strings(nested))
+    return values
 
 
 def _lineage_sources(lineage: Mapping[str, Any] | Sequence[Any]) -> list[str]:

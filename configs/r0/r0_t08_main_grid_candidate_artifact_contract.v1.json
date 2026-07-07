@@ -44,6 +44,14 @@
   "metric_variant_id": "pcvt_baseline_v0_4",
   "state_definition_draft_version": "r0_candidate_state_v0_4",
   "config_schema_version": "r0_t08_candidate_config.v1",
+  "active_v1_raw_field": "TurnoverShrink20_60_raw",
+  "active_v1_indicator_id": "V1_TurnoverShrink20_60",
+  "legacy_v1_field_names_forbidden": [
+    "VolShrink20_60_raw",
+    "V1_VolShrink20_60",
+    "VolShrink20_60",
+    "volume_shrink_20_60"
+  ],
   "K1_confirmation_forbidden": true,
   "raw_daily_state_reference_from_R0_T06": true,
   "strict_rule_generated_by_this_task": false,
@@ -96,6 +104,7 @@
     "confirmation_days_K",
     "dimension_rule",
     "weak_delta",
+    "TurnoverShrink20_60_raw",
     "AmountLevel20Pct",
     "validity_state",
     "unknown_reason_codes",
@@ -169,6 +178,7 @@
     "missing_upstream_result",
     "candidate_lineage_missing",
     "direct_real_data_source_forbidden",
-    "forbidden_output_field"
+    "forbidden_output_field",
+    "legacy_v1_field_forbidden"
   ]
 }

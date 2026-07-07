@@ -71,6 +71,23 @@ class R0T08MainGridCandidateArtifactContractTest(unittest.TestCase):
         self.assertTrue(self.config["K1_confirmation_forbidden"])
         self.assertTrue(self.config["raw_daily_state_reference_from_R0_T06"])
 
+    def test_active_v1_turnover_fields_and_legacy_forbidden_names_are_fixed(
+        self,
+    ) -> None:
+        self.assertEqual(self.config["active_v1_raw_field"], "TurnoverShrink20_60_raw")
+        self.assertEqual(
+            self.config["active_v1_indicator_id"], "V1_TurnoverShrink20_60"
+        )
+        self.assertEqual(
+            self.config["legacy_v1_field_names_forbidden"],
+            [
+                "VolShrink20_60_raw",
+                "V1_VolShrink20_60",
+                "VolShrink20_60",
+                "volume_shrink_20_60",
+            ],
+        )
+
     def test_dependencies_lineage_and_forbidden_outputs_are_declared(self) -> None:
         for dependency in (
             "R0_T04_RAW_METRIC_ENGINE_CONTRACT_V1",
@@ -110,11 +127,19 @@ class R0T08MainGridCandidateArtifactContractTest(unittest.TestCase):
 
     def test_artifact_schema_fields_are_declared(self) -> None:
         self.assertIn(
+            "TurnoverShrink20_60_raw",
+            self.config["candidate_daily_state_required_fields"],
+        )
+        self.assertIn(
             "AmountLevel20Pct", self.config["candidate_daily_state_required_fields"]
         )
         self.assertNotIn(
             "AmountLevel20Pct_raw", self.config["candidate_daily_state_required_fields"]
         )
+        for legacy_name in self.config["legacy_v1_field_names_forbidden"]:
+            self.assertNotIn(
+                legacy_name, self.config["candidate_daily_state_required_fields"]
+            )
         self.assertIn(
             "confirmation_time", self.config["confirmed_interval_required_fields"]
         )

@@ -44,6 +44,9 @@
     "metric_variant_id",
     "state_definition_draft_version",
     "config_schema_version",
+    "active_v1_raw_field",
+    "active_v1_indicator_id",
+    "legacy_v1_field_names_forbidden",
     "K1_confirmation_forbidden",
     "raw_daily_state_reference_from_R0_T06",
     "strict_rule_generated_by_this_task",
@@ -130,6 +133,16 @@
       "const": "r0_candidate_state_v0_4"
     },
     "config_schema_version": { "const": "r0_t08_candidate_config.v1" },
+    "active_v1_raw_field": { "const": "TurnoverShrink20_60_raw" },
+    "active_v1_indicator_id": { "const": "V1_TurnoverShrink20_60" },
+    "legacy_v1_field_names_forbidden": {
+      "const": [
+        "VolShrink20_60_raw",
+        "V1_VolShrink20_60",
+        "VolShrink20_60",
+        "volume_shrink_20_60"
+      ]
+    },
     "K1_confirmation_forbidden": { "const": true },
     "raw_daily_state_reference_from_R0_T06": { "const": true },
     "strict_rule_generated_by_this_task": { "const": false },
@@ -176,6 +189,7 @@
       "type": "array",
       "uniqueItems": true,
       "allOf": [
+        { "contains": { "const": "TurnoverShrink20_60_raw" } },
         { "contains": { "const": "AmountLevel20Pct" } },
         { "contains": { "const": "validity_state" } },
         { "contains": { "const": "unknown_reason_codes" } }
@@ -229,7 +243,8 @@
         { "contains": { "const": "missing_upstream_result" } },
         { "contains": { "const": "candidate_lineage_missing" } },
         { "contains": { "const": "direct_real_data_source_forbidden" } },
-        { "contains": { "const": "forbidden_output_field" } }
+        { "contains": { "const": "forbidden_output_field" } },
+        { "contains": { "const": "legacy_v1_field_forbidden" } }
       ]
     }
   },
