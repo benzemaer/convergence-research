@@ -56,8 +56,8 @@ class R0T07ConfirmationStreakIntervalContractTest(unittest.TestCase):
         self.assertTrue(self.config["current_and_past_only"])
 
     def test_k_values_and_state_names_are_fixed(self) -> None:
-        self.assertEqual(self.config["confirmation_k_values"], [1, 2, 3])
-        self.assertEqual(self.config["baseline_confirmation_k"], 2)
+        self.assertEqual(self.config["confirmation_k_values"], [2, 3, 5])
+        self.assertEqual(self.config["baseline_confirmation_k"], 3)
         self.assertEqual(
             self.config["confirmed_state_names"], ["S_P", "S_PC", "S_PCT", "S_PCVT"]
         )

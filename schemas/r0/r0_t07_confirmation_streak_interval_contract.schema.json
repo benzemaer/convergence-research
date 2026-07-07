@@ -75,12 +75,12 @@
       "maxItems": 3,
       "uniqueItems": true,
       "allOf": [
-        { "contains": { "const": 1 } },
         { "contains": { "const": 2 } },
-        { "contains": { "const": 3 } }
+        { "contains": { "const": 3 } },
+        { "contains": { "const": 5 } }
       ]
     },
-    "baseline_confirmation_k": { "const": 2 },
+    "baseline_confirmation_k": { "const": 3 },
     "gap_merge_generated_by_this_task": { "const": false },
     "confirmed_state_backfill_allowed": { "const": false },
     "current_and_past_only": { "const": true },

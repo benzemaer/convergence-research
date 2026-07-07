@@ -4,7 +4,7 @@
 
 ## 目标
 
-本任务在 R0-T06 synthetic raw daily state layer 之上实现 confirmation、streak 与 confirmed interval 基础层。输入为 `NestedDailyStateResult` 或等价 in-memory mappings；输出为 `S_P`、`S_PC`、`S_PCT`、`S_PCVT` 的 raw streak、confirmed flag、confirmation start/date，以及已经 confirmed 的 interval rows。确认窗口固定为 `K = 1 / 2 / 3`，baseline K 为 `2`。
+本任务在 R0-T06 synthetic raw daily state layer 之上实现 confirmation、streak 与 confirmed interval 基础层。输入为 `NestedDailyStateResult` 或等价 in-memory mappings；输出为 `S_P`、`S_PC`、`S_PCT`、`S_PCVT` 的 raw streak、confirmed flag、confirmation start/date，以及已经 confirmed 的 interval rows。确认窗口固定为 `K = 2 / 3 / 5`，baseline K 为 `3`。`K=1` 对应 R0-T06 raw daily state reference，不属于 R0-T07 confirmed state。
 
 ## 非目标
 
@@ -36,7 +36,7 @@ confirmed interval 从某状态首次 confirmed 的日期开始输出。`raw_sta
 
 ## 验收标准
 
-验收要求包括：R0-T07 contract/schema 通过 `validate_configs.py`；K=1/2/3 均有合成测试；confirmed state 不回填；unknown、diagnostic 和 blocked 不转 false；confirmed interval 覆盖 closed、open、false 终止和 non-ready 终止；非法 K 被拒绝；forbidden guard 拒绝 future、backtest、portfolio 和 formal data version；lineage guard 阻断 `data/generated`、`data/raw`、MarketDB 和 `.day`；README 推进到 R0-T08 / R0-T09。
+验收要求包括：R0-T07 contract/schema 通过 `validate_configs.py`；K=2/3/5 均有合成测试且 K=1/0/4/6 被拒绝；confirmed state 不回填；unknown、diagnostic 和 blocked 不转 false；confirmed interval 覆盖 closed、open、false 终止和 non-ready 终止；duration 使用 raw true 连续段内的观察行数而不是自然日差；forbidden guard 拒绝 future、backtest、portfolio 和 formal data version；lineage guard 阻断 `data/generated`、`data/raw`、MarketDB 和 `.day`；README 推进到 R0-T08 / R0-T09。
 
 ## 失败状态
 

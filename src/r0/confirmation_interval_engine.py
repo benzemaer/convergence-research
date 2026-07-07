@@ -11,8 +11,8 @@ DIAGNOSTIC_REQUIRED = "diagnostic_required"
 BLOCKED = "blocked"
 
 CONFIRMATION_ENGINE_VERSION = "r0_t07_confirmation_streak_interval.v1"
-CONFIRMATION_K_VALUES = (1, 2, 3)
-BASELINE_CONFIRMATION_K = 2
+CONFIRMATION_K_VALUES = (2, 3, 5)
+BASELINE_CONFIRMATION_K = 3
 STATE_FIELD_BY_NAME = {
     "S_P": "S_P_raw",
     "S_PC": "S_PC_raw",
@@ -290,20 +290,30 @@ def _intervals_for_group(
     intervals: list[ConfirmedIntervalResult] = []
     active: dict[str, Any] | None = None
     sequence = 0
-    previous_true_date: str | None = None
+    current_raw_segment_dates: list[str] = []
     for row in rows:
         if row.get("raw_state") is True and row.get("validity_status") == VALID:
-            previous_true_date = str(row["trading_date"])
+            true_date = str(row["trading_date"])
+            current_raw_segment_dates.append(true_date)
             if row.get("confirmed_state") is True and active is None:
                 sequence += 1
+                confirmation_date = str(row["confirmation_date"])
                 active = {
                     "raw_start_date": str(row["raw_streak_start_date"]),
-                    "confirmation_date": str(row["confirmation_date"]),
-                    "confirmed_start_date": str(row["confirmation_date"]),
-                    "last_true_date": previous_true_date,
+                    "confirmation_date": confirmation_date,
+                    "confirmed_start_date": confirmation_date,
+                    "last_true_date": true_date,
+                    "raw_segment_dates": tuple(current_raw_segment_dates),
+                    "confirmed_segment_dates": _dates_from_confirmation(
+                        current_raw_segment_dates, confirmation_date
+                    ),
                 }
             elif active is not None:
-                active["last_true_date"] = previous_true_date
+                active["last_true_date"] = true_date
+                active["raw_segment_dates"] = tuple(current_raw_segment_dates)
+                active["confirmed_segment_dates"] = _dates_from_confirmation(
+                    current_raw_segment_dates, str(active["confirmation_date"])
+                )
             continue
 
         if active is not None:
@@ -313,11 +323,10 @@ def _intervals_for_group(
                     active=active,
                     sequence=sequence,
                     termination_row=row,
-                    interval_end_date=previous_true_date,
                 )
             )
             active = None
-        previous_true_date = None
+        current_raw_segment_dates = []
 
     if active is not None:
         intervals.append(
@@ -335,13 +344,14 @@ def _closed_interval(
     active: Mapping[str, Any],
     sequence: int,
     termination_row: Mapping[str, Any],
-    interval_end_date: str | None,
 ) -> ConfirmedIntervalResult:
     security_id, window, q, weak_delta, confirmation_k, state_name = key
     termination_reason = _termination_reason(termination_row)
     raw_start_date = str(active["raw_start_date"])
     confirmation_date = str(active["confirmation_date"])
-    end_date = str(interval_end_date)
+    end_date = str(active["last_true_date"])
+    raw_segment_dates = tuple(active["raw_segment_dates"])
+    confirmed_segment_dates = tuple(active["confirmed_segment_dates"])
     return ConfirmedIntervalResult(
         security_id=security_id,
         percentile_window_W=window,
@@ -355,8 +365,8 @@ def _closed_interval(
         confirmed_start_date=str(active["confirmed_start_date"]),
         interval_end_date=end_date,
         last_observed_date=str(termination_row["trading_date"]),
-        duration_raw_days=_inclusive_duration(raw_start_date, end_date),
-        duration_confirmed_days=_inclusive_duration(confirmation_date, end_date),
+        duration_raw_days=len(raw_segment_dates),
+        duration_confirmed_days=len(confirmed_segment_dates),
         is_open_interval=False,
         termination_reason=termination_reason,
         validity_status=VALID,
@@ -373,6 +383,8 @@ def _open_interval(
     raw_start_date = str(active["raw_start_date"])
     confirmation_date = str(active["confirmation_date"])
     last_true_date = str(active["last_true_date"])
+    raw_segment_dates = tuple(active["raw_segment_dates"])
+    confirmed_segment_dates = tuple(active["confirmed_segment_dates"])
     return ConfirmedIntervalResult(
         security_id=security_id,
         percentile_window_W=window,
@@ -386,8 +398,8 @@ def _open_interval(
         confirmed_start_date=str(active["confirmed_start_date"]),
         interval_end_date=None,
         last_observed_date=last_true_date,
-        duration_raw_days=_inclusive_duration(raw_start_date, last_true_date),
-        duration_confirmed_days=_inclusive_duration(confirmation_date, last_true_date),
+        duration_raw_days=len(raw_segment_dates),
+        duration_confirmed_days=len(confirmed_segment_dates),
         is_open_interval=True,
         termination_reason="end_of_input_open",
         validity_status=VALID,
@@ -487,10 +499,6 @@ def _termination_reason(row: Mapping[str, Any]) -> str:
     return "raw_state_unknown"
 
 
-def _inclusive_duration(start_date: str, end_date: str) -> int:
-    return int(end_date.replace("-", "")) - int(start_date.replace("-", "")) + 1
-
-
 def _interval_id(
     key: tuple[str, int, float, float, int, str], sequence: int, confirmation_date: str
 ) -> str:
@@ -509,6 +517,15 @@ def _normalise_k_values(k_values: Sequence[int]) -> tuple[int, ...]:
             f"confirmation_k must be one of {CONFIRMATION_K_VALUES}: {invalid}"
         )
     return normalised
+
+
+def _dates_from_confirmation(
+    raw_segment_dates: Sequence[str], confirmation_date: str
+) -> tuple[str, ...]:
+    for index, date in enumerate(raw_segment_dates):
+        if date == confirmation_date:
+            return tuple(raw_segment_dates[index:])
+    return ()
 
 
 def _normalise_row(row: Mapping[str, Any] | Any) -> dict[str, Any]:
