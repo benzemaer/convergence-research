@@ -24,6 +24,9 @@ from src.r0.main_grid_materialization_runner import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_DIR = ROOT / "tests/fixtures/r0/r0_t09_smoke"
+FULL_GRID_FIXTURE_MANIFEST = FIXTURE_DIR / "full_grid_authorized_input_manifest.json"
+BASELINE_FIXTURE_MANIFEST = FIXTURE_DIR / "baseline_authorized_input_manifest.json"
 SECURITY_ID = "000001.SZ"
 TRADING_DATE = "2026-02-03"
 LINEAGE = [
@@ -266,7 +269,114 @@ def read_csv_gz_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def baseline_artifact_paths(output_dir: Path) -> dict[str, Path]:
+    return {
+        "done": output_dir / "status" / f"{BASELINE_CANDIDATE_CONFIG_ID}.DONE.json",
+        "failed": output_dir / "status" / f"{BASELINE_CANDIDATE_CONFIG_ID}.FAILED.json",
+        "daily_csv": output_dir
+        / "daily_states"
+        / f"{BASELINE_CANDIDATE_CONFIG_ID}.daily_states.csv.gz",
+        "daily_duckdb": output_dir
+        / "daily_states"
+        / f"{BASELINE_CANDIDATE_CONFIG_ID}.daily_states.duckdb",
+        "interval_csv": output_dir
+        / "confirmed_intervals"
+        / f"{BASELINE_CANDIDATE_CONFIG_ID}.confirmed_intervals.csv.gz",
+        "interval_duckdb": output_dir
+        / "confirmed_intervals"
+        / f"{BASELINE_CANDIDATE_CONFIG_ID}.confirmed_intervals.duckdb",
+        "manifest": output_dir / "manifest.json",
+        "audit_report": output_dir / "audit_report.md",
+        "r1_handoff": output_dir / "r1_handoff.md",
+    }
+
+
 class R0T09MainGridRunnerTest(unittest.TestCase):
+    def test_fixture_full_grid_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_main_grid_materialization(
+                input_manifest=FULL_GRID_FIXTURE_MANIFEST,
+                output_dir=Path(tmp) / "dry_run_out",
+                max_workers=6,
+                dry_run=True,
+                run_id="R0-T09-FIXTURE-DRY-RUN",
+                code_commit="fixture-commit",
+            )
+
+        self.assertEqual(result["status"], "dry_run")
+        self.assertEqual(result["candidate_config_count"], 27)
+        self.assertEqual(result["selected_config_count"], 27)
+        self.assertEqual(result["run_scope"], "full_grid")
+        self.assertFalse(result["artifacts_written"])
+        self.assertIn(BASELINE_CANDIDATE_CONFIG_ID, result["tasks"])
+        self.assertFalse(any("_K1_" in config_id for config_id in result["tasks"]))
+        self.assertEqual(
+            result["input_payload_coverage_guard"]["validity_status"], "valid"
+        )
+
+    def test_fixture_baseline_materialization_smoke(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "baseline_out"
+            result = run_main_grid_materialization(
+                input_manifest=BASELINE_FIXTURE_MANIFEST,
+                output_dir=output_dir,
+                max_workers=1,
+                only_config=BASELINE_CANDIDATE_CONFIG_ID,
+                resume=True,
+                run_id="R0-T09-FIXTURE-BASELINE",
+                code_commit="fixture-commit",
+            )
+            paths = baseline_artifact_paths(output_dir)
+
+            self.assertEqual(result["status"], "completed")
+            self.assertEqual(result["run_scope"], "single_config")
+            self.assertEqual(result["selected_config_count"], 1)
+            self.assertEqual(result["completed_config_count"], 1)
+            self.assertEqual(result["failed_config_count"], 0)
+            self.assertEqual(result["pending_config_count"], 0)
+            self.assertEqual(
+                result["baseline_candidate_config_id"], BASELINE_CANDIDATE_CONFIG_ID
+            )
+            self.assertTrue(paths["done"].is_file())
+            self.assertFalse(paths["failed"].exists())
+            self.assertTrue(paths["daily_duckdb"].is_file())
+            self.assertTrue(paths["daily_csv"].is_file())
+            self.assertTrue(paths["interval_duckdb"].is_file())
+            self.assertTrue(paths["interval_csv"].is_file())
+            self.assertTrue(paths["manifest"].is_file())
+            self.assertFalse(paths["audit_report"].exists())
+            self.assertFalse(paths["r1_handoff"].exists())
+
+            row = read_csv_gz_rows(paths["daily_csv"])[0]
+            self.assertIn("TurnoverShrink20_60_raw", row)
+            self.assertIn("AmountLevel20Pct", row)
+            self.assertNotIn("AmountLevel20Pct_raw", row)
+            serialized = json.dumps(result, sort_keys=True)
+            serialized += gzip.open(paths["daily_csv"], "rt", encoding="utf-8").read()
+            for legacy_name in LEGACY_V1_FIELD_NAMES:
+                self.assertNotIn(legacy_name, serialized)
+
+    def test_fixture_baseline_resume_skips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "baseline_out"
+            kwargs = {
+                "input_manifest": BASELINE_FIXTURE_MANIFEST,
+                "output_dir": output_dir,
+                "max_workers": 1,
+                "only_config": BASELINE_CANDIDATE_CONFIG_ID,
+                "resume": True,
+                "run_id": "R0-T09-FIXTURE-BASELINE",
+                "code_commit": "fixture-commit",
+            }
+            run_main_grid_materialization(**kwargs)
+            resumed = run_main_grid_materialization(**kwargs)
+
+        self.assertEqual(resumed["skipped_config_count"], 1)
+        self.assertEqual(
+            resumed["per_config_status"][BASELINE_CANDIDATE_CONFIG_ID]["status"],
+            "skipped",
+        )
+
     def test_dry_run_expands_grid_and_excludes_k1(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             manifest_path = write_authorized_input(Path(tmp), full_grid_payload())

@@ -1,0 +1,23 @@
+{
+  "authorized_r0_input": true,
+  "code_commit_or_data_build_id": "r0-t09-smoke-fixture",
+  "input_content_hash": "1f7d530fa508a105299b47c9ecc68f2bc3af525bdbf72ca833bab41a29491982",
+  "input_data_version": "synthetic-r0-t09-smoke-v1",
+  "input_payload_path": "full_grid_payload.json",
+  "input_row_counts": {
+    "confirmed_interval_results": 3,
+    "daily_confirmation_results": 108,
+    "dimension_score_results": 12,
+    "indicator_score_results": 24,
+    "nested_daily_state_results": 9,
+    "raw_metric_results": 8
+  },
+  "input_schema_version": "r0_t09_smoke_fixture_payload.v1",
+  "source_lineage": [
+    "synthetic_in_memory_r0_grid_inputs",
+    "r0_t04_raw_metric_engine",
+    "r0_t05_strict_past_percentile_score",
+    "r0_t06_weak_dimension_nested_state",
+    "r0_t07_confirmation_streak_interval"
+  ]
+}
