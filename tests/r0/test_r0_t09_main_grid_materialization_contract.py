@@ -68,6 +68,10 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
         self.assertEqual(self.config["max_workers_default"], 6)
         self.assertEqual(self.config["max_workers_upper_bound"], 6)
         self.assertTrue(self.config["resume_authorized"])
+        self.assertTrue(self.config["input_payload_coverage_guard_required"])
+        self.assertEqual(
+            self.config["manifest_run_scope_values"], ["full_grid", "single_config"]
+        )
         self.assertTrue(self.config["per_config_isolated_output_required"])
         self.assertTrue(self.config["single_writer_per_duckdb_required"])
         self.assertEqual(
@@ -96,11 +100,27 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
             "input_payload_path",
         ):
             self.assertIn(field, self.config["required_input_manifest_fields"])
-        for field in ("daily_content_hash", "interval_content_hash", "status"):
+        for field in (
+            "daily_duckdb_hash",
+            "daily_csv_hash",
+            "interval_duckdb_hash",
+            "interval_csv_hash",
+            "daily_content_hash",
+            "interval_content_hash",
+            "status",
+        ):
             self.assertIn(field, self.config["done_marker_required_fields"])
         for field in ("error_type", "error_message", "retry_command"):
             self.assertIn(field, self.config["failed_marker_required_fields"])
-        for field in ("candidate_configs", "per_config_status", "lineage_guard"):
+        for field in (
+            "candidate_configs",
+            "run_scope",
+            "selected_config_count",
+            "selected_config_ids",
+            "per_config_status",
+            "lineage_guard",
+            "input_payload_coverage_guard",
+        ):
             self.assertIn(field, self.config["global_manifest_required_fields"])
         for forbidden in (
             "future_return",
@@ -113,6 +133,10 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
             "r1_handoff",
         ):
             self.assertIn(forbidden, self.config["forbidden_outputs"])
+        self.assertIn(
+            "input_payload_grid_coverage_incomplete",
+            self.config["reason_code_vocabulary"],
+        )
 
     def test_readme_advances_to_r0_t10_after_r0_t09_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")

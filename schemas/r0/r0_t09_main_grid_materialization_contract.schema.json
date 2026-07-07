@@ -31,6 +31,8 @@
     "resume_authorized",
     "only_config_rerun_authorized",
     "dry_run_authorized",
+    "input_payload_coverage_guard_required",
+    "manifest_run_scope_values",
     "per_config_isolated_output_required",
     "single_writer_per_duckdb_required",
     "future_label_generation_authorized",
@@ -103,6 +105,8 @@
     "resume_authorized": { "const": true },
     "only_config_rerun_authorized": { "const": true },
     "dry_run_authorized": { "const": true },
+    "input_payload_coverage_guard_required": { "const": true },
+    "manifest_run_scope_values": { "const": ["full_grid", "single_config"] },
     "per_config_isolated_output_required": { "const": true },
     "single_writer_per_duckdb_required": { "const": true },
     "future_label_generation_authorized": { "const": false },
@@ -154,6 +158,10 @@
       "uniqueItems": true,
       "allOf": [
         { "contains": { "const": "daily_content_hash" } },
+        { "contains": { "const": "daily_duckdb_hash" } },
+        { "contains": { "const": "daily_csv_hash" } },
+        { "contains": { "const": "interval_duckdb_hash" } },
+        { "contains": { "const": "interval_csv_hash" } },
         { "contains": { "const": "interval_content_hash" } },
         { "contains": { "const": "status" } }
       ]
@@ -172,8 +180,12 @@
       "uniqueItems": true,
       "allOf": [
         { "contains": { "const": "candidate_configs" } },
+        { "contains": { "const": "run_scope" } },
+        { "contains": { "const": "selected_config_count" } },
+        { "contains": { "const": "selected_config_ids" } },
         { "contains": { "const": "per_config_status" } },
         { "contains": { "const": "lineage_guard" } },
+        { "contains": { "const": "input_payload_coverage_guard" } },
         { "contains": { "const": "forbidden_output_guard" } }
       ]
     },

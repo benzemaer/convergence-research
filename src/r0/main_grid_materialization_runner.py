@@ -27,6 +27,7 @@ MATERIALIZATION_RUNNER_VERSION = "r0_t09_main_grid_materialization_runner.v1"
 MAX_WORKERS_DEFAULT = 6
 MAX_WORKERS_UPPER_BOUND = 6
 BASELINE_CANDIDATE_CONFIG_ID = "R0_W250_Q20_K3_WEAK_D010"
+VALID_STATE_NAMES = ("S_P", "S_PC", "S_PCT", "S_PCVT")
 REQUIRED_MANIFEST_FIELDS = (
     "input_data_version",
     "input_schema_version",
@@ -106,6 +107,15 @@ def run_main_grid_materialization(
         for config in configs
         if only_config is None or config["candidate_config_id"] == only_config
     ]
+    run_scope = "full_grid" if only_config is None else "single_config"
+    coverage_guard = validate_r0_t09_payload_coverage(
+        authorized.payload, selected_configs
+    )
+    if coverage_guard["validity_status"] == BLOCKED:
+        raise R0T09MaterializationError(
+            "input_payload_grid_coverage_incomplete: "
+            + ",".join(str(reason) for reason in coverage_guard["reason_codes"])
+        )
     if run_id is None:
         run_id = "R0-T09-" + _utc_now().replace("-", "").replace(":", "")
     if code_commit is None:
@@ -120,6 +130,11 @@ def run_main_grid_materialization(
             "run_id": run_id,
             "candidate_config_count": len(configs),
             "selected_config_count": len(selected_configs),
+            "selected_config_ids": [
+                config["candidate_config_id"] for config in selected_configs
+            ],
+            "run_scope": run_scope,
+            "input_payload_coverage_guard": coverage_guard,
             "max_workers": max_workers,
             "resume": resume,
             "artifacts_written": False,
@@ -159,6 +174,8 @@ def run_main_grid_materialization(
                 selected_config_ids=[
                     str(config["candidate_config_id"]) for config in selected_configs
                 ],
+                run_scope=run_scope,
+                coverage_guard=coverage_guard,
                 finished=False,
             )
     else:
@@ -180,6 +197,8 @@ def run_main_grid_materialization(
                         str(config["candidate_config_id"])
                         for config in selected_configs
                     ],
+                    run_scope=run_scope,
+                    coverage_guard=coverage_guard,
                     finished=False,
                 )
 
@@ -194,6 +213,8 @@ def run_main_grid_materialization(
         selected_config_ids=[
             str(config["candidate_config_id"]) for config in selected_configs
         ],
+        run_scope=run_scope,
+        coverage_guard=coverage_guard,
         finished=True,
     )
 
@@ -235,6 +256,127 @@ def load_authorized_input(input_manifest: str | Path) -> AuthorizedInput:
     )
 
 
+def validate_r0_t09_payload_coverage(
+    payload: Mapping[str, Any], candidate_configs: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    legal_configs = [config.as_dict() for config in build_candidate_configs()]
+    legal_nested_keys = {
+        _wq_key(config["percentile_window_W"], config["low_quantile_q"])
+        for config in legal_configs
+    }
+    legal_confirmation_keys = {
+        _confirmation_key(
+            config["percentile_window_W"],
+            config["low_quantile_q"],
+            config["confirmation_days_K"],
+            state_name,
+        )
+        for config in legal_configs
+        for state_name in VALID_STATE_NAMES
+    }
+    legal_interval_keys = {
+        _wk_key(
+            config["percentile_window_W"],
+            config["low_quantile_q"],
+            config["confirmation_days_K"],
+        )
+        for config in legal_configs
+    }
+    required_nested_keys = {
+        _wq_key(config["percentile_window_W"], config["low_quantile_q"])
+        for config in candidate_configs
+    }
+    required_confirmation_keys = {
+        _confirmation_key(
+            config["percentile_window_W"],
+            config["low_quantile_q"],
+            config["confirmation_days_K"],
+            state_name,
+        )
+        for config in candidate_configs
+        for state_name in VALID_STATE_NAMES
+    }
+
+    nested_keys: set[tuple[int, int]] = set()
+    invalid_nested_rows = 0
+    for item in payload.get("nested_daily_state_results", ()):
+        try:
+            row = _row_dict(item)
+            key = _wq_key(row["percentile_window_W"], row["q"])
+            weak_delta = _percent_key(row.get("weak_delta"))
+        except (KeyError, TypeError, ValueError):
+            invalid_nested_rows += 1
+            continue
+        if key not in legal_nested_keys or weak_delta != 10:
+            invalid_nested_rows += 1
+            continue
+        nested_keys.add(key)
+
+    confirmation_keys: set[tuple[int, int, int, str]] = set()
+    invalid_confirmation_rows = 0
+    for item in payload.get("daily_confirmation_results", ()):
+        try:
+            row = _row_dict(item)
+            key = _confirmation_key(
+                row["percentile_window_W"],
+                row["q"],
+                row["confirmation_k"],
+                row["state_name"],
+            )
+            weak_delta = _percent_key(row.get("weak_delta"))
+        except (KeyError, TypeError, ValueError):
+            invalid_confirmation_rows += 1
+            continue
+        if key not in legal_confirmation_keys or weak_delta != 10:
+            invalid_confirmation_rows += 1
+            continue
+        confirmation_keys.add(key)
+
+    invalid_interval_rows = 0
+    mapped_interval_keys: set[tuple[int, int, int]] = set()
+    for item in payload.get("confirmed_interval_results", ()):
+        try:
+            row = _row_dict(item)
+            key = _wk_key(row["percentile_window_W"], row["q"], row["confirmation_k"])
+            weak_delta = _percent_key(row.get("weak_delta"))
+        except (KeyError, TypeError, ValueError):
+            invalid_interval_rows += 1
+            continue
+        if key not in legal_interval_keys or weak_delta != 10:
+            invalid_interval_rows += 1
+            continue
+        mapped_interval_keys.add(key)
+
+    missing_nested = sorted(required_nested_keys - nested_keys)
+    missing_confirmations = sorted(required_confirmation_keys - confirmation_keys)
+    reasons: list[str] = []
+    if (
+        missing_nested
+        or missing_confirmations
+        or invalid_nested_rows
+        or invalid_confirmation_rows
+        or invalid_interval_rows
+    ):
+        reasons.append("input_payload_grid_coverage_incomplete")
+
+    return {
+        "validity_status": BLOCKED if reasons else "valid",
+        "reason_codes": reasons or ["valid_no_blocker"],
+        "required_nested_key_count": len(required_nested_keys),
+        "covered_nested_key_count": len(required_nested_keys & nested_keys),
+        "missing_nested_key_count": len(missing_nested),
+        "required_confirmation_key_count": len(required_confirmation_keys),
+        "covered_confirmation_key_count": len(
+            required_confirmation_keys & confirmation_keys
+        ),
+        "missing_confirmation_key_count": len(missing_confirmations),
+        "mapped_interval_key_count": len(mapped_interval_keys),
+        "invalid_nested_row_count": invalid_nested_rows,
+        "invalid_confirmation_row_count": invalid_confirmation_rows,
+        "invalid_interval_row_count": invalid_interval_rows,
+    }
+
+
 def should_skip_config(
     *,
     config: Mapping[str, Any],
@@ -263,9 +405,12 @@ def should_skip_config(
         return False
     if done.get("input_manifest_hash") != input_manifest_hash:
         return False
-    return done.get("daily_content_hash") == sha256_file(
-        paths["daily_csv"]
-    ) and done.get("interval_content_hash") == sha256_file(paths["interval_csv"])
+    return (
+        done.get("daily_duckdb_hash") == sha256_file(paths["daily_duckdb"])
+        and done.get("daily_csv_hash") == sha256_file(paths["daily_csv"])
+        and done.get("interval_duckdb_hash") == sha256_file(paths["interval_duckdb"])
+        and done.get("interval_csv_hash") == sha256_file(paths["interval_csv"])
+    )
 
 
 def _run_one_config(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -331,6 +476,10 @@ def _run_one_config(payload: Mapping[str, Any]) -> dict[str, Any]:
         _write_duckdb_atomic(
             paths["interval_duckdb"], "confirmed_interval_rows", interval_rows
         )
+        daily_duckdb_hash = sha256_file(paths["daily_duckdb"])
+        daily_csv_hash = sha256_file(paths["daily_csv"])
+        interval_duckdb_hash = sha256_file(paths["interval_duckdb"])
+        interval_csv_hash = sha256_file(paths["interval_csv"])
         finished_at = _utc_now()
         done = {
             "candidate_config_id": config_id,
@@ -343,8 +492,12 @@ def _run_one_config(payload: Mapping[str, Any]) -> dict[str, Any]:
             "interval_artifact_csv_path": str(paths["interval_csv"]),
             "daily_row_count": len(daily_rows),
             "interval_row_count": len(interval_rows),
-            "daily_content_hash": sha256_file(paths["daily_csv"]),
-            "interval_content_hash": sha256_file(paths["interval_csv"]),
+            "daily_duckdb_hash": daily_duckdb_hash,
+            "daily_csv_hash": daily_csv_hash,
+            "interval_duckdb_hash": interval_duckdb_hash,
+            "interval_csv_hash": interval_csv_hash,
+            "daily_content_hash": daily_csv_hash,
+            "interval_content_hash": interval_csv_hash,
             "started_at": started_at,
             "finished_at": finished_at,
             "duration_seconds": _duration_seconds(started_at, finished_at),
@@ -389,6 +542,8 @@ def _write_global_manifest(
     configs: Sequence[Mapping[str, Any]],
     results: Sequence[Mapping[str, Any]],
     selected_config_ids: Sequence[str],
+    run_scope: str,
+    coverage_guard: Mapping[str, Any],
     finished: bool,
 ) -> dict[str, Any]:
     result_by_id = {
@@ -432,12 +587,22 @@ def _write_global_manifest(
         for config in configs
     }
     daily_hashes = {
-        config_id: result["daily_content_hash"]
+        config_id: result["daily_csv_hash"]
         for config_id, result in result_by_id.items()
         if result.get("status") in {"completed", "skipped"}
     }
     interval_hashes = {
-        config_id: result["interval_content_hash"]
+        config_id: result["interval_csv_hash"]
+        for config_id, result in result_by_id.items()
+        if result.get("status") in {"completed", "skipped"}
+    }
+    daily_duckdb_hashes = {
+        config_id: result["daily_duckdb_hash"]
+        for config_id, result in result_by_id.items()
+        if result.get("status") in {"completed", "skipped"}
+    }
+    interval_duckdb_hashes = {
+        config_id: result["interval_duckdb_hash"]
         for config_id, result in result_by_id.items()
         if result.get("status") in {"completed", "skipped"}
     }
@@ -462,7 +627,10 @@ def _write_global_manifest(
         "input_manifest_path": str(authorized.manifest_path),
         "input_manifest_hash": authorized.manifest_hash,
         "input_data_version": authorized.manifest["input_data_version"],
+        "run_scope": run_scope,
         "candidate_config_count": len(configs),
+        "selected_config_count": len(selected),
+        "selected_config_ids": sorted(selected),
         "completed_config_count": len(completed),
         "failed_config_count": len(failed),
         "skipped_config_count": len(skipped),
@@ -495,6 +663,10 @@ def _write_global_manifest(
         "interval_count_by_config": interval_count_by_config,
         "daily_content_hash_by_config": daily_hashes,
         "interval_content_hash_by_config": interval_hashes,
+        "daily_duckdb_hash_by_config": daily_duckdb_hashes,
+        "daily_csv_hash_by_config": daily_hashes,
+        "interval_duckdb_hash_by_config": interval_duckdb_hashes,
+        "interval_csv_hash_by_config": interval_hashes,
         "global_daily_content_hash": _hash_object(daily_hashes),
         "global_interval_content_hash": _hash_object(interval_hashes),
         "engine_versions": _engine_versions(),
@@ -503,6 +675,7 @@ def _write_global_manifest(
         "lineage_guard": check_candidate_lineage(
             authorized.manifest.get("source_lineage", ())
         ).as_dict(),
+        "input_payload_coverage_guard": dict(coverage_guard),
         "forbidden_output_guard": assert_no_forbidden_candidate_outputs(
             {
                 "per_config_status": list(result_by_id.values()),
@@ -541,10 +714,11 @@ def _write_duckdb_atomic(
     conn = duckdb.connect(str(partial))
     try:
         conn.execute(f"CREATE TABLE {table_name} (row_json TEXT)")
-        conn.executemany(
-            f"INSERT INTO {table_name} VALUES (?)",
-            [(_canonical_json(row),) for row in rows],
-        )
+        if rows:
+            conn.executemany(
+                f"INSERT INTO {table_name} VALUES (?)",
+                [(_canonical_json(row),) for row in rows],
+            )
     finally:
         conn.close()
     partial.replace(path)
@@ -599,6 +773,28 @@ def _guard_payload_path(path: Path) -> None:
     forbidden = ("data/raw", "data/external", "MarketDB", ".day")
     if any(pattern in normalized for pattern in forbidden):
         raise R0T09MaterializationError(f"forbidden input payload path: {path}")
+
+
+def _row_dict(row: Mapping[str, Any] | Any) -> dict[str, Any]:
+    return dict(row)
+
+
+def _wq_key(window: Any, q: Any) -> tuple[int, int]:
+    return (int(window), _percent_key(q))
+
+
+def _wk_key(window: Any, q: Any, confirmation_k: Any) -> tuple[int, int, int]:
+    return (int(window), _percent_key(q), int(confirmation_k))
+
+
+def _confirmation_key(
+    window: Any, q: Any, confirmation_k: Any, state_name: Any
+) -> tuple[int, int, int, str]:
+    return (int(window), _percent_key(q), int(confirmation_k), str(state_name))
+
+
+def _percent_key(value: Any) -> int:
+    return int(round(float(value) * 100))
 
 
 def _contains_forbidden_key(value: Any) -> bool:

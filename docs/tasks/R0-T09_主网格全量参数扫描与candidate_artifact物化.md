@@ -20,11 +20,13 @@ python scripts/r0/run_r0_t09_main_grid.py --input-manifest <authorized_input_man
 
 输入 manifest 必须至少包含 `input_data_version`、`input_schema_version`、`input_content_hash`、`input_row_counts`、`source_lineage`、`authorized_r0_input=true`、`code_commit_or_data_build_id` 和 `input_payload_path`。`input_payload_path` 指向已授权上游 payload；payload 可来自 R0-T04 至 R0-T07/R0-T08 授权链路，但不得含 legacy V1 字段、future/return/backtest/portfolio/signal 字段或未授权真实数据直连来源。
 
+payload 必须通过 R0-T09 coverage guard。全量运行要求 `nested_daily_state_results` 覆盖 9 个 `(W,q)`，`daily_confirmation_results` 覆盖 27 组 `(W,q,K)` 的四个 `state_name`，且 `confirmed_interval_results` 中出现的行都能合法映射到主网格；没有 confirmed interval 是合法情形。只包含单个 config 的 payload 只能配合 `--only-config <candidate_config_id>` 使用，不能被标记为 27 组全量完成。
+
 ## 输出
 
-每个 `candidate_config_id` 独立输出配置快照、daily state DuckDB、daily state CSV gzip、confirmed interval DuckDB、confirmed interval CSV gzip、`DONE.json` 或 `FAILED.json` marker 以及日志。全局 `manifest.json` 记录 27 个配置、baseline 配置、每配置状态、输入 manifest hash、行数、内容 hash、全局 hash、engine version、contract/schema id、lineage guard 和 forbidden output guard。
+每个 `candidate_config_id` 独立输出配置快照、daily state DuckDB、daily state CSV gzip、confirmed interval DuckDB、confirmed interval CSV gzip、`DONE.json` 或 `FAILED.json` marker 以及日志。全局 `manifest.json` 记录 27 个配置、baseline 配置、`run_scope`、`selected_config_count`、`selected_config_ids`、每配置状态、输入 manifest hash、行数、DuckDB/CSV 内容 hash、全局 hash、engine version、contract/schema id、lineage guard、input payload coverage guard 和 forbidden output guard。
 
-写入必须使用 partial 文件和 atomic rename。`--resume` 仅在 `DONE.json` 存在、全部 artifact 存在、`config_hash` 与 `input_manifest_hash` 匹配且 CSV 内容 hash 可复算一致时跳过；存在 partial、FAILED 未关闭、缺失文件或 hash 不一致时必须重新物化该配置。
+写入必须使用 partial 文件和 atomic rename。`--resume` 仅在 `DONE.json` 存在、全部 artifact 存在、`config_hash` 与 `input_manifest_hash` 匹配且 daily DuckDB、daily CSV gzip、interval DuckDB、interval CSV gzip 四个内容 hash 都可复算一致时跳过；存在 partial、FAILED 未关闭、缺失文件、缺失 hash 或任一 hash 不一致时必须重新物化该配置。
 
 ## 契约与门禁语义
 

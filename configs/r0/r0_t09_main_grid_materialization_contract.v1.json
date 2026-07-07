@@ -32,6 +32,8 @@
   "resume_authorized": true,
   "only_config_rerun_authorized": true,
   "dry_run_authorized": true,
+  "input_payload_coverage_guard_required": true,
+  "manifest_run_scope_values": ["full_grid", "single_config"],
   "per_config_isolated_output_required": true,
   "single_writer_per_duckdb_required": true,
   "future_label_generation_authorized": false,
@@ -92,6 +94,10 @@
     "interval_artifact_csv_path",
     "daily_row_count",
     "interval_row_count",
+    "daily_duckdb_hash",
+    "daily_csv_hash",
+    "interval_duckdb_hash",
+    "interval_csv_hash",
     "daily_content_hash",
     "interval_content_hash",
     "started_at",
@@ -119,7 +125,10 @@
     "run_id",
     "status",
     "input_manifest_hash",
+    "run_scope",
     "candidate_config_count",
+    "selected_config_count",
+    "selected_config_ids",
     "completed_config_count",
     "failed_config_count",
     "skipped_config_count",
@@ -132,6 +141,7 @@
     "global_daily_content_hash",
     "global_interval_content_hash",
     "lineage_guard",
+    "input_payload_coverage_guard",
     "forbidden_output_guard"
   ],
   "forbidden_outputs": [
@@ -157,6 +167,7 @@
     "direct_real_data_source_forbidden",
     "forbidden_output_field",
     "legacy_v1_field_forbidden",
+    "input_payload_grid_coverage_incomplete",
     "resume_hash_mismatch",
     "config_materialization_failed"
   ]
