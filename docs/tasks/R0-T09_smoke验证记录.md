@@ -4,7 +4,7 @@
 
 ## commit_sha
 
-`3125b1f430ba1e540b4a585261cf05db942c19a5`
+`75c8cabd7bac942d7fea4041746d042da211abdf`
 
 该 commit 是本次 smoke 执行时的 PR #67 head。Smoke 输入 fixture 来自 `tests/fixtures/r0/r0_t09_smoke/`，输出写入系统临时目录，未提交 runner 输出 artifact。
 
@@ -19,7 +19,7 @@
 python scripts/r0/run_r0_t09_main_grid.py \
   --input-manifest tests/fixtures/r0/r0_t09_smoke/full_grid_authorized_input_manifest.json \
   --output-dir "$R0_T09_SMOKE_DIR/dry_run_out" \
-  --max-workers 6 \
+  --max-workers 2 \
   --dry-run \
   --run-id R0-T09-SMOKE-DRY-RUN \
   --code-commit "$R0_T09_COMMIT" \
@@ -28,7 +28,7 @@ python scripts/r0/run_r0_t09_main_grid.py \
 
 ## dry_run_summary
 
-Dry-run smoke passed with `status=dry_run`, `candidate_config_count=27`, `selected_config_count=27`, `run_scope=full_grid`, and `artifacts_written=false`. The task list contains `R0_W250_Q20_K3_WEAK_D010`, contains no `K=1` config, and `input_payload_coverage_guard.validity_status=valid`.
+Dry-run smoke passed with `status=dry_run`, `candidate_config_count=27`, `selected_config_count=27`, `run_scope=full_grid`, `max_workers=2`, and `artifacts_written=false`. The task list contains `R0_W250_Q20_K3_WEAK_D010`, contains no `K=1` config, and `input_payload_coverage_guard.validity_status=valid`.
 
 ## baseline_smoke_command
 
@@ -48,9 +48,9 @@ Resume smoke reran the same command and wrote `$R0_T09_SMOKE_DIR/baseline_resume
 
 ## baseline_smoke_summary
 
-Baseline materialization smoke passed with `status=completed`, `run_scope=single_config`, `selected_config_count=1`, `completed_config_count=1`, `failed_config_count=0`, `pending_config_count=0`, and `baseline_candidate_config_id=R0_W250_Q20_K3_WEAK_D010`.
+Baseline materialization smoke passed with `status=completed`, `run_scope=single_config`, `selected_config_count=1`, `completed_config_count=1`, `failed_config_count=0`, `pending_config_count=0`, `max_workers=1`, and `baseline_candidate_config_id=R0_W250_Q20_K3_WEAK_D010`.
 
-Baseline resume smoke passed with `skipped_config_count=1` and `per_config_status.R0_W250_Q20_K3_WEAK_D010.status=skipped`.
+Baseline resume smoke passed with `max_workers=1`, `skipped_config_count=1`, and `per_config_status.R0_W250_Q20_K3_WEAK_D010.status=skipped`.
 
 ## expected_output_files
 
