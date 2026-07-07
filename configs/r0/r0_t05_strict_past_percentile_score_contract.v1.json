@@ -69,6 +69,7 @@
     "d3.generated",
     "data/raw",
     "data/external",
+    "data/generated",
     "MarketDB",
     ".day"
   ],

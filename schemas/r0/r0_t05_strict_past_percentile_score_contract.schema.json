@@ -146,6 +146,7 @@
         { "contains": { "const": "d2.adjusted_market_prices" } },
         { "contains": { "const": "data/raw" } },
         { "contains": { "const": "data/external" } },
+        { "contains": { "const": "data/generated" } },
         { "contains": { "const": "MarketDB" } },
         { "contains": { "const": ".day" } }
       ]

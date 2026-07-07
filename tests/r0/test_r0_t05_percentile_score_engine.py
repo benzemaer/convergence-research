@@ -212,6 +212,23 @@ class R0T05PercentileScoreEngineTest(unittest.TestCase):
         self.assertIn("raw_metric_not_valid", target.reason_codes)
         self.assertIn("suspension_in_window", target.reason_codes)
 
+    def test_valid_raw_metric_with_nonfinite_value_does_not_score(self) -> None:
+        for raw_value in (float("nan"), float("inf")):
+            with self.subTest(raw_value=raw_value):
+                rows = rows_for_indicator("P1_NATR14", 121)
+                rows[-1] = raw_row(day=121, value=raw_value)
+                target = result_for(
+                    compute_indicator_scores(rows, percentile_windows=(120,)),
+                    "P1_NATR14",
+                    121,
+                    120,
+                )
+                self.assertFalse(target.eligible)
+                self.assertIsNone(target.percentile)
+                self.assertIsNone(target.score)
+                self.assertEqual(target.validity_status, UNKNOWN)
+                self.assertIn("raw_metric_value_missing", target.reason_codes)
+
     def test_v2_amount_level_pct_is_generated_once_from_log_amount_base(self) -> None:
         rows = rows_for_indicator("V2_LogAmount20_base", 121)
         target = result_for(
@@ -340,6 +357,10 @@ class R0T05PercentileScoreEngineTest(unittest.TestCase):
         direct = check_score_lineage(["data/raw/vendor.csv"])
         self.assertEqual(direct.validity_status, BLOCKED)
         self.assertIn("direct_real_data_source_forbidden", direct.reason_codes)
+
+        generated = check_score_lineage(["data/generated/d3/foo.duckdb"])
+        self.assertEqual(generated.validity_status, BLOCKED)
+        self.assertIn("direct_real_data_source_forbidden", generated.reason_codes)
 
     def test_w_120_250_500_are_all_emitted(self) -> None:
         scores = compute_indicator_scores(rows_for_indicator("P1_NATR14", 501))

@@ -85,6 +85,10 @@ class R0T05StrictPastPercentileScoreContractTest(unittest.TestCase):
         ):
             self.assertIn(forbidden, prohibited)
 
+    def test_prohibited_direct_sources_include_generated_data(self) -> None:
+        prohibited = set(self.config["prohibited_direct_sources"])
+        self.assertIn("data/generated", prohibited)
+
     def test_readme_advances_to_r0_t06_after_r0_t05_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)

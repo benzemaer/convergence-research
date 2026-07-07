@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -76,6 +77,7 @@ PROHIBITED_SOURCES = (
     "d3.generated",
     "data/raw",
     "data/external",
+    "data/generated",
     "MarketDB",
     ".day",
 )
@@ -374,6 +376,16 @@ def _score_one_row(
             status=BLOCKED,
             reasons=("amount_level_repeated_percentile_forbidden",),
         )
+    if raw_value is None and row.get("validity_status") == VALID:
+        return _indicator_result(
+            row=row,
+            output_indicator_id=output_indicator_id,
+            raw_metric_name=raw_metric_name,
+            raw_value=None,
+            percentile_window=percentile_window,
+            status=UNKNOWN,
+            reasons=("raw_metric_not_valid", "raw_metric_value_missing"),
+        )
     if not _raw_metric_valid(row):
         return _indicator_result(
             row=row,
@@ -551,9 +563,12 @@ def _row_sort_key(row: Mapping[str, Any]) -> tuple[str, str, str]:
 
 def _float(value: Any) -> float | None:
     try:
-        return float(value)
+        numeric = float(value)
     except (TypeError, ValueError):
         return None
+    if not math.isfinite(numeric):
+        return None
+    return numeric
 
 
 def _unique_reasons(reason_codes: Sequence[str]) -> tuple[str, ...]:
