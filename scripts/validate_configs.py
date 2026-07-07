@@ -214,6 +214,10 @@ CONFIGS = (
         ROOT / "configs/r0/r0_t03_v_layer_turnover_readiness_contract.v1.json",
     ),
     (
+        ROOT / "schemas/r0/r0_t04_raw_metric_engine_contract.schema.json",
+        ROOT / "configs/r0/r0_t04_raw_metric_engine_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),

@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t04_raw_metric_engine_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "pcvt_raw_metric_generation_authorized",
+    "real_data_read_authorized",
+    "duckdb_write_authorized",
+    "formal_data_version_authorized",
+    "pcvt_percentile_generation_authorized",
+    "pcvt_score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "state_interval_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "AmountLevel20Pct_generated_by_this_task",
+    "strict_past_percentiles_generated_by_this_task",
+    "scores_generated_by_this_task",
+    "states_generated_by_this_task",
+    "active_raw_metrics",
+    "output_fields",
+    "validity_statuses",
+    "reason_code_vocabulary",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t04_raw_metric_engine_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T04_RAW_METRIC_ENGINE_CONTRACT_V1" },
+    "task_id": { "const": "R0-T04" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": { "const": "synthetic_only_pcvt_raw_metric_engine" },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "R0_T01_PCVT_CANDIDATE_SPEC_V1" } },
+        { "contains": { "const": "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1" } },
+        { "contains": { "const": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1" } }
+      ]
+    },
+    "pcvt_raw_metric_generation_authorized": { "const": "synthetic_only" },
+    "real_data_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "pcvt_percentile_generation_authorized": { "const": false },
+    "pcvt_score_generation_authorized": { "const": false },
+    "pcvt_state_generation_authorized": { "const": false },
+    "state_interval_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "AmountLevel20Pct_generated_by_this_task": { "const": false },
+    "strict_past_percentiles_generated_by_this_task": { "const": false },
+    "scores_generated_by_this_task": { "const": false },
+    "states_generated_by_this_task": { "const": false },
+    "active_raw_metrics": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "allOf": [
+        { "contains": { "$ref": "#/$defs/p1" } },
+        { "contains": { "$ref": "#/$defs/p2" } },
+        { "contains": { "$ref": "#/$defs/c1" } },
+        { "contains": { "$ref": "#/$defs/c2" } },
+        { "contains": { "$ref": "#/$defs/t1" } },
+        { "contains": { "$ref": "#/$defs/t2" } },
+        { "contains": { "$ref": "#/$defs/v1" } },
+        { "contains": { "$ref": "#/$defs/v2Base" } },
+        { "not": { "contains": { "properties": { "indicator_id": { "const": "V1_VolShrink20_60" } } } } },
+        { "not": { "contains": { "properties": { "indicator_id": { "const": "V2_AmountLevel20Pct" } } } } }
+      ]
+    },
+    "output_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "raw_value" } },
+        { "contains": { "const": "validity_status" } },
+        { "contains": { "const": "reason_codes" } },
+        { "contains": { "const": "metric_engine_version" } }
+      ]
+    },
+    "validity_statuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "valid" } },
+        { "contains": { "const": "unknown" } },
+        { "contains": { "const": "diagnostic_required" } },
+        { "contains": { "const": "blocked" } },
+        { "contains": { "const": "not_applicable" } }
+      ]
+    },
+    "reason_code_vocabulary": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "window_insufficient" } },
+        { "contains": { "const": "missing_required_field" } },
+        { "contains": { "const": "adjusted_vwap_policy_missing" } },
+        { "contains": { "const": "corporate_action_turnover_comparability_policy_missing" } },
+        { "contains": { "const": "residual_se_zero_slope_nonzero" } },
+        { "contains": { "const": "forbidden_output_field" } },
+        { "contains": { "const": "direct_d1_d2_bypass_detected" } },
+        { "contains": { "const": "unknown_not_false_guard" } }
+      ]
+    },
+    "allowed_logical_input_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "synthetic_in_memory_rows" } },
+        { "contains": { "const": "d3_t11_volume_amount_share_turnover_candidate" } },
+        { "contains": { "const": "r0_t03_v_layer_turnover_readiness_contract" } }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "d1.raw_market_prices" } },
+        { "contains": { "const": "d2.adjusted_market_prices" } },
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "AmountLevel20Pct" } },
+        { "contains": { "const": "pcvt_percentiles" } },
+        { "contains": { "const": "strict_past_percentile" } },
+        { "contains": { "const": "pcvt_scores" } },
+        { "contains": { "const": "pcvt_states" } },
+        { "contains": { "const": "state_intervals" } },
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } }
+      ]
+    }
+  },
+  "$defs": {
+    "metric": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "indicator_id",
+        "raw_metric_name",
+        "required_observation_count",
+        "source_field_names",
+        "formula"
+      ],
+      "properties": {
+        "indicator_id": { "type": "string" },
+        "raw_metric_name": { "type": "string" },
+        "required_observation_count": { "type": "integer", "minimum": 1 },
+        "source_field_names": { "type": "array", "uniqueItems": true, "minItems": 1 },
+        "formula": { "type": "string" }
+      }
+    },
+    "p1": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "P1_NATR14" },
+            "raw_metric_name": { "const": "NATR14" },
+            "required_observation_count": { "const": 15 }
+          }
+        }
+      ]
+    },
+    "p2": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "P2_LogRange20" },
+            "raw_metric_name": { "const": "LogRange20" },
+            "required_observation_count": { "const": 20 }
+          }
+        }
+      ]
+    },
+    "c1": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "C1_LogMASpread_5_60" },
+            "raw_metric_name": { "const": "LogMASpread_5_60" },
+            "required_observation_count": { "const": 60 }
+          }
+        }
+      ]
+    },
+    "c2": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "C2_AdjVWAPSpread_5_60" },
+            "raw_metric_name": { "const": "AdjVWAPSpread_5_60" },
+            "required_observation_count": { "const": 60 },
+            "readiness_gate": { "const": "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1" }
+          }
+        }
+      ]
+    },
+    "t1": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "T1_ER20" },
+            "raw_metric_name": { "const": "ER20" },
+            "required_observation_count": { "const": 21 }
+          }
+        }
+      ]
+    },
+    "t2": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "T2_AbsTrendT20" },
+            "raw_metric_name": { "const": "AbsTrendT20" },
+            "required_observation_count": { "const": 20 }
+          }
+        }
+      ]
+    },
+    "v1": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "V1_TurnoverShrink20_60" },
+            "raw_metric_name": { "const": "TurnoverShrink20_60" },
+            "required_observation_count": { "const": 80 },
+            "readiness_gate": { "const": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1" },
+            "source_field_names": {
+              "allOf": [
+                { "contains": { "const": "turnover_float" } },
+                { "contains": { "const": "float_share_shares" } },
+                { "contains": { "const": "corporate_action_types_in_window" } },
+                { "contains": { "const": "common_share_basis_policy" } },
+                { "contains": { "const": "volume_comparability_policy" } }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "v2Base": {
+      "allOf": [
+        { "$ref": "#/$defs/metric" },
+        {
+          "properties": {
+            "indicator_id": { "const": "V2_LogAmount20_base" },
+            "raw_metric_name": { "const": "LogAmount20" },
+            "required_observation_count": { "const": 20 },
+            "downstream_indicator": { "const": "V2_AmountLevel20Pct_in_R0_T05" }
+          }
+        }
+      ]
+    }
+  }
+}

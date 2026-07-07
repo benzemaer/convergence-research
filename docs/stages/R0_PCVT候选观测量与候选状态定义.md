@@ -98,6 +98,8 @@ R0 只定义一般化的 `S_PCT`。R3 可在冻结状态后定义 `upward_releas
 | V | `TurnoverShrink20_60` | 近期流通股本换手率相对既往换手率 | 越低越收缩 | 衡量最近交易参与相对既往基准是否缩减，并用 D3-T11 标准股本口径降低股本变动造成的机械偏差。 |
 | V | `AmountLevel20Pct` | 近期平均成交额的过去历史位置 | 越低越收缩 | 衡量资金参与规模是否处于该股票自身历史低位，补足换手率口径。 |
 
+R0-T04 只实现这些指标的 raw/base metric engine。`AmountLevel20Pct` 的 raw base object 是 `LogAmount20`，其严格过去历史百分位和最终 `AmountLevel20Pct` 字段由 R0-T05 生成；R0-T04 不生成 percentile、score、state 或 interval。
+
 ---
 
 ## 5. 数据使用约定
@@ -447,6 +449,8 @@ Percentile_{W,t}(LogAmount20_t)
 \]
 
 `AmountLevel20Pct` 越低，表示近期资金参与规模越处于该股票自身历史低位。该指标本身就是历史位置，不再重复计算一层相同的百分位。
+
+R0-T04 只计算 `LogAmount20_t` base object，并以 `V2_LogAmount20_base` 标识输出。`AmountLevel20Pct_t` 的严格过去历史百分位、eligible 样本和 score 体系属于 R0-T05；任何 R0-T04 输出中出现 `AmountLevel20Pct`、strict-past percentile、score 或 state 都应视为越界。
 
 #### 选择理由
 
@@ -934,7 +938,7 @@ R0 的 task 拆分遵循“一个 PR 实现一个 task”的治理边界。task 
 | R0-T01 | `[codex] R0-T01 PCVT 候选指标规格与状态族定义` | `codex/r0-t01-pcvt-candidate-indicator-spec-state-family` | 必须 | 将本文件 v0.3 固化为仓库内可审核规格，并落账为可机器校验的 R0-T01 candidate spec contract，明确八项指标、`S_PCT` / `S_PCVT` 双主线、禁止未来信息、weak baseline、strict inactive、Post-Up-Release Short-PCT 后续边界。 |
 | R0-T02 | `[codex] R0-T02 输入 readiness gate 与 C2/V1 公司行为口径审计` | `codex/r0-t02-input-readiness-c2-v1-corporate-action-gate` | 必须 | 审计 R0 是否具备合法输入。重点检查 amount/volume 单位、DailyVWAP 区间、`adjusted_vwap_policy`、`volume_comparability_policy`、公司行为窗口、停牌/零成交和 D3-only 读取边界。若 C2/V1 条件不足，必须输出 `unknown` 或 blocked，不得硬算。 |
 | R0-T03 | `[codex] R0-T03 V层 turnover 替代指标可行性、口径决策与输入门禁` | `codex/r0-t03-v-layer-turnover-baseline-readiness-gate` | 必须 | 将 V1 baseline 确认为 `TurnoverShrink20_60`，固化 D3-T11 `turnover_float` / `amount_yuan` 输入门禁、公司行为可比性和 forbidden outputs；不计算 raw metric。 |
-| R0-T04 | `[codex] R0-T04 PCVT raw metric engine 与合成测试` | `codex/r0-t04-pcvt-raw-metric-engine` | 必须 | 实现八项 raw 指标计算，包括窗口、单位、停牌、缺失、公司行为、SE=0 规则和 unknown reason 传播；先不使用未来标签，不输出交易信号。 |
+| R0-T04 | `[codex] R0-T04 PCVT raw metric engine 与合成测试` | `codex/r0-t04-pcvt-raw-metric-engine` | 必须 | 实现八项 raw/base 指标计算，包括窗口、单位、停牌、缺失、公司行为、SE=0 规则和 unknown reason 传播；V2 只输出 `LogAmount20` base object，`AmountLevel20Pct` 留给 R0-T05；先不使用未来标签，不输出交易信号。 |
 | R0-T05 | `[codex] R0-T05 严格过去分位、eligible 样本与 Score 体系` | `codex/r0-t05-strict-past-percentile-score-eligibility` | 必须 | 实现严格过去历史分位、中位秩并列处理、`W=120/250/500`、`common_eligible_sample`、指标 score、维度 score 和 `score_*_min`。这是 R0 防前视与可比较性的核心。 |
 | R0-T06 | `[codex] R0-T06 weak 维度规则、嵌套状态与互斥分层` | `codex/r0-t06-weak-dimension-state-logic` | 必须 | 生成 P/C/T/V、`S_P`、`S_PC`、`S_PCT`、`S_PCVT`、完整四维向量、unknown mask 和互斥分层。weak 为主网格 baseline，固定 `delta=0.10`；strict 不进入 baseline 或 sidecar。 |
 | R0-T07 | `[codex] R0-T07 联合确认层、streak 与确认区间表` | `codex/r0-t07-confirmation-streak-intervals` | 必须 | 实现 `K=2/3/5` 的实时确认、streak、`raw_start_date`、`confirmation_time`、`confirmed_start_date`、终止类型和确认区间表。确认不得回填为早期可得信号。 |
