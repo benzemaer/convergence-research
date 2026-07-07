@@ -56,6 +56,8 @@ SOURCE_LINEAGE = (
 PAYLOAD_FILENAME = "r0_t09_full_grid_payload.json"
 MANIFEST_FILENAME = "authorized_input_manifest.json"
 SUMMARY_FILENAME = "generation_summary.json"
+JSON_PAYLOAD_MODE_MAX_BYTES = 16 * 1024 * 1024
+FORMAL_STREAMING_BLOCK_REASON = "formal_upstream_payload_requires_streaming_artifacts"
 
 
 class R0T09InputManifestBuilderError(RuntimeError):
@@ -237,12 +239,16 @@ def _payload_from_inputs(
         return _contract_grid_payload()
     payload = _empty_payload()
     if r0_t04_input is not None:
-        source = _load_json(Path(r0_t04_input))
+        source_path = Path(r0_t04_input)
+        _guard_json_payload_mode_input(source_path)
+        source = _load_json(source_path)
         payload["raw_metric_results"].extend(
             _extract_rows(source, "raw_metric_results")
         )
     if r0_t05_input is not None:
-        source = _load_json(Path(r0_t05_input))
+        source_path = Path(r0_t05_input)
+        _guard_json_payload_mode_input(source_path)
+        source = _load_json(source_path)
         payload["indicator_score_results"].extend(
             _extract_rows(source, "indicator_score_results")
         )
@@ -250,12 +256,16 @@ def _payload_from_inputs(
             _extract_rows(source, "dimension_score_results")
         )
     if r0_t06_input is not None:
-        source = _load_json(Path(r0_t06_input))
+        source_path = Path(r0_t06_input)
+        _guard_json_payload_mode_input(source_path)
+        source = _load_json(source_path)
         payload["nested_daily_state_results"].extend(
             _extract_rows(source, "nested_daily_state_results")
         )
     if r0_t07_input is not None:
-        source = _load_json(Path(r0_t07_input))
+        source_path = Path(r0_t07_input)
+        _guard_json_payload_mode_input(source_path)
+        source = _load_json(source_path)
         payload["daily_confirmation_results"].extend(
             _extract_rows(source, "daily_confirmation_results")
         )
@@ -598,6 +608,34 @@ def _load_json(path: Path) -> Any:
         raise R0T09InputManifestBuilderError(f"input file not found: {path}") from exc
     except json.JSONDecodeError as exc:
         raise R0T09InputManifestBuilderError(f"invalid JSON input: {path}") from exc
+
+
+def _guard_json_payload_mode_input(path: Path) -> None:
+    name = path.name.lower()
+    if name.endswith((".duckdb", ".jsonl", ".jsonl.gz", ".csv.gz")):
+        raise R0T09InputManifestBuilderError(FORMAL_STREAMING_BLOCK_REASON)
+    try:
+        size = path.stat().st_size
+    except FileNotFoundError as exc:
+        raise R0T09InputManifestBuilderError(f"input file not found: {path}") from exc
+    if size > JSON_PAYLOAD_MODE_MAX_BYTES:
+        raise R0T09InputManifestBuilderError(FORMAL_STREAMING_BLOCK_REASON)
+    with path.open("rb") as handle:
+        prefix = handle.read(8192)
+    stripped = prefix.lstrip()
+    if stripped.startswith(b"["):
+        raise R0T09InputManifestBuilderError("single_json_array_row_payload_forbidden")
+    lowered = prefix.decode("utf-8", errors="ignore").lower()
+    if (
+        "r0_t10_01_r0_t04_raw_metric_manifest" in lowered
+        or "r0_t04_raw_metric_results_manifest" in lowered
+        or (
+            '"shards"' in lowered
+            and '"output_artifact_hash"' in lowered
+            and '"schema_version"' in lowered
+        )
+    ):
+        raise R0T09InputManifestBuilderError(FORMAL_STREAMING_BLOCK_REASON)
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

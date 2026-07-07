@@ -127,11 +127,11 @@ class R0T04RawMetricEngineContractTest(unittest.TestCase):
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)
         self.assertIn(
-            "current_task: R0-T09 正式 input manifest 与全量参数网格物化",
+            "current_task: R0-T10-01 真实数据源与 R0-T04 raw metrics 物化",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T10 R0 审计报告与 R1 交接",
+            "next_planned_task: R0-T10-02 R0-T05 strict-past score 物化",
             text,
         )
         self.assertRegex(

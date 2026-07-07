@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R0
-current_task: R0-T09 正式 input manifest 与全量参数网格物化
-next_planned_task: R0-T10 R0 审计报告与 R1 交接
+current_task: R0-T10-01 真实数据源与 R0-T04 raw metrics 物化
+next_planned_task: R0-T10-02 R0-T05 strict-past score 物化
 ```
 
 ## 命名与路径规则
@@ -227,12 +227,17 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T07` 联合确认层、streak 与确认区间表：completed via PR #65
 - `R0-T08` 主网格 candidate 状态日表与 manifest：completed via PR #66
 - `R0-T09` runner/contract/smoke：completed via PR #67
-- `R0-T09` formal input manifest：blocked / pending real R0-T04 -> R0-T07 upstream artifacts
-- `R0-T09` production full-grid materialization：pending
-- `R0-T10` R0 审计报告与 R1 交接：planned
-- `R0-T11` 替代指标口径敏感性骨架：optional
-- `R0-T12` Post-Up-Release Short-PCT 研究接口占位：optional
-- `R0-T13` R0 并行确定性与性能优化：optional
+- `R0-T09` formal input manifest：blocked / superseded by R0-T10-05 pending real R0-T04 -> R0-T07 upstream artifacts
+- `R0-T09` production full-grid materialization：blocked until R0-T10-05 authorized input manifest and streaming/artifact-manifest mode
+- `R0-T10-01` 真实数据源与 R0-T04 raw metrics 物化：in_progress
+- `R0-T10-02` R0-T05 strict-past score 物化：planned
+- `R0-T10-03` R0-T06 nested state 物化：planned
+- `R0-T10-04` R0-T07 confirmation / interval 物化：planned
+- `R0-T10-05` authorized input manifest 与 27 组 full-grid 执行：planned
+- `R0-T11` R0 审计报告与 R1 交接：planned
+- `R0-T12` 替代指标口径敏感性骨架：optional
+- `R0-T13` Post-Up-Release Short-PCT 研究接口占位：optional
+- `R0-T14` R0 并行确定性与性能优化：optional
 
 ## R1：状态存在性、结构关系、稳定性与零模型检验
 

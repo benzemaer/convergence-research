@@ -190,6 +190,49 @@ class R0T09InputManifestBuilderTest(unittest.TestCase):
                     r0_t04_input=t04,
                 )
 
+    def test_formal_upstream_manifest_cannot_enter_json_payload_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            formal_manifest = root / "r0_t04_raw_metric_results_manifest.json"
+            formal_manifest.write_text(
+                json.dumps(
+                    {
+                        "schema_version": ("r0_t10_01_r0_t04_raw_metric_manifest.v1"),
+                        "output_artifact_hash": "0" * 64,
+                        "shards": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                R0T09InputManifestBuilderError,
+                "formal_upstream_payload_requires_streaming_artifacts",
+            ):
+                build_r0_t09_input_manifest(
+                    output_dir=root / "inputs",
+                    run_id="r0_t09_builder_test",
+                    code_commit="abcdef",
+                    r0_t04_input=formal_manifest,
+                )
+
+    def test_single_json_array_row_payload_is_forbidden_for_formal_builder(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            row_array = root / "r0_t04_rows.json"
+            row_array.write_text("[]", encoding="utf-8")
+            with self.assertRaisesRegex(
+                R0T09InputManifestBuilderError,
+                "single_json_array_row_payload_forbidden",
+            ):
+                build_r0_t09_input_manifest(
+                    output_dir=root / "inputs",
+                    run_id="r0_t09_builder_test",
+                    code_commit="abcdef",
+                    r0_t04_input=row_array,
+                )
+
     def test_rejects_confirmation_k1_from_supplied_input(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -742,6 +742,67 @@ class R0T09MainGridRunnerTest(unittest.TestCase):
             with self.assertRaisesRegex(R0T09MaterializationError, "lineage"):
                 load_authorized_input(manifest_path)
 
+    def test_formal_artifact_manifest_mode_is_blocked_until_streaming_runner(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload_path = root / "payload.json"
+            payload_path.write_text("{}", encoding="utf-8")
+            manifest_path = root / "authorized_input_manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "input_data_version": "r0_t10_formal_upstream:test",
+                        "input_schema_version": "r0_t09_artifact_manifest_input.v1",
+                        "input_content_hash": sha256_file(payload_path),
+                        "input_row_counts": {},
+                        "source_lineage": LINEAGE,
+                        "authorized_r0_input": True,
+                        "code_commit_or_data_build_id": "abcdef",
+                        "input_payload_path": "payload.json",
+                        "input_artifact_manifests": [
+                            "r0_t04_raw_metric_results_manifest.json"
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                R0T09MaterializationError,
+                "formal_upstream_payload_requires_streaming_artifacts",
+            ):
+                load_authorized_input(manifest_path)
+
+    def test_duckdb_payload_path_is_blocked_before_json_load(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            duckdb_payload = root / "r0_t04_raw_metric_results.duckdb"
+            duckdb_payload.write_bytes(b"not-json")
+            manifest_path = root / "authorized_input_manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "input_data_version": "r0_t10_formal_upstream:test",
+                        "input_schema_version": "r0_t09_full_grid_payload.v1",
+                        "input_content_hash": sha256_file(duckdb_payload),
+                        "input_row_counts": {},
+                        "source_lineage": LINEAGE,
+                        "authorized_r0_input": True,
+                        "code_commit_or_data_build_id": "abcdef",
+                        "input_payload_path": "r0_t04_raw_metric_results.duckdb",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                R0T09MaterializationError,
+                "formal_upstream_payload_requires_streaming_artifacts",
+            ):
+                load_authorized_input(manifest_path)
+
     def test_cli_smoke_dry_run_and_worker_guard(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
