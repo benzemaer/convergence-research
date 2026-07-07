@@ -1,0 +1,159 @@
+{
+  "$schema": "../../schemas/r0/r0_t03_v_layer_turnover_readiness_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1",
+  "task_id": "R0-T03",
+  "contract_status": "draft",
+  "contract_scope": "v_layer_turnover_baseline_readiness_gate",
+  "depends_on": [
+    "R0_T01_PCVT_CANDIDATE_SPEC_V1",
+    "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1",
+    "D3_T10_FIELD_AVAILABILITY_PROBE_GAP_FILL_CONTRACT_V1",
+    "D3_T11_VOLUME_AMOUNT_SHARE_TURNOVER_CANDIDATE_CONTRACT_V1",
+    "D3_T12_OPEN_CANDIDATE_GATE_CONTRACT_V1"
+  ],
+  "baseline_v_indicators": [
+    {
+      "indicator_id": "V1_TurnoverShrink20_60",
+      "raw_metric_name": "TurnoverShrink20_60",
+      "input_field": "turnover_float",
+      "denominator_field": "float_share_shares",
+      "observation_window": "recent_20_trading_days_over_prior_non_overlapping_60_trading_days"
+    },
+    {
+      "indicator_id": "V2_AmountLevel20Pct",
+      "raw_metric_name": "AmountLevel20Pct",
+      "input_field": "amount_yuan",
+      "observation_window": "recent_20_trading_days_strict_past_history_position"
+    }
+  ],
+  "alternative_v_indicators": [
+    "FreeTurnoverShrink20_60",
+    "TurnoverLevel20Pct",
+    "FreeTurnoverLevel20Pct"
+  ],
+  "turnover_shrink_gate": {
+    "indicator_id": "V1_TurnoverShrink20_60",
+    "required_fields": [
+      "turnover_float",
+      "turnover_field_status",
+      "share_field_status",
+      "provider_turnover_crosscheck_status",
+      "volume_shares",
+      "float_share_shares",
+      "trading_status",
+      "corporate_action_flag",
+      "suspension_flag",
+      "corporate_action_types_in_window",
+      "share_comparability_corporate_action_in_window",
+      "common_share_basis_policy",
+      "volume_comparability_policy"
+    ],
+    "window_rule": "requires_recent_20_plus_prior_non_overlapping_60_valid_trading_days",
+    "unknown_or_blocked_rules": [
+      "window_not_full",
+      "turnover_float_missing",
+      "float_share_nonpositive",
+      "share_field_status_invalid",
+      "turnover_field_status_invalid",
+      "provider_turnover_crosscheck_fail",
+      "suspension_in_window",
+      "listing_pause_in_window",
+      "zero_volume_in_window",
+      "corporate_action_turnover_comparability_policy_missing"
+    ],
+    "corporate_action_window_rule": "if_80_day_window_has_share_comparability_event_and_no_common_share_basis_or_volume_comparability_policy_then_unknown",
+    "zero_volume_not_low_participation": true
+  },
+  "amount_level_gate": {
+    "indicator_id": "V2_AmountLevel20Pct",
+    "required_fields": [
+      "amount_yuan",
+      "amount_unit",
+      "amount_volume_unit_status",
+      "zero_amount_flag",
+      "trading_status",
+      "suspension_flag"
+    ],
+    "window_rule": "requires_recent_20_valid_trading_days_and_strict_past_reference_history",
+    "no_repeated_percentile": true,
+    "unknown_or_blocked_rules": [
+      "window_not_full",
+      "amount_yuan_missing",
+      "amount_yuan_nonpositive",
+      "amount_unit_unknown",
+      "amount_volume_unit_status_fail",
+      "suspension_in_window",
+      "zero_amount_in_window",
+      "amount_level_repeated_percentile_forbidden"
+    ]
+  },
+  "allowed_logical_input_sources": [
+    "d3_t11_volume_amount_share_turnover_candidate",
+    "d3_candidate_daily_observation",
+    "d3_t08_research_dataset_registry",
+    "r0_t01_pcvt_candidate_spec",
+    "r0_t02_input_readiness_gate"
+  ],
+  "prohibited_direct_sources": [
+    "d1.raw_market_prices",
+    "d2.adjusted_market_prices",
+    "d2.market_price_quality_flags",
+    "d2.membership_alignment",
+    "data/raw",
+    "data/external",
+    "MarketDB",
+    ".day"
+  ],
+  "deprecated_r0_ready_candidate_not_allowed_for_readiness": true,
+  "formal_data_version_authorized": false,
+  "real_data_read_authorized": false,
+  "pcvt_metric_calculation_authorized": false,
+  "pcvt_percentile_generation_authorized": false,
+  "pcvt_score_generation_authorized": false,
+  "pcvt_state_generation_authorized": false,
+  "state_interval_generation_authorized": false,
+  "future_label_generation_authorized": false,
+  "returns_generation_authorized": false,
+  "backtest_generation_authorized": false,
+  "portfolio_generation_authorized": false,
+  "reason_code_vocabulary": [
+    "ready_no_blocker",
+    "missing_required_field",
+    "window_not_full",
+    "listing_age_insufficient",
+    "turnover_float_missing",
+    "float_share_nonpositive",
+    "share_field_status_invalid",
+    "turnover_field_status_invalid",
+    "provider_turnover_crosscheck_fail",
+    "suspension_in_window",
+    "listing_pause_in_window",
+    "zero_volume_in_window",
+    "corporate_action_turnover_comparability_policy_missing",
+    "amount_yuan_missing",
+    "amount_yuan_nonpositive",
+    "amount_unit_unknown",
+    "amount_volume_unit_status_fail",
+    "zero_amount_in_window",
+    "amount_level_repeated_percentile_forbidden",
+    "d3_lineage_missing",
+    "direct_d1_d2_bypass_detected",
+    "unknown_not_false_guard"
+  ],
+  "prohibited_outputs": [
+    "pcvt_raw_values",
+    "pcvt_values",
+    "pcvt_percentiles",
+    "pcvt_scores",
+    "pcvt_states",
+    "state_intervals",
+    "readiness_audit_real_output_file",
+    "future_labels",
+    "future_returns",
+    "breakout_direction",
+    "backtest",
+    "portfolio",
+    "formal_data_version"
+  ]
+}

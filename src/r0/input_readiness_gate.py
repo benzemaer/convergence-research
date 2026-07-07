@@ -21,9 +21,12 @@ PROHIBITED_SOURCES = (
 )
 ALLOWED_SOURCES = (
     "d3_candidate_daily_observation",
+    "d3_t11_volume_amount_share_turnover_candidate",
+    "d3_t12_open_candidate_gate",
     "d3_t08_research_dataset_registry",
     "d3_quality_readiness_contract",
     "r0_t01_pcvt_candidate_spec",
+    "r0_t02_input_readiness_gate",
 )
 SHARE_COMPARABILITY_ACTIONS = {
     "bonus_share",
@@ -151,6 +154,110 @@ def evaluate_v1_readiness(row_or_context: Mapping[str, Any]) -> ReadinessResult:
     return _result("V1_VolShrink20_60", reasons)
 
 
+def evaluate_turnover_shrink_readiness(
+    row_or_context: Mapping[str, Any],
+) -> ReadinessResult:
+    context = dict(row_or_context)
+    reasons = _missing_reasons(
+        context,
+        (
+            "turnover_float",
+            "turnover_field_status",
+            "share_field_status",
+            "provider_turnover_crosscheck_status",
+            "volume_shares",
+            "float_share_shares",
+            "trading_status",
+            "corporate_action_flag",
+            "suspension_flag",
+        ),
+    )
+
+    if not _truthy(context.get("window_full")):
+        reasons.append("window_not_full")
+    if _less_than(context.get("valid_trading_days"), 80):
+        reasons.append("window_not_full")
+    if _less_than(context.get("listing_age_trading_days"), 80):
+        reasons.append("listing_age_insufficient")
+
+    if _is_unknown(context.get("turnover_float")):
+        reasons.append("turnover_float_missing")
+    if not _positive(context.get("float_share_shares")):
+        reasons.append("float_share_nonpositive")
+    if _is_fail_or_unknown(context.get("share_field_status")):
+        reasons.append("share_field_status_invalid")
+    if _is_fail_or_unknown(context.get("turnover_field_status")):
+        reasons.append("turnover_field_status_invalid")
+    if _is_fail(context.get("provider_turnover_crosscheck_status")):
+        reasons.append("provider_turnover_crosscheck_fail")
+
+    if (
+        _truthy(context.get("suspension_in_window"))
+        or _truthy(context.get("suspension_flag"))
+        or _is_suspended(context.get("trading_status"))
+    ):
+        reasons.append("suspension_in_window")
+    if _truthy(context.get("listing_pause_in_window")):
+        reasons.append("listing_pause_in_window")
+    if _truthy(context.get("zero_volume_in_window")) or _zeroish(
+        context.get("volume_shares")
+    ):
+        reasons.append("zero_volume_in_window")
+
+    if _has_share_comparability_event(context) and not (
+        _has_policy(context.get("common_share_basis_policy"))
+        or _has_policy(context.get("volume_comparability_policy"))
+    ):
+        reasons.append("corporate_action_turnover_comparability_policy_missing")
+
+    return _result("V1_TurnoverShrink20_60", reasons)
+
+
+def evaluate_amount_level_readiness(
+    row_or_context: Mapping[str, Any],
+) -> ReadinessResult:
+    context = dict(row_or_context)
+    reasons = _missing_reasons(
+        context,
+        (
+            "amount_yuan",
+            "amount_unit",
+            "amount_volume_unit_status",
+            "trading_status",
+            "suspension_flag",
+        ),
+    )
+
+    if not _truthy(context.get("window_full")):
+        reasons.append("window_not_full")
+    if _less_than(context.get("valid_trading_days"), 20):
+        reasons.append("window_not_full")
+    if _is_unknown(context.get("amount_unit")):
+        reasons.append("amount_unit_unknown")
+    if _is_fail_or_unknown(context.get("amount_volume_unit_status")):
+        reasons.append("amount_volume_unit_status_fail")
+    if _is_unknown(context.get("amount_yuan")):
+        reasons.append("amount_yuan_missing")
+    elif not _positive(context.get("amount_yuan")):
+        reasons.append("amount_yuan_nonpositive")
+    if (
+        _truthy(context.get("suspension_in_window"))
+        or _truthy(context.get("suspension_flag"))
+        or _is_suspended(context.get("trading_status"))
+    ):
+        reasons.append("suspension_in_window")
+    if _truthy(context.get("zero_amount_in_window")) or _truthy(
+        context.get("zero_amount_flag")
+    ):
+        reasons.append("zero_amount_in_window")
+    if _truthy(context.get("percentile_already_applied")) and _truthy(
+        context.get("apply_additional_percentile")
+    ):
+        reasons.append("amount_level_repeated_percentile_forbidden")
+
+    return _result("V2_AmountLevel20Pct", reasons)
+
+
 def check_d3_only_lineage(
     lineage: Mapping[str, Any] | Sequence[str],
 ) -> ReadinessResult:
@@ -184,12 +291,19 @@ def _result(indicator_id: str, reasons: Sequence[str]) -> ReadinessResult:
             "direct_d1_d2_bypass_detected",
             "daily_vwap_range_fail",
             "amount_volume_unit_status_fail",
+            "provider_turnover_crosscheck_fail",
         }
         for reason in unique_reasons
     ):
         status = BLOCKED
     elif any(
-        reason in {"suspension_in_window", "zero_volume_in_window"}
+        reason
+        in {
+            "suspension_in_window",
+            "zero_volume_in_window",
+            "listing_pause_in_window",
+            "zero_amount_in_window",
+        }
         for reason in unique_reasons
     ):
         status = DIAGNOSTIC_REQUIRED
@@ -224,6 +338,22 @@ def _truthy(value: Any) -> bool:
 
 def _zeroish(value: Any) -> bool:
     return value == 0 or value == 0.0 or str(value) == "0"
+
+
+def _positive(value: Any) -> bool:
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _less_than(value: Any, threshold: float) -> bool:
+    if value is None:
+        return False
+    try:
+        return float(value) < threshold
+    except (TypeError, ValueError):
+        return False
 
 
 def _is_suspended(value: Any) -> bool:

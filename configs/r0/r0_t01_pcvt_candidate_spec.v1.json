@@ -28,7 +28,7 @@
     ],
     "adjusted_price_derivation": "raw_ohlc_times_effective_adj_factor",
     "pct_price_basis": "continuous_research_price_adjusted_fields",
-    "v_fact_basis": "raw_vol_amount",
+    "v_fact_basis": "d3_t11_turnover_float_and_amount_yuan",
     "c2_daily_vwap_source": "raw_amount_divided_by_raw_volume",
     "c2_alignment_requirement": "adjusted_vwap_policy_or_common_corporate_action_basis",
     "forbidden_adjusted_price_label": "do_not_call_adjusted_fields_houfuquan"
@@ -196,16 +196,25 @@
       }
     },
     {
-      "indicator_id": "V1_VolShrink20_60",
+      "indicator_id": "V1_TurnoverShrink20_60",
       "pcvt_layer": "V",
-      "raw_metric_name": "VolShrink20_60",
+      "raw_metric_name": "TurnoverShrink20_60",
       "raw_value_direction": "lower_is_more_convergent",
-      "price_or_fact_basis": "raw_trading_fact",
+      "price_or_fact_basis": "d3_t11_turnover_float",
       "required_fields": [
-        "volume",
-        "volume_unit",
+        "turnover_float",
+        "turnover_field_status",
+        "share_field_status",
+        "provider_turnover_crosscheck_status",
+        "volume_shares",
+        "float_share_shares",
         "trading_status",
-        "corporate_action_flag"
+        "corporate_action_flag",
+        "suspension_flag",
+        "corporate_action_types_in_window",
+        "share_comparability_corporate_action_in_window",
+        "common_share_basis_policy",
+        "volume_comparability_policy"
       ],
       "observation_window": {
         "recent_trading_days": 20,
@@ -216,20 +225,25 @@
       "score_formula": "1 - strict_past_percentile",
       "unknown_conditions": [
         "window_insufficient",
+        "turnover_float_missing",
+        "float_share_nonpositive",
+        "share_field_status_invalid",
+        "turnover_field_status_invalid",
+        "provider_turnover_crosscheck_fail",
         "suspension_in_window",
         "zero_volume_not_low_participation",
-        "corporate_action_volume_comparability_policy_missing"
+        "corporate_action_turnover_comparability_policy_missing"
       ],
       "v1_policy": {
-        "target_metric": "VolShrink20_60",
-        "raw_fact_field": "volume",
-        "unit_field": "volume_unit",
+        "target_metric": "TurnoverShrink20_60",
+        "raw_fact_field": "turnover_float",
+        "denominator_field": "float_share_shares",
         "observation_window": "recent_20_trading_days_over_prior_non_overlapping_60_trading_days",
         "required_policy_any_of": [
           "volume_comparability_policy",
           "common_share_basis_policy"
         ],
-        "corporate_action_window_rule": "if_80_day_window_has_bonus_split_merge_rights_issue_or_other_share_comparability_event_and_no_adjusted_volume_common_share_basis_or_volume_comparability_policy_then_unknown",
+        "corporate_action_window_rule": "if_80_day_window_has_bonus_split_merge_rights_issue_or_other_share_comparability_event_and_no_common_share_basis_or_volume_comparability_policy_then_unknown",
         "suspension_and_zero_volume_not_ordinary_low_participation": true
       }
     },
@@ -238,16 +252,27 @@
       "pcvt_layer": "V",
       "raw_metric_name": "AmountLevel20Pct",
       "raw_value_direction": "lower_is_more_convergent",
-      "price_or_fact_basis": "raw_trading_fact",
-      "required_fields": ["amount", "amount_unit", "trading_status"],
+      "price_or_fact_basis": "d3_t11_amount_yuan",
+      "required_fields": [
+        "amount_yuan",
+        "amount_unit",
+        "amount_volume_unit_status",
+        "zero_amount_flag",
+        "trading_status",
+        "suspension_flag"
+      ],
       "observation_window": { "average_amount_trading_days": 20 },
       "percentile_required": true,
       "score_formula": "1 - strict_past_percentile",
       "unknown_conditions": [
         "window_insufficient",
         "suspension_in_window",
-        "amount_unit_failure",
-        "nonpositive_amount"
+        "amount_unit_unknown",
+        "amount_volume_unit_status_fail",
+        "amount_yuan_missing",
+        "amount_yuan_nonpositive",
+        "zero_amount_in_window",
+        "amount_level_repeated_percentile_forbidden"
       ]
     }
   ],

@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: D3
-current_task: D3-T12 开放候选层门禁与下游消费审计解耦
-next_planned_task: R0-T03 PCVT raw metric engine 与合成测试
+current_stage: R0
+current_task: R0-T03 V层 turnover 替代指标可行性、口径决策与输入门禁
+next_planned_task: R0-T04 PCVT raw metric engine 与合成测试
 ```
 
 ## 命名与路径规则
@@ -208,7 +208,7 @@ formal data_version、formal source promotion 与 R0 交接仍未授权。
 - `D3-T09` R阶段工程分层与 Task-as-Step 规范收敛：completed
 - `D3-T10` D3 字段可用性探针与字段缺口补全：completed via PR #58
 - `D3-T11` 量额股本换手字段全量候选物化与数据更新：completed via PR #59
-- `D3-T12` 开放候选层门禁与下游消费审计解耦：in_progress
+- `D3-T12` 开放候选层门禁与下游消费审计解耦：completed via PR #60
 
 D3 是跨研究开放 candidate observation layer。D3 candidate generation 不等于 formal release，也不等于任一 R-stage readiness。R0-R6 或未来研究路线由各自消费 task 定义 consumer readiness profile；D3 只记录通用质量、evidence 和 lineage 状态。`policy_evidence_pending_hash` 是 candidate warning，不是 D3 candidate hard blocker。formal release gate 和下游 research consumer gate 后续仍可严格阻塞消费。
 
@@ -220,15 +220,16 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 
 - `R0-T01` PCVT 候选指标规格、状态族与 candidate spec contract：completed via PR #56
 - `R0-T02` 输入 readiness gate 与 C2/V1 公司行为口径审计：completed via PR #57
-- `R0-T03` PCVT raw metric engine 与合成测试：planned
-- `R0-T04` 严格过去分位、eligible 样本与 Score 体系：planned
-- `R0-T05` weak 维度规则、嵌套状态与互斥分层：planned
-- `R0-T06` 联合确认层、streak 与确认区间表：planned
-- `R0-T07` 主网格 candidate 状态日表与 manifest：planned
-- `R0-T08` R0 审计报告与 R1 交接：planned
-- `R0-T09` 替代指标口径敏感性骨架：optional
-- `R0-T10` Post-Up-Release Short-PCT 研究接口占位：optional
-- `R0-T11` R0 并行确定性与性能优化：optional
+- `R0-T03` V层 turnover 替代指标可行性、口径决策与输入门禁：in_progress
+- `R0-T04` PCVT raw metric engine 与合成测试：planned
+- `R0-T05` 严格过去分位、eligible 样本与 Score 体系：planned
+- `R0-T06` weak 维度规则、嵌套状态与互斥分层：planned
+- `R0-T07` 联合确认层、streak 与确认区间表：planned
+- `R0-T08` 主网格 candidate 状态日表与 manifest：planned
+- `R0-T09` R0 审计报告与 R1 交接：planned
+- `R0-T10` 替代指标口径敏感性骨架：optional
+- `R0-T11` Post-Up-Release Short-PCT 研究接口占位：optional
+- `R0-T12` R0 并行确定性与性能优化：optional
 
 ## R1：状态存在性、结构关系、稳定性与零模型检验
 

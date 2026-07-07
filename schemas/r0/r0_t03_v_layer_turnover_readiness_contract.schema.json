@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t03_v_layer_turnover_readiness_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "baseline_v_indicators",
+    "alternative_v_indicators",
+    "turnover_shrink_gate",
+    "amount_level_gate",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "deprecated_r0_ready_candidate_not_allowed_for_readiness",
+    "formal_data_version_authorized",
+    "real_data_read_authorized",
+    "pcvt_metric_calculation_authorized",
+    "pcvt_percentile_generation_authorized",
+    "pcvt_score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "state_interval_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "reason_code_vocabulary",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t03_v_layer_turnover_readiness_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1" },
+    "task_id": { "const": "R0-T03" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": { "const": "v_layer_turnover_baseline_readiness_gate" },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "R0_T01_PCVT_CANDIDATE_SPEC_V1" } },
+        { "contains": { "const": "R0_T02_INPUT_READINESS_GATE_CONTRACT_V1" } },
+        { "contains": { "const": "D3_T10_FIELD_AVAILABILITY_PROBE_GAP_FILL_CONTRACT_V1" } },
+        { "contains": { "const": "D3_T11_VOLUME_AMOUNT_SHARE_TURNOVER_CANDIDATE_CONTRACT_V1" } },
+        { "contains": { "const": "D3_T12_OPEN_CANDIDATE_GATE_CONTRACT_V1" } }
+      ]
+    },
+    "baseline_v_indicators": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "allOf": [
+        { "contains": { "$ref": "#/$defs/turnoverBaseline" } },
+        { "contains": { "$ref": "#/$defs/amountBaseline" } }
+      ]
+    },
+    "alternative_v_indicators": {
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 3,
+      "maxItems": 3,
+      "allOf": [
+        { "contains": { "const": "FreeTurnoverShrink20_60" } },
+        { "contains": { "const": "TurnoverLevel20Pct" } },
+        { "contains": { "const": "FreeTurnoverLevel20Pct" } },
+        { "not": { "contains": { "const": "TurnoverShrink20_60" } } }
+      ]
+    },
+    "turnover_shrink_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indicator_id",
+        "required_fields",
+        "window_rule",
+        "unknown_or_blocked_rules",
+        "corporate_action_window_rule",
+        "zero_volume_not_low_participation"
+      ],
+      "properties": {
+        "indicator_id": { "const": "V1_TurnoverShrink20_60" },
+        "required_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "turnover_float" } },
+            { "contains": { "const": "turnover_field_status" } },
+            { "contains": { "const": "share_field_status" } },
+            { "contains": { "const": "provider_turnover_crosscheck_status" } },
+            { "contains": { "const": "volume_shares" } },
+            { "contains": { "const": "float_share_shares" } },
+            { "contains": { "const": "trading_status" } },
+            { "contains": { "const": "suspension_flag" } },
+            { "contains": { "const": "common_share_basis_policy" } },
+            { "contains": { "const": "volume_comparability_policy" } }
+          ]
+        },
+        "window_rule": { "type": "string", "pattern": "20.*60" },
+        "unknown_or_blocked_rules": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "window_not_full" } },
+            { "contains": { "const": "turnover_float_missing" } },
+            { "contains": { "const": "float_share_nonpositive" } },
+            { "contains": { "const": "share_field_status_invalid" } },
+            { "contains": { "const": "turnover_field_status_invalid" } },
+            { "contains": { "const": "provider_turnover_crosscheck_fail" } },
+            { "contains": { "const": "suspension_in_window" } },
+            { "contains": { "const": "zero_volume_in_window" } },
+            { "contains": { "const": "corporate_action_turnover_comparability_policy_missing" } }
+          ]
+        },
+        "corporate_action_window_rule": { "type": "string", "pattern": "share_comparability_event" },
+        "zero_volume_not_low_participation": { "const": true }
+      }
+    },
+    "amount_level_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indicator_id",
+        "required_fields",
+        "window_rule",
+        "no_repeated_percentile",
+        "unknown_or_blocked_rules"
+      ],
+      "properties": {
+        "indicator_id": { "const": "V2_AmountLevel20Pct" },
+        "required_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "amount_yuan" } },
+            { "contains": { "const": "amount_unit" } },
+            { "contains": { "const": "amount_volume_unit_status" } },
+            { "contains": { "const": "zero_amount_flag" } },
+            { "contains": { "const": "trading_status" } },
+            { "contains": { "const": "suspension_flag" } }
+          ]
+        },
+        "window_rule": { "type": "string", "pattern": "20" },
+        "no_repeated_percentile": { "const": true },
+        "unknown_or_blocked_rules": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "amount_yuan_missing" } },
+            { "contains": { "const": "amount_yuan_nonpositive" } },
+            { "contains": { "const": "amount_unit_unknown" } },
+            { "contains": { "const": "amount_volume_unit_status_fail" } },
+            { "contains": { "const": "amount_level_repeated_percentile_forbidden" } }
+          ]
+        }
+      }
+    },
+    "allowed_logical_input_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "d3_t11_volume_amount_share_turnover_candidate" } },
+        { "contains": { "const": "d3_candidate_daily_observation" } },
+        { "contains": { "const": "d3_t08_research_dataset_registry" } },
+        { "contains": { "const": "r0_t01_pcvt_candidate_spec" } },
+        { "contains": { "const": "r0_t02_input_readiness_gate" } }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "d1.raw_market_prices" } },
+        { "contains": { "const": "d2.adjusted_market_prices" } },
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } }
+      ]
+    },
+    "deprecated_r0_ready_candidate_not_allowed_for_readiness": { "const": true },
+    "formal_data_version_authorized": { "const": false },
+    "real_data_read_authorized": { "const": false },
+    "pcvt_metric_calculation_authorized": { "const": false },
+    "pcvt_percentile_generation_authorized": { "const": false },
+    "pcvt_score_generation_authorized": { "const": false },
+    "pcvt_state_generation_authorized": { "const": false },
+    "state_interval_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "reason_code_vocabulary": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "ready_no_blocker" } },
+        { "contains": { "const": "missing_required_field" } },
+        { "contains": { "const": "corporate_action_turnover_comparability_policy_missing" } },
+        { "contains": { "const": "amount_level_repeated_percentile_forbidden" } },
+        { "contains": { "const": "direct_d1_d2_bypass_detected" } },
+        { "contains": { "const": "unknown_not_false_guard" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "pcvt_raw_values" } },
+        { "contains": { "const": "pcvt_percentiles" } },
+        { "contains": { "const": "pcvt_scores" } },
+        { "contains": { "const": "pcvt_states" } },
+        { "contains": { "const": "state_intervals" } },
+        { "contains": { "const": "readiness_audit_real_output_file" } },
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "formal_data_version" } }
+      ]
+    }
+  },
+  "$defs": {
+    "turnoverBaseline": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["indicator_id", "raw_metric_name", "input_field", "denominator_field"],
+      "properties": {
+        "indicator_id": { "const": "V1_TurnoverShrink20_60" },
+        "raw_metric_name": { "const": "TurnoverShrink20_60" },
+        "input_field": { "const": "turnover_float" },
+        "denominator_field": { "const": "float_share_shares" }
+      }
+    },
+    "amountBaseline": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["indicator_id", "raw_metric_name", "input_field"],
+      "properties": {
+        "indicator_id": { "const": "V2_AmountLevel20Pct" },
+        "raw_metric_name": { "const": "AmountLevel20Pct" },
+        "input_field": { "const": "amount_yuan" }
+      }
+    }
+  }
+}
