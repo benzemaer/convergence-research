@@ -179,11 +179,12 @@ def compute_dimension_weak_states(
     q_values: Sequence[float] = Q_VALUES,
     weak_delta: float = WEAK_DELTA,
 ) -> tuple[DimensionStateResult, ...]:
+    normalised_weak_delta = _normalise_weak_delta(weak_delta)
     results: list[DimensionStateResult] = []
     for row_like in dimension_scores:
         row = _normalise_row(row_like)
         for q in _normalise_q_values(q_values):
-            results.append(_dimension_state_for_row(row, q, weak_delta))
+            results.append(_dimension_state_for_row(row, q, normalised_weak_delta))
     return tuple(sorted(results, key=_dimension_sort_key))
 
 
@@ -363,9 +364,7 @@ def _exclusive_layer(
     if p_raw is None:
         return _non_ready_layer(("P",), rows)
     if p_raw is False:
-        if all(values[dimension] is not None for dimension in DIMENSIONS):
-            return "NONE", VALID, ("valid_no_blocker",)
-        return _non_ready_layer(_none_dimensions(values), rows)
+        return "NONE", VALID, ("valid_no_blocker",)
     if c_raw is None:
         return _non_ready_layer(("C",), rows)
     if c_raw is False:
@@ -413,10 +412,6 @@ def _dimension_value(row: Mapping[str, Any] | None) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
-def _none_dimensions(values: Mapping[str, bool | None]) -> tuple[str, ...]:
-    return tuple(dimension for dimension, value in values.items() if value is None)
-
-
 def _weak_delta_from_rows(rows: Mapping[str, Mapping[str, Any]]) -> float:
     for row in rows.values():
         value = _finite_float(row.get("weak_delta"))
@@ -448,7 +443,18 @@ def _normalise_row(row: Mapping[str, Any] | Any) -> dict[str, Any]:
 
 
 def _normalise_q_values(q_values: Sequence[float]) -> tuple[float, ...]:
-    return tuple(float(q) for q in q_values)
+    normalised = tuple(float(q) for q in q_values)
+    invalid = [q for q in normalised if q not in Q_VALUES]
+    if invalid:
+        raise ValueError(f"q must be one of {Q_VALUES}: {invalid}")
+    return normalised
+
+
+def _normalise_weak_delta(weak_delta: float) -> float:
+    normalised = float(weak_delta)
+    if normalised != WEAK_DELTA:
+        raise ValueError(f"weak_delta must be {WEAK_DELTA}: {normalised}")
+    return normalised
 
 
 def _finite_float(value: Any) -> float | None:

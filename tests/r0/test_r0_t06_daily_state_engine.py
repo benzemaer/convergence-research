@@ -152,6 +152,17 @@ class R0T06DailyStateEngineTest(unittest.TestCase):
         self.assertTrue(state_for_dimension(states, "P", 0.30).dimension_active_weak)
         self.assertEqual(WEAK_DELTA, 0.10)
 
+    def test_invalid_q_and_weak_delta_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            compute_indicator_active_states([indicator_score(0.80)], q_values=(0.15,))
+
+        with self.assertRaises(ValueError):
+            compute_dimension_weak_states(
+                [dimension_score("P", 0.80, 0.70)],
+                q_values=(0.20,),
+                weak_delta=0.05,
+            )
+
     def test_nested_state_cases_and_exclusive_layers(self) -> None:
         cases = [
             (
@@ -222,6 +233,44 @@ class R0T06DailyStateEngineTest(unittest.TestCase):
                 self.assertTrue(nested.eligible_state)
 
     def test_nested_unknown_propagation_does_not_emit_false(self) -> None:
+        p_false_rows = [
+            inactive_dimension("P"),
+            dimension_score(
+                "C",
+                None,
+                None,
+                eligible=False,
+                status=UNKNOWN,
+                reasons=("missing_component_score",),
+            ),
+            dimension_score(
+                "T",
+                None,
+                None,
+                eligible=False,
+                status=BLOCKED,
+                reasons=("upstream_blocked",),
+            ),
+            active_dimension("V"),
+        ]
+        p_false = nested_for(
+            compute_nested_daily_states(
+                compute_dimension_weak_states(p_false_rows, q_values=(0.20,))
+            )
+        )
+        self.assertEqual(
+            (
+                p_false.S_P_raw,
+                p_false.S_PC_raw,
+                p_false.S_PCT_raw,
+                p_false.S_PCVT_raw,
+            ),
+            (False, False, False, False),
+        )
+        self.assertEqual(p_false.exclusive_state_layer, "NONE")
+        self.assertTrue(p_false.eligible_state)
+        self.assertEqual(p_false.validity_status, VALID)
+
         c_unknown_rows = [
             active_dimension("P"),
             dimension_score(
