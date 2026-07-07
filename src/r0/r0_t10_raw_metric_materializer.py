@@ -100,16 +100,34 @@ def materialize_r0_t04_raw_metrics(
         chunk_size_securities=chunk_size_securities,
         resume=resume,
     )
-    if any(chunk["status"] == "failed" for chunk in chunk_summaries):
-        status = "failed"
-    else:
-        status = "completed"
-
+    planned_chunk_count = _planned_chunk_count(plan, chunk_size_securities)
     completed_chunks = [
         chunk
         for chunk in chunk_summaries
         if chunk["status"] in {"completed", "skipped"}
     ]
+    failed_chunk_count = sum(
+        1 for chunk in chunk_summaries if chunk["status"] == "failed"
+    )
+    if failed_chunk_count or len(completed_chunks) != planned_chunk_count:
+        _remove_authoritative_outputs(root)
+        summary = _failed_execution_summary(
+            root=root,
+            run_id=run_id,
+            code_commit=code_commit,
+            created_at=created_at,
+            plan=plan,
+            chunk_summaries=chunk_summaries,
+            planned_chunk_count=planned_chunk_count,
+            max_workers=max_workers,
+            duckdb_threads=duckdb_threads,
+            duckdb_memory_limit_per_worker=duckdb_memory_limit_per_worker,
+            chunk_size_securities=chunk_size_securities,
+        )
+        write_json_atomic(root / OUTPUT_SUMMARY_NAME, summary)
+        return summary
+
+    status = "completed"
     duckdb_path = root / OUTPUT_DUCKDB_NAME
     _write_authoritative_duckdb(
         duckdb_path,
@@ -192,6 +210,100 @@ def materialize_r0_t04_raw_metrics(
     }
     write_json_atomic(root / OUTPUT_SUMMARY_NAME, summary)
     return summary
+
+
+def _planned_chunk_count(plan: SourcePlan, chunk_size_securities: int) -> int:
+    return (
+        plan.source_security_count + chunk_size_securities - 1
+    ) // chunk_size_securities
+
+
+def _remove_authoritative_outputs(root: Path) -> None:
+    for path in (
+        root / OUTPUT_DUCKDB_NAME,
+        root / f"{OUTPUT_DUCKDB_NAME}.partial",
+        root / OUTPUT_MANIFEST_NAME,
+    ):
+        path.unlink(missing_ok=True)
+
+
+def _failed_execution_summary(
+    *,
+    root: Path,
+    run_id: str,
+    code_commit: str,
+    created_at: str,
+    plan: SourcePlan,
+    chunk_summaries: Sequence[Mapping[str, Any]],
+    planned_chunk_count: int,
+    max_workers: int,
+    duckdb_threads: int,
+    duckdb_memory_limit_per_worker: str,
+    chunk_size_securities: int,
+) -> dict[str, Any]:
+    completed_chunk_count = sum(
+        1 for chunk in chunk_summaries if chunk["status"] == "completed"
+    )
+    skipped_chunk_count = sum(
+        1 for chunk in chunk_summaries if chunk["status"] == "skipped"
+    )
+    failed_chunk_count = sum(
+        1 for chunk in chunk_summaries if chunk["status"] == "failed"
+    )
+    completed_or_skipped_count = completed_chunk_count + skipped_chunk_count
+    reason_codes = []
+    if failed_chunk_count:
+        reason_codes.append("failed_chunk_present")
+    if completed_or_skipped_count != planned_chunk_count:
+        reason_codes.append("completed_or_skipped_chunk_count_mismatch")
+    return {
+        "schema_version": SUMMARY_SCHEMA_VERSION,
+        "task_id": "R0-T10-01",
+        "status": "failed",
+        "run_id": run_id,
+        "created_at": created_at,
+        "finished_at": _utc_now(),
+        "code_commit": code_commit,
+        "output_dir": str(root),
+        "manifest_path": None,
+        "duckdb_path": None,
+        "manifest_written": False,
+        "duckdb_written": False,
+        "downstream_gate_allowed": False,
+        "reason_codes": reason_codes,
+        "row_count": sum(
+            int(chunk.get("row_count", 0))
+            for chunk in chunk_summaries
+            if chunk["status"] in {"completed", "skipped"}
+        ),
+        "security_count": plan.source_security_count,
+        "chunk_count": len(chunk_summaries),
+        "planned_chunk_count": planned_chunk_count,
+        "completed_chunk_count": completed_chunk_count,
+        "skipped_chunk_count": skipped_chunk_count,
+        "failed_chunk_count": failed_chunk_count,
+        "pending_chunk_count": max(
+            planned_chunk_count - completed_or_skipped_count - failed_chunk_count, 0
+        ),
+        "max_workers": max_workers,
+        "duckdb_threads": duckdb_threads,
+        "duckdb_memory_limit_per_worker": duckdb_memory_limit_per_worker,
+        "chunk_size_securities": chunk_size_securities,
+        "memory_boundary": {
+            "parent_receives_rows": False,
+            "worker_returns_row_payload": False,
+            "parent_summary_fields": [
+                "chunk_id",
+                "status",
+                "row_count",
+                "content_sha256",
+                "file_sha256",
+                "artifact_path",
+                "done_marker_path",
+            ],
+        },
+        "chunks": [_public_chunk_summary(chunk) for chunk in chunk_summaries],
+    }
 
 
 def _run_chunks(

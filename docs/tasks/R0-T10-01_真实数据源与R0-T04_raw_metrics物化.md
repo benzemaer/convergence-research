@@ -30,6 +30,8 @@ materializer 的父进程不得持有全量 securities、全量 dates 或全量 
 
 默认参数为：`--max-workers 6`、`--duckdb-threads 1`、`--duckdb-memory-limit-per-worker 2GB`、`--chunk-size-securities 1`。`--resume` 必须按 chunk hash、DONE marker、schema 与 artifact hash 校验后跳过；partial、FAILED marker、hash mismatch 或 schema mismatch 必须重算。
 
+若任一 chunk 失败，或 `completed + skipped` chunk 数不等于计划 chunk 数，本次执行只能写 `r0_t04_execution_summary.json` 和 chunk 级 DONE/FAILED marker，不得写最终 authoritative DuckDB 或 manifest。失败 summary 必须显式记录 `downstream_gate_allowed=false`，避免后续 R0-T05/R0-T06/R0-T07 消费部分产物。
+
 ## 验收标准
 
-验收测试至少覆盖：`--max-workers 8` 小样本可运行；`--max-workers 9` 被拒绝；worker 返回值不包含 row payload；父进程 summary 只聚合 row count、hash、路径和状态；resume 通过 DONE/hash 跳过且不读取全量 artifact；formal large upstream 不允许进入 single JSON object / `json.load` 模式；forbidden future/return/backtest/portfolio/signal 字段与 legacy V1 字段仍被阻断。
+验收测试至少覆盖：`--max-workers 8` 小样本可运行；`--max-workers 9` 被拒绝；worker 返回值不包含 row payload；父进程 summary 只聚合 row count、hash、路径和状态；resume 通过 DONE/hash 跳过且不读取全量 artifact；failed 或 incomplete chunk 不写 authoritative DuckDB/manifest 且 downstream gate 为 false；formal large upstream 不允许进入 single JSON object / `json.load` 模式；forbidden future/return/backtest/portfolio/signal 字段与 legacy V1 字段仍被阻断。

@@ -5,10 +5,12 @@ import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 
 from src.r0.r0_t10_raw_metric_materializer import (
+    OUTPUT_DUCKDB_NAME,
     OUTPUT_MANIFEST_NAME,
     OUTPUT_SUMMARY_NAME,
     R0T10MaterializationError,
@@ -219,6 +221,70 @@ class R0T10RawMetricMaterializerTest(unittest.TestCase):
             self.assertFalse(
                 artifact_path.with_name(artifact_path.name + ".partial").exists()
             )
+
+    def test_failed_chunk_blocks_authoritative_duckdb_and_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            d3_db = write_d3_source(root, securities=("000001.SZ", "000002.SZ"))
+            output_dir = root / "data/generated/r0/r0_t10/R0-T10-TEST/r0_t04"
+            output_dir.mkdir(parents=True)
+            (output_dir / OUTPUT_DUCKDB_NAME).write_text("stale", encoding="utf-8")
+            (output_dir / OUTPUT_MANIFEST_NAME).write_text("stale", encoding="utf-8")
+            chunk_summaries = [
+                {
+                    "schema_version": "r0_t10_01_chunk_done.v1",
+                    "chunk_id": "ok",
+                    "chunk_hash": "ok-hash",
+                    "security_count": 1,
+                    "security_id_min": "000001.SZ",
+                    "security_id_max": "000001.SZ",
+                    "row_count": 680,
+                    "content_sha256": "content",
+                    "file_sha256": "file",
+                    "field_names": ["security_id", "trading_date"],
+                    "date_min": "2026-01-01",
+                    "date_max": "2026-03-26",
+                    "artifact_path": str(output_dir / "shards/ok.jsonl.gz"),
+                    "done_marker_path": str(output_dir / "status/ok.DONE.json"),
+                    "status": "completed",
+                },
+                {
+                    "schema_version": "r0_t10_01_chunk_failed.v1",
+                    "chunk_id": "bad",
+                    "chunk_hash": "bad-hash",
+                    "security_count": 1,
+                    "security_id_min": "000002.SZ",
+                    "security_id_max": "000002.SZ",
+                    "error_type": "RuntimeError",
+                    "error_message": "boom",
+                    "status": "failed",
+                },
+            ]
+
+            with patch(
+                "src.r0.r0_t10_raw_metric_materializer._run_chunks",
+                return_value=chunk_summaries,
+            ):
+                summary = materialize_r0_t04_raw_metrics(
+                    d3_duckdb=d3_db,
+                    output_dir=output_dir,
+                    run_id="R0-T10-TEST",
+                    code_commit="abcdef",
+                    max_workers=2,
+                    chunk_size_securities=1,
+                )
+
+            self.assertEqual(summary["status"], "failed")
+            self.assertFalse(summary["duckdb_written"])
+            self.assertFalse(summary["manifest_written"])
+            self.assertFalse(summary["downstream_gate_allowed"])
+            self.assertIn("failed_chunk_present", summary["reason_codes"])
+            self.assertEqual(summary["planned_chunk_count"], 2)
+            self.assertEqual(summary["completed_chunk_count"], 1)
+            self.assertEqual(summary["failed_chunk_count"], 1)
+            self.assertFalse((output_dir / OUTPUT_DUCKDB_NAME).exists())
+            self.assertFalse((output_dir / OUTPUT_MANIFEST_NAME).exists())
+            self.assertTrue((output_dir / OUTPUT_SUMMARY_NAME).is_file())
 
 
 if __name__ == "__main__":
