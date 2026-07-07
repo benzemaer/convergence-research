@@ -10,7 +10,7 @@
 
 本任务不生成 R0-T05 score、R0-T06 nested state、R0-T07 confirmation / interval，不生成 R0-T09 `authorized_input_manifest.json`，不执行 baseline 或 27 组 full-grid，不生成 R0 审计报告或 R1 交接，也不引入 release event、future label、direction、return、backtest、portfolio 或交易信号字段。
 
-Synthetic/fixture/contract-grid payload 只可用于 smoke 或单元测试，不得伪装成 formal upstream artifact。生成的 DuckDB、JSONL.gz、CSV、summary 或 manifest 等运行产物不得提交到 git。
+Synthetic/fixture/contract-grid payload 只可用于 smoke 或单元测试，不得伪装成 formal upstream artifact。大的 generated data artifacts 不提交到 git，包括 DuckDB、JSONL.gz、CSV.gz 等行级数据本体；但每个 formal materialization PR 必须提交小型 evidence record，至少包含真实运行命令、run_id、输入 artifact 路径或 registry id、输入 hash、输出路径、输出 DuckDB hash、row count、security count、date range、shard count、worker 参数、memory boundary、validation 命令和完成状态。没有真实运行 evidence record，不得把 task 标为 completed，也不得推进到下一层物化任务。
 
 ## 输入边界
 

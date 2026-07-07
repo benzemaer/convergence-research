@@ -11,10 +11,8 @@ from typing import Any
 
 from src.r0.raw_metric_engine import METRIC_ENGINE_VERSION, compute_raw_metrics
 from src.r0.upstream_artifact_io import (
-    canonical_json,
     duckdb_table_summary,
     hash_object,
-    iter_jsonl_gz,
     quote_ident,
     sha256_file,
     validate_manifest_shape,
@@ -375,20 +373,35 @@ def _write_authoritative_duckdb(
         _configure_duckdb(
             conn, threads=duckdb_threads, memory_limit=duckdb_memory_limit
         )
-        conn.execute(f"CREATE TABLE {quote_ident(OUTPUT_TABLE_NAME)} (row_json TEXT)")
-        batch: list[tuple[str]] = []
-        for chunk in chunks:
-            for row in iter_jsonl_gz(str(chunk["artifact_path"])):
-                batch.append((canonical_json(row),))
-                if len(batch) >= 1000:
-                    conn.executemany(
-                        f"INSERT INTO {quote_ident(OUTPUT_TABLE_NAME)} VALUES (?)",
-                        batch,
-                    )
-                    batch.clear()
-        if batch:
-            conn.executemany(
-                f"INSERT INTO {quote_ident(OUTPUT_TABLE_NAME)} VALUES (?)", batch
+        shard_paths = [str(chunk["artifact_path"]) for chunk in chunks]
+        if shard_paths:
+            conn.execute(
+                f"""
+                CREATE TABLE {quote_ident(OUTPUT_TABLE_NAME)} AS
+                SELECT *
+                FROM read_json_auto(?, format='newline_delimited')
+                """,
+                [shard_paths],
+            )
+        else:
+            conn.execute(
+                f"""
+                CREATE TABLE {quote_ident(OUTPUT_TABLE_NAME)} (
+                  security_id TEXT,
+                  trading_date TEXT,
+                  indicator_id TEXT,
+                  raw_metric_name TEXT,
+                  raw_value DOUBLE,
+                  validity_status TEXT,
+                  reason_codes TEXT[],
+                  input_window_start TEXT,
+                  input_window_end TEXT,
+                  required_observation_count INTEGER,
+                  actual_valid_observation_count INTEGER,
+                  source_field_names TEXT[],
+                  metric_engine_version TEXT
+                )
+                """
             )
     finally:
         conn.close()
