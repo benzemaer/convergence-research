@@ -120,6 +120,45 @@ class D3DailyMarketObservationValuesContractTest(unittest.TestCase):
         self.assertTrue(semantics["not_pcvt_score"])
         self.assertTrue(semantics["not_state_machine_result"])
 
+    def test_pcvt_dependency_mapping_uses_current_r0_t03_v_baseline(self) -> None:
+        dependencies = {
+            item["indicator_id"]: set(item["required_inputs"])
+            for item in self.contract["pcvt_dependency_mapping"][
+                "candidate_dependencies"
+            ]
+        }
+        self.assertGreaterEqual(
+            dependencies["V1_TurnoverShrink20_60"],
+            {
+                "turnover_float",
+                "turnover_field_status",
+                "share_field_status",
+                "provider_turnover_crosscheck_status",
+                "volume_shares",
+                "float_share_shares",
+                "trading_status",
+                "corporate_action_flag",
+                "suspension_flag",
+                "corporate_action_types_in_window",
+                "share_comparability_corporate_action_in_window",
+                "common_share_basis_policy",
+                "volume_comparability_policy",
+            },
+        )
+        self.assertNotIn("V1_VolShrink20_60", dependencies)
+        self.assertGreaterEqual(
+            dependencies["V2_AmountLevel20Pct"],
+            {
+                "amount_yuan",
+                "amount_unit",
+                "amount_volume_unit_status",
+                "zero_amount_flag",
+                "trading_status",
+                "suspension_flag",
+                "strict_past_percentile_history",
+            },
+        )
+
     def test_pcvt_future_label_backtest_portfolio_payload_fields_are_prohibited(
         self,
     ) -> None:

@@ -44,7 +44,7 @@
     "C2_AdjVWAPSpread_5_60",
     "T1_ER20",
     "T2_AbsTrendT20",
-    "V1_VolShrink20_60",
+    "V1_TurnoverShrink20_60",
     "V2_AmountLevel20Pct"
   ],
   "tnskhdata_probe": {
@@ -148,9 +148,14 @@
     "TurnoverLevel20Pct",
     "FreeTurnoverLevel20Pct"
   ],
-  "r0_baseline_unchanged": true,
-  "r0_baseline_v_indicators": [
+  "d3_t10_did_not_replace_r0_baseline_at_that_time": true,
+  "historical_r0_baseline_v_indicators_at_d3_t10": [
     "V1_VolShrink20_60",
+    "V2_AmountLevel20Pct"
+  ],
+  "superseded_by": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1",
+  "current_r0_baseline_v_indicators": [
+    "V1_TurnoverShrink20_60",
     "V2_AmountLevel20Pct"
   ],
   "prohibited_outputs": [

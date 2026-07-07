@@ -238,18 +238,32 @@
         ]
       },
       {
-        "indicator_id": "V1_VolShrink20_60",
+        "indicator_id": "V1_TurnoverShrink20_60",
         "required_inputs": [
-          "volume",
-          "volume_unit",
-          "corporate_action_volume_comparability_policy"
+          "turnover_float",
+          "turnover_field_status",
+          "share_field_status",
+          "provider_turnover_crosscheck_status",
+          "volume_shares",
+          "float_share_shares",
+          "trading_status",
+          "corporate_action_flag",
+          "suspension_flag",
+          "corporate_action_types_in_window",
+          "share_comparability_corporate_action_in_window",
+          "common_share_basis_policy",
+          "volume_comparability_policy"
         ]
       },
       {
         "indicator_id": "V2_AmountLevel20Pct",
         "required_inputs": [
-          "amount",
+          "amount_yuan",
           "amount_unit",
+          "amount_volume_unit_status",
+          "zero_amount_flag",
+          "trading_status",
+          "suspension_flag",
           "strict_past_percentile_history"
         ]
       }
@@ -309,14 +323,14 @@
       "free_share_shares"
     ]
   },
-  "d3_t10_future_alternative_v_policy": {
-    "r0_baseline_unchanged": true,
-    "baseline_v_indicators": [
-      "V1_VolShrink20_60",
+  "d3_t10_historical_v_policy": {
+    "d3_t10_did_not_replace_r0_baseline_at_that_time": true,
+    "superseded_by": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1",
+    "current_r0_baseline_v_indicators": [
+      "V1_TurnoverShrink20_60",
       "V2_AmountLevel20Pct"
     ],
-    "future_alternative_v_candidates": [
-      "TurnoverShrink20_60",
+    "historical_alternative_v_candidates": [
       "FreeTurnoverShrink20_60",
       "TurnoverLevel20Pct",
       "FreeTurnoverLevel20Pct"
