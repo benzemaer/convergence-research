@@ -60,11 +60,11 @@ class R0T10MaterializationEvidenceTest(unittest.TestCase):
     def test_readme_advances_after_evidence_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn(
-            "current_task: R0-T10-04 R0-T07 confirmation / interval 物化", text
+            "current_task: R0-T10-05 authorized input manifest 与 27 组 full-grid 执行",
+            text,
         )
         self.assertIn(
-            "next_planned_task: R0-T10-05 authorized input manifest "
-            "与 27 组 full-grid 执行",
+            "next_planned_task: R0-T11 R0 审计报告与 R1 交接",
             text,
         )
         self.assertIn(
