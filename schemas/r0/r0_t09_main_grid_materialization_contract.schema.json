@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t09_main_grid_materialization_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "authorized_input_manifest_required",
+    "real_data_read_authorized",
+    "provider_call_authorized",
+    "data_raw_read_authorized",
+    "data_external_read_authorized",
+    "marketdb_read_authorized",
+    "day_file_read_authorized",
+    "unauthorized_generated_read_authorized",
+    "duckdb_write_authorized",
+    "csv_write_authorized",
+    "generated_artifact_write_authorized",
+    "formal_data_version_authorized",
+    "main_grid_materialization_authorized",
+    "audit_report_generation_authorized",
+    "r1_handoff_generation_authorized",
+    "max_workers_default",
+    "max_workers_upper_bound",
+    "resume_authorized",
+    "only_config_rerun_authorized",
+    "dry_run_authorized",
+    "per_config_isolated_output_required",
+    "single_writer_per_duckdb_required",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "release_event_generation_authorized",
+    "gap_merge_generated_by_this_task",
+    "cooldown_generated_by_this_task",
+    "percentile_window_W_values",
+    "low_quantile_q_values",
+    "confirmation_days_K_values",
+    "baseline_percentile_window_W",
+    "baseline_low_quantile_q",
+    "baseline_confirmation_days_K",
+    "baseline_candidate_config_id",
+    "dimension_rule",
+    "weak_delta",
+    "main_grid_config_count",
+    "active_v1_indicator_id",
+    "active_v1_raw_field",
+    "legacy_v1_field_names_forbidden",
+    "required_input_manifest_fields",
+    "per_config_output_files",
+    "partial_file_required",
+    "atomic_rename_required",
+    "done_marker_required_fields",
+    "failed_marker_required_fields",
+    "global_manifest_required_fields",
+    "forbidden_outputs",
+    "reason_code_vocabulary"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t09_main_grid_materialization_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T09_MAIN_GRID_MATERIALIZATION_CONTRACT_V1" },
+    "task_id": { "const": "R0-T09" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": { "const": "main_grid_materialization_only" },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "R0_T04_RAW_METRIC_ENGINE_CONTRACT_V1" } },
+        { "contains": { "const": "R0_T05_STRICT_PAST_PERCENTILE_SCORE_CONTRACT_V1" } },
+        { "contains": { "const": "R0_T06_WEAK_DIMENSION_NESTED_STATE_CONTRACT_V1" } },
+        { "contains": { "const": "R0_T07_CONFIRMATION_STREAK_INTERVAL_CONTRACT_V1" } },
+        { "contains": { "const": "R0_T08_MAIN_GRID_CANDIDATE_ARTIFACT_CONTRACT_V1" } }
+      ]
+    },
+    "authorized_input_manifest_required": { "const": true },
+    "real_data_read_authorized": { "const": true },
+    "provider_call_authorized": { "const": false },
+    "data_raw_read_authorized": { "const": false },
+    "data_external_read_authorized": { "const": false },
+    "marketdb_read_authorized": { "const": false },
+    "day_file_read_authorized": { "const": false },
+    "unauthorized_generated_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": true },
+    "csv_write_authorized": { "const": true },
+    "generated_artifact_write_authorized": { "const": true },
+    "formal_data_version_authorized": { "const": false },
+    "main_grid_materialization_authorized": { "const": true },
+    "audit_report_generation_authorized": { "const": false },
+    "r1_handoff_generation_authorized": { "const": false },
+    "max_workers_default": { "const": 6 },
+    "max_workers_upper_bound": { "const": 6 },
+    "resume_authorized": { "const": true },
+    "only_config_rerun_authorized": { "const": true },
+    "dry_run_authorized": { "const": true },
+    "per_config_isolated_output_required": { "const": true },
+    "single_writer_per_duckdb_required": { "const": true },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "release_event_generation_authorized": { "const": false },
+    "gap_merge_generated_by_this_task": { "const": false },
+    "cooldown_generated_by_this_task": { "const": false },
+    "percentile_window_W_values": { "const": [120, 250, 500] },
+    "low_quantile_q_values": { "const": [0.10, 0.20, 0.30] },
+    "confirmation_days_K_values": { "const": [2, 3, 5] },
+    "baseline_percentile_window_W": { "const": 250 },
+    "baseline_low_quantile_q": { "const": 0.20 },
+    "baseline_confirmation_days_K": { "const": 3 },
+    "baseline_candidate_config_id": { "const": "R0_W250_Q20_K3_WEAK_D010" },
+    "dimension_rule": { "const": "weak" },
+    "weak_delta": { "const": 0.10 },
+    "main_grid_config_count": { "const": 27 },
+    "active_v1_indicator_id": { "const": "V1_TurnoverShrink20_60" },
+    "active_v1_raw_field": { "const": "TurnoverShrink20_60_raw" },
+    "legacy_v1_field_names_forbidden": {
+      "const": [
+        "VolShrink20_60_raw",
+        "V1_VolShrink20_60",
+        "VolShrink20_60",
+        "volume_shrink_20_60"
+      ]
+    },
+    "required_input_manifest_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "input_data_version" } },
+        { "contains": { "const": "input_schema_version" } },
+        { "contains": { "const": "input_content_hash" } },
+        { "contains": { "const": "input_row_counts" } },
+        { "contains": { "const": "source_lineage" } },
+        { "contains": { "const": "authorized_r0_input" } },
+        { "contains": { "const": "code_commit_or_data_build_id" } },
+        { "contains": { "const": "input_payload_path" } }
+      ]
+    },
+    "per_config_output_files": { "$ref": "#/$defs/stringArray" },
+    "partial_file_required": { "const": true },
+    "atomic_rename_required": { "const": true },
+    "done_marker_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "daily_content_hash" } },
+        { "contains": { "const": "interval_content_hash" } },
+        { "contains": { "const": "status" } }
+      ]
+    },
+    "failed_marker_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "error_type" } },
+        { "contains": { "const": "error_message" } },
+        { "contains": { "const": "retry_command" } }
+      ]
+    },
+    "global_manifest_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "candidate_configs" } },
+        { "contains": { "const": "per_config_status" } },
+        { "contains": { "const": "lineage_guard" } },
+        { "contains": { "const": "forbidden_output_guard" } }
+      ]
+    },
+    "forbidden_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "future_volatility" } },
+        { "contains": { "const": "win_rate" } },
+        { "contains": { "const": "pnl" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "trade_signal" } },
+        { "contains": { "const": "audit_report" } },
+        { "contains": { "const": "r1_handoff" } }
+      ]
+    },
+    "reason_code_vocabulary": { "$ref": "#/$defs/stringArray" }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    }
+  }
+}

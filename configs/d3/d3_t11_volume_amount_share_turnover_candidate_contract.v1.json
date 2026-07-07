@@ -88,7 +88,7 @@
     "V1_VolShrink20_60",
     "V2_AmountLevel20Pct"
   ],
-  "turnover_based_v_metrics_policy": "future alternatives for R0-T09 / R1 sensitivity",
+  "turnover_based_v_metrics_policy": "future alternatives for R0-T11 / R1 sensitivity",
   "required_outputs": [
     "d3_t11_volume_amount_share_turnover_candidate.duckdb",
     "d3_t11_generation_summary.json",
