@@ -98,6 +98,15 @@ def run_main_grid_materialization(
 
     authorized = load_authorized_input(input_manifest)
     configs = [config.as_dict() for config in build_candidate_configs()]
+    if (
+        not dry_run
+        and only_config is None
+        and _is_production_r0_t09_output_dir(Path(output_dir))
+        and _is_synthetic_input_manifest(authorized.manifest)
+    ):
+        raise R0T09MaterializationError(
+            "synthetic_contract_grid_input_forbidden_for_production"
+        )
     if only_config is not None and only_config not in {
         str(config["candidate_config_id"]) for config in configs
     }:
@@ -773,6 +782,29 @@ def _guard_payload_path(path: Path) -> None:
     forbidden = ("data/raw", "data/external", "MarketDB", ".day")
     if any(pattern in normalized for pattern in forbidden):
         raise R0T09MaterializationError(f"forbidden input payload path: {path}")
+
+
+def _is_synthetic_input_manifest(manifest: Mapping[str, Any]) -> bool:
+    data_version = str(manifest.get("input_data_version", "")).lower()
+    schema_version = str(manifest.get("input_schema_version", "")).lower()
+    lineage = manifest.get("source_lineage", ())
+    if isinstance(lineage, Sequence) and not isinstance(lineage, str):
+        lineage_values = [str(item).lower() for item in lineage]
+    else:
+        lineage_values = [str(lineage).lower()]
+    return (
+        data_version.startswith("synthetic")
+        or "synthetic" in schema_version
+        or "synthetic_in_memory_r0_grid_inputs" in lineage_values
+    )
+
+
+def _is_production_r0_t09_output_dir(path: Path) -> bool:
+    parts = tuple(part.lower() for part in path.parts)
+    needle = ("data", "generated", "r0", "r0_t09")
+    return any(
+        parts[index : index + len(needle)] == needle for index in range(len(parts))
+    )
 
 
 def _row_dict(row: Mapping[str, Any] | Any) -> dict[str, Any]:

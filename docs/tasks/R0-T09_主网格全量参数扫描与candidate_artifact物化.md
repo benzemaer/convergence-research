@@ -1,6 +1,6 @@
 # R0-T09 主网格全量参数扫描与 candidate artifact 物化
 
-状态：completed via PR #67。
+状态：runner/contract/smoke completed via PR #67；formal input manifest blocked pending real R0-T04 -> R0-T07 upstream artifacts；production full-grid materialization pending。
 
 ## 目标
 
@@ -18,7 +18,7 @@ Runner 入口为：
 python scripts/r0/run_r0_t09_main_grid.py --input-manifest <authorized_input_manifest.json> --output-dir data/generated/r0/r0_t09/<run_id> --max-workers 2 --resume
 ```
 
-输入 manifest 必须至少包含 `input_data_version`、`input_schema_version`、`input_content_hash`、`input_row_counts`、`source_lineage`、`authorized_r0_input=true`、`code_commit_or_data_build_id` 和 `input_payload_path`。`input_payload_path` 指向已授权上游 payload；payload 可来自 R0-T04 至 R0-T07/R0-T08 授权链路，但不得含 legacy V1 字段、future/return/backtest/portfolio/signal 字段或未授权真实数据直连来源。
+输入 manifest 必须至少包含 `input_data_version`、`input_schema_version`、`input_content_hash`、`input_row_counts`、`source_lineage`、`authorized_r0_input=true`、`code_commit_or_data_build_id` 和 `input_payload_path`。`input_payload_path` 指向已授权上游 payload；payload 必须来自真实 R0-T04 至 R0-T07 授权链路，不得由 contract-grid synthetic rows 冒充，不得含 legacy V1 字段、future/return/backtest/portfolio/signal 字段或未授权真实数据直连来源。
 
 payload 必须通过 R0-T09 coverage guard。全量运行要求 `nested_daily_state_results` 覆盖 9 个 `(W,q)`，`daily_confirmation_results` 覆盖 27 组 `(W,q,K)` 的四个 `state_name`，且 `confirmed_interval_results` 中出现的行都能合法映射到主网格；没有 confirmed interval 是合法情形。只包含单个 config 的 payload 只能配合 `--only-config <candidate_config_id>` 使用，不能被标记为 27 组全量完成。
 
@@ -34,11 +34,13 @@ R0-T09 contract 固化在 `configs/r0/r0_t09_main_grid_materialization_contract.
 
 V1 baseline 必须保持为 `V1_TurnoverShrink20_60` / `TurnoverShrink20_60_raw`。`VolShrink20_60_raw`、`V1_VolShrink20_60`、`VolShrink20_60`、`volume_shrink_20_60` 在输入、输出、fixtures、schema-like list 和 manifest-like list 中均视为 forbidden legacy V1 字段，发现后应返回 blocked 或使 runner 失败。
 
+Formal input manifest builder 在未显式传入 R0-T04/R0-T05/R0-T06/R0-T07 上游输入时，必须写出 `status=blocked`、`reason_codes=["formal_upstream_inputs_missing"]`、`authorized_input_manifest_written=false` 的 `generation_summary.json`，不得写出 `authorized_r0_input=true` 的 manifest。Synthetic contract-grid payload 只能通过显式 smoke mode 或测试 helper 使用；它不得写入 `data/generated/r0/r0_t09_inputs/`，也不得用于 production full-grid materialization。
+
 ## 验收标准
 
 合成测试必须证明 runner 能展开 27 组配置、baseline 配置存在、K=1 缺席、单配置物化生成 DuckDB/CSV gzip/DONE/manifest、resume 可跳过完整 artifact、partial 或 hash 不一致不会被跳过、失败配置写入 FAILED marker 且不写 DONE。测试还必须覆盖 worker 上限、CLI dry-run、input manifest hash mismatch、forbidden lineage 和 legacy V1 guard。
 
-R0-T09 完成后，任务索引推进到 `current_task: R0-T10 R0 审计报告与 R1 交接`，`next_planned_task: R0-T11 替代指标口径敏感性骨架`。R0-T10 才负责审计报告和 R1 交接。
+R0-T09 runner/contract/smoke 可通过 PR #67 完成，但正式 input manifest 与 production full-grid materialization 仍需真实 R0-T04 至 R0-T07 上游 artifact。任务索引不得在 production full-grid materialization 完成前推进到 R0-T10。R0-T10 才负责审计报告和 R1 交接。
 
 ## 失败状态
 

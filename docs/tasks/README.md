@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R0
-current_task: R0-T10 R0 审计报告与 R1 交接
-next_planned_task: R0-T11 替代指标口径敏感性骨架
+current_task: R0-T09 正式 input manifest 与全量参数网格物化
+next_planned_task: R0-T10 R0 审计报告与 R1 交接
 ```
 
 ## 命名与路径规则
@@ -226,7 +226,9 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T06` weak 维度规则、嵌套状态与互斥分层：completed via PR #64
 - `R0-T07` 联合确认层、streak 与确认区间表：completed via PR #65
 - `R0-T08` 主网格 candidate 状态日表与 manifest：completed via PR #66
-- `R0-T09` 主网格全量参数扫描与 candidate artifact 物化：completed via PR #67
+- `R0-T09` runner/contract/smoke：completed via PR #67
+- `R0-T09` formal input manifest：blocked / pending real R0-T04 -> R0-T07 upstream artifacts
+- `R0-T09` production full-grid materialization：pending
 - `R0-T10` R0 审计报告与 R1 交接：planned
 - `R0-T11` 替代指标口径敏感性骨架：optional
 - `R0-T12` Post-Up-Release Short-PCT 研究接口占位：optional

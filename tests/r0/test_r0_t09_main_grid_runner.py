@@ -673,6 +673,25 @@ class R0T09MainGridRunnerTest(unittest.TestCase):
         self.assertEqual(guard["validity_status"], "blocked")
         self.assertIn("input_payload_grid_coverage_incomplete", guard["reason_codes"])
 
+    def test_production_full_grid_rejects_synthetic_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = write_authorized_input(root, full_grid_payload())
+            output_dir = root / "data" / "generated" / "r0" / "r0_t09" / "run"
+
+            with self.assertRaisesRegex(
+                R0T09MaterializationError,
+                "synthetic_contract_grid_input_forbidden_for_production",
+            ):
+                run_main_grid_materialization(
+                    input_manifest=manifest_path,
+                    output_dir=output_dir,
+                    max_workers=2,
+                    run_id="R0-T09-PRODUCTION",
+                )
+
+            self.assertFalse(output_dir.exists())
+
     def test_failed_config_writes_failed_marker_without_done(self) -> None:
         bad_payload = synthetic_payload()
         bad_payload["raw_metric_results"] = ["bad"]

@@ -59,7 +59,9 @@ SUMMARY_FILENAME = "generation_summary.json"
 
 
 class R0T09InputManifestBuilderError(RuntimeError):
-    pass
+    def __init__(self, message: str, summary: Mapping[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.summary = dict(summary or {})
 
 
 @dataclass(frozen=True)
@@ -81,15 +83,40 @@ def build_r0_t09_input_manifest(
     r0_t05_input: str | Path | None = None,
     r0_t06_input: str | Path | None = None,
     r0_t07_input: str | Path | None = None,
+    synthetic_smoke_fixture: bool = False,
 ) -> BuildResult:
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
     created_at = _utc_now()
+    has_upstream_inputs = any((r0_t04_input, r0_t05_input, r0_t06_input, r0_t07_input))
+    if not has_upstream_inputs and not synthetic_smoke_fixture:
+        summary = _blocked_summary(
+            target=target,
+            run_id=run_id,
+            code_commit=code_commit,
+            created_at=created_at,
+            reason_codes=("formal_upstream_inputs_missing",),
+        )
+        _write_json(target / SUMMARY_FILENAME, summary)
+        raise R0T09InputManifestBuilderError("formal_upstream_inputs_missing", summary)
+    if synthetic_smoke_fixture and _is_formal_input_output_dir(target):
+        summary = _blocked_summary(
+            target=target,
+            run_id=run_id,
+            code_commit=code_commit,
+            created_at=created_at,
+            reason_codes=("synthetic_smoke_output_dir_forbidden",),
+        )
+        _write_json(target / SUMMARY_FILENAME, summary)
+        raise R0T09InputManifestBuilderError(
+            "synthetic smoke output cannot target formal r0_t09_inputs", summary
+        )
     payload = _payload_from_inputs(
         r0_t04_input=r0_t04_input,
         r0_t05_input=r0_t05_input,
         r0_t06_input=r0_t06_input,
         r0_t07_input=r0_t07_input,
+        synthetic_smoke_fixture=synthetic_smoke_fixture,
     )
     _validate_payload(payload)
 
@@ -102,13 +129,21 @@ def build_r0_t09_input_manifest(
     legacy_check = _legacy_v1_check(payload)
 
     manifest = {
-        "authorized_r0_input": True,
+        "authorized_r0_input": not synthetic_smoke_fixture,
         "code_commit_or_data_build_id": code_commit,
         "input_content_hash": payload_sha256,
-        "input_data_version": f"r0_t09_formal_input_manifest:{run_id}",
+        "input_data_version": (
+            f"synthetic-r0-t09-contract-grid-smoke:{run_id}"
+            if synthetic_smoke_fixture
+            else f"r0_t09_formal_input_manifest:{run_id}"
+        ),
         "input_payload_path": PAYLOAD_FILENAME,
         "input_row_counts": input_row_counts,
-        "input_schema_version": "r0_t09_full_grid_payload.v1",
+        "input_schema_version": (
+            "r0_t09_synthetic_contract_grid_smoke_payload.v1"
+            if synthetic_smoke_fixture
+            else "r0_t09_full_grid_payload.v1"
+        ),
         "source_lineage": list(SOURCE_LINEAGE),
     }
     manifest_path = target / MANIFEST_FILENAME
@@ -126,11 +161,14 @@ def build_r0_t09_input_manifest(
         "coverage_summary": coverage_summary,
         "lineage_summary": {
             "source_lineage": list(SOURCE_LINEAGE),
-            "uses_smoke_fixture": False,
+            "uses_smoke_fixture": synthetic_smoke_fixture,
             "uses_real_data_direct_source": False,
         },
         "forbidden_field_check": forbidden_guard,
         "legacy_v1_check": legacy_check,
+        "authorized_input_manifest_written": True,
+        "formal_upstream_inputs_missing": False,
+        "synthetic_smoke_fixture": synthetic_smoke_fixture,
         "status": "completed",
     }
     summary_path = target / SUMMARY_FILENAME
@@ -156,6 +194,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--r0-t05-input", type=Path)
     parser.add_argument("--r0-t06-input", type=Path)
     parser.add_argument("--r0-t07-input", type=Path)
+    parser.add_argument(
+        "--synthetic-smoke-fixture",
+        action="store_true",
+        help="Build an explicit un-authorized synthetic coverage smoke payload.",
+    )
     return parser.parse_args(argv)
 
 
@@ -170,9 +213,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             r0_t05_input=args.r0_t05_input,
             r0_t06_input=args.r0_t06_input,
             r0_t07_input=args.r0_t07_input,
+            synthetic_smoke_fixture=args.synthetic_smoke_fixture,
         )
     except R0T09InputManifestBuilderError as exc:
-        print(f"blocked: {exc}")
+        if exc.summary:
+            print(json.dumps(exc.summary, ensure_ascii=False, sort_keys=True, indent=2))
+        else:
+            print(f"blocked: {exc}")
         return 2
     print(json.dumps(result.summary, ensure_ascii=False, sort_keys=True, indent=2))
     return 0
@@ -184,8 +231,9 @@ def _payload_from_inputs(
     r0_t05_input: str | Path | None,
     r0_t06_input: str | Path | None,
     r0_t07_input: str | Path | None,
+    synthetic_smoke_fixture: bool,
 ) -> dict[str, list[dict[str, Any]]]:
-    if not any((r0_t04_input, r0_t05_input, r0_t06_input, r0_t07_input)):
+    if synthetic_smoke_fixture:
         return _contract_grid_payload()
     payload = _empty_payload()
     if r0_t04_input is not None:
@@ -245,6 +293,50 @@ def _contract_grid_payload() -> dict[str, list[dict[str, Any]]]:
     ]
     payload["confirmed_interval_results"] = []
     return payload
+
+
+def _blocked_summary(
+    *,
+    target: Path,
+    run_id: str,
+    code_commit: str,
+    created_at: str,
+    reason_codes: Sequence[str],
+) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "created_at": created_at,
+        "code_commit": code_commit,
+        "output_dir": _portable_path(target),
+        "authorized_input_manifest_path": None,
+        "payload_path": None,
+        "payload_sha256": None,
+        "input_row_counts": _input_row_counts(_empty_payload()),
+        "coverage_summary": {
+            "nested_wq_count": 0,
+            "confirmation_wqk_state_count": 0,
+            "contains_k1": False,
+            "legacy_v1_field_count": 0,
+            "future_or_return_field_count": 0,
+        },
+        "lineage_summary": {
+            "source_lineage": [],
+            "uses_smoke_fixture": False,
+            "uses_real_data_direct_source": False,
+        },
+        "forbidden_field_check": None,
+        "legacy_v1_check": {
+            "count": 0,
+            "field_names": [],
+            "status": "not_evaluated",
+        },
+        "authorized_input_manifest_written": False,
+        "formal_upstream_inputs_missing": (
+            "formal_upstream_inputs_missing" in reason_codes
+        ),
+        "reason_codes": list(reason_codes),
+        "status": "blocked",
+    }
 
 
 def _empty_payload() -> dict[str, list[dict[str, Any]]]:
@@ -531,3 +623,11 @@ def _portable_path(path: Path) -> str:
         return path.as_posix()
     except ValueError:
         return str(path)
+
+
+def _is_formal_input_output_dir(path: Path) -> bool:
+    parts = tuple(part.lower() for part in path.parts)
+    needle = ("data", "generated", "r0", "r0_t09_inputs")
+    return any(
+        parts[index : index + len(needle)] == needle for index in range(len(parts))
+    )

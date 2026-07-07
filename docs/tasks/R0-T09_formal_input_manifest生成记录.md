@@ -2,71 +2,49 @@
 
 ## 记录范围
 
-本记录对应 PR #67 上的 R0-T09 formal input manifest 生成与 dry-run 验证。该步骤只准备 R0-T09 runner 可消费的 `authorized_input_manifest.json`，不执行正式 27-config production materialization。
+本记录对应 PR #67 上的 R0-T09 formal input manifest 生成门禁修正。当前没有生成正式 `authorized_input_manifest.json`，因为本地尚未提供真实 R0-T04 至 R0-T07 上游 artifact 集合。
+
+之前由 contract grid 构造的 payload 只能视为 synthetic coverage smoke，不得称为 formal input manifest，不得写成 `authorized_r0_input=true` 的正式输入，也不得用于 R0-T09 production full-grid materialization。
 
 Production 27-config materialization has not been run by this step.
-This step only prepares and validates formal R0-T09 input manifest.
+This step only tightens and validates the formal input manifest gate.
 
-## 生成结果
+## Current Status
 
-- `run_id`: `r0_t09_pr67_input_20260707_174738`
-- `code_commit`: `4981077c0488082b038a1f388453c794d008da83`
-- `output_dir`: `data/generated/r0/r0_t09_inputs/r0_t09_pr67_input_20260707_174738`
-- `authorized_input_manifest_path`: `data/generated/r0/r0_t09_inputs/r0_t09_pr67_input_20260707_174738/authorized_input_manifest.json`
-- `payload_path`: `data/generated/r0/r0_t09_inputs/r0_t09_pr67_input_20260707_174738/r0_t09_full_grid_payload.json`
-- `generation_summary_path`: `data/generated/r0/r0_t09_inputs/r0_t09_pr67_input_20260707_174738/generation_summary.json`
-- `payload_hash`: `2283a87697df4e499dc2ce07dd140afcb45582e785fe1a99ff1f42f110336f5b`
+- `status`: `blocked`
+- `reason_code`: `formal_upstream_inputs_missing`
+- `authorized_input_manifest_written`: false
+- `formal_upstream_inputs_missing`: true
+- `production_full_grid_materialization_run`: false
 
-`data/generated/` remains ignored by git. The generated payload, manifest, and generation summary were produced locally and are not committed in this PR.
+R0-T09 production remains blocked until real R0-T04 -> R0-T07 upstream artifacts are provided:
 
-## Input Row Counts
+- R0-T04 `raw_metric_results`
+- R0-T05 `indicator_score_results` and `dimension_score_results`
+- R0-T06 `nested_daily_state_results`
+- R0-T07 `daily_confirmation_results` and `confirmed_interval_results`
 
-- `raw_metric_results`: 8
-- `indicator_score_results`: 24
-- `dimension_score_results`: 12
-- `nested_daily_state_results`: 9
-- `daily_confirmation_results`: 108
-- `confirmed_interval_results`: 0
+## Gate Semantics
 
-## Coverage Summary
+The formal builder now requires explicit upstream input paths in formal mode. Running `scripts/r0/build_r0_t09_input_manifest.py` without `--r0-t04-input`, `--r0-t05-input`, `--r0-t06-input`, and `--r0-t07-input` writes only `generation_summary.json` with `status=blocked`; it does not write `r0_t09_full_grid_payload.json` or `authorized_input_manifest.json`.
 
-- `nested_wq_count`: 9
-- `confirmation_wqk_state_count`: 108
-- `contains_k1`: false
-- `legacy_v1_field_count`: 0
-- `future_or_return_field_count`: 0
+The contract-grid payload helper is retained only for explicit synthetic smoke mode and tests. Synthetic smoke manifests are not authorized for R0 production input and cannot target `data/generated/r0/r0_t09_inputs/`.
 
-The generated payload uses the active V1 naming `V1_TurnoverShrink20_60` / `TurnoverShrink20_60_raw` and does not contain legacy V1 names. It does not contain future labels, returns, backtest, portfolio, trade signal, gap merge, cooldown, `audit_report.md`, or `r1_handoff.md`.
+## Blocked Summary Shape
 
-## Dry-Run Command
+When upstream inputs are missing, the local summary must record:
 
-```bash
-python scripts/r0/run_r0_t09_main_grid.py \
-  --input-manifest data/generated/r0/r0_t09_inputs/r0_t09_pr67_input_20260707_174738/authorized_input_manifest.json \
-  --output-dir data/generated/r0/r0_t09/r0_t09_pr67_input_20260707_174738_dry_run \
-  --max-workers 2 \
-  --dry-run \
-  --run-id r0_t09_pr67_input_20260707_174738_dry_run \
-  --code-commit 4981077c0488082b038a1f388453c794d008da83
+```json
+{
+  "status": "blocked",
+  "reason_codes": ["formal_upstream_inputs_missing"],
+  "formal_upstream_inputs_missing": true,
+  "authorized_input_manifest_written": false
+}
 ```
 
-## Dry-Run Result
+## Production Guard
 
-- `status`: `dry_run`
-- `candidate_config_count`: 27
-- `selected_config_count`: 27
-- `run_scope`: `full_grid`
-- `max_workers`: 2
-- `artifacts_written`: false
-- `input_payload_coverage_guard.validity_status`: `valid`
-- `covered_nested_key_count`: 9
-- `covered_confirmation_key_count`: 108
-- `invalid_nested_row_count`: 0
-- `invalid_confirmation_row_count`: 0
-- `invalid_interval_row_count`: 0
+R0-T09 runner dry-run and tmpdir smoke tests may still use synthetic fixtures. A non-dry-run full-grid materialization targeting `data/generated/r0/r0_t09/...` must reject synthetic or contract-grid manifests with `synthetic_contract_grid_input_forbidden_for_production`.
 
-## Commit Policy
-
-Committed in PR #67: the builder implementation, CLI wrapper, regression tests, and this generation record.
-
-Not committed: `data/generated/r0/r0_t09_inputs/r0_t09_pr67_input_20260707_174738/*` and any R0-T09 materialization outputs. No DuckDB, CSV.gz, DONE/FAILED marker, global output manifest, logs, audit report, or R1 handoff file is committed by this step.
+No DuckDB, CSV.gz, DONE/FAILED marker, global output manifest, logs, audit report, or R1 handoff file is generated or committed by this correction.
