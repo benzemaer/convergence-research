@@ -59,13 +59,17 @@ class R0T10MaterializationEvidenceTest(unittest.TestCase):
 
     def test_readme_advances_after_evidence_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
-        self.assertIn("current_task: R0-T10-02 R0-T05 strict-past score 物化", text)
-        self.assertIn("next_planned_task: R0-T10-03 R0-T06 nested state 物化", text)
+        self.assertIn("current_task: R0-T10-03 R0-T06 nested state 物化", text)
+        self.assertIn(
+            "next_planned_task: R0-T10-04 R0-T07 confirmation / interval 物化", text
+        )
         self.assertIn(
             "`R0-T10-01` 真实数据源与 R0-T04 raw metrics 物化：completed via PR #69",
             text,
         )
-        self.assertIn("`R0-T10-02` R0-T05 strict-past score 物化：in_progress", text)
+        self.assertIn(
+            "`R0-T10-02` R0-T05 strict-past score 物化：completed via PR #70", text
+        )
 
 
 if __name__ == "__main__":
