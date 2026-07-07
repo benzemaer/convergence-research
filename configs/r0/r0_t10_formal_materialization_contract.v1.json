@@ -16,6 +16,7 @@
   "phase_1_scope": "pre_full_grid_gate_and_formal_input_manifest_or_blocked_summary",
   "phase_1_stops_before_full_grid": true,
   "phase_2_full_grid_requires_review_after_phase_1": true,
+  "phase_2_full_grid_execution_authorized_after_preconditions": true,
   "real_data_read_authorized": true,
   "generated_json_write_authorized": true,
   "r0_t09_runner_execution_authorized": true,
@@ -114,7 +115,9 @@
     "pcvt_values_not_generated",
     "r0_state_not_generated",
     "formal_data_root_missing",
-    "full_grid_requires_second_submission",
-    "baseline_materialization_failed"
+    "formal_upstream_generation_failed",
+    "full_grid_requires_dry_run_and_baseline",
+    "baseline_materialization_failed",
+    "full_grid_materialization_failed"
   ]
 }

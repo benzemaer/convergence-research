@@ -657,11 +657,11 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
 
         self.assertIn("current_stage: D3", readme)
         self.assertIn(
-            "current_task: R0-T10 正式物化与全网格执行（phase 1 pre-full-grid gate）",
+            "current_task: R0-T10 正式物化与全网格执行",
             readme,
         )
         self.assertIn(
-            "next_planned_task: R0-T10 正式 27 组 full-grid execution（phase 2）",
+            "next_planned_task: R0-T11 R0 审计报告与 R1 交接",
             readme,
         )
         self.assertIn(

@@ -2,18 +2,34 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from src.r0.confirmation_interval_engine import (
+    compute_confirmed_intervals,
+    compute_daily_confirmations,
+)
+from src.r0.daily_state_engine import (
+    compute_dimension_weak_states,
+    compute_nested_daily_states,
+)
 from src.r0.main_grid_materialization_runner import run_main_grid_materialization
+from src.r0.percentile_score_engine import (
+    compute_dimension_scores,
+    compute_indicator_scores,
+)
 from src.r0.r0_t09_input_manifest_builder import (
     BuildResult,
     R0T09InputManifestBuilderError,
     build_r0_t09_input_manifest,
+    sha256_file,
 )
+from src.r0.raw_metric_engine import compute_raw_metrics
 
 R0_T10_FORMAL_MATERIALIZER_VERSION = "r0_t10_formal_materializer.v1"
 MAX_WORKERS_DEFAULT = 2
@@ -35,6 +51,16 @@ FORBIDDEN_FORMAL_PATH_TOKENS = (
     "contract_grid",
     "_contract_grid_payload",
 )
+DEFAULT_D3_T11_SOURCE_DUCKDB = Path(
+    "data/generated/d3/d3_t11_volume_amount_share_turnover_candidate_clean_rerun/"
+    "d3_t11_volume_amount_share_turnover_candidate.duckdb"
+)
+DEFAULT_D3_T07_ADJUSTED_DUCKDB = Path(
+    "data/generated/d3/d3_t07_candidate_daily_observation/"
+    "d3_t07_candidate_daily_observation.duckdb"
+)
+D3_T11_TABLE = "d3_t11_volume_amount_share_turnover_candidate"
+D3_T07_TABLE = "d3_candidate_daily_observation"
 
 
 class R0T10FormalMaterializationError(RuntimeError):
@@ -60,6 +86,8 @@ def run_r0_t10_formal_materialization(
     r0_t05_input: str | Path | None = None,
     r0_t06_input: str | Path | None = None,
     r0_t07_input: str | Path | None = None,
+    source_d3_t11_duckdb: str | Path | None = None,
+    adjusted_d3_t07_duckdb: str | Path | None = None,
     max_workers: int = MAX_WORKERS_DEFAULT,
     dry_run_r0_t09: bool = False,
     baseline_r0_t09: bool = False,
@@ -78,8 +106,8 @@ def run_r0_t10_formal_materialization(
         "r0_t06": Path(r0_t06_input) if r0_t06_input is not None else None,
         "r0_t07": Path(r0_t07_input) if r0_t07_input is not None else None,
     }
-
-    if full_grid_r0_t09:
+    generated_upstream = False
+    if full_grid_r0_t09 and (not dry_run_r0_t09 or not baseline_r0_t09):
         summary = _base_summary(
             root=root,
             run_id=run_id,
@@ -91,12 +119,50 @@ def run_r0_t10_formal_materialization(
         summary.update(
             {
                 "status": "blocked",
-                "reason_codes": ["full_grid_requires_second_submission"],
-                "full_grid_status": "deferred_pending_review",
+                "reason_codes": ["full_grid_requires_dry_run_and_baseline"],
+                "full_grid_status": "not_started",
                 "authorized_input_manifest_written": False,
             }
         )
         return _write_result(root, summary)
+    if all(path is None for path in upstream_paths.values()):
+        try:
+            generated = generate_formal_upstream_artifacts(
+                output_dir=root / "upstream",
+                run_id=run_id,
+                code_commit=code_commit,
+                source_d3_t11_duckdb=source_d3_t11_duckdb
+                or DEFAULT_D3_T11_SOURCE_DUCKDB,
+                adjusted_d3_t07_duckdb=adjusted_d3_t07_duckdb
+                or DEFAULT_D3_T07_ADJUSTED_DUCKDB,
+            )
+        except R0T10FormalMaterializationError as exc:
+            summary = _base_summary(
+                root=root,
+                run_id=run_id,
+                code_commit=code_commit,
+                created_at=created_at,
+                data_root=Path(data_root),
+                upstream_paths=upstream_paths,
+            )
+            summary.update(
+                {
+                    "status": "blocked",
+                    "reason_codes": ["formal_upstream_generation_failed"],
+                    "error_message": str(exc),
+                    "authorized_input_manifest_written": False,
+                    "full_grid_status": "not_started",
+                }
+            )
+            _write_upstream_summary(root, summary)
+            return _write_result(root, summary)
+        upstream_paths = {
+            "r0_t04": generated["r0_t04_path"],
+            "r0_t05": generated["r0_t05_path"],
+            "r0_t06": generated["r0_t06_path"],
+            "r0_t07": generated["r0_t07_path"],
+        }
+        generated_upstream = True
 
     readiness = evaluate_formal_upstream_readiness(
         data_root=data_root,
@@ -131,6 +197,7 @@ def run_r0_t10_formal_materialization(
     )
     dry_run_result: dict[str, Any] | None = None
     baseline_result: dict[str, Any] | None = None
+    full_grid_result: dict[str, Any] | None = None
     r0_t09_output_dir = root / "r0_t09_full_grid"
 
     if dry_run_r0_t09:
@@ -158,6 +225,21 @@ def run_r0_t10_formal_materialization(
     if baseline_result is not None and baseline_result.get("status") != "completed":
         status = "blocked"
         reason_codes = ["baseline_materialization_failed"]
+    elif full_grid_r0_t09:
+        full_grid_result = run_main_grid_materialization(
+            input_manifest=manifest_result.manifest_path,
+            output_dir=r0_t09_output_dir,
+            max_workers=max_workers,
+            resume=resume,
+            run_id=run_id,
+            code_commit=code_commit,
+        )
+        if full_grid_result.get("status") == "completed":
+            status = "completed"
+            reason_codes = ["valid_no_blocker"]
+        else:
+            status = "blocked"
+            reason_codes = ["full_grid_materialization_failed"]
 
     summary = _base_summary(
         root=root,
@@ -173,7 +255,7 @@ def run_r0_t10_formal_materialization(
             "reason_codes": reason_codes,
             "readiness": readiness,
             "upstream_artifacts": _portable_upstream_paths(upstream_paths),
-            "upstream_artifacts_generated_by_r0_t10": False,
+            "upstream_artifacts_generated_by_r0_t10": generated_upstream,
             "authorized_input_manifest_written": True,
             "authorized_input_manifest_path": _portable_path(
                 manifest_result.manifest_path
@@ -189,8 +271,12 @@ def run_r0_t10_formal_materialization(
             else None,
             "dry_run_result": dry_run_result,
             "baseline_result": baseline_result,
-            "full_grid_status": "deferred_pending_review",
-            "full_grid_result": None,
+            "full_grid_status": (
+                str(full_grid_result.get("status"))
+                if full_grid_result is not None
+                else "deferred_pending_review"
+            ),
+            "full_grid_result": full_grid_result,
             "audit_report_generated": False,
             "r1_handoff_generated": False,
         }
@@ -234,6 +320,170 @@ def evaluate_formal_upstream_readiness(
         "path_checks": path_checks,
         "discovered_source_flags": report_flags,
     }
+
+
+def generate_formal_upstream_artifacts(
+    *,
+    output_dir: str | Path,
+    run_id: str,
+    code_commit: str,
+    source_d3_t11_duckdb: str | Path,
+    adjusted_d3_t07_duckdb: str | Path,
+) -> dict[str, Path]:
+    source_path = Path(source_d3_t11_duckdb)
+    adjusted_path = Path(adjusted_d3_t07_duckdb)
+    if not source_path.is_file():
+        raise R0T10FormalMaterializationError(
+            f"D3-T11 source DuckDB not found: {source_path}"
+        )
+    if not adjusted_path.is_file():
+        raise R0T10FormalMaterializationError(
+            f"D3-T07 adjusted DuckDB not found: {adjusted_path}"
+        )
+
+    target = Path(output_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    tmp = target / "_tmp_jsonl"
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True)
+
+    raw_jsonl = tmp / "raw_metric_results.jsonl"
+    indicator_jsonl = tmp / "indicator_score_results.jsonl"
+    dimension_jsonl = tmp / "dimension_score_results.jsonl"
+    nested_jsonl = tmp / "nested_daily_state_results.jsonl"
+    confirmation_jsonl = tmp / "daily_confirmation_results.jsonl"
+    interval_jsonl = tmp / "confirmed_interval_results.jsonl"
+    counts = {
+        "source_observation_rows": 0,
+        "source_security_count": 0,
+        "raw_metric_results": 0,
+        "indicator_score_results": 0,
+        "dimension_score_results": 0,
+        "nested_daily_state_results": 0,
+        "daily_confirmation_results": 0,
+        "confirmed_interval_results": 0,
+    }
+
+    import duckdb  # noqa: PLC0415
+
+    conn = duckdb.connect(str(source_path), read_only=True)
+    try:
+        conn.execute(
+            f"ATTACH '{str(adjusted_path).replace("'", "''")}' AS d3t07 (READ_ONLY)"
+        )
+        securities = [
+            str(row[0])
+            for row in conn.execute(
+                f"SELECT DISTINCT ts_code FROM {D3_T11_TABLE} ORDER BY ts_code"
+            ).fetchall()
+        ]
+        counts["source_security_count"] = len(securities)
+        for index, security_id in enumerate(securities, start=1):
+            rows = _load_source_rows_for_security(conn, security_id)
+            counts["source_observation_rows"] += len(rows)
+            if not rows:
+                continue
+            raw_results = [item.as_dict() for item in compute_raw_metrics(rows)]
+            indicator_scores = [
+                item.as_dict() for item in compute_indicator_scores(raw_results)
+            ]
+            dimension_scores = [
+                item.as_dict() for item in compute_dimension_scores(indicator_scores)
+            ]
+            dimension_states = compute_dimension_weak_states(dimension_scores)
+            nested_states = [
+                item.as_dict() for item in compute_nested_daily_states(dimension_states)
+            ]
+            daily_confirmations = [
+                item.as_dict() for item in compute_daily_confirmations(nested_states)
+            ]
+            confirmed_intervals = [
+                item.as_dict()
+                for item in compute_confirmed_intervals(daily_confirmations)
+            ]
+
+            counts["raw_metric_results"] += _append_jsonl(raw_jsonl, raw_results)
+            counts["indicator_score_results"] += _append_jsonl(
+                indicator_jsonl, indicator_scores
+            )
+            counts["dimension_score_results"] += _append_jsonl(
+                dimension_jsonl, dimension_scores
+            )
+            counts["nested_daily_state_results"] += _append_jsonl(
+                nested_jsonl, nested_states
+            )
+            counts["daily_confirmation_results"] += _append_jsonl(
+                confirmation_jsonl, daily_confirmations
+            )
+            counts["confirmed_interval_results"] += _append_jsonl(
+                interval_jsonl, confirmed_intervals
+            )
+            if index == 1 or index % 10 == 0 or index == len(securities):
+                print(
+                    json.dumps(
+                        {
+                            "event": "r0_t10_upstream_generation_progress",
+                            "processed_security_count": index,
+                            "total_security_count": len(securities),
+                            "last_security_id": security_id,
+                            "row_counts": counts,
+                            "timestamp": _utc_now(),
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    file=sys.stderr,
+                    flush=True,
+                )
+    finally:
+        conn.close()
+
+    paths = {
+        "r0_t04_path": target / "r0_t04_raw_metric_results.json",
+        "r0_t05_path": target / "r0_t05_score_results.json",
+        "r0_t06_path": target / "r0_t06_nested_daily_state_results.json",
+        "r0_t07_path": target / "r0_t07_confirmation_results.json",
+    }
+    _write_object_from_jsonl(paths["r0_t04_path"], {"raw_metric_results": raw_jsonl})
+    _write_object_from_jsonl(
+        paths["r0_t05_path"],
+        {
+            "indicator_score_results": indicator_jsonl,
+            "dimension_score_results": dimension_jsonl,
+        },
+    )
+    _write_object_from_jsonl(
+        paths["r0_t06_path"], {"nested_daily_state_results": nested_jsonl}
+    )
+    _write_object_from_jsonl(
+        paths["r0_t07_path"],
+        {
+            "daily_confirmation_results": confirmation_jsonl,
+            "confirmed_interval_results": interval_jsonl,
+        },
+    )
+
+    summary = {
+        "task_id": "R0-T10",
+        "run_id": run_id,
+        "code_commit": code_commit,
+        "status": "completed",
+        "source_d3_t11_duckdb": _portable_path(source_path),
+        "adjusted_d3_t07_duckdb": _portable_path(adjusted_path),
+        "source_table": D3_T11_TABLE,
+        "adjusted_table": D3_T07_TABLE,
+        "row_counts": counts,
+        "artifact_paths": {key: _portable_path(path) for key, path in paths.items()},
+        "artifact_hashes": {key: sha256_file(path) for key, path in paths.items()},
+        "generated_at": _utc_now(),
+        "synthetic_smoke_fixture": False,
+        "uses_tests_fixtures": False,
+        "uses_contract_grid_payload": False,
+    }
+    _write_json(target / UPSTREAM_SUMMARY_FILENAME, summary)
+    shutil.rmtree(tmp)
+    return paths
 
 
 def discover_existing_r0_source_flags(data_root: str | Path) -> dict[str, Any]:
@@ -285,13 +535,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--r0-t05-input", type=Path)
     parser.add_argument("--r0-t06-input", type=Path)
     parser.add_argument("--r0-t07-input", type=Path)
+    parser.add_argument("--source-d3-t11-duckdb", type=Path)
+    parser.add_argument("--adjusted-d3-t07-duckdb", type=Path)
     parser.add_argument("--max-workers", type=int, default=MAX_WORKERS_DEFAULT)
     parser.add_argument("--dry-run-r0-t09", action="store_true")
     parser.add_argument("--baseline-r0-t09", action="store_true")
     parser.add_argument(
         "--full-grid-r0-t09",
         action="store_true",
-        help="Blocked in this pre-full-grid submission; reserved for the second pass.",
+        help=(
+            "Run the full 27-config R0-T09 grid after upstream, dry-run, "
+            "and baseline pass."
+        ),
     )
     parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args(argv)
@@ -309,6 +564,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             r0_t05_input=args.r0_t05_input,
             r0_t06_input=args.r0_t06_input,
             r0_t07_input=args.r0_t07_input,
+            source_d3_t11_duckdb=args.source_d3_t11_duckdb,
+            adjusted_d3_t07_duckdb=args.adjusted_d3_t07_duckdb,
             max_workers=args.max_workers,
             dry_run_r0_t09=args.dry_run_r0_t09,
             baseline_r0_t09=args.baseline_r0_t09,
@@ -342,6 +599,85 @@ def _build_r0_t09_manifest(
         r0_t06_input=upstream_paths["r0_t06"],
         r0_t07_input=upstream_paths["r0_t07"],
     )
+
+
+def _load_source_rows_for_security(conn: Any, security_id: str) -> list[dict[str, Any]]:
+    sql = f"""
+        SELECT
+          t11.ts_code AS security_id,
+          t11.trade_date AS trading_date,
+          t07.adjusted_open,
+          t07.adjusted_high,
+          t07.adjusted_low,
+          t07.adjusted_close,
+          t11.daily_vwap,
+          t11.volume_shares,
+          t11.amount_yuan,
+          t11.amount_unit,
+          t11.amount_volume_unit_status,
+          t11.daily_vwap_range_status,
+          t11.zero_volume_flag,
+          t11.zero_amount_flag,
+          t11.turnover_float,
+          t11.turnover_field_status,
+          t11.share_field_status,
+          t11.provider_turnover_crosscheck_status,
+          t11.float_share_shares,
+          t11.trading_status,
+          t11.corporate_action_flag,
+          t11.corporate_action_types_in_window,
+          t11.share_comparability_corporate_action_in_window,
+          t11.adjusted_vwap_policy,
+          t11.common_corporate_action_basis_policy,
+          t11.common_share_basis_policy,
+          t11.volume_comparability_policy,
+          t11.is_listing_pause AS suspension_flag,
+          t07.adjustment_factor_status AS adjustment_status
+        FROM {D3_T11_TABLE} AS t11
+        LEFT JOIN d3t07.{D3_T07_TABLE} AS t07
+          ON t11.ts_code = t07.ts_code
+         AND t11.trade_date = t07.trade_date
+        WHERE t11.ts_code = ?
+        ORDER BY t11.trade_date
+    """
+    cursor = conn.execute(sql, [security_id])
+    columns = [column[0] for column in cursor.description]
+    return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+
+
+def _append_jsonl(path: Path, rows: Sequence[Mapping[str, Any]]) -> int:
+    if not rows:
+        return 0
+    with path.open("a", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    return len(rows)
+
+
+def _write_object_from_jsonl(path: Path, arrays: Mapping[str, Path]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as output:
+        output.write("{")
+        first_array = True
+        for key, jsonl_path in arrays.items():
+            if not first_array:
+                output.write(",")
+            first_array = False
+            output.write(json.dumps(key, ensure_ascii=False))
+            output.write(":[")
+            first_row = True
+            if jsonl_path.exists():
+                with jsonl_path.open(encoding="utf-8") as source:
+                    for line in source:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        if not first_row:
+                            output.write(",")
+                        first_row = False
+                        output.write(stripped)
+            output.write("]")
+        output.write("}\n")
 
 
 def _check_formal_upstream_path(

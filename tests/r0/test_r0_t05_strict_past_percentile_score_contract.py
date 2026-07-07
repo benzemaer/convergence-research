@@ -93,11 +93,11 @@ class R0T05StrictPastPercentileScoreContractTest(unittest.TestCase):
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)
         self.assertIn(
-            "current_task: R0-T10 正式物化与全网格执行（phase 1 pre-full-grid gate）",
+            "current_task: R0-T10 正式物化与全网格执行",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T10 正式 27 组 full-grid execution（phase 2）",
+            "next_planned_task: R0-T11 R0 审计报告与 R1 交接",
             text,
         )
         self.assertRegex(

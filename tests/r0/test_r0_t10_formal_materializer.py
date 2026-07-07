@@ -87,6 +87,9 @@ class R0T10FormalMaterializationContractTest(unittest.TestCase):
         self.assertFalse(
             self.config["r0_t09_full_grid_execution_authorized_in_phase_1"]
         )
+        self.assertTrue(
+            self.config["phase_2_full_grid_execution_authorized_after_preconditions"]
+        )
         self.assertEqual(self.config["max_workers_default"], 2)
         self.assertEqual(self.config["max_workers_upper_bound"], 2)
         self.assertFalse(self.config["audit_report_generation_authorized"])
@@ -101,11 +104,13 @@ class R0T10FormalMaterializerTest(unittest.TestCase):
                 run_id="r0_t10_missing_inputs",
                 code_commit="abcdef",
                 data_root=Path(tmp) / "data",
+                source_d3_t11_duckdb=Path(tmp) / "missing_t11.duckdb",
+                adjusted_d3_t07_duckdb=Path(tmp) / "missing_t07.duckdb",
             )
 
             self.assertEqual(result.summary["status"], "blocked")
             self.assertIn(
-                "formal_upstream_inputs_missing", result.summary["reason_codes"]
+                "formal_upstream_generation_failed", result.summary["reason_codes"]
             )
             self.assertFalse(result.summary["authorized_input_manifest_written"])
             self.assertEqual(result.summary["full_grid_status"], "not_started")
@@ -206,7 +211,7 @@ class R0T10FormalMaterializerTest(unittest.TestCase):
             self.assertFalse(result.summary["audit_report_generated"])
             self.assertFalse(result.summary["r1_handoff_generated"])
 
-    def test_full_grid_request_is_blocked_for_first_submission(self) -> None:
+    def test_full_grid_request_requires_dry_run_and_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = run_r0_t10_formal_materialization(
                 output_dir=Path(tmp) / "r0_t10",
@@ -217,11 +222,32 @@ class R0T10FormalMaterializerTest(unittest.TestCase):
 
             self.assertEqual(result.summary["status"], "blocked")
             self.assertIn(
-                "full_grid_requires_second_submission", result.summary["reason_codes"]
+                "full_grid_requires_dry_run_and_baseline",
+                result.summary["reason_codes"],
             )
-            self.assertEqual(
-                result.summary["full_grid_status"], "deferred_pending_review"
+            self.assertEqual(result.summary["full_grid_status"], "not_started")
+
+    def test_full_grid_with_required_flags_still_blocks_without_upstream(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_r0_t10_formal_materialization(
+                output_dir=Path(tmp) / "r0_t10",
+                run_id="r0_t10_full_grid_missing_inputs",
+                code_commit="abcdef",
+                data_root=Path(tmp) / "data",
+                source_d3_t11_duckdb=Path(tmp) / "missing_t11.duckdb",
+                adjusted_d3_t07_duckdb=Path(tmp) / "missing_t07.duckdb",
+                dry_run_r0_t09=True,
+                baseline_r0_t09=True,
+                full_grid_r0_t09=True,
+                max_workers=2,
             )
+
+            self.assertEqual(result.summary["status"], "blocked")
+            self.assertIn(
+                "formal_upstream_generation_failed", result.summary["reason_codes"]
+            )
+            self.assertFalse(result.summary["authorized_input_manifest_written"])
+            self.assertEqual(result.summary["full_grid_status"], "not_started")
 
     def test_cli_without_upstream_inputs_exits_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -236,6 +262,10 @@ class R0T10FormalMaterializerTest(unittest.TestCase):
                 "abcdef",
                 "--data-root",
                 str(Path(tmp) / "data"),
+                "--source-d3-t11-duckdb",
+                str(Path(tmp) / "missing_t11.duckdb"),
+                "--adjusted-d3-t07-duckdb",
+                str(Path(tmp) / "missing_t07.duckdb"),
             ]
             completed = subprocess.run(
                 command,
@@ -248,7 +278,7 @@ class R0T10FormalMaterializerTest(unittest.TestCase):
             self.assertEqual(completed.returncode, 2)
             summary = json.loads(completed.stdout)
             self.assertEqual(summary["status"], "blocked")
-            self.assertIn("formal_upstream_inputs_missing", summary["reason_codes"])
+            self.assertIn("formal_upstream_generation_failed", summary["reason_codes"])
 
 
 if __name__ == "__main__":
