@@ -379,27 +379,28 @@
         }
       }
     },
-    "d3_t10_future_alternative_v_policy": {
+    "d3_t10_historical_v_policy": {
       "type": "object",
       "required": [
-        "r0_baseline_unchanged",
-        "baseline_v_indicators",
-        "future_alternative_v_candidates",
+        "d3_t10_did_not_replace_r0_baseline_at_that_time",
+        "superseded_by",
+        "current_r0_baseline_v_indicators",
+        "historical_alternative_v_candidates",
         "direct_baseline_replacement_authorized_by_d3_t10"
       ],
       "properties": {
-        "r0_baseline_unchanged": {"const": true},
-        "baseline_v_indicators": {
+        "d3_t10_did_not_replace_r0_baseline_at_that_time": {"const": true},
+        "superseded_by": {"const": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1"},
+        "current_r0_baseline_v_indicators": {
           "allOf": [
             {"$ref": "#/$defs/string_array"},
-            {"contains": {"const": "V1_VolShrink20_60"}},
+            {"contains": {"const": "V1_TurnoverShrink20_60"}},
             {"contains": {"const": "V2_AmountLevel20Pct"}}
           ]
         },
-        "future_alternative_v_candidates": {
+        "historical_alternative_v_candidates": {
           "allOf": [
             {"$ref": "#/$defs/string_array"},
-            {"contains": {"const": "TurnoverShrink20_60"}},
             {"contains": {"const": "FreeTurnoverShrink20_60"}},
             {"contains": {"const": "TurnoverLevel20Pct"}},
             {"contains": {"const": "FreeTurnoverLevel20Pct"}}
@@ -475,7 +476,7 @@
               "C2_AdjVWAPSpread_5_60",
               "T1_ER20",
               "T2_AbsTrendT20",
-              "V1_VolShrink20_60",
+              "V1_TurnoverShrink20_60",
               "V2_AmountLevel20Pct"
             ]
           },
@@ -489,7 +490,7 @@
         {"contains": {"properties": {"indicator_id": {"const": "C2_AdjVWAPSpread_5_60"}}, "required": ["indicator_id"]}},
         {"contains": {"properties": {"indicator_id": {"const": "T1_ER20"}}, "required": ["indicator_id"]}},
         {"contains": {"properties": {"indicator_id": {"const": "T2_AbsTrendT20"}}, "required": ["indicator_id"]}},
-        {"contains": {"properties": {"indicator_id": {"const": "V1_VolShrink20_60"}}, "required": ["indicator_id"]}},
+        {"contains": {"properties": {"indicator_id": {"const": "V1_TurnoverShrink20_60"}}, "required": ["indicator_id"]}},
         {"contains": {"properties": {"indicator_id": {"const": "V2_AmountLevel20Pct"}}, "required": ["indicator_id"]}}
       ]
     },

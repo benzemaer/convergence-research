@@ -103,7 +103,7 @@
         "pct_price_basis": {
           "const": "continuous_research_price_adjusted_fields"
         },
-        "v_fact_basis": { "const": "raw_vol_amount" },
+        "v_fact_basis": { "const": "d3_t11_turnover_float_and_amount_yuan" },
         "c2_daily_vwap_source": {
           "const": "raw_amount_divided_by_raw_volume"
         },
@@ -126,7 +126,7 @@
         { "contains": { "$ref": "#/$defs/C2_AdjVWAPSpread_5_60" } },
         { "contains": { "$ref": "#/$defs/T1_ER20" } },
         { "contains": { "$ref": "#/$defs/T2_AbsTrendT20" } },
-        { "contains": { "$ref": "#/$defs/V1_VolShrink20_60" } },
+        { "contains": { "$ref": "#/$defs/V1_TurnoverShrink20_60" } },
         { "contains": { "$ref": "#/$defs/V2_AmountLevel20Pct" } },
         {
           "contains": { "properties": { "pcvt_layer": { "const": "P" } } },
@@ -375,7 +375,7 @@
             "C2_AdjVWAPSpread_5_60",
             "T1_ER20",
             "T2_AbsTrendT20",
-            "V1_VolShrink20_60",
+            "V1_TurnoverShrink20_60",
             "V2_AmountLevel20Pct"
           ]
         },
@@ -467,20 +467,38 @@
         }
       }
     },
-    "V1_VolShrink20_60": {
+    "V1_TurnoverShrink20_60": {
       "type": "object",
       "required": ["indicator_id", "pcvt_layer", "raw_metric_name", "v1_policy"],
       "properties": {
-        "indicator_id": { "const": "V1_VolShrink20_60" },
+        "indicator_id": { "const": "V1_TurnoverShrink20_60" },
         "pcvt_layer": { "const": "V" },
-        "raw_metric_name": { "const": "VolShrink20_60" },
+        "raw_metric_name": { "const": "TurnoverShrink20_60" },
+        "required_fields": {
+          "type": "array",
+          "allOf": [
+            { "contains": { "const": "turnover_float" } },
+            { "contains": { "const": "float_share_shares" } },
+            { "contains": { "const": "turnover_field_status" } },
+            { "contains": { "const": "share_field_status" } },
+            { "contains": { "const": "provider_turnover_crosscheck_status" } },
+            { "contains": { "const": "volume_comparability_policy" } },
+            { "contains": { "const": "common_share_basis_policy" } }
+          ]
+        },
         "v1_policy": {
           "type": "object",
           "required": [
+            "target_metric",
+            "raw_fact_field",
+            "denominator_field",
             "required_policy_any_of",
             "suspension_and_zero_volume_not_ordinary_low_participation"
           ],
           "properties": {
+            "target_metric": { "const": "TurnoverShrink20_60" },
+            "raw_fact_field": { "const": "turnover_float" },
+            "denominator_field": { "const": "float_share_shares" },
             "required_policy_any_of": {
               "type": "array",
               "allOf": [

@@ -29,6 +29,8 @@
 
 `V1_VolShrink20_60` 必须具备 `volume`、`volume_unit`、`trading_status`、`corporate_action_flag` 和 `suspension_flag`。80 日窗口必须完整，即 recent 20 trading days 加 prior non-overlapping 60 trading days。停牌与 zero volume 不得作为普通低参与观测。若 80 日窗口内存在送转、拆并股、配股等影响股份数量可比性的公司行为，只有存在 `adjusted_volume`、`common_share_basis_policy` 或 `volume_comparability_policy` 时才可 ready；否则输出 `corporate_action_volume_comparability_policy_missing`。
 
+Superseded note：R0-T02 当时只固化 C2 与旧 V1 volume shrink 输入门禁，未直接替换 R0 baseline。R0-T03 已将 active V1 baseline 改为 `V1_TurnoverShrink20_60`，并以 `turnover_float`、`float_share_shares`、字段状态、provider crosscheck 和公司行为可比性元字段作为 active V1 required inputs。R0-T04 以后应以 R0-T03 contract 和 R0-T01 v0.4 candidate spec 为准，不再以旧 `V1_VolShrink20_60` 作为 active baseline。
+
 ## D3-only 读取边界
 
 R0-T02 只允许逻辑来源 `d3_candidate_daily_observation`、`d3_t08_research_dataset_registry`、`d3_quality_readiness_contract` 和 `r0_t01_pcvt_candidate_spec`。若 source lineage 出现 `d1.raw_market_prices`、`d2.adjusted_market_prices`、`d2.market_price_quality_flags`、`d2.membership_alignment`、`data/raw`、`data/external`、`MarketDB` 或 `.day`，gate 必须返回 blocked，并包含 `direct_d1_d2_bypass_detected`。

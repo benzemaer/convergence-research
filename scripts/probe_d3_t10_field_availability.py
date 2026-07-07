@@ -47,24 +47,28 @@ FIELD_REQUIREMENTS: dict[str, dict[str, Any]] = {
     "effective_adj_factor": {"required_by": "D3", "indicators": []},
     "adjustment_factor_status": {"required_by": "D3", "indicators": []},
     "trading_status": {"required_by": "R0", "indicators": ["all"]},
+    "suspension_flag": {
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"],
+    },
     "price_limit_status": {"required_by": "R0", "indicators": ["all"]},
     "limit_status": {"required_by": "D3-T10", "indicators": []},
     "corporate_action_flag": {
-        "required_by": "R0-T02",
-        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_VolShrink20_60"],
+        "required_by": "R0-T03",
+        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_TurnoverShrink20_60"],
     },
-    "vol": {"required_by": "R0", "indicators": ["V1_VolShrink20_60"]},
+    "vol": {"required_by": "D3 legacy raw field", "indicators": []},
     "volume": {
-        "required_by": "R0",
-        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_VolShrink20_60"],
+        "required_by": "R0-T02 C2 legacy input",
+        "indicators": ["C2_AdjVWAPSpread_5_60"],
     },
     "volume_unit": {
-        "required_by": "R0-T02",
-        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_VolShrink20_60"],
+        "required_by": "R0-T02 C2 legacy input",
+        "indicators": ["C2_AdjVWAPSpread_5_60"],
     },
     "volume_shares": {
-        "required_by": "D3-T10",
-        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_VolShrink20_60"],
+        "required_by": "R0-T03",
+        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_TurnoverShrink20_60"],
     },
     "amount": {
         "required_by": "R0",
@@ -79,15 +83,18 @@ FIELD_REQUIREMENTS: dict[str, dict[str, Any]] = {
         "indicators": ["C2_AdjVWAPSpread_5_60", "V2_AmountLevel20Pct"],
     },
     "amount_volume_unit_status": {
-        "required_by": "R0-T02",
-        "indicators": ["C2_AdjVWAPSpread_5_60"],
+        "required_by": "R0-T02/R0-T03",
+        "indicators": ["C2_AdjVWAPSpread_5_60", "V2_AmountLevel20Pct"],
     },
     "daily_vwap": {"required_by": "R0", "indicators": ["C2_AdjVWAPSpread_5_60"]},
     "daily_vwap_range_status": {
         "required_by": "R0-T02",
         "indicators": ["C2_AdjVWAPSpread_5_60"],
     },
-    "zero_volume_flag": {"required_by": "R0-T02", "indicators": ["V1_VolShrink20_60"]},
+    "zero_volume_flag": {
+        "required_by": "R0-T03 diagnostic",
+        "indicators": ["V1_TurnoverShrink20_60"],
+    },
     "zero_amount_flag": {
         "required_by": "D3-T10",
         "indicators": ["V2_AmountLevel20Pct"],
@@ -97,42 +104,58 @@ FIELD_REQUIREMENTS: dict[str, dict[str, Any]] = {
     "total_share_shares": {"required_by": "D3-T10", "indicators": []},
     "float_share_raw": {"required_by": "D3-T10", "indicators": []},
     "float_share_unit": {"required_by": "D3-T10", "indicators": []},
-    "float_share_shares": {"required_by": "D3-T10", "indicators": []},
+    "float_share_shares": {
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
+    },
     "free_share_raw": {"required_by": "D3-T10", "indicators": []},
     "free_share_unit": {"required_by": "D3-T10", "indicators": []},
     "free_share_shares": {"required_by": "D3-T10", "indicators": []},
     "turnover_rate": {"required_by": "D3-T10", "indicators": []},
     "turnover_rate_f": {"required_by": "D3-T10", "indicators": []},
-    "turnover_float": {"required_by": "D3-T10", "indicators": []},
+    "turnover_float": {
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
+    },
     "turnover_free": {"required_by": "D3-T10", "indicators": []},
-    "turnover_field_status": {"required_by": "D3-T10", "indicators": []},
-    "share_field_status": {"required_by": "D3-T10", "indicators": []},
+    "turnover_field_status": {
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
+    },
+    "share_field_status": {
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
+    },
+    "provider_turnover_crosscheck_status": {
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
+    },
     "total_mv": {"required_by": "D3-T10", "indicators": []},
     "circ_mv": {"required_by": "D3-T10", "indicators": []},
     "corporate_action_types_in_window": {
-        "required_by": "R0-T02",
-        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_VolShrink20_60"],
+        "required_by": "R0-T03",
+        "indicators": ["C2_AdjVWAPSpread_5_60", "V1_TurnoverShrink20_60"],
     },
     "share_comparability_corporate_action_in_window": {
-        "required_by": "R0-T02",
-        "indicators": ["V1_VolShrink20_60"],
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
     },
     "adjusted_vwap_policy": {
         "required_by": "R0-T02",
         "indicators": ["C2_AdjVWAPSpread_5_60"],
     },
-    "adjusted_volume": {"required_by": "R0-T02", "indicators": ["V1_VolShrink20_60"]},
+    "adjusted_volume": {"required_by": "R0-T02 historical V1", "indicators": []},
     "common_corporate_action_basis_policy": {
         "required_by": "R0-T02",
         "indicators": ["C2_AdjVWAPSpread_5_60"],
     },
     "common_share_basis_policy": {
-        "required_by": "R0-T02",
-        "indicators": ["V1_VolShrink20_60"],
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
     },
     "volume_comparability_policy": {
-        "required_by": "R0-T02",
-        "indicators": ["V1_VolShrink20_60"],
+        "required_by": "R0-T03",
+        "indicators": ["V1_TurnoverShrink20_60"],
     },
 }
 
@@ -152,12 +175,29 @@ INDICATOR_REQUIREMENTS = {
     },
     "T1_ER20": {"adjusted_close"},
     "T2_AbsTrendT20": {"adjusted_close"},
-    "V1_VolShrink20_60": {
+    "V1_TurnoverShrink20_60": {
+        "turnover_float",
+        "turnover_field_status",
+        "share_field_status",
+        "provider_turnover_crosscheck_status",
         "volume_shares",
-        "volume_unit",
+        "float_share_shares",
+        "trading_status",
+        "corporate_action_flag",
+        "suspension_flag",
+        "corporate_action_types_in_window",
+        "share_comparability_corporate_action_in_window",
+        "common_share_basis_policy",
         "volume_comparability_policy",
     },
-    "V2_AmountLevel20Pct": {"amount_yuan", "amount_unit"},
+    "V2_AmountLevel20Pct": {
+        "amount_yuan",
+        "amount_unit",
+        "amount_volume_unit_status",
+        "zero_amount_flag",
+        "trading_status",
+        "suspension_flag",
+    },
 }
 
 

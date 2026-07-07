@@ -18,7 +18,7 @@ EXPECTED_INDICATORS = {
     "C2_AdjVWAPSpread_5_60",
     "T1_ER20",
     "T2_AbsTrendT20",
-    "V1_VolShrink20_60",
+    "V1_TurnoverShrink20_60",
     "V2_AmountLevel20Pct",
 }
 REQUIRED_PROHIBITED_OUTPUTS = {
@@ -123,10 +123,15 @@ class R0T01PCVTCandidateSpecContractTest(unittest.TestCase):
             ]
         )
 
-    def test_v1_requires_volume_comparability_or_common_share_basis_policy(
+    def test_v1_turnover_requires_comparability_or_common_share_basis_policy(
         self,
     ) -> None:
-        v1 = self.indicators_by_id["V1_VolShrink20_60"]
+        v1 = self.indicators_by_id["V1_TurnoverShrink20_60"]
+        self.assertEqual(v1["raw_metric_name"], "TurnoverShrink20_60")
+        self.assertIn("turnover_float", v1["required_fields"])
+        self.assertIn("float_share_shares", v1["required_fields"])
+        self.assertEqual(v1["v1_policy"]["raw_fact_field"], "turnover_float")
+        self.assertEqual(v1["v1_policy"]["denominator_field"], "float_share_shares")
         required = set(v1["v1_policy"]["required_policy_any_of"])
         self.assertIn("volume_comparability_policy", required)
         self.assertIn("common_share_basis_policy", required)

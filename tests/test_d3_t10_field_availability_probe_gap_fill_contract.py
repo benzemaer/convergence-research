@@ -121,6 +121,18 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
                 "turnover_rate_f",
             }.issubset(fields)
         )
+        self.assertEqual(
+            self.config["historical_r0_baseline_v_indicators_at_d3_t10"],
+            ["V1_VolShrink20_60", "V2_AmountLevel20Pct"],
+        )
+        self.assertEqual(
+            self.config["superseded_by"],
+            "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1",
+        )
+        self.assertEqual(
+            self.config["current_r0_baseline_v_indicators"],
+            ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"],
+        )
 
     def test_d3_values_contract_has_d3_t10_generic_fields(self) -> None:
         groups = self.d3_values_config["value_field_groups"]
@@ -128,11 +140,15 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
         self.assertIn("corporate_action_comparability_fields", groups)
         self.assertIn("turnover_float", groups["share_turnover_value_fields"])
         self.assertIn("turnover_free", groups["share_turnover_value_fields"])
-        policy = self.d3_values_config["d3_t10_future_alternative_v_policy"]
-        self.assertTrue(policy["r0_baseline_unchanged"])
+        policy = self.d3_values_config["d3_t10_historical_v_policy"]
+        self.assertTrue(policy["d3_t10_did_not_replace_r0_baseline_at_that_time"])
         self.assertEqual(
-            policy["baseline_v_indicators"],
-            ["V1_VolShrink20_60", "V2_AmountLevel20Pct"],
+            policy["superseded_by"],
+            "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1",
+        )
+        self.assertEqual(
+            policy["current_r0_baseline_v_indicators"],
+            ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"],
         )
         replacements = self.d3_values_config["d3_t10_standardized_replacements"]
         self.assertEqual(replacements["turnover"], ["turnover_float", "turnover_free"])
@@ -151,6 +167,41 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
         self.assertIn(
             "amount_yuan", statuses["C2_AdjVWAPSpread_5_60"]["missing_fields"]
         )
+        self.assertFalse(statuses["V1_TurnoverShrink20_60"]["ready_by_schema"])
+        self.assertIn(
+            "turnover_float", statuses["V1_TurnoverShrink20_60"]["missing_fields"]
+        )
+
+    def test_active_v1_requires_turnover_and_comparability_fields(self) -> None:
+        required = {
+            "turnover_float",
+            "turnover_field_status",
+            "share_field_status",
+            "provider_turnover_crosscheck_status",
+            "volume_shares",
+            "float_share_shares",
+            "trading_status",
+            "corporate_action_flag",
+            "suspension_flag",
+            "corporate_action_types_in_window",
+            "share_comparability_corporate_action_in_window",
+            "common_share_basis_policy",
+            "volume_comparability_policy",
+        }
+        matrix = build_field_matrix(
+            required - {"provider_turnover_crosscheck_status"}, "synthetic"
+        )
+        statuses = {row["indicator_id"]: row for row in indicator_status(matrix)}
+        v1 = statuses["V1_TurnoverShrink20_60"]
+        self.assertFalse(v1["ready_by_schema"])
+        self.assertIn("provider_turnover_crosscheck_status", v1["missing_fields"])
+
+        matrix = build_field_matrix(required, "synthetic")
+        statuses = {row["indicator_id"]: row for row in indicator_status(matrix)}
+        v1 = statuses["V1_TurnoverShrink20_60"]
+        self.assertFalse(v1["ready_by_schema"])
+        self.assertEqual(v1["missing_fields"], [])
+        self.assertIn("corporate_action_flag", v1["policy_insufficient_fields"])
 
     def test_c2_requires_raw_low_raw_high_and_amount_volume_unit_status(self) -> None:
         matrix = build_field_matrix(
@@ -263,11 +314,12 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn("current_stage: D3", text)
         self.assertIn(
-            "current_task: D3-T12 开放候选层门禁与下游消费审计解耦",
+            "current_task: R0-T04 PCVT raw metric engine 与合成测试",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T03 PCVT raw metric engine 与合成测试", text
+            "next_planned_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
+            text,
         )
         self.assertIn(
             (
@@ -283,7 +335,11 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
             ),
             text,
         )
-        self.assertIn("R0-T03` PCVT raw metric engine 与合成测试：planned", text)
+        self.assertIn(
+            "R0-T03` V层 turnover 替代指标可行性、口径决策与输入门禁"
+            "：completed via PR #61",
+            text,
+        )
         self.assertIn(
             "D3-T10` D3 字段可用性探针与字段缺口补全：completed via PR #58", text
         )
@@ -291,7 +347,10 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
             "D3-T11` 量额股本换手字段全量候选物化与数据更新：completed via PR #59",
             text,
         )
-        self.assertIn("D3-T12` 开放候选层门禁与下游消费审计解耦：in_progress", text)
+        self.assertIn(
+            "D3-T12` 开放候选层门禁与下游消费审计解耦：completed via PR #60",
+            text,
+        )
 
 
 if __name__ == "__main__":

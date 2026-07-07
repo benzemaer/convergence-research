@@ -656,9 +656,12 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         readme = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn("current_stage: D3", readme)
-        self.assertIn("current_task: D3-T12 开放候选层门禁与下游消费审计解耦", readme)
         self.assertIn(
-            "next_planned_task: R0-T03 PCVT raw metric engine 与合成测试",
+            "current_task: R0-T04 PCVT raw metric engine 与合成测试",
+            readme,
+        )
+        self.assertIn(
+            "next_planned_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
             readme,
         )
         self.assertIn(

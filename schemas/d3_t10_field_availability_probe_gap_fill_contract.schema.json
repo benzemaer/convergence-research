@@ -34,8 +34,10 @@
     "provider_turnover_crosscheck",
     "generic_d3_fields_to_add",
     "future_alternative_v_candidates",
-    "r0_baseline_unchanged",
-    "r0_baseline_v_indicators",
+    "d3_t10_did_not_replace_r0_baseline_at_that_time",
+    "historical_r0_baseline_v_indicators_at_d3_t10",
+    "superseded_by",
+    "current_r0_baseline_v_indicators",
     "prohibited_outputs"
   ],
   "properties": {
@@ -111,7 +113,7 @@
         { "contains": { "const": "C2_AdjVWAPSpread_5_60" } },
         { "contains": { "const": "T1_ER20" } },
         { "contains": { "const": "T2_AbsTrendT20" } },
-        { "contains": { "const": "V1_VolShrink20_60" } },
+        { "contains": { "const": "V1_TurnoverShrink20_60" } },
         { "contains": { "const": "V2_AmountLevel20Pct" } }
       ]
     },
@@ -235,13 +237,22 @@
         { "contains": { "const": "FreeTurnoverLevel20Pct" } }
       ]
     },
-    "r0_baseline_unchanged": { "const": true },
-    "r0_baseline_v_indicators": {
+    "d3_t10_did_not_replace_r0_baseline_at_that_time": { "const": true },
+    "historical_r0_baseline_v_indicators_at_d3_t10": {
       "allOf": [
         { "$ref": "#/$defs/stringArray" },
         { "contains": { "const": "V1_VolShrink20_60" } },
-        { "contains": { "const": "V2_AmountLevel20Pct" } },
-        { "not": { "contains": { "const": "TurnoverShrink20_60" } } }
+        { "contains": { "const": "V2_AmountLevel20Pct" } }
+      ]
+    },
+    "superseded_by": {
+      "const": "R0_T03_V_LAYER_TURNOVER_READINESS_CONTRACT_V1"
+    },
+    "current_r0_baseline_v_indicators": {
+      "allOf": [
+        { "$ref": "#/$defs/stringArray" },
+        { "contains": { "const": "V1_TurnoverShrink20_60" } },
+        { "contains": { "const": "V2_AmountLevel20Pct" } }
       ]
     },
     "prohibited_outputs": {
