@@ -314,11 +314,11 @@ class D3T10FieldAvailabilityProbeGapFillContractTest(unittest.TestCase):
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn("current_stage: D3", text)
         self.assertIn(
-            "current_task: R0-T04 PCVT raw metric engine 与合成测试",
+            "current_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
+            "next_planned_task: R0-T06 weak 维度规则、嵌套状态与互斥分层",
             text,
         )
         self.assertIn(
