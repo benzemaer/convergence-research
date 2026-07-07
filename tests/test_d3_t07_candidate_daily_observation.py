@@ -657,11 +657,11 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
 
         self.assertIn("current_stage: D3", readme)
         self.assertIn(
-            "current_task: R0-T03 V层 turnover 替代指标可行性、口径决策与输入门禁",
+            "current_task: R0-T04 PCVT raw metric engine 与合成测试",
             readme,
         )
         self.assertIn(
-            "next_planned_task: R0-T04 PCVT raw metric engine 与合成测试",
+            "next_planned_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
             readme,
         )
         self.assertIn(

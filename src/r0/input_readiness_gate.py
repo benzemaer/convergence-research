@@ -170,6 +170,10 @@ def evaluate_turnover_shrink_readiness(
             "trading_status",
             "corporate_action_flag",
             "suspension_flag",
+            "corporate_action_types_in_window",
+            "share_comparability_corporate_action_in_window",
+            "common_share_basis_policy",
+            "volume_comparability_policy",
         ),
     )
 
@@ -223,6 +227,7 @@ def evaluate_amount_level_readiness(
             "amount_yuan",
             "amount_unit",
             "amount_volume_unit_status",
+            "zero_amount_flag",
             "trading_status",
             "suspension_flag",
         ),

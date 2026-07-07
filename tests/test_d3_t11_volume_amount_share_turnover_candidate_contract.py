@@ -73,11 +73,11 @@ class D3T11VolumeAmountShareTurnoverContractTest(unittest.TestCase):
     def test_readme_advances_to_d3_t12_and_keeps_r0_t03_planned(self) -> None:
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "current_task: R0-T03 V层 turnover 替代指标可行性、口径决策与输入门禁",
+            "current_task: R0-T04 PCVT raw metric engine 与合成测试",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T04 PCVT raw metric engine 与合成测试",
+            "next_planned_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
             text,
         )
         self.assertIn(
@@ -92,7 +92,8 @@ class D3T11VolumeAmountShareTurnoverContractTest(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "R0-T03` V层 turnover 替代指标可行性、口径决策与输入门禁：in_progress",
+            "R0-T03` V层 turnover 替代指标可行性、口径决策与输入门禁"
+            "：completed via PR #61",
             text,
         )
 

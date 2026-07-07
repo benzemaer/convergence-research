@@ -127,10 +127,30 @@ class R0T03VLayerReadinessGateTest(unittest.TestCase):
             result.reason_codes,
         )
 
+    def test_turnover_comparability_metadata_fields_are_required(self) -> None:
+        for field_name in (
+            "corporate_action_types_in_window",
+            "share_comparability_corporate_action_in_window",
+            "common_share_basis_policy",
+            "volume_comparability_policy",
+        ):
+            context = turnover_ready_context()
+            context.pop(field_name)
+            result = evaluate_turnover_shrink_readiness(context)
+            self.assertNotEqual(result.status, READY)
+            self.assertIn("missing_required_field", result.reason_codes)
+
     def test_amount_level_ready_context_is_ready(self) -> None:
         result = evaluate_amount_level_readiness(amount_ready_context())
         self.assertEqual(result.status, READY)
         self.assertEqual(result.indicator_id, "V2_AmountLevel20Pct")
+
+    def test_amount_zero_amount_flag_is_required(self) -> None:
+        context = amount_ready_context()
+        context.pop("zero_amount_flag")
+        result = evaluate_amount_level_readiness(context)
+        self.assertNotEqual(result.status, READY)
+        self.assertIn("missing_required_field", result.reason_codes)
 
     def test_amount_missing_or_nonpositive_is_not_ready(self) -> None:
         context = amount_ready_context()
