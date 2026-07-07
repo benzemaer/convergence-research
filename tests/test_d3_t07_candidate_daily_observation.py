@@ -657,11 +657,11 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
 
         self.assertIn("current_stage: D3", readme)
         self.assertIn(
-            "current_task: R0-T05 严格过去分位、eligible 样本与 Score 体系",
+            "current_task: R0-T06 weak 维度规则、嵌套状态与互斥分层",
             readme,
         )
         self.assertIn(
-            "next_planned_task: R0-T06 weak 维度规则、嵌套状态与互斥分层",
+            "next_planned_task: R0-T07 联合确认层、streak 与确认区间表",
             readme,
         )
         self.assertIn(
