@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t05_strict_past_percentile_score_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "real_data_read_authorized",
+    "duckdb_write_authorized",
+    "formal_data_version_authorized",
+    "strict_past_percentile_generation_authorized",
+    "score_generation_authorized",
+    "pcvt_state_generation_authorized",
+    "state_interval_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "percentile_windows_W",
+    "tie_method",
+    "current_value_in_reference_set",
+    "cross_sectional_percentile",
+    "score_formula",
+    "dimension_score_formula",
+    "dimension_score_min_formula",
+    "q_thresholds_applied_by_this_task",
+    "states_generated_by_this_task",
+    "AmountLevel20Pct_generated_by_this_task",
+    "AmountLevel20Pct_source_base",
+    "AmountLevel20Pct_repeated_percentile_forbidden",
+    "active_indicator_ids",
+    "input_raw_metric_ids",
+    "dimension_components",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "validity_statuses",
+    "reason_code_vocabulary",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t05_strict_past_percentile_score_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T05_STRICT_PAST_PERCENTILE_SCORE_CONTRACT_V1" },
+    "task_id": { "const": "R0-T05" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": { "const": "strict_past_percentile_eligibility_and_score_synthetic_only" },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "R0_T04_RAW_METRIC_ENGINE_CONTRACT_V1" } }
+      ]
+    },
+    "real_data_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "strict_past_percentile_generation_authorized": { "const": "synthetic_only" },
+    "score_generation_authorized": { "const": "synthetic_only" },
+    "pcvt_state_generation_authorized": { "const": false },
+    "state_interval_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "percentile_windows_W": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": 120 } },
+        { "contains": { "const": 250 } },
+        { "contains": { "const": 500 } }
+      ]
+    },
+    "tie_method": { "const": "midrank" },
+    "current_value_in_reference_set": { "const": false },
+    "cross_sectional_percentile": { "const": false },
+    "score_formula": { "const": "1 - percentile" },
+    "dimension_score_formula": { "const": "mean(two component scores)" },
+    "dimension_score_min_formula": { "const": "min(two component scores)" },
+    "q_thresholds_applied_by_this_task": { "const": false },
+    "states_generated_by_this_task": { "const": false },
+    "AmountLevel20Pct_generated_by_this_task": { "const": true },
+    "AmountLevel20Pct_source_base": { "const": "V2_LogAmount20_base" },
+    "AmountLevel20Pct_repeated_percentile_forbidden": { "const": true },
+    "active_indicator_ids": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "P1_NATR14" } },
+        { "contains": { "const": "P2_LogRange20" } },
+        { "contains": { "const": "C1_LogMASpread_5_60" } },
+        { "contains": { "const": "C2_AdjVWAPSpread_5_60" } },
+        { "contains": { "const": "T1_ER20" } },
+        { "contains": { "const": "T2_AbsTrendT20" } },
+        { "contains": { "const": "V1_TurnoverShrink20_60" } },
+        { "contains": { "const": "V2_AmountLevel20Pct" } },
+        { "not": { "contains": { "const": "V2_LogAmount20_base" } } }
+      ]
+    },
+    "input_raw_metric_ids": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "V2_LogAmount20_base" } },
+        { "not": { "contains": { "const": "V2_AmountLevel20Pct" } } }
+      ]
+    },
+    "dimension_components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P", "C", "T", "V"],
+      "properties": {
+        "P": { "const": ["P1_NATR14", "P2_LogRange20"] },
+        "C": { "const": ["C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60"] },
+        "T": { "const": ["T1_ER20", "T2_AbsTrendT20"] },
+        "V": { "const": ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"] }
+      }
+    },
+    "allowed_logical_input_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "synthetic_in_memory_raw_metrics" } },
+        { "contains": { "const": "r0_t04_raw_metric_engine" } }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "d1.raw_market_prices" } },
+        { "contains": { "const": "d2.adjusted_market_prices" } },
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } },
+        { "contains": { "const": "data/generated" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ]
+    },
+    "validity_statuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "valid" } },
+        { "contains": { "const": "unknown" } },
+        { "contains": { "const": "diagnostic_required" } },
+        { "contains": { "const": "blocked" } }
+      ]
+    },
+    "reason_code_vocabulary": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "insufficient_strict_past_history" } },
+        { "contains": { "const": "raw_metric_not_valid" } },
+        { "contains": { "const": "amount_level_repeated_percentile_forbidden" } },
+        { "contains": { "const": "missing_component_score" } },
+        { "contains": { "const": "common_eligible_sample_incomplete" } },
+        { "contains": { "const": "forbidden_output_field" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "indicator_active" } },
+        { "contains": { "const": "dimension_active" } },
+        { "contains": { "const": "pcvt_state" } },
+        { "contains": { "const": "state_interval" } },
+        { "contains": { "const": "S_PCT" } },
+        { "contains": { "const": "S_PCVT" } },
+        { "contains": { "const": "q_threshold" } },
+        { "contains": { "const": "future_returns" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } }
+      ]
+    }
+  }
+}
