@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t08_main_grid_candidate_artifact_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "real_data_read_authorized",
+    "provider_call_authorized",
+    "duckdb_read_authorized",
+    "duckdb_write_authorized",
+    "formal_data_version_authorized",
+    "generated_artifact_commit_authorized",
+    "candidate_config_generation_authorized",
+    "candidate_daily_state_assembly_authorized",
+    "confirmed_interval_assembly_authorized",
+    "manifest_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "release_event_generation_authorized",
+    "gap_merge_generated_by_this_task",
+    "cooldown_generated_by_this_task",
+    "raw_metric_recalculation_authorized",
+    "score_recalculation_authorized",
+    "raw_daily_state_recalculation_authorized",
+    "confirmation_recalculation_authorized",
+    "percentile_window_W_values",
+    "low_quantile_q_values",
+    "confirmation_days_K_values",
+    "baseline_percentile_window_W",
+    "baseline_low_quantile_q",
+    "baseline_confirmation_days_K",
+    "dimension_rule",
+    "weak_delta",
+    "main_grid_config_count",
+    "metric_variant_id",
+    "state_definition_draft_version",
+    "config_schema_version",
+    "K1_confirmation_forbidden",
+    "raw_daily_state_reference_from_R0_T06",
+    "strict_rule_generated_by_this_task",
+    "alternative_metric_variant_generated_by_this_task",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "authorized_generated_input_policy",
+    "candidate_config_fields",
+    "candidate_daily_state_required_fields",
+    "confirmed_interval_required_fields",
+    "manifest_required_fields",
+    "config_hash_algorithm",
+    "content_hash_algorithm",
+    "forbidden_outputs",
+    "reason_code_vocabulary"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t08_main_grid_candidate_artifact_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": {
+      "const": "R0_T08_MAIN_GRID_CANDIDATE_ARTIFACT_CONTRACT_V1"
+    },
+    "task_id": { "const": "R0-T08" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": {
+      "const": "main_grid_candidate_state_artifacts_and_manifest"
+    },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "R0_T04_RAW_METRIC_ENGINE_CONTRACT_V1" } },
+        {
+          "contains": {
+            "const": "R0_T05_STRICT_PAST_PERCENTILE_SCORE_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "R0_T06_WEAK_DIMENSION_NESTED_STATE_CONTRACT_V1"
+          }
+        },
+        {
+          "contains": {
+            "const": "R0_T07_CONFIRMATION_STREAK_INTERVAL_CONTRACT_V1"
+          }
+        }
+      ]
+    },
+    "real_data_read_authorized": { "const": false },
+    "provider_call_authorized": { "const": false },
+    "duckdb_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "generated_artifact_commit_authorized": { "const": false },
+    "candidate_config_generation_authorized": { "const": true },
+    "candidate_daily_state_assembly_authorized": { "const": true },
+    "confirmed_interval_assembly_authorized": { "const": true },
+    "manifest_generation_authorized": { "const": true },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "release_event_generation_authorized": { "const": false },
+    "gap_merge_generated_by_this_task": { "const": false },
+    "cooldown_generated_by_this_task": { "const": false },
+    "raw_metric_recalculation_authorized": { "const": false },
+    "score_recalculation_authorized": { "const": false },
+    "raw_daily_state_recalculation_authorized": { "const": false },
+    "confirmation_recalculation_authorized": { "const": false },
+    "percentile_window_W_values": { "const": [120, 250, 500] },
+    "low_quantile_q_values": { "const": [0.10, 0.20, 0.30] },
+    "confirmation_days_K_values": { "const": [2, 3, 5] },
+    "baseline_percentile_window_W": { "const": 250 },
+    "baseline_low_quantile_q": { "const": 0.20 },
+    "baseline_confirmation_days_K": { "const": 3 },
+    "dimension_rule": { "const": "weak" },
+    "weak_delta": { "const": 0.10 },
+    "main_grid_config_count": { "const": 27 },
+    "metric_variant_id": { "const": "pcvt_baseline_v0_4" },
+    "state_definition_draft_version": {
+      "const": "r0_candidate_state_v0_4"
+    },
+    "config_schema_version": { "const": "r0_t08_candidate_config.v1" },
+    "K1_confirmation_forbidden": { "const": true },
+    "raw_daily_state_reference_from_R0_T06": { "const": true },
+    "strict_rule_generated_by_this_task": { "const": false },
+    "alternative_metric_variant_generated_by_this_task": { "const": false },
+    "allowed_logical_input_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "synthetic_in_memory_r0_grid_inputs" } },
+        { "contains": { "const": "r0_t04_raw_metric_engine" } },
+        {
+          "contains": {
+            "const": "r0_t05_strict_past_percentile_score"
+          }
+        },
+        {
+          "contains": {
+            "const": "r0_t06_weak_dimension_nested_state"
+          }
+        },
+        {
+          "contains": {
+            "const": "r0_t07_confirmation_streak_interval"
+          }
+        }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } },
+        { "contains": { "const": "data/generated" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ]
+    },
+    "authorized_generated_input_policy": {
+      "const": "data_generated_blocked_unless_explicit_r0_upstream_manifest"
+    },
+    "candidate_config_fields": { "$ref": "#/$defs/stringArray" },
+    "candidate_daily_state_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "AmountLevel20Pct" } },
+        { "contains": { "const": "validity_state" } },
+        { "contains": { "const": "unknown_reason_codes" } }
+      ]
+    },
+    "confirmed_interval_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "confirmation_time" } },
+        { "contains": { "const": "raw_length" } },
+        { "contains": { "const": "confirmed_length" } }
+      ]
+    },
+    "manifest_required_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "candidate_configs" } },
+        { "contains": { "const": "quality_summary" } },
+        { "contains": { "const": "field_availability" } },
+        { "contains": { "const": "forbidden_output_guard" } },
+        { "contains": { "const": "lineage_guard" } }
+      ]
+    },
+    "config_hash_algorithm": { "const": "sha256_canonical_json_v1" },
+    "content_hash_algorithm": { "const": "sha256_canonical_jsonl_v1" },
+    "forbidden_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "future_label" } },
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "future_volatility" } },
+        { "contains": { "const": "breakout_direction" } },
+        { "contains": { "const": "release_direction" } },
+        { "contains": { "const": "win_rate" } },
+        { "contains": { "const": "pnl" } },
+        { "contains": { "const": "return" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "trade_signal" } },
+        { "contains": { "const": "buy_signal" } },
+        { "contains": { "const": "sell_signal" } }
+      ]
+    },
+    "reason_code_vocabulary": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "missing_upstream_result" } },
+        { "contains": { "const": "candidate_lineage_missing" } },
+        { "contains": { "const": "direct_real_data_source_forbidden" } },
+        { "contains": { "const": "forbidden_output_field" } }
+      ]
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    }
+  }
+}

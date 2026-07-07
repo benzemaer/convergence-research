@@ -230,6 +230,10 @@ CONFIGS = (
         ROOT / "configs/r0/r0_t07_confirmation_streak_interval_contract.v1.json",
     ),
     (
+        ROOT / "schemas/r0/r0_t08_main_grid_candidate_artifact_contract.schema.json",
+        ROOT / "configs/r0/r0_t08_main_grid_candidate_artifact_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),
