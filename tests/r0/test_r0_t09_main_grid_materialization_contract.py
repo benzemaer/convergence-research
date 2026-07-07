@@ -141,17 +141,19 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
     def test_readme_advances_to_r0_t10_after_r0_t09_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)
-        self.assertIn(
-            "current_task: R0-T09 正式 input manifest 与全量参数网格物化", text
-        )
-        self.assertIn("next_planned_task: R0-T10 R0 审计报告与 R1 交接", text)
+        self.assertIn("current_task: R0-T10-02 R0-T05 strict-past score 物化", text)
+        self.assertIn("next_planned_task: R0-T10-03 R0-T06 nested state 物化", text)
         self.assertIn("`R0-T09` runner/contract/smoke：completed via PR #67", text)
         self.assertIn(
-            "`R0-T09` formal input manifest：blocked / pending real "
-            "R0-T04 -> R0-T07 upstream artifacts",
+            "`R0-T09` formal input manifest：blocked / superseded by R0-T10-05 "
+            "pending real R0-T04 -> R0-T07 upstream artifacts",
             text,
         )
-        self.assertIn("`R0-T09` production full-grid materialization：pending", text)
+        self.assertIn(
+            "`R0-T09` production full-grid materialization：blocked until R0-T10-05 "
+            "authorized input manifest and streaming/artifact-manifest mode",
+            text,
+        )
 
 
 if __name__ == "__main__":

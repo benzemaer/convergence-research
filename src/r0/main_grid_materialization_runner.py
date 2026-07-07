@@ -26,6 +26,8 @@ from src.r0.candidate_artifact_engine import (
 MATERIALIZATION_RUNNER_VERSION = "r0_t09_main_grid_materialization_runner.v1"
 MAX_WORKERS_DEFAULT = 2
 MAX_WORKERS_UPPER_BOUND = 2
+JSON_PAYLOAD_MODE_MAX_BYTES = 16 * 1024 * 1024
+FORMAL_STREAMING_BLOCK_REASON = "formal_upstream_payload_requires_streaming_artifacts"
 BASELINE_CANDIDATE_CONFIG_ID = "R0_W250_Q20_K3_WEAK_D010"
 VALID_STATE_NAMES = ("S_P", "S_PC", "S_PCT", "S_PCVT")
 REQUIRED_MANIFEST_FIELDS = (
@@ -236,6 +238,8 @@ def load_authorized_input(input_manifest: str | Path) -> AuthorizedInput:
         raise R0T09MaterializationError(f"input manifest missing fields: {missing}")
     if manifest.get("authorized_r0_input") is not True:
         raise R0T09MaterializationError("input manifest is not authorized for R0")
+    if "input_artifact_manifests" in manifest:
+        raise R0T09MaterializationError(FORMAL_STREAMING_BLOCK_REASON)
     if _contains_forbidden_key(manifest):
         raise R0T09MaterializationError(
             "input manifest contains forbidden output fields"
@@ -249,6 +253,7 @@ def load_authorized_input(input_manifest: str | Path) -> AuthorizedInput:
         payload_path = manifest_path.parent / payload_path
     payload_path = payload_path.resolve()
     _guard_payload_path(payload_path)
+    _guard_json_payload_mode_payload(payload_path)
     payload_hash = sha256_file(payload_path)
     if payload_hash != manifest["input_content_hash"]:
         raise R0T09MaterializationError("input payload hash mismatch")
@@ -782,6 +787,30 @@ def _guard_payload_path(path: Path) -> None:
     forbidden = ("data/raw", "data/external", "MarketDB", ".day")
     if any(pattern in normalized for pattern in forbidden):
         raise R0T09MaterializationError(f"forbidden input payload path: {path}")
+
+
+def _guard_json_payload_mode_payload(path: Path) -> None:
+    name = path.name.lower()
+    if name.endswith((".duckdb", ".jsonl", ".jsonl.gz", ".csv.gz")):
+        raise R0T09MaterializationError(FORMAL_STREAMING_BLOCK_REASON)
+    if path.stat().st_size > JSON_PAYLOAD_MODE_MAX_BYTES:
+        raise R0T09MaterializationError(FORMAL_STREAMING_BLOCK_REASON)
+    with path.open("rb") as handle:
+        prefix = handle.read(8192)
+    stripped = prefix.lstrip()
+    if stripped.startswith(b"["):
+        raise R0T09MaterializationError("single_json_array_row_payload_forbidden")
+    lowered = prefix.decode("utf-8", errors="ignore").lower()
+    if (
+        "r0_t10_01_r0_t04_raw_metric_manifest" in lowered
+        or "r0_t04_raw_metric_results_manifest" in lowered
+        or (
+            '"shards"' in lowered
+            and '"output_artifact_hash"' in lowered
+            and '"schema_version"' in lowered
+        )
+    ):
+        raise R0T09MaterializationError(FORMAL_STREAMING_BLOCK_REASON)
 
 
 def _is_synthetic_input_manifest(manifest: Mapping[str, Any]) -> bool:
