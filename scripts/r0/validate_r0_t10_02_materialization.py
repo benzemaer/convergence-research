@@ -162,10 +162,15 @@ def _validate_shards(manifest: Mapping[str, Any], errors: list[str]) -> dict[str
         if not isinstance(shard, Mapping):
             errors.append("manifest_shard_not_object")
             continue
-        done_path = Path(str(shard.get("done_marker_path", "")))
-        if not done_path.exists():
-            errors.append(f"done_marker_missing:{shard.get('chunk_id')}")
+        done_marker_path = shard.get("done_marker_path")
+        if not done_marker_path:
+            errors.append(f"done_marker_path_missing:{shard.get('chunk_id')}")
         else:
+            done_path = Path(str(done_marker_path))
+            if not done_path.is_file():
+                errors.append(f"done_marker_missing:{shard.get('chunk_id')}")
+                done_path = None
+        if done_marker_path and done_path is not None:
             done = _load_json_object(done_path)
             if done.get("chunk_hash") != shard.get("chunk_hash"):
                 errors.append(

@@ -857,6 +857,7 @@ def _manifest_shard(chunk: Mapping[str, Any]) -> dict[str, Any]:
         "security_count": chunk["security_count"],
         "security_id_min": chunk["security_id_min"],
         "security_id_max": chunk["security_id_max"],
+        "done_marker_path": chunk["done_marker_path"],
         "indicator_score": dict(chunk["indicator_score"]),
         "dimension_score": dict(chunk["dimension_score"]),
         "common_eligible": dict(chunk["common_eligible"]),
