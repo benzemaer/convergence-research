@@ -16,7 +16,10 @@ class R0T10NestedStateMaterializationEvidenceTest(unittest.TestCase):
             "`task_id`: R0-T10-03",
             "`status`: completed",
             "`run_id`: R0-T10-03-20260707T1630Z",
-            "`code_commit`: 92dcceefd710de40a65daa7d0e414bd7708f5353",
+            "`run_code_commit_argument`: 92dccee",
+            "`pr_head_commit`: 92dcceefd710de40a65daa7d0e414bd7708f5353",
+            "this historical run used the short SHA argument",
+            "--code-commit 92dccee",
             "`input_indicator_score_duckdb_sha256`: "
             "`3061c07c0ab5074e54e1bbf83780c4fd3b2b065700314f1c1ca2f3524e83f944`",
             "`input_dimension_score_duckdb_sha256`: "
@@ -50,6 +53,8 @@ class R0T10NestedStateMaterializationEvidenceTest(unittest.TestCase):
             "`validator_status`: passed",
             "`nested_recompute_sample_count`: 10",
             "`nested_recompute_mismatch_count`: 0",
+            "`exclusive_layer_recompute_coverage`: NONE / UNKNOWN",
+            "`exclusive_layer_non_none_sample_count`: 9",
             "`nested_invariant_check`: passed",
             "`exclusive_layer_uniqueness_check`: passed",
             "`forbidden_field_check`: passed",
@@ -77,6 +82,9 @@ class R0T10NestedStateMaterializationEvidenceTest(unittest.TestCase):
         )
         for marker in forbidden_payload_markers:
             self.assertNotIn(marker, text)
+        self.assertNotIn(
+            "`code_commit`: 92dcceefd710de40a65daa7d0e414bd7708f5353", text
+        )
         self.assertIn("does not embed row-level payloads", text)
 
     def test_task_and_readme_gate_semantics_match_completed_evidence(self) -> None:

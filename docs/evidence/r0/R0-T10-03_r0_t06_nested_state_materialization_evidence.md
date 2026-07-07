@@ -7,7 +7,9 @@ This evidence records a local formal R0-T06 materialization from PR #70 evidence
 `task_id`: R0-T10-03
 `status`: completed
 `run_id`: R0-T10-03-20260707T1630Z
-`code_commit`: 92dcceefd710de40a65daa7d0e414bd7708f5353
+`run_code_commit_argument`: 92dccee
+`pr_head_commit`: 92dcceefd710de40a65daa7d0e414bd7708f5353
+`code_commit_note`: this historical run used the short SHA argument recorded in the generated manifest and execution summary; future R-stage formal materialization runs must pass the full commit SHA.
 
 `input_r0_t05_evidence_path`: `docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md`
 `input_indicator_score_duckdb_path`: `data/generated/r0/r0_t10/R0-T10-02-20260707T1500Z/r0_t05/r0_t05_indicator_score_results.duckdb`
@@ -87,6 +89,8 @@ This evidence records a local formal R0-T06 materialization from PR #70 evidence
 `nested_recompute_q_coverage`: 0.10 / 0.20 / 0.30
 `nested_recompute_dimension_coverage`: P / C / T / V
 `nested_recompute_check`: passed
+`exclusive_layer_recompute_coverage`: NONE / UNKNOWN
+`exclusive_layer_non_none_sample_count`: 9
 `nested_invariant_check`: passed
 `exclusive_layer_recompute_check`: passed
 `exclusive_layer_uniqueness_check`: passed

@@ -389,6 +389,8 @@ class R0T10NestedStateMaterializerTest(unittest.TestCase):
             self.assertEqual(result["status"], "passed")
             self.assertEqual(result["nested_recompute_check"], "passed")
             self.assertGreaterEqual(result["nested_recompute_sample_count"], 9)
+            self.assertTrue(result["exclusive_layer_recompute_coverage"])
+            self.assertGreater(result["exclusive_layer_non_none_sample_count"], 0)
 
             conn = duckdb.connect(str(output_dir / NESTED_DAILY_DUCKDB_NAME))
             try:
@@ -406,6 +408,44 @@ class R0T10NestedStateMaterializerTest(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 R0T10NestedStateValidationError, "nested_recompute_mismatch"
+            ):
+                validate_materialization(
+                    output_dir=output_dir,
+                    r0_t05_evidence=evidence,
+                    indicator_score_duckdb=indicator,
+                    dimension_score_duckdb=dimension,
+                    common_eligible_duckdb=common,
+                )
+
+    def test_validator_blocks_when_non_none_layer_exists_but_sample_misses_it(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence, indicator, dimension, common = write_r0_t05_fixture(root)
+            output_dir = root / "out"
+            materialize_r0_t06_nested_states(
+                r0_t05_evidence=evidence,
+                indicator_score_duckdb=indicator,
+                dimension_score_duckdb=dimension,
+                common_eligible_duckdb=common,
+                output_dir=output_dir,
+                run_id="R0-T10-03-TEST",
+                code_commit="abcdef",
+                max_workers=1,
+                chunk_size_securities=2,
+            )
+
+            with (
+                patch(
+                    "src.r0.r0_t10_nested_state_materialization_validator."
+                    "_select_nested_recompute_samples",
+                    return_value=[],
+                ),
+                self.assertRaisesRegex(
+                    R0T10NestedStateValidationError,
+                    "exclusive_layer_recompute_non_none_missing",
+                ),
             ):
                 validate_materialization(
                     output_dir=output_dir,

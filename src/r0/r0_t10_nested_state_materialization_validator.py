@@ -150,11 +150,17 @@ def validate_materialization(
         "nested_recompute_W_coverage": recompute["W_coverage"],
         "nested_recompute_q_coverage": recompute["q_coverage"],
         "nested_recompute_dimension_coverage": recompute["dimension_coverage"],
+        "exclusive_layer_recompute_coverage": recompute["exclusive_layer_coverage"],
+        "exclusive_layer_non_none_sample_count": recompute[
+            "exclusive_layer_non_none_sample_count"
+        ],
         "nested_recompute_check": "passed"
         if recompute["sample_count"] > 0 and recompute["mismatch_count"] == 0
         else "blocked",
         "exclusive_layer_recompute_check": "passed"
-        if recompute["sample_count"] > 0 and recompute["mismatch_count"] == 0
+        if recompute["sample_count"] > 0
+        and recompute["mismatch_count"] == 0
+        and "exclusive_layer_recompute_non_none_missing" not in errors
         else "blocked",
         "nested_invariant_check": "passed"
         if not stats["nested_daily_state"].get("nested_invariant_hit_count")
@@ -549,6 +555,8 @@ def _validate_deterministic_nested_recompute(
         "W_coverage": set(),
         "q_coverage": set(),
         "dimension_coverage": set(),
+        "exclusive_layer_coverage": set(),
+        "exclusive_layer_non_none_sample_count": 0,
         "skipped_reasons": {},
     }
     nested_path = root / NESTED_DAILY_DUCKDB_NAME
@@ -558,9 +566,14 @@ def _validate_deterministic_nested_recompute(
     nested_conn = duckdb.connect(str(nested_path), read_only=True)
     dimension_conn = duckdb.connect(str(dimension_score_duckdb), read_only=True)
     try:
+        population = _exclusive_layer_population(nested_conn)
         samples = _select_nested_recompute_samples(nested_conn)
         if not samples:
             errors.append("nested_recompute_samples_missing")
+            if population["non_none_count"] > 0:
+                errors.append("exclusive_layer_recompute_non_none_missing")
+            else:
+                _record_skip(result, "exclusive_layer_non_none_absent")
             return _finalize_recompute(result)
         for row in samples:
             sample = {
@@ -586,6 +599,9 @@ def _validate_deterministic_nested_recompute(
             result["W_coverage"].add(sample["W"])
             result["q_coverage"].add(sample["q"])
             result["dimension_coverage"].update(expected["dimension_coverage"])
+            result["exclusive_layer_coverage"].add(sample["exclusive_state_layer"])
+            if sample["exclusive_state_layer"] != "NONE":
+                result["exclusive_layer_non_none_sample_count"] += 1
             if any(sample[key] != expected[key] for key in expected["compare_keys"]):
                 result["mismatch_count"] += 1
         if result["sample_count"] == 0:
@@ -596,12 +612,33 @@ def _validate_deterministic_nested_recompute(
             errors.append("nested_recompute_q_coverage_mismatch")
         if result["dimension_coverage"] != set(DIMENSIONS):
             errors.append("nested_recompute_dimension_coverage_mismatch")
+        if population["non_none_count"] > 0:
+            if result["exclusive_layer_non_none_sample_count"] == 0:
+                errors.append("exclusive_layer_recompute_non_none_missing")
+        else:
+            _record_skip(result, "exclusive_layer_non_none_absent")
         if result["mismatch_count"]:
             errors.append(f"nested_recompute_mismatch:{result['mismatch_count']}")
     finally:
         nested_conn.close()
         dimension_conn.close()
     return _finalize_recompute(result)
+
+
+def _exclusive_layer_population(conn: Any) -> dict[str, Any]:
+    rows = conn.execute(
+        f"""
+        SELECT exclusive_state_layer, count(*)
+        FROM {quote_ident(NESTED_DAILY_TABLE_NAME)}
+        GROUP BY 1
+        """
+    ).fetchall()
+    return {
+        "layers": {str(layer): int(count) for layer, count in rows},
+        "non_none_count": sum(
+            int(count) for layer, count in rows if str(layer) != "NONE"
+        ),
+    }
 
 
 def _select_nested_recompute_samples(conn: Any) -> list[tuple[Any, ...]]:
@@ -840,4 +877,5 @@ def _finalize_recompute(result: dict[str, Any]) -> dict[str, Any]:
     result["W_coverage"] = sorted(result["W_coverage"])
     result["q_coverage"] = sorted(result["q_coverage"])
     result["dimension_coverage"] = sorted(result["dimension_coverage"])
+    result["exclusive_layer_coverage"] = sorted(result["exclusive_layer_coverage"])
     return result
