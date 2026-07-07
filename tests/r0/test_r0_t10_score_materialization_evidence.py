@@ -77,9 +77,13 @@ class R0T10ScoreMaterializationEvidenceTest(unittest.TestCase):
             "`R0-T06_allowed_to_start=true`",
             task_text,
         )
-        self.assertIn("current_task: R0-T10-03 R0-T06 nested state 物化", readme_text)
         self.assertIn(
-            "next_planned_task: R0-T10-04 R0-T07 confirmation / interval 物化",
+            "current_task: R0-T10-04 R0-T07 confirmation / interval 物化",
+            readme_text,
+        )
+        self.assertIn(
+            "next_planned_task: R0-T10-05 authorized input manifest "
+            "与 27 组 full-grid 执行",
             readme_text,
         )
         self.assertIn(
@@ -87,7 +91,7 @@ class R0T10ScoreMaterializationEvidenceTest(unittest.TestCase):
             readme_text,
         )
         self.assertIn(
-            "`R0-T10-03` R0-T06 nested state 物化：in_progress",
+            "`R0-T10-03` R0-T06 nested state 物化：completed via PR #71",
             readme_text,
         )
 

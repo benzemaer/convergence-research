@@ -141,9 +141,13 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
     def test_readme_advances_to_r0_t10_after_r0_t09_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)
-        self.assertIn("current_task: R0-T10-03 R0-T06 nested state 物化", text)
         self.assertIn(
-            "next_planned_task: R0-T10-04 R0-T07 confirmation / interval 物化", text
+            "current_task: R0-T10-04 R0-T07 confirmation / interval 物化", text
+        )
+        self.assertIn(
+            "next_planned_task: R0-T10-05 authorized input manifest "
+            "与 27 组 full-grid 执行",
+            text,
         )
         self.assertIn("`R0-T09` runner/contract/smoke：completed via PR #67", text)
         self.assertIn(
