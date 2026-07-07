@@ -51,6 +51,13 @@ FORBIDDEN_OUTPUT_FIELDS = {
     "backtest",
     "portfolio",
 }
+SHARE_COMPARABILITY_ACTIONS = {
+    "bonus_share",
+    "split",
+    "reverse_split",
+    "rights_issue",
+    "share_change",
+}
 
 
 @dataclass(frozen=True)
@@ -126,7 +133,7 @@ def compute_raw_metrics(
 
 
 def calculate_natr14(rows: Sequence[Mapping[str, Any]], index: int) -> RawMetricResult:
-    window = _window(rows, index, 15)
+    window = tuple(rows[: index + 1])
     reason = _window_reason(
         window, 15, ("adjusted_high", "adjusted_low", "adjusted_close")
     )
@@ -184,7 +191,20 @@ def calculate_natr14(rows: Sequence[Mapping[str, Any]], index: int) -> RawMetric
             max(high - low, abs(high - previous_close), abs(low - previous_close))
         )
 
+    if len(tr_values) < 14:
+        return _invalid_result(
+            rows[index],
+            "P1_NATR14",
+            "NATR14",
+            UNKNOWN,
+            ("window_insufficient",),
+            window,
+            15,
+            ("adjusted_high", "adjusted_low", "adjusted_close"),
+        )
     atr = sum(tr_values[:14]) / 14.0
+    for true_range in tr_values[14:]:
+        atr = (atr * 13.0 + true_range) / 14.0
     close = _float(window[-1].get("adjusted_close"))
     if close is None or close <= 0:
         return _invalid_result(
@@ -310,13 +330,15 @@ def calculate_adj_vwap_spread_5_60(
 ) -> RawMetricResult:
     fields = ("daily_vwap", "volume_shares")
     window = _window(rows, index, 60)
-    reason = _window_reason(window, 60, fields)
+    reason = _unique_reasons(
+        (*_window_reason(window, 60, fields), *_c2_window_reasons(window))
+    )
     if reason:
         return _invalid_result(
             rows[index],
             "C2_AdjVWAPSpread_5_60",
             "AdjVWAPSpread_5_60",
-            UNKNOWN,
+            _status_from_window_reasons(reason),
             reason,
             window,
             60,
@@ -520,21 +542,15 @@ def calculate_turnover_shrink20_60(
         "volume_comparability_policy",
     )
     window = _window(rows, index, 80)
-    reason = _window_reason(window, 80, fields)
+    reason = _unique_reasons(
+        (*_window_reason(window, 80, fields), *_turnover_window_reasons(window))
+    )
     if reason:
-        status = (
-            DIAGNOSTIC_REQUIRED
-            if any(
-                item in {"suspension_in_window", "listing_pause_in_window"}
-                for item in reason
-            )
-            else UNKNOWN
-        )
         return _invalid_result(
             rows[index],
             "V1_TurnoverShrink20_60",
             "TurnoverShrink20_60",
-            status,
+            _status_from_window_reasons(reason),
             reason,
             window,
             80,
@@ -604,14 +620,15 @@ def calculate_log_amount20_base(
         "suspension_flag",
     )
     window = _window(rows, index, 20)
-    reason = _window_reason(window, 20, fields)
+    reason = _unique_reasons(
+        (*_window_reason(window, 20, fields), *_amount_window_reasons(window))
+    )
     if reason:
-        status = DIAGNOSTIC_REQUIRED if "suspension_in_window" in reason else UNKNOWN
         return _invalid_result(
             rows[index],
             "V2_LogAmount20_base",
             "LogAmount20",
-            status,
+            _status_from_window_reasons(reason),
             reason,
             window,
             20,
@@ -761,6 +778,113 @@ def _window_reason(
     return tuple(dict.fromkeys(reasons))
 
 
+def _c2_window_reasons(window: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    reasons: list[str] = []
+    for row in window:
+        if "amount_volume_unit_status" not in row:
+            reasons.append("missing_required_field")
+        elif _is_fail_or_unknown(row.get("amount_volume_unit_status")):
+            reasons.append("amount_volume_unit_status_fail")
+
+        if "daily_vwap_range_status" not in row:
+            reasons.append("missing_required_field")
+        else:
+            daily_vwap_status = row.get("daily_vwap_range_status")
+            if _is_unknown(daily_vwap_status):
+                reasons.append("daily_vwap_range_unknown")
+            elif _is_fail(daily_vwap_status):
+                reasons.append("daily_vwap_range_fail")
+
+        daily_vwap = _float(row.get("daily_vwap"))
+        if daily_vwap is None or daily_vwap <= 0:
+            reasons.append("daily_vwap_range_fail")
+        volume = _float(row.get("volume_shares"))
+        if volume is None or volume <= 0:
+            reasons.append("zero_volume_in_window")
+
+        if _truthy(row.get("corporate_action_flag")) and not (
+            _has_policy(row.get("adjusted_vwap_policy"))
+            or _has_policy(row.get("common_corporate_action_basis_policy"))
+        ):
+            if "adjusted_vwap_policy" not in row:
+                reasons.append("missing_required_field")
+            reasons.append("adjusted_vwap_policy_missing")
+            reasons.append("corporate_action_window_without_common_basis")
+    return _unique_reasons(reasons)
+
+
+def _turnover_window_reasons(window: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    reasons: list[str] = []
+    for row in window:
+        if _is_fail_or_unknown(row.get("turnover_field_status")):
+            reasons.append("turnover_field_status_invalid")
+        if _is_fail_or_unknown(row.get("share_field_status")):
+            reasons.append("share_field_status_invalid")
+        if _is_fail(row.get("provider_turnover_crosscheck_status")):
+            reasons.append("provider_turnover_crosscheck_fail")
+        if row.get("turnover_float") is None:
+            reasons.append("turnover_float_missing")
+        if not _positive(row.get("float_share_shares")):
+            reasons.append("float_share_nonpositive")
+        if _bad_trading_row(row):
+            reasons.append("suspension_in_window")
+        if str(row.get("trading_status", "")).lower() == "listing_pause":
+            reasons.append("listing_pause_in_window")
+        if _zeroish(row.get("volume_shares")):
+            reasons.append("zero_volume_in_window")
+        if _has_share_comparability_event(row) and not (
+            _has_policy(row.get("common_share_basis_policy"))
+            or _has_policy(row.get("volume_comparability_policy"))
+        ):
+            reasons.append("corporate_action_turnover_comparability_policy_missing")
+    return _unique_reasons(reasons)
+
+
+def _amount_window_reasons(window: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    reasons: list[str] = []
+    for row in window:
+        if _is_fail_or_unknown(row.get("amount_volume_unit_status")):
+            reasons.append("amount_volume_unit_status_fail")
+        if _is_unknown(row.get("amount_unit")):
+            reasons.append("amount_unit_unknown")
+        amount_yuan = _float(row.get("amount_yuan"))
+        if amount_yuan is None:
+            reasons.append("amount_yuan_missing")
+        elif amount_yuan <= 0:
+            reasons.append("amount_yuan_nonpositive")
+        if _truthy(row.get("zero_amount_flag")):
+            reasons.append("zero_amount_in_window")
+        if _bad_trading_row(row):
+            reasons.append("suspension_in_window")
+    return _unique_reasons(reasons)
+
+
+def _status_from_window_reasons(reason_codes: Sequence[str]) -> str:
+    reasons = set(reason_codes)
+    if reasons.intersection(
+        {
+            "amount_volume_unit_status_fail",
+            "daily_vwap_range_fail",
+            "provider_turnover_crosscheck_fail",
+        }
+    ):
+        return BLOCKED
+    if reasons.intersection(
+        {
+            "suspension_in_window",
+            "listing_pause_in_window",
+            "zero_volume_in_window",
+            "zero_amount_in_window",
+        }
+    ):
+        return DIAGNOSTIC_REQUIRED
+    return UNKNOWN
+
+
+def _unique_reasons(reason_codes: Sequence[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(reason_codes))
+
+
 def _valid_result(
     row: Mapping[str, Any],
     indicator_id: str,
@@ -904,6 +1028,36 @@ def _truthy(value: Any) -> bool:
 
 def _zeroish(value: Any) -> bool:
     return value == 0 or value == 0.0 or str(value) == "0"
+
+
+def _positive(value: Any) -> bool:
+    numeric = _float(value)
+    return numeric is not None and numeric > 0
+
+
+def _is_unknown(value: Any) -> bool:
+    return value is None or str(value).lower() in {"", "unknown", "missing", "na"}
+
+
+def _is_fail(value: Any) -> bool:
+    return str(value).lower() in {"fail", "failed", "invalid", "error"}
+
+
+def _is_fail_or_unknown(value: Any) -> bool:
+    return _is_unknown(value) or _is_fail(value)
+
+
+def _has_policy(value: Any) -> bool:
+    return value not in {None, False, "", "unknown", "missing", "none"}
+
+
+def _has_share_comparability_event(row: Mapping[str, Any]) -> bool:
+    if _truthy(row.get("share_comparability_corporate_action_in_window")):
+        return True
+    events = row.get("corporate_action_types_in_window", ())
+    if isinstance(events, str):
+        events = (events,)
+    return any(str(event) in SHARE_COMPARABILITY_ACTIONS for event in events)
 
 
 def _walk_keys(value: Any) -> tuple[str, ...]:

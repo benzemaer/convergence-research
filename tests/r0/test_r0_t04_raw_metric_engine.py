@@ -78,6 +78,32 @@ def constant_close_rows(
     return rows
 
 
+def variable_true_range_rows() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for index in range(21):
+        true_range = float(index + 1)
+        rows.append(
+            {
+                "security_id": "000001.SZ",
+                "trading_date": f"2026-02-{index + 1:02d}",
+                "adjusted_high": 100.0 + true_range / 2.0,
+                "adjusted_low": 100.0 - true_range / 2.0,
+                "adjusted_close": 100.0,
+                "trading_status": "normal_trading",
+                "corporate_action_flag": False,
+                "suspension_flag": False,
+            }
+        )
+    return rows
+
+
+def manual_wilder_atr14(true_ranges: list[float]) -> float:
+    atr = sum(true_ranges[:14]) / 14.0
+    for true_range in true_ranges[14:]:
+        atr = (atr * 13.0 + true_range) / 14.0
+    return atr
+
+
 def result_for(results, indicator_id: str, trading_date: str = "2026-01-90"):
     for result in results:
         if result.indicator_id == indicator_id and result.trading_date == trading_date:
@@ -139,6 +165,17 @@ class R0T04RawMetricEngineTest(unittest.TestCase):
         self.assertEqual(result.validity_status, UNKNOWN)
         self.assertIn("high_low_anomaly", result.reason_codes)
 
+    def test_natr14_uses_wilder_recursion_not_simple_moving_average(self) -> None:
+        rows = variable_true_range_rows()
+        result = calculate_natr14(rows, 20)
+        true_ranges = [float(value) for value in range(2, 22)]
+        expected_wilder = manual_wilder_atr14(true_ranges) / 100.0
+        simple_moving_average = (sum(true_ranges[-14:]) / 14.0) / 100.0
+
+        self.assertEqual(result.validity_status, VALID)
+        self.assertAlmostEqual(result.raw_value, expected_wilder)
+        self.assertNotAlmostEqual(result.raw_value, simple_moving_average)
+
     def test_c_layer_metrics_compute_and_propagate_c2_readiness(self) -> None:
         rows = synthetic_rows()
         ma = calculate_log_ma_spread_5_60(rows, 89)
@@ -175,6 +212,56 @@ class R0T04RawMetricEngineTest(unittest.TestCase):
         self.assertIn(
             "corporate_action_window_without_common_basis", result.reason_codes
         )
+
+    def test_window_level_readiness_is_not_masked_by_last_ready_row(self) -> None:
+        rows = synthetic_rows()
+        rows[50]["daily_vwap_range_status"] = "fail"
+        self.assertEqual(rows[89]["daily_vwap_range_status"], "pass")
+        result = calculate_adj_vwap_spread_5_60(rows, 89)
+        self.assertEqual(result.validity_status, BLOCKED)
+        self.assertIn("daily_vwap_range_fail", result.reason_codes)
+
+        rows = synthetic_rows()
+        rows[50]["amount_volume_unit_status"] = "fail"
+        self.assertEqual(rows[89]["amount_volume_unit_status"], "pass")
+        result = calculate_adj_vwap_spread_5_60(rows, 89)
+        self.assertEqual(result.validity_status, BLOCKED)
+        self.assertIn("amount_volume_unit_status_fail", result.reason_codes)
+
+        rows = synthetic_rows()
+        rows[50]["provider_turnover_crosscheck_status"] = "fail"
+        self.assertEqual(rows[89]["provider_turnover_crosscheck_status"], "pass")
+        result = calculate_turnover_shrink20_60(rows, 89)
+        self.assertEqual(result.validity_status, BLOCKED)
+        self.assertIn("provider_turnover_crosscheck_fail", result.reason_codes)
+
+        rows = synthetic_rows()
+        rows[50]["share_field_status"] = "invalid"
+        self.assertEqual(rows[89]["share_field_status"], "pass")
+        result = calculate_turnover_shrink20_60(rows, 89)
+        self.assertEqual(result.validity_status, UNKNOWN)
+        self.assertIn("share_field_status_invalid", result.reason_codes)
+
+        rows = synthetic_rows()
+        rows[50]["turnover_field_status"] = "invalid"
+        self.assertEqual(rows[89]["turnover_field_status"], "pass")
+        result = calculate_turnover_shrink20_60(rows, 89)
+        self.assertEqual(result.validity_status, UNKNOWN)
+        self.assertIn("turnover_field_status_invalid", result.reason_codes)
+
+        rows = synthetic_rows()
+        rows[75]["amount_volume_unit_status"] = "fail"
+        self.assertEqual(rows[89]["amount_volume_unit_status"], "pass")
+        result = calculate_log_amount20_base(rows, 89)
+        self.assertEqual(result.validity_status, BLOCKED)
+        self.assertIn("amount_volume_unit_status_fail", result.reason_codes)
+
+        rows = synthetic_rows()
+        rows[75]["zero_amount_flag"] = True
+        self.assertFalse(rows[89]["zero_amount_flag"])
+        result = calculate_log_amount20_base(rows, 89)
+        self.assertEqual(result.validity_status, DIAGNOSTIC_REQUIRED)
+        self.assertIn("zero_amount_in_window", result.reason_codes)
 
     def test_t_layer_metrics_cover_flat_and_degenerate_paths(self) -> None:
         rows = synthetic_rows()
