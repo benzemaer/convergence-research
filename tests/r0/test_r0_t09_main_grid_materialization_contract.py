@@ -142,11 +142,11 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)
         self.assertIn(
-            "current_task: R0-T10-05 authorized input manifest 与 27 组 full-grid 执行",
+            "current_task: R0-T11 R0 审计报告与 R1 交接",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T11 R0 审计报告与 R1 交接",
+            "next_planned_task: R1-T01 状态存在性与频率轮廓",
             text,
         )
         self.assertIn("`R0-T09` runner/contract/smoke：completed via PR #67", text)
