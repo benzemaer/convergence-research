@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t07_confirmation_streak_interval_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "real_data_read_authorized",
+    "duckdb_write_authorized",
+    "formal_data_version_authorized",
+    "confirmation_generation_authorized",
+    "streak_generation_authorized",
+    "interval_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "manifest_generation_authorized",
+    "confirmation_k_values",
+    "baseline_confirmation_k",
+    "gap_merge_generated_by_this_task",
+    "confirmed_state_backfill_allowed",
+    "current_and_past_only",
+    "future_data_used",
+    "confirmed_state_names",
+    "input_raw_state_fields",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "k_selection_prohibited_by",
+    "validity_statuses",
+    "termination_reasons",
+    "reason_code_vocabulary",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t07_confirmation_streak_interval_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T07_CONFIRMATION_STREAK_INTERVAL_CONTRACT_V1" },
+    "task_id": { "const": "R0-T07" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": { "const": "confirmation_streak_interval_synthetic_only" },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "const": "R0_T06_WEAK_DIMENSION_NESTED_STATE_CONTRACT_V1"
+          }
+        }
+      ]
+    },
+    "real_data_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "confirmation_generation_authorized": { "const": "synthetic_only" },
+    "streak_generation_authorized": { "const": "synthetic_only" },
+    "interval_generation_authorized": { "const": "synthetic_only" },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "manifest_generation_authorized": { "const": false },
+    "confirmation_k_values": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": 1 } },
+        { "contains": { "const": 2 } },
+        { "contains": { "const": 3 } }
+      ]
+    },
+    "baseline_confirmation_k": { "const": 2 },
+    "gap_merge_generated_by_this_task": { "const": false },
+    "confirmed_state_backfill_allowed": { "const": false },
+    "current_and_past_only": { "const": true },
+    "future_data_used": { "const": false },
+    "confirmed_state_names": {
+      "const": ["S_P", "S_PC", "S_PCT", "S_PCVT"]
+    },
+    "input_raw_state_fields": {
+      "const": ["S_P_raw", "S_PC_raw", "S_PCT_raw", "S_PCVT_raw"]
+    },
+    "allowed_logical_input_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "synthetic_in_memory_daily_states" } },
+        { "contains": { "const": "r0_t06_weak_dimension_nested_state" } }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "d1.raw_market_prices" } },
+        { "contains": { "const": "d2.adjusted_market_prices" } },
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } },
+        { "contains": { "const": "data/generated" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ]
+    },
+    "k_selection_prohibited_by": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "returns" } },
+        { "contains": { "const": "volatility_expansion" } },
+        { "contains": { "const": "direction" } },
+        { "contains": { "const": "backtest" } }
+      ]
+    },
+    "validity_statuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "valid" } },
+        { "contains": { "const": "unknown" } },
+        { "contains": { "const": "diagnostic_required" } },
+        { "contains": { "const": "blocked" } }
+      ]
+    },
+    "termination_reasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "raw_state_false" } },
+        { "contains": { "const": "raw_state_unknown" } },
+        { "contains": { "const": "raw_state_diagnostic_required" } },
+        { "contains": { "const": "raw_state_blocked" } },
+        { "contains": { "const": "end_of_input_open" } }
+      ]
+    },
+    "reason_code_vocabulary": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "nested_raw_state_invariant_violation" } },
+        { "contains": { "const": "confirmation_lineage_missing" } },
+        { "contains": { "const": "direct_real_data_source_forbidden" } },
+        { "contains": { "const": "forbidden_output_field" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "future_label" } },
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "breakout_direction" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "formal_data_version" } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "../../schemas/r0/r0_t07_confirmation_streak_interval_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "R0_T07_CONFIRMATION_STREAK_INTERVAL_CONTRACT_V1",
+  "task_id": "R0-T07",
+  "contract_status": "draft",
+  "contract_scope": "confirmation_streak_interval_synthetic_only",
+  "depends_on": [
+    "R0_T06_WEAK_DIMENSION_NESTED_STATE_CONTRACT_V1"
+  ],
+  "real_data_read_authorized": false,
+  "duckdb_write_authorized": false,
+  "formal_data_version_authorized": false,
+  "confirmation_generation_authorized": "synthetic_only",
+  "streak_generation_authorized": "synthetic_only",
+  "interval_generation_authorized": "synthetic_only",
+  "future_label_generation_authorized": false,
+  "returns_generation_authorized": false,
+  "backtest_generation_authorized": false,
+  "portfolio_generation_authorized": false,
+  "manifest_generation_authorized": false,
+  "confirmation_k_values": [1, 2, 3],
+  "baseline_confirmation_k": 2,
+  "gap_merge_generated_by_this_task": false,
+  "confirmed_state_backfill_allowed": false,
+  "current_and_past_only": true,
+  "future_data_used": false,
+  "confirmed_state_names": ["S_P", "S_PC", "S_PCT", "S_PCVT"],
+  "input_raw_state_fields": ["S_P_raw", "S_PC_raw", "S_PCT_raw", "S_PCVT_raw"],
+  "allowed_logical_input_sources": [
+    "synthetic_in_memory_daily_states",
+    "r0_t06_weak_dimension_nested_state"
+  ],
+  "prohibited_direct_sources": [
+    "d1.raw_market_prices",
+    "d2.adjusted_market_prices",
+    "d2.market_price_quality_flags",
+    "d2.membership_alignment",
+    "d3.generated",
+    "data/raw",
+    "data/external",
+    "data/generated",
+    "MarketDB",
+    ".day"
+  ],
+  "k_selection_prohibited_by": [
+    "future_labels",
+    "returns",
+    "volatility_expansion",
+    "direction",
+    "backtest"
+  ],
+  "validity_statuses": [
+    "valid",
+    "unknown",
+    "diagnostic_required",
+    "blocked"
+  ],
+  "termination_reasons": [
+    "raw_state_false",
+    "raw_state_unknown",
+    "raw_state_diagnostic_required",
+    "raw_state_blocked",
+    "end_of_input_open"
+  ],
+  "reason_code_vocabulary": [
+    "valid_no_blocker",
+    "nested_raw_state_invariant_violation",
+    "confirmation_lineage_missing",
+    "direct_real_data_source_forbidden",
+    "forbidden_output_field",
+    "upstream_unknown",
+    "upstream_diagnostic_required",
+    "upstream_blocked"
+  ],
+  "prohibited_outputs": [
+    "future_label",
+    "future_labels",
+    "future_return",
+    "future_returns",
+    "breakout_direction",
+    "backtest",
+    "portfolio",
+    "formal_data_version",
+    "manifest"
+  ]
+}
