@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator
 from scripts.generate_d3_t07_candidate_daily_observation import (
     OBSERVATION_TABLE,
     OUTPUT_DUCKDB_NAME,
+    d2_t20_candidate_materialization_gate,
     generate_d3_t07_candidate_daily_observation,
 )
 
@@ -288,7 +289,9 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         finally:
             conn.close()
 
-    def _write_reports(self, *, accepted: bool) -> None:
+    def _write_reports(
+        self, *, accepted: bool, policy_evidence_pending_hash: bool = False
+    ) -> None:
         self.d2_dir.mkdir(parents=True, exist_ok=True)
         acceptance = {
             "d2_acceptance_decision": (
@@ -297,7 +300,7 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
                 else "blocked_pending_policy_evidence"
             ),
             "policy_based_acceptance": accepted,
-            "policy_evidence_pending_hash": False,
+            "policy_evidence_pending_hash": policy_evidence_pending_hash,
             "formal_duckdb_write_authorized": False,
             "data_version_published": False,
             "d3_rows_generated": False,
@@ -355,12 +358,90 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         )
         self.assertFalse(summary["d3_rows_generated"])
 
+    def test_policy_evidence_pending_hash_is_soft_warning(self) -> None:
+        acceptance = {
+            "d2_acceptance_decision": "accepted_for_d3_candidate_generation",
+            "policy_based_acceptance": True,
+            "policy_evidence_pending_hash": True,
+            "formal_duckdb_write_authorized": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "r0_state_generated": False,
+        }
+        handoff = {
+            "d3_generation_authorized": True,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "r0_state_generated": False,
+        }
+
+        hard_gate_passed, hard_reasons, soft_reasons = (
+            d2_t20_candidate_materialization_gate(acceptance, handoff)
+        )
+
+        self.assertTrue(hard_gate_passed)
+        self.assertEqual(hard_reasons, [])
+        self.assertIn("policy_evidence_pending_hash", soft_reasons)
+
+    def test_missing_policy_pending_key_with_candidate_evidence_is_soft_warning(
+        self,
+    ) -> None:
+        acceptance = {
+            "d2_acceptance_decision": "accepted_for_d3_candidate_generation",
+            "policy_based_acceptance": True,
+            "policy_evidence_level": "user_attested_and_policy_candidate",
+            "formal_duckdb_write_authorized": False,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "r0_state_generated": False,
+        }
+        handoff = {
+            "d3_generation_authorized": True,
+            "data_version_published": False,
+            "d3_rows_generated": False,
+            "r0_state_generated": False,
+        }
+
+        hard_gate_passed, hard_reasons, soft_reasons = (
+            d2_t20_candidate_materialization_gate(acceptance, handoff)
+        )
+
+        self.assertTrue(hard_gate_passed)
+        self.assertEqual(hard_reasons, [])
+        self.assertEqual(soft_reasons, ["policy_evidence_pending_hash"])
+
+    def test_policy_evidence_pending_hash_generates_candidate_with_warnings(
+        self,
+    ) -> None:
+        self._write_reports(accepted=True, policy_evidence_pending_hash=True)
+
+        summary = self._run_generator()
+        handoff = self._handoff_report()
+
+        self.assertEqual(
+            summary["d3_t07_generation_decision"],
+            "accepted_candidate_observation_with_warnings",
+        )
+        self.assertTrue(summary["candidate_observation_generated"])
+        self.assertEqual(
+            summary["candidate_generation_soft_warning_reasons"],
+            ["policy_evidence_pending_hash"],
+        )
+        self.assertEqual(
+            summary["candidate_quality_tier"], "candidate_evidence_pending"
+        )
+        self.assertFalse(summary["formal_use_authorized"])
+        self.assertFalse(handoff["consumer_readiness"]["evaluated_by_d3"])
+        self.assertEqual(handoff["consumer_readiness"]["consumer_profiles"], {})
+
     def test_generates_normal_neutral_and_factor_interval_rows(self) -> None:
         summary = self._run_generator()
 
         self.assertEqual(
             summary["d3_t07_generation_decision"], "accepted_candidate_observation"
         )
+        self.assertFalse(summary["consumer_readiness"]["evaluated_by_d3"])
+        self.assertEqual(summary["consumer_readiness"]["consumer_profiles"], {})
         conn = self._output_conn()
         try:
             rows = conn.execute(
@@ -536,6 +617,24 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
             "r0_state.csv",
         }
         self.assertFalse(any((self.d3_dir / name).exists() for name in forbidden))
+        handoff = self._handoff_report()
+        self.assertFalse(handoff["formal_use_authorized"])
+        self.assertFalse(handoff["formal_data_version_published"])
+        self.assertFalse(handoff["pcvt_values_generated"])
+        self.assertFalse(handoff["r0_state_generated"])
+        self.assertEqual(
+            handoff["consumer_readiness"]["consumer_gate_policy"],
+            "evaluated_by_downstream_task",
+        )
+        for key in (
+            "r1_ready_candidate",
+            "r2_ready_candidate",
+            "r3_ready_candidate",
+            "r4_ready_candidate",
+            "r5_ready_candidate",
+            "r6_ready_candidate",
+        ):
+            self.assertNotIn(key, handoff)
 
     def test_direct_cli_help_runs_from_repo_root(self) -> None:
         result = subprocess.run(
@@ -553,25 +652,24 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("--d2-t20-duckdb", result.stdout)
 
-    def test_readme_advances_to_d3_t07_and_keeps_formal_release_blocked(self) -> None:
+    def test_readme_advances_to_d3_t12_and_keeps_formal_release_blocked(self) -> None:
         readme = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
 
         self.assertIn("current_stage: D3", readme)
+        self.assertIn("current_task: D3-T12 开放候选层门禁与下游消费审计解耦", readme)
         self.assertIn(
-            "current_task: D3-T07 candidate daily observation from D2-T20", readme
-        )
-        self.assertIn(
-            "next_planned_task: D3-T08 PCVT input readiness and "
-            "feature-base quality checks",
+            "next_planned_task: R0-T03 PCVT raw metric engine 与合成测试",
             readme,
         )
         self.assertIn(
-            "D2-T20` fast coverage policy acceptance：completed via PR #52",
+            "D3-T11` 量额股本换手字段全量候选物化与数据更新：completed via PR #59",
             readme,
         )
-        self.assertIn("Formal data_version remains blocked", readme)
+        self.assertIn("D3 candidate generation 不等于 formal release", readme)
         self.assertIn(
-            "R0 remains blocked until D3 output is accepted by later gates", readme
+            "`policy_evidence_pending_hash` 是 candidate warning，"
+            "不是 D3 candidate hard blocker",
+            readme,
         )
 
 

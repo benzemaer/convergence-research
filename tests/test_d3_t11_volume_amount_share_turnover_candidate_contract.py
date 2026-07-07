@@ -70,10 +70,10 @@ class D3T11VolumeAmountShareTurnoverContractTest(unittest.TestCase):
         )
         self.assertIn("R0-T09", self.config["turnover_based_v_metrics_policy"])
 
-    def test_readme_advances_to_d3_t11_and_keeps_r0_t03_planned(self) -> None:
+    def test_readme_advances_to_d3_t12_and_keeps_r0_t03_planned(self) -> None:
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "current_task: D3-T11 量额股本换手字段全量候选物化与数据更新",
+            "current_task: D3-T12 开放候选层门禁与下游消费审计解耦",
             text,
         )
         self.assertIn(
@@ -83,8 +83,10 @@ class D3T11VolumeAmountShareTurnoverContractTest(unittest.TestCase):
             "D3-T10` D3 字段可用性探针与字段缺口补全：completed via PR #58", text
         )
         self.assertIn(
-            "D3-T11` 量额股本换手字段全量候选物化与数据更新：in_progress", text
+            "D3-T11` 量额股本换手字段全量候选物化与数据更新：completed via PR #59",
+            text,
         )
+        self.assertIn("D3-T12` 开放候选层门禁与下游消费审计解耦：in_progress", text)
         self.assertIn("R0-T03` PCVT raw metric engine 与合成测试：planned", text)
 
 

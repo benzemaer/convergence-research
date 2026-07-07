@@ -2,7 +2,7 @@
 
 ## 状态
 
-in_progress。本任务是 D3 第一段真实 candidate observation 生成，只读取 D2-T20 evidence-verified research candidate，并输出 D3 标准日频观测表 candidate。本任务不发布 formal data_version，不生成 D3 formal release，不生成 PCVT、R0、labels、returns、backtest 或 portfolio。
+completed via PR #53；D3-T12 对 candidate gate 语义作后续修正。本任务是 D3 第一段真实 candidate observation 生成，只读取 D2-T20 research candidate，并输出 D3 标准日频观测表 candidate。本任务不发布 formal data_version，不生成 D3 formal release，不生成 PCVT、R0、labels、returns、backtest 或 portfolio。
 
 ## 目标
 
@@ -58,7 +58,9 @@ d3_t07_candidate_file_hash_summary.json
 
 ## Gate 规则
 
-脚本必须先读取 D2-T20 acceptance 与 handoff report。只有满足 `d2_acceptance_decision = accepted_for_d3_candidate_generation`、`d3_generation_authorized = true`、`policy_based_acceptance = true`、`policy_evidence_pending_hash = false`、`formal_duckdb_write_authorized = false`、`data_version_published = false`、`d3_rows_generated = false`、`r0_state_generated = false` 时，才允许生成 D3 candidate observation。任一条件不满足时，输出 `blocked_pending_d2_t20_handoff`，不得绕过。
+脚本必须先读取 D2-T20 acceptance 与 handoff report。D3 candidate generation 是开放候选层门禁，只 hard block 无法形成基础 candidate observation、上游未授权、试图发布 formal data_version、试图生成 PCVT/R-state/labels/returns/backtest/portfolio、输出越界、主键不可形成、重复主键不可消解、OHLC 无效或 effective adjusted fields 无法形成等情况。`policy_evidence_pending_hash` 是 candidate warning，不是 D3 candidate hard blocker；当其他 hard gate 均通过时，应输出 `accepted_candidate_observation_with_warnings`，并继续生成可追溯 candidate rows。
+
+D3-T07 不判断该 candidate row 是否可供 R0、R1、R2、R3、R4、R5 或 R6 使用。报告必须用通用 `consumer_readiness` / `consumer_profiles` 结构表达下游消费审计由具体 consumer task 负责；若保留旧兼容字段，不得让它决定 D3 candidate generation。D3 candidate generation 不等于 formal release，formal use 仍必须由后续 release gate 严格授权。
 
 ## 生成规则
 
@@ -70,13 +72,13 @@ d3_t07_candidate_file_hash_summary.json
 
 ## 验收标准
 
-`d3_t07_quality_report.json` 必须至少报告 input row count、generated row count、listing_pause excluded count、OHLC 质量计数、effective factor 缺失计数、factor interval unresolved 计数、duplicate key 计数和 policy usage 计数。若 duplicate observation key、null OHLC、non-positive price、high-low violation、missing effective factor 或 factor interval unresolved 任一计数大于 0，`d3_t07_generation_decision` 必须为 blocked，`d3_candidate_observation_accepted = false`。
+`d3_t07_quality_report.json` 必须至少报告 input row count、generated row count、listing_pause excluded count、OHLC 质量计数、effective factor 缺失计数、factor interval unresolved 计数、duplicate key 计数、policy usage 计数、candidate generation hard blockers、soft warnings、candidate quality tier、policy evidence readiness status、formal use authorization 和通用 consumer readiness。若 duplicate observation key、null OHLC、non-positive price、high-low violation、missing effective factor 或 factor interval unresolved 任一计数大于 0，`d3_t07_generation_decision` 必须为 blocked，`d3_candidate_observation_accepted = false`。
 
 验收时必须证明 D2-T20 source DuckDB 未被修改，`staging_adj_factor` 未新增伪 provider rows，输出不包含 formal data_version、R0、labels、returns、backtest 或 portfolio。
 
 ## 阻塞条件 / 失败状态
 
-若 D2-T20 acceptance/handoff gate 不满足，生成必须阻塞为 `blocked_pending_d2_t20_handoff`。若 factor interval policy 找不到唯一 interval，生成必须阻塞为 `blocked_pending_factor_interval_resolution`。若存在 duplicate key、invalid OHLC、missing effective factor 或其他 quality blocker，生成必须阻塞为 `blocked_pending_quality_resolution`。若 PR 提交 generated outputs、DuckDB、PDF、formal manifest、data_version、labels、returns、backtest、portfolio、PCVT 或 R0 输出，PR 必须回退。
+若 D2-T20 acceptance/handoff hard gate 不满足，生成必须阻塞为 `blocked_pending_d2_t20_handoff`。若 factor interval policy 找不到唯一 interval，生成必须阻塞为 `blocked_pending_factor_interval_resolution`。若存在 duplicate key、invalid OHLC、missing effective factor 或其他 quality blocker，生成必须阻塞为 `blocked_pending_quality_resolution`。policy evidence 尚未 formal verified、company-action evidence pending、limit_status 缺失、R-stage readiness 不满足或 formal release 条件不满足，只能写入 warning / quality / evidence / consumer readiness 状态，不得阻止 D3 candidate row generation。若 PR 提交 generated outputs、DuckDB、PDF、formal manifest、data_version、labels、returns、backtest、portfolio、PCVT 或 R0 输出，PR 必须回退。
 
 ## 回退方式
 

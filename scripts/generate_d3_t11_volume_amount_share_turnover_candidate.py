@@ -153,6 +153,44 @@ def token_from_env() -> str | None:
     return None
 
 
+def consumer_readiness_payload() -> dict[str, Any]:
+    return {
+        "evaluated_by_d3": False,
+        "consumer_profiles": {},
+        "consumer_gate_policy": "evaluated_by_downstream_task",
+    }
+
+
+def candidate_generation_fields(
+    *,
+    generated: bool,
+    warnings: list[str],
+    quality_blocking_reasons: list[str] | None = None,
+) -> dict[str, Any]:
+    quality_blocking_reasons = quality_blocking_reasons or []
+    if not generated:
+        decision = "blocked"
+        quality_tier = "blocked"
+    elif warnings:
+        decision = "accepted_with_warnings"
+        quality_tier = "candidate_evidence_pending"
+    elif quality_blocking_reasons:
+        decision = "accepted_with_warnings"
+        quality_tier = "candidate_observation_with_warnings"
+    else:
+        decision = "accepted"
+        quality_tier = "candidate_observation"
+    return {
+        "d3_candidate_generated": generated,
+        "d3_candidate_generation_decision": decision,
+        "candidate_quality_tier": quality_tier,
+        "formal_use_authorized": False,
+        "formal_release_required": True,
+        "consumer_readiness_evaluated_by_d3": False,
+        "consumer_readiness": consumer_readiness_payload(),
+    }
+
+
 def load_env_file(path: Path | None) -> None:
     if path is None or not path.exists():
         return
@@ -544,12 +582,46 @@ def insert_candidate_rows(
         desc[1]
         for desc in conn.execute(f"PRAGMA table_info('{OUTPUT_TABLE}')").fetchall()
     ]
+    try:
+        import pandas as pd  # type: ignore[import-not-found]
+    except ImportError:
+        pd = None
+    if pd is not None:
+        frame = pd.DataFrame.from_records(rows, columns=columns)
+        conn.register("d3_t11_candidate_rows_input", frame)
+        try:
+            column_sql = ", ".join(columns)
+            conn.execute(
+                f"""
+                INSERT OR REPLACE INTO {OUTPUT_TABLE} ({column_sql})
+                SELECT {column_sql}
+                FROM d3_t11_candidate_rows_input
+                """
+            )
+        finally:
+            conn.unregister("d3_t11_candidate_rows_input")
+        return
     placeholders = ", ".join("?" for _ in columns)
     conn.executemany(
         f"INSERT OR REPLACE INTO {OUTPUT_TABLE} ({', '.join(columns)}) "
         f"VALUES ({placeholders})",
         [[row.get(column) for column in columns] for row in rows],
     )
+
+
+def load_candidate_rows_from_output_duckdb(output_duckdb: Path) -> list[dict[str, Any]]:
+    conn = duckdb.connect(str(output_duckdb), read_only=True)
+    try:
+        return _rows_as_dicts(
+            conn,
+            f"""
+            SELECT *
+            FROM {OUTPUT_TABLE}
+            ORDER BY ts_code, trade_date
+            """,
+        )
+    finally:
+        conn.close()
 
 
 def rate(rows: list[dict[str, Any]], predicate: str) -> float:
@@ -567,6 +639,7 @@ def build_reports(
     daily_basic_rows: list[dict[str, Any]],
     provider_calls: list[dict[str, Any]],
     run_id: str,
+    daily_basic_row_count_override: int | None = None,
 ) -> dict[str, Any]:
     row_count = len(rows)
     field_names = [
@@ -613,7 +686,11 @@ def build_reports(
         "source_task_id": SOURCE_TASK_ID,
         "source_row_count": source_row_count,
         "generated_candidate_row_count": row_count,
-        "daily_basic_row_count": len(daily_basic_rows),
+        "daily_basic_row_count": (
+            daily_basic_row_count_override
+            if daily_basic_row_count_override is not None
+            else len(daily_basic_rows)
+        ),
         "zero_volume_row_count": sum(1 for row in rows if row.get("zero_volume_flag")),
         "zero_amount_row_count": sum(1 for row in rows if row.get("zero_amount_flag")),
         "status_counts": status_counts,
@@ -648,6 +725,11 @@ def build_reports(
         "calls": provider_calls,
     }
     r0_ready = not blocking_reasons and row_count > 0
+    candidate_fields = candidate_generation_fields(
+        generated=row_count > 0,
+        warnings=[],
+        quality_blocking_reasons=blocking_reasons,
+    )
     no_research_outputs_key = (
         "d3_t11_does_not_generate_percentiles_scores_states_intervals_"
         "labels_returns_backtest_or_portfolio"
@@ -656,6 +738,10 @@ def build_reports(
         "task_id": TASK_ID,
         "source_task_id": SOURCE_TASK_ID,
         "r0_ready_candidate": r0_ready,
+        "r0_ready_candidate_deprecated": True,
+        "r0_ready_candidate_deprecation_note": (
+            "compatibility field only; D3 candidate generation is not R0 readiness"
+        ),
         "field_coverage_by_indicator": {
             "C2_AdjVWAPSpread_5_60": min(
                 field_coverage["amount_yuan"],
@@ -696,6 +782,7 @@ def build_reports(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    handoff.update(candidate_fields)
     summary = {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -708,6 +795,10 @@ def build_reports(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(candidate_fields)
+    quality.update(candidate_fields)
+    coverage.update(candidate_fields)
+    provider_summary.update(candidate_fields)
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(output_dir / "d3_t11_field_coverage_report.json", coverage)
     _write_json(output_dir / "d3_t11_quality_report.json", quality)
@@ -820,6 +911,13 @@ def blocked_missing_token(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=["blocked_missing_tnskhdata_token"],
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     return summary
 
@@ -838,6 +936,13 @@ def blocked_low_security_count(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=["blocked_low_resolved_security_count"],
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(
         output_dir / "d3_t11_provider_call_summary.json",
@@ -872,6 +977,13 @@ def blocked_missing_d3_t07_source(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=["blocked_missing_d3_t07_source_duckdb"],
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(
         output_dir / "d3_t11_provider_call_summary.json",
@@ -897,6 +1009,12 @@ def _redacted_d3_t07_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "data_version_published",
         "r0_state_generated",
         "output_duckdb",
+        "candidate_quality_tier",
+        "candidate_generation_soft_warning_reasons",
+        "consumer_readiness_evaluated_by_d3",
+        "formal_use_authorized",
+        "formal_release_required",
+        "policy_evidence_pending_hash",
     }
     return {key: summary.get(key) for key in allowed_keys if key in summary}
 
@@ -913,10 +1031,26 @@ def ensure_d3_t07_source_available(
     sample_securities: int | None,
 ) -> dict[str, Any]:
     if d3_t07_duckdb.exists():
+        summary_path = d3_t07_duckdb.parent / "d3_t07_generation_summary.json"
+        d3_t07_summary = _load_json(summary_path) if summary_path.exists() else {}
+        soft_warning_reasons = d3_t07_summary.get(
+            "candidate_generation_soft_warning_reasons", []
+        )
+        if not isinstance(soft_warning_reasons, list):
+            soft_warning_reasons = []
         return {
-            "d3_t07_source_status": "available",
+            "d3_t07_source_status": (
+                "available_with_warnings" if soft_warning_reasons else "available"
+            ),
             "d3_t07_auto_generated": False,
             "d3_t07_source_path": str(d3_t07_duckdb),
+            "d3_t07_generation_decision": d3_t07_summary.get(
+                "d3_t07_generation_decision"
+            ),
+            "d3_t07_generation_summary": _redacted_d3_t07_summary(d3_t07_summary)
+            if d3_t07_summary
+            else {},
+            "d3_t07_soft_warning_reasons": soft_warning_reasons,
             "blocking_reasons": [],
         }
     if not auto_generate_d3_t07_from_d2_t20:
@@ -954,7 +1088,11 @@ def ensure_d3_t07_source_available(
         end_date=end_date,
     )
     redacted_summary = _redacted_d3_t07_summary(summary)
-    if summary.get("d3_t07_generation_decision") != "accepted_candidate_observation":
+    accepted_decisions = {
+        "accepted_candidate_observation",
+        "accepted_candidate_observation_with_warnings",
+    }
+    if summary.get("d3_t07_generation_decision") not in accepted_decisions:
         return {
             "d3_t07_source_status": "blocked_d3_t07_generation_failed",
             "d3_t07_auto_generated": True,
@@ -970,12 +1108,22 @@ def ensure_d3_t07_source_available(
             "remote_provider_called": False,
             "blocking_reasons": ["d3_t07_output_missing_after_generation"],
         }
+    soft_warning_reasons = summary.get("candidate_generation_soft_warning_reasons", [])
+    if not isinstance(soft_warning_reasons, list):
+        soft_warning_reasons = []
+    source_status = (
+        "auto_generated_from_d2_t20_with_warnings"
+        if soft_warning_reasons
+        else "auto_generated_from_d2_t20"
+    )
     return {
-        "d3_t07_source_status": "auto_generated_from_d2_t20",
+        "d3_t07_source_status": source_status,
         "d3_t07_auto_generated": True,
         "d3_t07_source_path": str(d3_t07_duckdb),
         "d2_t20_source_path": str(d2_t20_duckdb),
         "d3_t07_generation_summary": redacted_summary,
+        "d3_t07_generation_decision": summary.get("d3_t07_generation_decision"),
+        "d3_t07_soft_warning_reasons": soft_warning_reasons,
         "blocking_reasons": [],
     }
 
@@ -1000,6 +1148,13 @@ def blocked_source_preflight(
         "r0_state_generated": False,
         "formal_data_version_published": False,
     }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=source_preflight.get("d3_t07_soft_warning_reasons", []),
+            quality_blocking_reasons=source_preflight.get("blocking_reasons", []),
+        )
+    )
     _write_json(output_dir / "d3_t11_generation_summary.json", summary)
     _write_json(
         output_dir / "d3_t11_provider_call_summary.json",
@@ -1013,6 +1168,256 @@ def blocked_source_preflight(
             "calls": [],
         },
     )
+    return summary
+
+
+def blocked_retry_missing_previous_outputs(
+    output_dir: Path, *, run_id: str, blocking_reasons: list[str]
+) -> dict[str, Any]:
+    summary = {
+        "task_id": TASK_ID,
+        "run_id": run_id,
+        "d3_t11_generation_decision": "blocked_retry_missing_previous_outputs",
+        "retry_failed_only": True,
+        "remote_provider_called": False,
+        "candidate_generated": False,
+        "blocking_reasons": blocking_reasons,
+        "pcvt_values_generated": False,
+        "r0_state_generated": False,
+        "formal_data_version_published": False,
+    }
+    summary.update(
+        candidate_generation_fields(
+            generated=False,
+            warnings=[],
+            quality_blocking_reasons=blocking_reasons,
+        )
+    )
+    _write_json(output_dir / "d3_t11_generation_summary.json", summary)
+    return summary
+
+
+def _failed_daily_basic_calls(
+    provider_summary: dict[str, Any], retry_ts_codes: list[str] | None
+) -> list[dict[str, Any]]:
+    retry_filter = set(retry_ts_codes or [])
+    failed_calls = [
+        call
+        for call in provider_summary.get("calls", [])
+        if call.get("endpoint") == "daily_basic" and call.get("status") == "failed"
+    ]
+    if retry_filter:
+        failed_calls = [
+            call for call in failed_calls if str(call.get("ts_code")) in retry_filter
+        ]
+    deduped: dict[str, dict[str, Any]] = {}
+    for call in failed_calls:
+        ts_code = str(call.get("ts_code", "")).strip()
+        if ts_code:
+            deduped[ts_code] = call
+    return [deduped[ts_code] for ts_code in sorted(deduped)]
+
+
+def _merge_retry_calls(
+    *,
+    previous_calls: list[dict[str, Any]],
+    retry_calls: list[dict[str, Any]],
+    retry_run_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    retry_by_key = {
+        (call.get("endpoint"), call.get("ts_code")): call for call in retry_calls
+    }
+    merged = []
+    history = []
+    for call in previous_calls:
+        key = (call.get("endpoint"), call.get("ts_code"))
+        retry_call = retry_by_key.get(key)
+        if retry_call is None:
+            merged.append(call)
+            continue
+        merged.append(retry_call)
+        history.append(
+            {
+                "retry_run_id": retry_run_id,
+                "ts_code": retry_call.get("ts_code"),
+                "endpoint": retry_call.get("endpoint"),
+                "previous_status": call.get("status"),
+                "retry_status": retry_call.get("status"),
+                "attempt_count": retry_call.get("attempt_count"),
+                "row_count": retry_call.get("row_count"),
+            }
+        )
+    return merged, history
+
+
+def _provider_summary_counts(calls: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "call_count": len(calls),
+        "succeeded_call_count": sum(
+            1 for call in calls if call.get("status") == "succeeded"
+        ),
+        "failed_call_count": sum(1 for call in calls if call.get("status") == "failed"),
+    }
+
+
+def retry_failed_provider_calls(
+    *,
+    output_dir: Path,
+    provider_call_summary: Path,
+    d3_t07_duckdb: Path,
+    start_date: str,
+    end_date: str,
+    provider: str,
+    client: TnskhdataClient | None,
+    max_retries: int,
+    sleep_seconds: float,
+    retry_ts_codes: list[str] | None,
+    run_id: str,
+    code_commit: str,
+) -> dict[str, Any]:
+    output_duckdb = output_dir / OUTPUT_DUCKDB_NAME
+    generation_summary_path = output_dir / "d3_t11_generation_summary.json"
+    required = {
+        "missing_d3_t11_output_duckdb": output_duckdb,
+        "missing_provider_call_summary": provider_call_summary,
+        "missing_generation_summary": generation_summary_path,
+        "missing_d3_t07_source_duckdb": d3_t07_duckdb,
+    }
+    missing = [reason for reason, path in required.items() if not path.exists()]
+    if missing:
+        return blocked_retry_missing_previous_outputs(
+            output_dir, run_id=run_id, blocking_reasons=missing
+        )
+
+    previous_provider_summary = _load_json(provider_call_summary)
+    previous_generation_summary = _load_json(generation_summary_path)
+    retry_start_date = previous_generation_summary.get("start_date") or start_date
+    retry_end_date = previous_generation_summary.get("end_date") or end_date
+    failed_calls = _failed_daily_basic_calls(
+        previous_provider_summary, retry_ts_codes=retry_ts_codes
+    )
+    if not failed_calls:
+        summary = {
+            **previous_generation_summary,
+            "run_id": run_id,
+            "d3_t11_generation_decision": "retry_failed_only_noop",
+            "retry_failed_only": True,
+            "remote_provider_called": False,
+            "failed_call_count_before_retry": 0,
+            "retried_call_count": 0,
+            "recovered_call_count": 0,
+            "failed_call_count_after_retry": 0,
+            "candidate_generated": True,
+        }
+        _write_json(generation_summary_path, summary)
+        return summary
+
+    if client is None:
+        return blocked_missing_token(output_dir, run_id=run_id, security_summary={})
+
+    retry_codes = [str(call["ts_code"]) for call in failed_calls]
+    daily_basic_rows, retry_calls = fetch_daily_basic_rows(
+        client,
+        retry_codes,
+        start_date=retry_start_date,
+        end_date=retry_end_date,
+        max_retries=max_retries,
+        sleep_seconds=sleep_seconds,
+    )
+    recovered_codes = sorted(
+        {
+            str(call.get("ts_code"))
+            for call in retry_calls
+            if call.get("status") == "succeeded"
+        }
+    )
+    if recovered_codes:
+        d3_rows = source_rows(
+            d3_t07_duckdb,
+            securities=recovered_codes,
+            start_date=retry_start_date,
+            end_date=retry_end_date,
+            sample_securities=None,
+        )
+        candidate_rows = build_candidate_rows(
+            d3_rows=d3_rows,
+            daily_basic_rows=daily_basic_rows,
+            d3_source_duckdb=d3_t07_duckdb,
+            provider_source=provider,
+            run_id=run_id,
+            code_commit=code_commit,
+        )
+        conn = duckdb.connect(str(output_duckdb))
+        try:
+            create_output_table(conn)
+            insert_candidate_rows(conn, candidate_rows)
+        finally:
+            conn.close()
+
+    merged_calls, retry_history = _merge_retry_calls(
+        previous_calls=previous_provider_summary.get("calls", []),
+        retry_calls=retry_calls,
+        retry_run_id=run_id,
+    )
+    all_rows = load_candidate_rows_from_output_duckdb(output_duckdb)
+    daily_basic_row_count = sum(
+        1 for row in all_rows if row.get("daily_basic_close") is not None
+    )
+    source_row_count = previous_generation_summary.get("source_row_count") or len(
+        all_rows
+    )
+    summary = build_reports(
+        output_dir=output_dir,
+        output_duckdb=output_duckdb,
+        rows=all_rows,
+        source_row_count=int(source_row_count),
+        daily_basic_rows=[],
+        provider_calls=merged_calls,
+        run_id=run_id,
+        daily_basic_row_count_override=daily_basic_row_count,
+    )
+    retry_counts = {
+        "retry_failed_only": True,
+        "failed_call_count_before_retry": len(failed_calls),
+        "retried_call_count": len(retry_calls),
+        "recovered_call_count": sum(
+            1 for call in retry_calls if call.get("status") == "succeeded"
+        ),
+        "failed_call_count_after_retry": sum(
+            1 for call in retry_calls if call.get("status") == "failed"
+        ),
+        "retried_ts_codes": retry_codes,
+        "recovered_ts_codes": recovered_codes,
+        "remote_provider_called": bool(retry_calls),
+    }
+    provider_counts = _provider_summary_counts(merged_calls)
+    for report_name in (
+        "d3_t11_generation_summary.json",
+        "d3_t11_field_coverage_report.json",
+        "d3_t11_quality_report.json",
+        "d3_t11_provider_call_summary.json",
+        "d3_t11_r0_handoff_report.json",
+    ):
+        path = output_dir / report_name
+        payload = _load_json(path)
+        payload.update(retry_counts)
+        if report_name in (
+            "d3_t11_generation_summary.json",
+            "d3_t11_provider_call_summary.json",
+        ):
+            payload.update(provider_counts)
+        if report_name == "d3_t11_provider_call_summary.json":
+            payload["provider_raw_payload_committed"] = False
+            payload["credential_committed"] = False
+            payload["retry_history"] = (
+                previous_provider_summary.get("retry_history", []) + retry_history
+            )
+        if report_name == "d3_t11_generation_summary.json":
+            payload["start_date"] = retry_start_date
+            payload["end_date"] = retry_end_date
+            summary = payload
+        _write_json(path, payload)
+    write_hash_summary(output_dir)
     return summary
 
 
@@ -1038,12 +1443,35 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
     contract: Path = DEFAULT_CONTRACT,
     provider_client: TnskhdataClient | None = None,
     code_commit: str = "unknown",
+    retry_failed_only: bool = False,
+    provider_call_summary: Path | None = None,
+    retry_ts_codes: list[str] | None = None,
 ) -> dict[str, Any]:
     ensure_allowed_output_dir(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    remove_previous_outputs(output_dir, resume=resume)
     _load_json(contract)
     run_id = _utc_run_id()
+    if retry_failed_only:
+        client = provider_client
+        if client is None:
+            token = token_from_env()
+            client = real_tnskhdata_client(token) if token else None
+        return retry_failed_provider_calls(
+            output_dir=output_dir,
+            provider_call_summary=provider_call_summary
+            or (output_dir / "d3_t11_provider_call_summary.json"),
+            d3_t07_duckdb=d3_t07_duckdb,
+            start_date=start_date,
+            end_date=end_date,
+            provider=provider,
+            client=client,
+            max_retries=max_retries,
+            sleep_seconds=sleep_seconds,
+            retry_ts_codes=retry_ts_codes,
+            run_id=run_id,
+            code_commit=code_commit,
+        )
+    remove_previous_outputs(output_dir, resume=resume)
     securities, security_summary = resolve_input_securities(
         securities_file=securities_file, security_universe=security_universe
     )
@@ -1149,6 +1577,15 @@ def generate_d3_t11_volume_amount_share_turnover_candidate(
         payload = _load_json(path)
         payload.update(security_summary)
         payload.update(source_preflight)
+        d3_t07_warnings = source_preflight.get("d3_t07_soft_warning_reasons", [])
+        if isinstance(d3_t07_warnings, list) and d3_t07_warnings:
+            payload.update(
+                candidate_generation_fields(
+                    generated=payload.get("d3_candidate_generated", False) is True,
+                    warnings=d3_t07_warnings,
+                    quality_blocking_reasons=payload.get("blocking_reasons", []),
+                )
+            )
         if report_name == "d3_t11_generation_summary.json":
             payload["start_date"] = start_date
             payload["end_date"] = end_date
@@ -1205,6 +1642,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--allow-low-security-count", action="store_true")
     parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+    parser.add_argument("--retry-failed-only", action="store_true")
+    parser.add_argument("--provider-call-summary", type=Path)
+    parser.add_argument("--retry-ts-code", action="append", default=None)
     return parser.parse_args()
 
 
@@ -1234,6 +1674,9 @@ def main() -> int:
         dry_run=args.dry_run,
         allow_low_security_count=args.allow_low_security_count,
         contract=args.contract,
+        retry_failed_only=args.retry_failed_only,
+        provider_call_summary=args.provider_call_summary,
+        retry_ts_codes=args.retry_ts_code,
     )
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
     return 0
