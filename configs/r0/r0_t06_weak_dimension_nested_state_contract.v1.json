@@ -1,0 +1,131 @@
+{
+  "$schema": "../../schemas/r0/r0_t06_weak_dimension_nested_state_contract.schema.json",
+  "config_version": "1.0.0",
+  "contract_id": "R0_T06_WEAK_DIMENSION_NESTED_STATE_CONTRACT_V1",
+  "task_id": "R0-T06",
+  "contract_status": "draft",
+  "contract_scope": "weak_dimension_rule_nested_daily_states_synthetic_only",
+  "depends_on": [
+    "R0_T05_STRICT_PAST_PERCENTILE_SCORE_CONTRACT_V1"
+  ],
+  "real_data_read_authorized": false,
+  "duckdb_write_authorized": false,
+  "formal_data_version_authorized": false,
+  "state_generation_authorized": "synthetic_only",
+  "confirmation_generation_authorized": false,
+  "state_interval_generation_authorized": false,
+  "future_label_generation_authorized": false,
+  "returns_generation_authorized": false,
+  "backtest_generation_authorized": false,
+  "portfolio_generation_authorized": false,
+  "q_values": [0.10, 0.20, 0.30],
+  "baseline_q": 0.20,
+  "weak_delta": 0.10,
+  "indicator_threshold_formula": "1 - q",
+  "dimension_mean_threshold_formula": "1 - q",
+  "dimension_min_threshold_formula": "1 - q - weak_delta",
+  "dimension_rule": "weak",
+  "strict_rule_generated_by_this_task": false,
+  "indicator_active_generated_by_this_task": true,
+  "dimension_active_generated_by_this_task": true,
+  "nested_raw_state_generated_by_this_task": true,
+  "exclusive_state_layer_generated_by_this_task": true,
+  "confirmed_state_generated_by_this_task": false,
+  "streak_generated_by_this_task": false,
+  "interval_generated_by_this_task": false,
+  "active_indicator_ids": [
+    "P1_NATR14",
+    "P2_LogRange20",
+    "C1_LogMASpread_5_60",
+    "C2_AdjVWAPSpread_5_60",
+    "T1_ER20",
+    "T2_AbsTrendT20",
+    "V1_TurnoverShrink20_60",
+    "V2_AmountLevel20Pct"
+  ],
+  "dimension_components": {
+    "P": ["P1_NATR14", "P2_LogRange20"],
+    "C": ["C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60"],
+    "T": ["T1_ER20", "T2_AbsTrendT20"],
+    "V": ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"]
+  },
+  "nested_state_formulas": {
+    "S_P_raw": "P_raw",
+    "S_PC_raw": "P_raw AND C_raw",
+    "S_PCT_raw": "P_raw AND C_raw AND T_raw",
+    "S_PCVT_raw": "P_raw AND C_raw AND T_raw AND V_raw"
+  },
+  "exclusive_state_layers": [
+    "NONE",
+    "P_ONLY",
+    "PC_ONLY",
+    "PCT_ONLY",
+    "PCVT",
+    "UNKNOWN",
+    "BLOCKED",
+    "DIAGNOSTIC_REQUIRED"
+  ],
+  "allowed_logical_input_sources": [
+    "synthetic_in_memory_scores",
+    "r0_t05_strict_past_percentile_score"
+  ],
+  "prohibited_direct_sources": [
+    "d1.raw_market_prices",
+    "d2.adjusted_market_prices",
+    "d2.market_price_quality_flags",
+    "d2.membership_alignment",
+    "d3.generated",
+    "data/raw",
+    "data/external",
+    "data/generated",
+    "MarketDB",
+    ".day"
+  ],
+  "q_selection_prohibited_by": [
+    "future_labels",
+    "returns",
+    "backtest",
+    "future_outcomes"
+  ],
+  "validity_statuses": [
+    "valid",
+    "unknown",
+    "diagnostic_required",
+    "blocked"
+  ],
+  "reason_code_vocabulary": [
+    "valid_no_blocker",
+    "indicator_not_eligible",
+    "dimension_not_eligible",
+    "score_missing",
+    "score_dimension_missing",
+    "score_dimension_min_missing",
+    "missing_dimension_state",
+    "forbidden_output_field",
+    "state_lineage_missing",
+    "direct_real_data_source_forbidden",
+    "upstream_unknown",
+    "upstream_diagnostic_required",
+    "upstream_blocked",
+    "insufficient_strict_past_history",
+    "raw_metric_not_valid",
+    "raw_metric_value_missing",
+    "missing_component_score",
+    "common_eligible_sample_incomplete"
+  ],
+  "prohibited_outputs": [
+    "confirmation",
+    "confirmed_state",
+    "streak",
+    "state_interval",
+    "state_intervals",
+    "future_label",
+    "future_labels",
+    "future_return",
+    "future_returns",
+    "breakout_direction",
+    "backtest",
+    "portfolio",
+    "formal_data_version"
+  ]
+}

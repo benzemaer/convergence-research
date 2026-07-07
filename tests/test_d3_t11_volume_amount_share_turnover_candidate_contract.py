@@ -73,11 +73,11 @@ class D3T11VolumeAmountShareTurnoverContractTest(unittest.TestCase):
     def test_readme_advances_to_d3_t12_and_keeps_r0_t03_planned(self) -> None:
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "current_task: R0-T06 weak 维度规则、嵌套状态与互斥分层",
+            "current_task: R0-T07 联合确认层、streak 与确认区间表",
             text,
         )
         self.assertIn(
-            "next_planned_task: R0-T07 联合确认层、streak 与确认区间表",
+            "next_planned_task: R0-T08 主网格 candidate 状态日表与 manifest",
             text,
         )
         self.assertIn(
