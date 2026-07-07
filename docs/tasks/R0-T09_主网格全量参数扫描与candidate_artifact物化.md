@@ -40,7 +40,7 @@ Formal input manifest builder 在未显式传入 R0-T04/R0-T05/R0-T06/R0-T07 上
 
 合成测试必须证明 runner 能展开 27 组配置、baseline 配置存在、K=1 缺席、单配置物化生成 DuckDB/CSV gzip/DONE/manifest、resume 可跳过完整 artifact、partial 或 hash 不一致不会被跳过、失败配置写入 FAILED marker 且不写 DONE。测试还必须覆盖 worker 上限、CLI dry-run、input manifest hash mismatch、forbidden lineage 和 legacy V1 guard。
 
-R0-T09 runner/contract/smoke 可通过 PR #67 完成，但正式 input manifest 与 production full-grid materialization 仍需真实 R0-T04 至 R0-T07 上游 artifact。任务索引不得在 production full-grid materialization 完成前推进到 R0-T10。R0-T10 才负责审计报告和 R1 交接。
+R0-T09 runner/contract/smoke 可通过 PR #67 完成，但正式 input manifest 与 production full-grid materialization 仍需真实 R0-T04 至 R0-T07 上游 artifact。R0-T10 负责正式 upstream、authorized manifest 与 full-grid 执行；R0-T11 才负责审计报告和 R1 交接。
 
 ## 失败状态
 

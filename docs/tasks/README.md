@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R0
-current_task: R0-T09 正式 input manifest 与全量参数网格物化
-next_planned_task: R0-T10 R0 审计报告与 R1 交接
+current_task: R0-T10 正式物化与全网格执行（phase 1 pre-full-grid gate）
+next_planned_task: R0-T10 正式 27 组 full-grid execution（phase 2）
 ```
 
 ## 命名与路径规则
@@ -229,10 +229,12 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T09` runner/contract/smoke：completed via PR #67
 - `R0-T09` formal input manifest：blocked / pending real R0-T04 -> R0-T07 upstream artifacts
 - `R0-T09` production full-grid materialization：pending
-- `R0-T10` R0 审计报告与 R1 交接：planned
-- `R0-T11` 替代指标口径敏感性骨架：optional
-- `R0-T12` Post-Up-Release Short-PCT 研究接口占位：optional
-- `R0-T13` R0 并行确定性与性能优化：optional
+- `R0-T10` 正式物化与全网格执行 phase 1 pre-full-grid gate：in_progress
+- `R0-T10` 正式 27 组 full-grid execution phase 2：pending review after phase 1
+- `R0-T11` R0 审计报告与 R1 交接：planned
+- `R0-T12` 替代指标口径敏感性骨架：optional
+- `R0-T13` Post-Up-Release Short-PCT 研究接口占位：optional
+- `R0-T14` R0 并行确定性与性能优化：optional
 
 ## R1：状态存在性、结构关系、稳定性与零模型检验
 

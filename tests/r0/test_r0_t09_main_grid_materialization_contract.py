@@ -142,9 +142,13 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R0", text)
         self.assertIn(
-            "current_task: R0-T09 正式 input manifest 与全量参数网格物化", text
+            "current_task: R0-T10 正式物化与全网格执行（phase 1 pre-full-grid gate）",
+            text,
         )
-        self.assertIn("next_planned_task: R0-T10 R0 审计报告与 R1 交接", text)
+        self.assertIn(
+            "next_planned_task: R0-T10 正式 27 组 full-grid execution（phase 2）",
+            text,
+        )
         self.assertIn("`R0-T09` runner/contract/smoke：completed via PR #67", text)
         self.assertIn(
             "`R0-T09` formal input manifest：blocked / pending real "

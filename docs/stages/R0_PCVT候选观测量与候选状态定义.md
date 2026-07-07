@@ -943,14 +943,15 @@ R0 的 task 拆分遵循“一个 PR 实现一个 task”的治理边界。task 
 | R0-T06 | `[codex] R0-T06 weak 维度规则、嵌套状态与互斥分层` | `codex/r0-t06-weak-dimension-nested-states` | 必须 | 生成 P/C/T/V raw weak states、`S_P`、`S_PC`、`S_PCT`、`S_PCVT` raw nested states、unknown propagation 和互斥分层。weak 为主网格 baseline，固定 `q=0.10/0.20/0.30` 与 `delta=0.10`；strict 不进入 baseline 或 sidecar，confirmation/streak/interval 留给 R0-T07。 |
 | R0-T07 | `[codex] R0-T07 联合确认层、streak 与确认区间表` | `codex/r0-t07-confirmation-streak-intervals` | 必须 | 实现 `K=2/3/5` 的实时确认、streak、`raw_start_date`、`confirmation_date`、`confirmed_start_date`、终止类型和 confirmed interval 基础表。确认不得回填为早期可得信号，不做 gap merge，不生成主网格 artifact 或 manifest。 |
 | R0-T08 | `[codex] R0-T08 主网格 candidate 状态日表与 manifest` | `codex/r0-t08-main-grid-candidate-state-artifacts` | 必须 | 对 27 个 weak baseline 主网格配置组装 candidate 状态日表、confirmed interval 表和 manifest；写入 `candidate_config_id`、`config_hash`、`run_id`、`code_commit`、输入输出哈希和数据版本。只消费 R0-T04 至 R0-T07 的 synthetic upstream results，不重算指标/分数/状态/确认，不引入 future、return、backtest、portfolio 或 signal 字段。 |
-| R0-T09 | `[codex] R0-T09 主网格全量参数扫描与 candidate artifact 物化` | `codex/r0-t09-main-grid-materialization-runner` | 必须 | 读取已授权 R0 输入 manifest，对 \(W=120/250/500\)、\(q=0.10/0.20/0.30\)、\(K=2/3/5\)、`weak_delta=0.10` 的 27 组主网格配置物化 candidate daily state 与 confirmed interval artifact。每组配置独立输出 DuckDB、CSV gzip、DONE/FAILED marker 和日志，支持 `--resume`，但不生成审计报告、R1 handoff、future、return、backtest、portfolio 或 signal。 |
-| R0-T10 | `[codex] R0-T10 R0 审计报告与 R1 交接` | `codex/r0-t10-r0-acceptance-r1-handoff` | 必须 | 基于 R0-T09 的物化产物输出覆盖率、unknown 分布、C2/V readiness 影响、层内相关性、维度共现、`S_PCT`/`S_PCVT` 频率、weak baseline 边界诊断、嵌套一致性、确认层审计和 R1 handoff。 |
-| R0-T11 | `[codex] R0-T11 替代指标口径敏感性骨架` | `codex/r0-t11-alternative-metric-sensitivity` | 可选 | 仅在 R1 需要时启用，用于一次改变一个构件的替代口径，例如 `NATR20`、`LogRange30`、`ER30`、`TurnoverShrink30_90`。不得与全部 W/q/K 完全交叉，不得用未来表现筛选。 |
-| R0-T12 | `[codex] R0-T12 Post-Up-Release Short-PCT 研究接口占位` | `codex/r0-t12-post-release-short-pct-interface-placeholder` | 可选 | 只定义后续 R3/R4 所需的字段占位和边界说明，不计算释放、不定义未来路径、不改写 R0 状态。本 task 只有在需要提前对齐 R3/R4 接口时才做。 |
-| R0-T13 | `[codex] R0-T13 R0 并行确定性与性能优化` | `codex/r0-t13-deterministic-parallel-runtime` | 可选 | 仅当 27 主网格运行成本过高时启动。目标是保证单线程与并行 worker 在 schema、排序、哈希和关键统计量上确定一致。 |
+| R0-T09 | `[codex] R0-T09 主网格全量参数扫描与 candidate artifact 物化` | `codex/r0-t09-main-grid-materialization-runner` | 必须 | 提供读取已授权 R0 输入 manifest、coverage guard、resume/hash、worker=2 和 27 组主网格 materialization runner。R0-T09 runner/contract/smoke 已完成；formal input manifest 与 production full-grid 需要 R0-T10 的真实 upstream 执行补齐。 |
+| R0-T10 | `[codex] R0-T10 正式物化与全网格执行` | `codex/r0-t10-formal-materialization-full-grid` | 必须 | 定位真实授权研究输入，生成或接收 R0-T04 至 R0-T07 正式 upstream artifacts，生成 R0-T09 authorized input manifest，执行 dry-run、baseline 单组和正式 27 组 full-grid。第一段提交停止在正式 full-grid 前；full-grid 不生成审计报告、R1 handoff、future、return、backtest、portfolio 或 signal。 |
+| R0-T11 | `[codex] R0-T11 R0 审计报告与 R1 交接` | `codex/r0-t11-r0-acceptance-r1-handoff` | 必须 | 基于 R0-T10/R0-T09 的正式物化产物输出覆盖率、unknown 分布、C2/V readiness 影响、层内相关性、维度共现、`S_PCT`/`S_PCVT` 频率、weak baseline 边界诊断、嵌套一致性、确认层审计和 R1 handoff。 |
+| R0-T12 | `[codex] R0-T12 替代指标口径敏感性骨架` | `codex/r0-t12-alternative-metric-sensitivity` | 可选 | 仅在 R1 需要时启用，用于一次改变一个构件的替代口径，例如 `NATR20`、`LogRange30`、`ER30`、`TurnoverShrink30_90`。不得与全部 W/q/K 完全交叉，不得用未来表现筛选。 |
+| R0-T13 | `[codex] R0-T13 Post-Up-Release Short-PCT 研究接口占位` | `codex/r0-t13-post-release-short-pct-interface-placeholder` | 可选 | 只定义后续 R3/R4 所需的字段占位和边界说明，不计算释放、不定义未来路径、不改写 R0 状态。本 task 只有在需要提前对齐 R3/R4 接口时才做。 |
+| R0-T14 | `[codex] R0-T14 R0 并行确定性与性能优化` | `codex/r0-t14-deterministic-parallel-runtime` | 可选 | 仅当 27 主网格运行成本过高时启动。目标是保证单线程与并行 worker 在 schema、排序、哈希和关键统计量上确定一致。 |
 
 ### 15.1 必须 task 与可选 task 的边界
 
-R0-T01 至 R0-T10 是进入 R1 的最低必要路线。它们分别覆盖定义、输入门禁、指标实现、分位与分数、状态逻辑、确认区间、candidate 产物、主网格物化和交接审计。缺少任一项，R1 都无法合法判断状态是否存在、是否稳定、是否超过零模型或是否具有超越 P 的结构增量。
+R0-T01 至 R0-T11 是进入 R1 的最低必要路线。它们分别覆盖定义、输入门禁、指标实现、分位与分数、状态逻辑、确认区间、candidate 产物、主网格 runner、正式物化和交接审计。缺少任一项，R1 都无法合法判断状态是否存在、是否稳定、是否超过零模型或是否具有超越 P 的结构增量。
 
-R0-T11 至 R0-T13 是可选任务。它们不应阻塞基线 R0 完成，除非 R0-T10 审计显示基线样本容量、C2/V 可用性、weak baseline 边界或运行性能已经影响 R1 的可执行性。可选任务不得引入未来收益、未来突破方向、未来路径标签或回测结果。
+R0-T12 至 R0-T14 是可选任务。它们不应阻塞基线 R0 完成，除非 R0-T11 审计显示基线样本容量、C2/V 可用性、weak baseline 边界或运行性能已经影响 R1 的可执行性。可选任务不得引入未来收益、未来突破方向、未来路径标签或回测结果。
