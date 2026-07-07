@@ -17,13 +17,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         description="Validate R0-T10-02 generated R0-T05 score artifacts."
     )
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--r0-t04-duckdb", type=Path)
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        result = validate_materialization(args.output_dir)
+        result = validate_materialization(
+            args.output_dir, r0_t04_duckdb=args.r0_t04_duckdb
+        )
     except R0T10ScoreValidationError as exc:
         print(str(exc), file=sys.stderr)
         return 2

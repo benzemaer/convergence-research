@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from src.r0.percentile_score_engine import (
     DIMENSION_COMPONENTS,
     PERCENTILE_WINDOWS,
 )
+from src.r0.r0_t10_raw_metric_materializer import OUTPUT_TABLE_NAME as R0_T04_TABLE
 from src.r0.r0_t10_score_materializer import (
     COMMON_DUCKDB_NAME,
     COMMON_TABLE_NAME,
@@ -46,7 +48,9 @@ class R0T10ScoreValidationError(RuntimeError):
     pass
 
 
-def validate_materialization(output_dir: str | Path) -> dict[str, Any]:
+def validate_materialization(
+    output_dir: str | Path, r0_t04_duckdb: str | Path | None = None
+) -> dict[str, Any]:
     root = Path(output_dir)
     manifest_path = root / MANIFEST_NAME
     summary_path = root / SUMMARY_NAME
@@ -72,6 +76,12 @@ def validate_materialization(output_dir: str | Path) -> dict[str, Any]:
     _validate_coverage(stats, errors)
     _validate_strict_past(stats["indicator"], errors)
     _validate_forbidden_and_legacy(stats, errors)
+    recompute = _validate_deterministic_strict_past_recompute(
+        root=root,
+        manifest=manifest,
+        r0_t04_duckdb=r0_t04_duckdb,
+        errors=errors,
+    )
     result = {
         "status": "passed" if not errors else "failed",
         "output_dir": str(root),
@@ -99,6 +109,18 @@ def validate_materialization(output_dir: str | Path) -> dict[str, Any]:
         },
         "shard_counts": shard_counts,
         "duckdb_stats": stats,
+        "strict_past_recompute_sample_count": recompute["sample_count"],
+        "strict_past_recompute_mismatch_count": recompute["mismatch_count"],
+        "strict_past_recompute_skipped_count": recompute["skipped_count"],
+        "strict_past_recompute_skipped_reasons": recompute["skipped_reasons"],
+        "strict_past_recompute_W_coverage": recompute["sampled_windows"],
+        "strict_past_recompute_indicator_coverage": recompute["sampled_indicators"],
+        "strict_past_recompute_check": "passed"
+        if recompute["sample_count"] > 0 and recompute["mismatch_count"] == 0
+        else "blocked",
+        "midrank_tie_recompute_check": "passed"
+        if recompute["tie_sample_count"] > 0 and recompute["tie_mismatch_count"] == 0
+        else "blocked",
         "strict_past_validator_status": "passed" if not errors else "failed",
         "current_value_in_reference_set_check": "passed"
         if not stats["indicator"].get("current_value_hit_count")
@@ -106,7 +128,7 @@ def validate_materialization(output_dir: str | Path) -> dict[str, Any]:
         "future_leakage_check": "passed"
         if not stats["indicator"].get("future_leakage_hit_count")
         else "blocked",
-        "midrank_tie_check": "passed"
+        "tie_method_field_check": "passed"
         if not stats["indicator"].get("midrank_mismatch_count")
         else "blocked",
         "amount_level_repeated_percentile_check": "passed"
@@ -124,6 +146,237 @@ def validate_materialization(output_dir: str | Path) -> dict[str, Any]:
         raise R0T10ScoreValidationError(
             json.dumps(result, ensure_ascii=False, indent=2)
         )
+    return result
+
+
+def _validate_deterministic_strict_past_recompute(
+    *,
+    root: Path,
+    manifest: Mapping[str, Any],
+    r0_t04_duckdb: str | Path | None,
+    errors: list[str],
+) -> dict[str, Any]:
+    import duckdb  # noqa: PLC0415
+
+    input_path = _resolve_r0_t04_duckdb_path(manifest, r0_t04_duckdb)
+    result = {
+        "sample_count": 0,
+        "mismatch_count": 0,
+        "skipped_count": 0,
+        "skipped_reasons": {},
+        "tie_sample_count": 0,
+        "tie_mismatch_count": 0,
+        "sampled_windows": set(),
+        "sampled_indicators": set(),
+    }
+    if input_path is None:
+        _record_recompute_skip(result, "r0_t04_duckdb_path_missing")
+        errors.append("strict_past_recompute_blocked:r0_t04_duckdb_path_missing")
+        return _finalize_recompute_result(result)
+    if not input_path.is_file():
+        _record_recompute_skip(result, "r0_t04_duckdb_missing")
+        errors.append("strict_past_recompute_blocked:r0_t04_duckdb_missing")
+        return _finalize_recompute_result(result)
+
+    indicator_path = root / INDICATOR_DUCKDB_NAME
+    if not indicator_path.is_file():
+        _record_recompute_skip(result, "indicator_duckdb_missing")
+        errors.append("strict_past_recompute_blocked:indicator_duckdb_missing")
+        return _finalize_recompute_result(result)
+
+    score_conn = duckdb.connect(str(indicator_path), read_only=True)
+    raw_conn = duckdb.connect(str(input_path), read_only=True)
+    try:
+        samples = _select_recompute_samples(score_conn)
+        if not samples:
+            _record_recompute_skip(result, "eligible_samples_missing")
+            errors.append("strict_past_recompute_blocked:eligible_samples_missing")
+            return _finalize_recompute_result(result)
+        for sample in samples:
+            outcome = _recompute_one_strict_past_sample(raw_conn, sample)
+            if outcome["status"] == "skipped":
+                _record_recompute_skip(result, str(outcome["reason"]))
+                continue
+            result["sample_count"] += 1
+            result["sampled_windows"].add(int(sample["percentile_window_W"]))
+            result["sampled_indicators"].add(str(sample["indicator_id"]))
+            if outcome["has_tie"]:
+                result["tie_sample_count"] += 1
+            if outcome["status"] == "mismatch":
+                result["mismatch_count"] += 1
+                if outcome["has_tie"]:
+                    result["tie_mismatch_count"] += 1
+        if result["sample_count"] == 0:
+            errors.append("strict_past_recompute_blocked:no_recomputed_samples")
+        if result["sampled_windows"] != set(PERCENTILE_WINDOWS):
+            errors.append("strict_past_recompute_W_coverage_mismatch")
+        if not {"P1_NATR14", "V2_AmountLevel20Pct"}.issubset(
+            result["sampled_indicators"]
+        ):
+            errors.append("strict_past_recompute_indicator_coverage_mismatch")
+        if result["mismatch_count"]:
+            errors.append(
+                "strict_past_recompute_mismatch:"
+                f"{result['mismatch_count']}/{result['sample_count']}"
+            )
+        if result["skipped_count"]:
+            errors.append(f"strict_past_recompute_skipped:{result['skipped_count']}")
+        if result["tie_mismatch_count"]:
+            errors.append(
+                "midrank_tie_recompute_mismatch:"
+                f"{result['tie_mismatch_count']}/{result['tie_sample_count']}"
+            )
+    finally:
+        score_conn.close()
+        raw_conn.close()
+    return _finalize_recompute_result(result)
+
+
+def _resolve_r0_t04_duckdb_path(
+    manifest: Mapping[str, Any], override: str | Path | None
+) -> Path | None:
+    if override is not None:
+        return Path(override)
+    for key in ("input_r0_t04_duckdb_path", "input_artifact", "input_path"):
+        value = manifest.get(key)
+        if isinstance(value, str) and value:
+            return Path(value)
+    return None
+
+
+def _select_recompute_samples(conn: Any) -> list[dict[str, Any]]:
+    quoted = '"' + INDICATOR_TABLE_NAME.replace('"', '""') + '"'
+    samples: list[dict[str, Any]] = []
+    for window in PERCENTILE_WINDOWS:
+        for indicator_id in ACTIVE_INDICATORS:
+            row = conn.execute(
+                f"""
+                SELECT
+                  security_id,
+                  trading_date,
+                  indicator_id,
+                  percentile_window_W,
+                  raw_value,
+                  percentile,
+                  score,
+                  reference_observation_count,
+                  reference_window_end,
+                  tie_method
+                FROM {quoted}
+                WHERE eligible = true
+                  AND percentile_window_W = ?
+                  AND indicator_id = ?
+                ORDER BY security_id, trading_date, indicator_id
+                LIMIT 1
+                """,
+                [window, indicator_id],
+            ).fetchone()
+            if row is not None:
+                samples.append(
+                    {
+                        "security_id": str(row[0]),
+                        "trading_date": str(row[1]),
+                        "indicator_id": str(row[2]),
+                        "percentile_window_W": int(row[3]),
+                        "raw_value": float(row[4]),
+                        "percentile": float(row[5]),
+                        "score": float(row[6]),
+                        "reference_observation_count": int(row[7]),
+                        "reference_window_end": None if row[8] is None else str(row[8]),
+                        "tie_method": None if row[9] is None else str(row[9]),
+                    }
+                )
+    return samples
+
+
+def _recompute_one_strict_past_sample(
+    raw_conn: Any, sample: Mapping[str, Any]
+) -> dict[str, Any]:
+    raw_indicator_id = _raw_indicator_id(str(sample["indicator_id"]))
+    current = raw_conn.execute(
+        f"""
+        SELECT raw_value
+        FROM "{R0_T04_TABLE}"
+        WHERE security_id = ?
+          AND trading_date = ?
+          AND indicator_id = ?
+          AND validity_status = 'valid'
+        """,
+        [sample["security_id"], sample["trading_date"], raw_indicator_id],
+    ).fetchone()
+    if current is None or current[0] is None:
+        return {"status": "skipped", "reason": "current_raw_value_missing"}
+    current_value = float(current[0])
+    history = [
+        (str(row[0]), float(row[1]))
+        for row in raw_conn.execute(
+            f"""
+            SELECT trading_date, raw_value
+            FROM "{R0_T04_TABLE}"
+            WHERE security_id = ?
+              AND indicator_id = ?
+              AND validity_status = 'valid'
+              AND trading_date < ?
+              AND raw_value IS NOT NULL
+            ORDER BY trading_date DESC
+            LIMIT ?
+            """,
+            [
+                sample["security_id"],
+                raw_indicator_id,
+                sample["trading_date"],
+                sample["percentile_window_W"],
+            ],
+        ).fetchall()
+    ]
+    window = int(sample["percentile_window_W"])
+    if len(history) != window:
+        return {"status": "skipped", "reason": "strict_past_history_short"}
+    if any(trading_date >= str(sample["trading_date"]) for trading_date, _ in history):
+        return {
+            "status": "mismatch",
+            "reason": "reference_window_contains_current_or_future",
+            "has_tie": False,
+        }
+    history_values = [value for _, value in history]
+    less_count = sum(1 for value in history_values if value < current_value)
+    equal_count = sum(1 for value in history_values if value == current_value)
+    percentile = (less_count + 0.5 * equal_count) / window
+    score = 1.0 - percentile
+    has_tie = equal_count > 0
+    mismatch = (
+        str(sample.get("tie_method")) != "midrank"
+        or int(sample.get("reference_observation_count", -1)) != window
+        or (
+            sample.get("reference_window_end") is not None
+            and str(sample["reference_window_end"]) >= str(sample["trading_date"])
+        )
+        or not math.isclose(current_value, float(sample["raw_value"]), abs_tol=1e-12)
+        or not math.isclose(percentile, float(sample["percentile"]), abs_tol=1e-12)
+        or not math.isclose(score, float(sample["score"]), abs_tol=1e-12)
+    )
+    return {
+        "status": "mismatch" if mismatch else "matched",
+        "reason": "strict_past_recompute_mismatch" if mismatch else None,
+        "has_tie": has_tie,
+    }
+
+
+def _raw_indicator_id(indicator_id: str) -> str:
+    if indicator_id == "V2_AmountLevel20Pct":
+        return "V2_LogAmount20_base"
+    return indicator_id
+
+
+def _record_recompute_skip(result: dict[str, Any], reason: str) -> None:
+    result["skipped_count"] += 1
+    skipped_reasons = result["skipped_reasons"]
+    skipped_reasons[reason] = int(skipped_reasons.get(reason, 0)) + 1
+
+
+def _finalize_recompute_result(result: dict[str, Any]) -> dict[str, Any]:
+    result["sampled_windows"] = sorted(result["sampled_windows"])
+    result["sampled_indicators"] = sorted(result["sampled_indicators"])
     return result
 
 
