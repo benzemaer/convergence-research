@@ -775,7 +775,7 @@ def build_reports(
         no_research_outputs_key: True,
         "r0_baseline": "V1_VolShrink20_60 + V2_AmountLevel20Pct",
         "turnover_based_v_metrics_policy": (
-            "future alternatives for R0-T09 / R1 sensitivity"
+            "future alternatives for R0-T11 / R1 sensitivity"
         ),
         "next_planned_task": "R0-T03 PCVT raw metric engine 与合成测试",
         "pcvt_values_generated": False,

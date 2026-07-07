@@ -1,0 +1,2893 @@
+{
+  "confirmed_interval_results": [
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmed_start_date": "2026-02-03",
+      "duration_confirmed_days": 3,
+      "duration_raw_days": 5,
+      "interval_end_date": "2026-02-05",
+      "interval_id": "000001.SZ|W120|q0.10|d0.10|K2|S_PCVT|2026-02-03|0001",
+      "is_open_interval": false,
+      "last_observed_date": "2026-02-06",
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "termination_reason": "raw_state_false",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmed_start_date": "2026-02-03",
+      "duration_confirmed_days": 3,
+      "duration_raw_days": 5,
+      "interval_end_date": "2026-02-05",
+      "interval_id": "000001.SZ|W250|q0.20|d0.10|K3|S_PCVT|2026-02-03|0001",
+      "is_open_interval": false,
+      "last_observed_date": "2026-02-06",
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "termination_reason": "raw_state_false",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmed_start_date": "2026-02-03",
+      "duration_confirmed_days": 3,
+      "duration_raw_days": 5,
+      "interval_end_date": "2026-02-05",
+      "interval_id": "000001.SZ|W500|q0.30|d0.10|K5|S_PCVT|2026-02-03|0001",
+      "is_open_interval": false,
+      "last_observed_date": "2026-02-06",
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "termination_reason": "raw_state_false",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    }
+  ],
+  "daily_confirmation_results": [
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 2,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 2,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 3,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 3,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_P",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PC",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "confirmation_date": "2026-02-03",
+      "confirmation_k": 5,
+      "confirmation_start_date": "2026-02-01",
+      "confirmed_state": true,
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "raw_state": true,
+      "raw_streak": 5,
+      "raw_streak_start_date": "2026-02-01",
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "state_name": "S_PCVT",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    }
+  ],
+  "dimension_score_results": [
+    {
+      "dimension": "P",
+      "eligible_dimension": true,
+      "percentile_window_W": 120,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "C",
+      "eligible_dimension": true,
+      "percentile_window_W": 120,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "T",
+      "eligible_dimension": true,
+      "percentile_window_W": 120,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "V",
+      "eligible_dimension": true,
+      "percentile_window_W": 120,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "P",
+      "eligible_dimension": true,
+      "percentile_window_W": 250,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "C",
+      "eligible_dimension": true,
+      "percentile_window_W": 250,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "T",
+      "eligible_dimension": true,
+      "percentile_window_W": 250,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "V",
+      "eligible_dimension": true,
+      "percentile_window_W": 250,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "P",
+      "eligible_dimension": true,
+      "percentile_window_W": 500,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "C",
+      "eligible_dimension": true,
+      "percentile_window_W": 500,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "T",
+      "eligible_dimension": true,
+      "percentile_window_W": 500,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "dimension": "V",
+      "eligible_dimension": true,
+      "percentile_window_W": 500,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score_dimension": 0.82,
+      "score_dimension_min": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    }
+  ],
+  "indicator_score_results": [
+    {
+      "eligible": true,
+      "indicator_id": "P1_NATR14",
+      "percentile": 0.71,
+      "percentile_window_W": 120,
+      "raw_value": 0.71,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.71,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "P2_LogRange20",
+      "percentile": 0.72,
+      "percentile_window_W": 120,
+      "raw_value": 0.72,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.72,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "C1_LogMASpread_5_60",
+      "percentile": 0.73,
+      "percentile_window_W": 120,
+      "raw_value": 0.73,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.73,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "C2_AdjVWAPSpread_5_60",
+      "percentile": 0.74,
+      "percentile_window_W": 120,
+      "raw_value": 0.74,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "T1_ER20",
+      "percentile": 0.75,
+      "percentile_window_W": 120,
+      "raw_value": 0.75,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.75,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "T2_AbsTrendT20",
+      "percentile": 0.76,
+      "percentile_window_W": 120,
+      "raw_value": 0.76,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.76,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "V1_TurnoverShrink20_60",
+      "percentile": 0.77,
+      "percentile_window_W": 120,
+      "raw_value": 0.77,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.77,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "V2_AmountLevel20Pct",
+      "percentile": 0.21,
+      "percentile_window_W": 120,
+      "raw_value": 0.21,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.21,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "P1_NATR14",
+      "percentile": 0.71,
+      "percentile_window_W": 250,
+      "raw_value": 0.71,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.71,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "P2_LogRange20",
+      "percentile": 0.72,
+      "percentile_window_W": 250,
+      "raw_value": 0.72,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.72,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "C1_LogMASpread_5_60",
+      "percentile": 0.73,
+      "percentile_window_W": 250,
+      "raw_value": 0.73,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.73,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "C2_AdjVWAPSpread_5_60",
+      "percentile": 0.74,
+      "percentile_window_W": 250,
+      "raw_value": 0.74,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "T1_ER20",
+      "percentile": 0.75,
+      "percentile_window_W": 250,
+      "raw_value": 0.75,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.75,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "T2_AbsTrendT20",
+      "percentile": 0.76,
+      "percentile_window_W": 250,
+      "raw_value": 0.76,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.76,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "V1_TurnoverShrink20_60",
+      "percentile": 0.77,
+      "percentile_window_W": 250,
+      "raw_value": 0.77,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.77,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "V2_AmountLevel20Pct",
+      "percentile": 0.21,
+      "percentile_window_W": 250,
+      "raw_value": 0.21,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.21,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "P1_NATR14",
+      "percentile": 0.71,
+      "percentile_window_W": 500,
+      "raw_value": 0.71,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.71,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "P2_LogRange20",
+      "percentile": 0.72,
+      "percentile_window_W": 500,
+      "raw_value": 0.72,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.72,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "C1_LogMASpread_5_60",
+      "percentile": 0.73,
+      "percentile_window_W": 500,
+      "raw_value": 0.73,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.73,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "C2_AdjVWAPSpread_5_60",
+      "percentile": 0.74,
+      "percentile_window_W": 500,
+      "raw_value": 0.74,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.74,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "T1_ER20",
+      "percentile": 0.75,
+      "percentile_window_W": 500,
+      "raw_value": 0.75,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.75,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "T2_AbsTrendT20",
+      "percentile": 0.76,
+      "percentile_window_W": 500,
+      "raw_value": 0.76,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.76,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "V1_TurnoverShrink20_60",
+      "percentile": 0.77,
+      "percentile_window_W": 500,
+      "raw_value": 0.77,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.77,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "eligible": true,
+      "indicator_id": "V2_AmountLevel20Pct",
+      "percentile": 0.21,
+      "percentile_window_W": 500,
+      "raw_value": 0.21,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "score": 0.21,
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    }
+  ],
+  "nested_daily_state_results": [
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 120,
+      "q": 0.1,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 120,
+      "q": 0.2,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 120,
+      "q": 0.3,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 250,
+      "q": 0.1,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 250,
+      "q": 0.2,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 250,
+      "q": 0.3,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 500,
+      "q": 0.1,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 500,
+      "q": 0.2,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    },
+    {
+      "C_raw": true,
+      "P_raw": true,
+      "S_PCT_raw": true,
+      "S_PCVT_raw": true,
+      "S_PC_raw": true,
+      "S_P_raw": true,
+      "T_raw": true,
+      "V_raw": true,
+      "eligible_state": true,
+      "exclusive_state_layer": "PCVT",
+      "percentile_window_W": 500,
+      "q": 0.3,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid",
+      "weak_delta": 0.1
+    }
+  ],
+  "raw_metric_results": [
+    {
+      "indicator_id": "P1_NATR14",
+      "raw_value": 0.11,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "P2_LogRange20",
+      "raw_value": 0.12,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "C1_LogMASpread_5_60",
+      "raw_value": 0.13,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "C2_AdjVWAPSpread_5_60",
+      "raw_value": 0.14,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "T1_ER20",
+      "raw_value": 0.15,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "T2_AbsTrendT20",
+      "raw_value": 0.16,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "V1_TurnoverShrink20_60",
+      "raw_value": 0.17,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    },
+    {
+      "indicator_id": "V2_LogAmount20_base",
+      "raw_value": 0.18,
+      "reason_codes": [
+        "valid_no_blocker"
+      ],
+      "security_id": "000001.SZ",
+      "trading_date": "2026-02-03",
+      "validity_status": "valid"
+    }
+  ]
+}
