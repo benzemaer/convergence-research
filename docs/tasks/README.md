@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R0
-current_task: R0-T06 weak 维度规则、嵌套状态与互斥分层
-next_planned_task: R0-T07 联合确认层、streak 与确认区间表
+current_task: R0-T07 联合确认层、streak 与确认区间表
+next_planned_task: R0-T08 主网格 candidate 状态日表与 manifest
 ```
 
 ## 命名与路径规则
@@ -223,7 +223,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T03` V层 turnover 替代指标可行性、口径决策与输入门禁：completed via PR #61
 - `R0-T04` PCVT raw metric engine 与合成测试：completed via PR #62
 - `R0-T05` 严格过去分位、eligible 样本与 Score 体系：completed via PR #63
-- `R0-T06` weak 维度规则、嵌套状态与互斥分层：planned
+- `R0-T06` weak 维度规则、嵌套状态与互斥分层：completed via PR #64
 - `R0-T07` 联合确认层、streak 与确认区间表：planned
 - `R0-T08` 主网格 candidate 状态日表与 manifest：planned
 - `R0-T09` R0 审计报告与 R1 交接：planned

@@ -222,6 +222,10 @@ CONFIGS = (
         ROOT / "configs/r0/r0_t05_strict_past_percentile_score_contract.v1.json",
     ),
     (
+        ROOT / "schemas/r0/r0_t06_weak_dimension_nested_state_contract.schema.json",
+        ROOT / "configs/r0/r0_t06_weak_dimension_nested_state_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),

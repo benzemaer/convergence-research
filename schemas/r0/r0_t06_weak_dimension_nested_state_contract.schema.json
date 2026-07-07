@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r0_t06_weak_dimension_nested_state_contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "contract_id",
+    "task_id",
+    "contract_status",
+    "contract_scope",
+    "depends_on",
+    "real_data_read_authorized",
+    "duckdb_write_authorized",
+    "formal_data_version_authorized",
+    "state_generation_authorized",
+    "confirmation_generation_authorized",
+    "state_interval_generation_authorized",
+    "future_label_generation_authorized",
+    "returns_generation_authorized",
+    "backtest_generation_authorized",
+    "portfolio_generation_authorized",
+    "q_values",
+    "baseline_q",
+    "weak_delta",
+    "indicator_threshold_formula",
+    "dimension_mean_threshold_formula",
+    "dimension_min_threshold_formula",
+    "dimension_rule",
+    "strict_rule_generated_by_this_task",
+    "indicator_active_generated_by_this_task",
+    "dimension_active_generated_by_this_task",
+    "nested_raw_state_generated_by_this_task",
+    "exclusive_state_layer_generated_by_this_task",
+    "confirmed_state_generated_by_this_task",
+    "streak_generated_by_this_task",
+    "interval_generated_by_this_task",
+    "active_indicator_ids",
+    "dimension_components",
+    "nested_state_formulas",
+    "exclusive_state_layers",
+    "allowed_logical_input_sources",
+    "prohibited_direct_sources",
+    "q_selection_prohibited_by",
+    "validity_statuses",
+    "reason_code_vocabulary",
+    "prohibited_outputs"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/r0/r0_t06_weak_dimension_nested_state_contract.schema.json"
+    },
+    "config_version": { "const": "1.0.0" },
+    "contract_id": { "const": "R0_T06_WEAK_DIMENSION_NESTED_STATE_CONTRACT_V1" },
+    "task_id": { "const": "R0-T06" },
+    "contract_status": { "const": "draft" },
+    "contract_scope": {
+      "const": "weak_dimension_rule_nested_daily_states_synthetic_only"
+    },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "const": "R0_T05_STRICT_PAST_PERCENTILE_SCORE_CONTRACT_V1"
+          }
+        }
+      ]
+    },
+    "real_data_read_authorized": { "const": false },
+    "duckdb_write_authorized": { "const": false },
+    "formal_data_version_authorized": { "const": false },
+    "state_generation_authorized": { "const": "synthetic_only" },
+    "confirmation_generation_authorized": { "const": false },
+    "state_interval_generation_authorized": { "const": false },
+    "future_label_generation_authorized": { "const": false },
+    "returns_generation_authorized": { "const": false },
+    "backtest_generation_authorized": { "const": false },
+    "portfolio_generation_authorized": { "const": false },
+    "q_values": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": 0.1 } },
+        { "contains": { "const": 0.2 } },
+        { "contains": { "const": 0.3 } }
+      ]
+    },
+    "baseline_q": { "const": 0.2 },
+    "weak_delta": { "const": 0.1 },
+    "indicator_threshold_formula": { "const": "1 - q" },
+    "dimension_mean_threshold_formula": { "const": "1 - q" },
+    "dimension_min_threshold_formula": { "const": "1 - q - weak_delta" },
+    "dimension_rule": { "const": "weak" },
+    "strict_rule_generated_by_this_task": { "const": false },
+    "indicator_active_generated_by_this_task": { "const": true },
+    "dimension_active_generated_by_this_task": { "const": true },
+    "nested_raw_state_generated_by_this_task": { "const": true },
+    "exclusive_state_layer_generated_by_this_task": { "const": true },
+    "confirmed_state_generated_by_this_task": { "const": false },
+    "streak_generated_by_this_task": { "const": false },
+    "interval_generated_by_this_task": { "const": false },
+    "active_indicator_ids": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "P1_NATR14" } },
+        { "contains": { "const": "P2_LogRange20" } },
+        { "contains": { "const": "C1_LogMASpread_5_60" } },
+        { "contains": { "const": "C2_AdjVWAPSpread_5_60" } },
+        { "contains": { "const": "T1_ER20" } },
+        { "contains": { "const": "T2_AbsTrendT20" } },
+        { "contains": { "const": "V1_TurnoverShrink20_60" } },
+        { "contains": { "const": "V2_AmountLevel20Pct" } }
+      ]
+    },
+    "dimension_components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P", "C", "T", "V"],
+      "properties": {
+        "P": { "const": ["P1_NATR14", "P2_LogRange20"] },
+        "C": { "const": ["C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60"] },
+        "T": { "const": ["T1_ER20", "T2_AbsTrendT20"] },
+        "V": { "const": ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"] }
+      }
+    },
+    "nested_state_formulas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["S_P_raw", "S_PC_raw", "S_PCT_raw", "S_PCVT_raw"],
+      "properties": {
+        "S_P_raw": { "const": "P_raw" },
+        "S_PC_raw": { "const": "P_raw AND C_raw" },
+        "S_PCT_raw": { "const": "P_raw AND C_raw AND T_raw" },
+        "S_PCVT_raw": { "const": "P_raw AND C_raw AND T_raw AND V_raw" }
+      }
+    },
+    "exclusive_state_layers": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "NONE" } },
+        { "contains": { "const": "P_ONLY" } },
+        { "contains": { "const": "PC_ONLY" } },
+        { "contains": { "const": "PCT_ONLY" } },
+        { "contains": { "const": "PCVT" } },
+        { "contains": { "const": "UNKNOWN" } },
+        { "contains": { "const": "BLOCKED" } },
+        { "contains": { "const": "DIAGNOSTIC_REQUIRED" } }
+      ]
+    },
+    "allowed_logical_input_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "synthetic_in_memory_scores" } },
+        { "contains": { "const": "r0_t05_strict_past_percentile_score" } }
+      ]
+    },
+    "prohibited_direct_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "d1.raw_market_prices" } },
+        { "contains": { "const": "d2.adjusted_market_prices" } },
+        { "contains": { "const": "data/raw" } },
+        { "contains": { "const": "data/external" } },
+        { "contains": { "const": "data/generated" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ]
+    },
+    "q_selection_prohibited_by": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "future_labels" } },
+        { "contains": { "const": "returns" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "future_outcomes" } }
+      ]
+    },
+    "validity_statuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "valid" } },
+        { "contains": { "const": "unknown" } },
+        { "contains": { "const": "diagnostic_required" } },
+        { "contains": { "const": "blocked" } }
+      ]
+    },
+    "reason_code_vocabulary": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "indicator_not_eligible" } },
+        { "contains": { "const": "dimension_not_eligible" } },
+        { "contains": { "const": "score_missing" } },
+        { "contains": { "const": "score_dimension_min_missing" } },
+        { "contains": { "const": "missing_dimension_state" } },
+        { "contains": { "const": "forbidden_output_field" } },
+        { "contains": { "const": "direct_real_data_source_forbidden" } }
+      ]
+    },
+    "prohibited_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "confirmation" } },
+        { "contains": { "const": "confirmed_state" } },
+        { "contains": { "const": "streak" } },
+        { "contains": { "const": "state_interval" } },
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "backtest" } },
+        { "contains": { "const": "portfolio" } },
+        { "contains": { "const": "formal_data_version" } }
+      ]
+    }
+  }
+}
