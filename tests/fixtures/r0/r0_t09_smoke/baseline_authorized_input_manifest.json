@@ -1,7 +1,7 @@
 {
   "authorized_r0_input": true,
   "code_commit_or_data_build_id": "r0-t09-smoke-fixture",
-  "input_content_hash": "9da8cb690caf91a3daa26cea6b8c642a3f557f33c7248136a93c33ad81d46fa7",
+  "input_content_hash": "be2c4675a9e133e8023b7b0311b2dc5db1b21feb2c81fe85143d2ad9902980ff",
   "input_data_version": "synthetic-r0-t09-smoke-v1",
   "input_payload_path": "baseline_payload.json",
   "input_row_counts": {

@@ -297,7 +297,7 @@ class R0T09MainGridRunnerTest(unittest.TestCase):
             result = run_main_grid_materialization(
                 input_manifest=FULL_GRID_FIXTURE_MANIFEST,
                 output_dir=Path(tmp) / "dry_run_out",
-                max_workers=6,
+                max_workers=2,
                 dry_run=True,
                 run_id="R0-T09-FIXTURE-DRY-RUN",
                 code_commit="fixture-commit",
@@ -393,7 +393,7 @@ class R0T09MainGridRunnerTest(unittest.TestCase):
         self.assertFalse(result["artifacts_written"])
         self.assertIn(BASELINE_CANDIDATE_CONFIG_ID, result["tasks"])
         self.assertFalse(any("_K1_" in config_id for config_id in result["tasks"]))
-        self.assertEqual(result["max_workers"], 6)
+        self.assertEqual(result["max_workers"], 2)
 
     def test_rejects_more_than_six_workers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -402,7 +402,7 @@ class R0T09MainGridRunnerTest(unittest.TestCase):
                 run_main_grid_materialization(
                     input_manifest=manifest_path,
                     output_dir=Path(tmp) / "out",
-                    max_workers=7,
+                    max_workers=3,
                 )
 
     def test_materializes_single_config_outputs_done_and_manifest(self) -> None:
@@ -747,7 +747,7 @@ class R0T09MainGridRunnerTest(unittest.TestCase):
             self.assertEqual(json.loads(ok.stdout)["status"], "dry_run")
 
             blocked = subprocess.run(
-                [*command, "--max-workers", "7"],
+                [*command, "--max-workers", "3"],
                 cwd=ROOT,
                 check=False,
                 capture_output=True,

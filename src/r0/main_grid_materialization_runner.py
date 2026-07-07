@@ -24,8 +24,8 @@ from src.r0.candidate_artifact_engine import (
 )
 
 MATERIALIZATION_RUNNER_VERSION = "r0_t09_main_grid_materialization_runner.v1"
-MAX_WORKERS_DEFAULT = 6
-MAX_WORKERS_UPPER_BOUND = 6
+MAX_WORKERS_DEFAULT = 2
+MAX_WORKERS_UPPER_BOUND = 2
 BASELINE_CANDIDATE_CONFIG_ID = "R0_W250_Q20_K3_WEAK_D010"
 VALID_STATE_NAMES = ("S_P", "S_PC", "S_PCT", "S_PCVT")
 REQUIRED_MANIFEST_FIELDS = (
@@ -94,7 +94,7 @@ def run_main_grid_materialization(
     repository: str = "benzemaer/convergence-research",
 ) -> dict[str, Any]:
     if max_workers < 1 or max_workers > MAX_WORKERS_UPPER_BOUND:
-        raise R0T09MaterializationError("max_workers must be between 1 and 6")
+        raise R0T09MaterializationError("max_workers must be between 1 and 2")
 
     authorized = load_authorized_input(input_manifest)
     configs = [config.as_dict() for config in build_candidate_configs()]

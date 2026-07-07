@@ -65,8 +65,8 @@ class R0T09MainGridMaterializationContractTest(unittest.TestCase):
             self.config["baseline_candidate_config_id"], "R0_W250_Q20_K3_WEAK_D010"
         )
         self.assertEqual(self.config["main_grid_config_count"], 27)
-        self.assertEqual(self.config["max_workers_default"], 6)
-        self.assertEqual(self.config["max_workers_upper_bound"], 6)
+        self.assertEqual(self.config["max_workers_default"], 2)
+        self.assertEqual(self.config["max_workers_upper_bound"], 2)
         self.assertTrue(self.config["resume_authorized"])
         self.assertTrue(self.config["input_payload_coverage_guard_required"])
         self.assertEqual(
