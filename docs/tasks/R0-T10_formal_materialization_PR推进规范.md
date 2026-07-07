@@ -16,6 +16,12 @@ PR #69 evidence 中使用的输入应继续表述为 `D3-T11 candidate generated
 
 每个 evidence record 至少必须包含：`task_id`、`run_id`、`code_commit`、input artifact 路径或 registry id、input hash、input row count、input security count、input date range、输出目录、输出 DuckDB/hash、manifest/hash、summary/hash、row count、security count、date range、shard count、worker 参数、DuckDB threads、memory limit、chunk size、运行命令、validator 命令、validator 结果、forbidden field check、legacy V1 check、coverage summary、resume/failed marker 状态，以及 downstream gate 是否允许启动。Evidence 不得嵌入行级 payload。
 
+## R 阶段入口分层硬规则
+
+R 阶段 materializer、validator、adapter、manifest builder 和 runner 的核心逻辑必须位于 `src/r0` 到 `src/r6`。CLI main 优先放在 `src/r0/*_cli.py`、`src/r1/*_cli.py` 等阶段目录内；`scripts/r0` 到 `scripts/r6` 只允许保留兼容 wrapper，用于设置仓库根路径并调用 `src` CLI `main()`。
+
+PR body 和后续 evidence 优先记录 `python -m src.r0...` 形式的命令。若为了兼容历史命令继续保留 `scripts/r0/...`，必须说明该脚本只是 wrapper。PR #71 到 PR #73 不得再在 `scripts/r0` 中新增 validator、materializer、DuckDB/JSONL 扫描、coverage 校验、schema 常量、indicator/dimension 规则或其他 R 阶段业务实现。
+
 ## Resume、失败与监控
 
 每个真实运行必须具备监控与自动恢复。runner/materializer 必须支持 resume；每个 chunk 或 shard 必须有 DONE/FAILED marker；partial 文件不得被当作完成；hash mismatch、schema mismatch、FAILED marker、partial 残留必须触发重算。
