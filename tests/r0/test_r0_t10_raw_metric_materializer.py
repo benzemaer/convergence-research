@@ -9,11 +9,13 @@ from unittest.mock import patch
 
 import duckdb
 
+from src.r0.input_readiness_gate import READY, evaluate_c2_readiness
 from src.r0.r0_t10_raw_metric_materializer import (
     OUTPUT_DUCKDB_NAME,
     OUTPUT_MANIFEST_NAME,
     OUTPUT_SUMMARY_NAME,
     R0T10MaterializationError,
+    _normalise_observation_row,
     materialize_r0_t04_raw_metrics,
 )
 
@@ -46,6 +48,8 @@ def write_d3_source(
               adjusted_high DOUBLE,
               adjusted_low DOUBLE,
               adjusted_close DOUBLE,
+              high DOUBLE,
+              low DOUBLE,
               daily_vwap DOUBLE,
               daily_vwap_range_status TEXT,
               volume_shares DOUBLE,
@@ -83,6 +87,8 @@ def write_d3_source(
                         close * 1.01,
                         close * 0.99,
                         close,
+                        close * 1.01,
+                        close * 0.99,
                         close,
                         "valid",
                         1000.0,
@@ -109,7 +115,7 @@ def write_d3_source(
             """
             INSERT INTO d3_candidate_daily_observation VALUES (
               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             rows,
@@ -120,6 +126,38 @@ def write_d3_source(
 
 
 class R0T10RawMetricMaterializerTest(unittest.TestCase):
+    def test_normalised_observation_supplies_c2_readiness_aliases(self) -> None:
+        normalized = _normalise_observation_row(
+            {
+                "security_id": "000001.SZ",
+                "trading_date": "2026-01-01",
+                "adjusted_open": 10.0,
+                "adjusted_high": 10.5,
+                "adjusted_low": 9.5,
+                "adjusted_close": 10.0,
+                "high": 10.6,
+                "low": 9.4,
+                "volume_shares": 1000.0,
+                "amount_yuan": 10050.0,
+                "amount_unit": "yuan",
+                "amount_volume_unit_status": "valid",
+                "daily_vwap_range_status": "valid",
+                "corporate_action_flag": False,
+                "trading_status": "normal",
+            }
+        )
+
+        self.assertEqual(normalized["daily_vwap"], 10.05)
+        self.assertEqual(normalized["amount"], 10050.0)
+        self.assertEqual(normalized["volume"], 1000.0)
+        self.assertEqual(normalized["raw_high"], 10.6)
+        self.assertEqual(normalized["raw_low"], 9.4)
+        self.assertEqual(normalized["volume_unit"], "share")
+        self.assertEqual(
+            normalized["adjusted_vwap_policy"], "not_required_no_corporate_action"
+        )
+        self.assertEqual(evaluate_c2_readiness(normalized).status, READY)
+
     def test_max_workers_8_materializes_small_sample_without_row_payloads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

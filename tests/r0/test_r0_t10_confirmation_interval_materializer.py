@@ -71,6 +71,30 @@ class R0T10ConfirmationIntervalMaterializerTest(unittest.TestCase):
             self.assertGreater(result["raw_false_sample_count"], 0)
             self.assertGreater(result["raw_non_ready_sample_count"], 0)
 
+            import duckdb  # noqa: PLC0415
+
+            conn = duckdb.connect(
+                str(output / DAILY_CONFIRMATION_DUCKDB_NAME), read_only=True
+            )
+            try:
+                s_p, s_pc = conn.execute(
+                    f"""
+                    SELECT
+                      max(CASE WHEN state_name = 'S_P' THEN confirmed_state END),
+                      max(CASE WHEN state_name = 'S_PC' THEN validity_status END)
+                    FROM {DAILY_CONFIRMATION_TABLE_NAME}
+                    WHERE security_id = '000004.SZ'
+                      AND percentile_window_W = 120
+                      AND abs(q - 0.10) < 1e-12
+                      AND trading_date = '20260102'
+                      AND confirmation_k = 2
+                    """
+                ).fetchone()
+            finally:
+                conn.close()
+            self.assertEqual(s_p, True)
+            self.assertEqual(s_pc, "unknown")
+
     def test_short_code_commit_and_excess_workers_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -218,6 +242,7 @@ def _write_nested_source(root: Path) -> Path:
         "000001.SZ": ("p", "p", "none", "unknown"),
         "000002.SZ": ("p", "p", "unknown"),
         "000003.SZ": ("p", "p", "p"),
+        "000004.SZ": ("p_c_unknown", "p_c_unknown", "p_c_unknown"),
     }.items():
         for window in (120, 250, 500):
             for q_value in (0.10, 0.20, 0.30):
@@ -241,6 +266,14 @@ def _write_nested_source(root: Path) -> Path:
               S_PC_raw BOOLEAN,
               S_PCT_raw BOOLEAN,
               S_PCVT_raw BOOLEAN,
+              S_P_validity_status VARCHAR,
+              S_PC_validity_status VARCHAR,
+              S_PCT_validity_status VARCHAR,
+              S_PCVT_validity_status VARCHAR,
+              S_P_reason_codes VARCHAR[],
+              S_PC_reason_codes VARCHAR[],
+              S_PCT_reason_codes VARCHAR[],
+              S_PCVT_reason_codes VARCHAR[],
               exclusive_state_layer VARCHAR,
               eligible_state BOOLEAN,
               validity_status VARCHAR,
@@ -250,7 +283,7 @@ def _write_nested_source(root: Path) -> Path:
             """
         )
         conn.executemany(
-            f"INSERT INTO {NESTED_DAILY_TABLE_NAME} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            f"INSERT INTO {NESTED_DAILY_TABLE_NAME} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
     finally:
@@ -271,6 +304,14 @@ def _nested_row(
             q_value,
             0.10,
             *values,
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            ["valid_no_blocker"],
+            ["valid_no_blocker"],
+            ["valid_no_blocker"],
+            ["valid_no_blocker"],
             "P_ONLY",
             True,
             "valid",
@@ -286,10 +327,41 @@ def _nested_row(
             q_value,
             0.10,
             *values,
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            ["valid_no_blocker"],
+            ["valid_no_blocker"],
+            ["valid_no_blocker"],
+            ["valid_no_blocker"],
             "NONE",
             True,
             "valid",
             ["valid_no_blocker"],
+            "r0_t06_weak_dimension_nested_state.v1",
+        )
+    if state == "p_c_unknown":
+        values = (True, None, None, None, True, None, None, None)
+        return (
+            security_id,
+            trading_date,
+            window,
+            q_value,
+            0.10,
+            *values,
+            "valid",
+            "unknown",
+            "unknown",
+            "unknown",
+            ["valid_no_blocker"],
+            ["c2_unknown"],
+            ["c2_unknown"],
+            ["c2_unknown"],
+            "UNKNOWN",
+            False,
+            "unknown",
+            ["c2_unknown"],
             "r0_t06_weak_dimension_nested_state.v1",
         )
     values = (None, None, None, None, None, None, None, None)
@@ -300,6 +372,14 @@ def _nested_row(
         q_value,
         0.10,
         *values,
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown",
+        ["upstream_unknown"],
+        ["upstream_unknown"],
+        ["upstream_unknown"],
+        ["upstream_unknown"],
         "UNKNOWN",
         False,
         "unknown",

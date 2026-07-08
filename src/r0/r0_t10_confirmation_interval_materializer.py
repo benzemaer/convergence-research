@@ -16,6 +16,8 @@ from src.r0.confirmation_interval_engine import (
     CONFIRMATION_ENGINE_VERSION,
     CONFIRMATION_K_VALUES,
     STATE_FIELD_BY_NAME,
+    STATE_REASON_FIELD_BY_NAME,
+    STATE_VALIDITY_FIELD_BY_NAME,
 )
 from src.r0.daily_state_engine import Q_VALUES, WEAK_DELTA
 from src.r0.formal_run_identity import FormalRunIdentityError, validate_full_git_sha
@@ -53,6 +55,9 @@ STATE_VALUE_SQL = ", ".join(
     for state_name, raw_field in STATE_FIELD_BY_NAME.items()
 )
 K_VALUES_SQL = ", ".join(f"({k})" for k in CONFIRMATION_K_VALUES)
+STATE_SPECIFIC_FIELDS = frozenset(STATE_VALIDITY_FIELD_BY_NAME.values()) | frozenset(
+    STATE_REASON_FIELD_BY_NAME.values()
+)
 
 
 class R0T10ConfirmationIntervalMaterializationError(RuntimeError):
@@ -346,7 +351,12 @@ def _write_chunk_parquet_outputs(task: Mapping[str, Any]) -> None:
             "INSERT INTO chunk_securities VALUES (?)",
             [(security,) for security in securities],
         )
-        conn.execute(_daily_confirmation_sql())
+        nested_columns = _attached_nested_daily_columns(conn)
+        conn.execute(
+            _daily_confirmation_sql(
+                has_state_specific_fields=STATE_SPECIFIC_FIELDS.issubset(nested_columns)
+            )
+        )
         conn.execute(_confirmed_interval_sql())
         for table_name, target in (
             ("daily_confirmation", task["daily_artifact_path"]),
@@ -367,7 +377,18 @@ def _write_chunk_parquet_outputs(task: Mapping[str, Any]) -> None:
         conn.close()
 
 
-def _daily_confirmation_sql() -> str:
+def _daily_confirmation_sql(*, has_state_specific_fields: bool = False) -> str:
+    upstream_validity_sql = "validity_status"
+    upstream_reason_sql = "reason_codes"
+    if has_state_specific_fields:
+        upstream_validity_sql = _state_specific_case_sql(
+            STATE_VALIDITY_FIELD_BY_NAME,
+            fallback_field="validity_status",
+        )
+        upstream_reason_sql = _state_specific_case_sql(
+            STATE_REASON_FIELD_BY_NAME,
+            fallback_field="reason_codes",
+        )
     return f"""
     CREATE TEMP TABLE daily_confirmation AS
     WITH source_rows AS (
@@ -393,8 +414,8 @@ def _daily_confirmation_sql() -> str:
         CAST(state_name AS VARCHAR) AS state_name,
         CAST(raw_state AS BOOLEAN) AS raw_state,
         CAST(eligible_state AS BOOLEAN) AS eligible_state,
-        CAST(validity_status AS VARCHAR) AS upstream_validity_status,
-        reason_codes AS upstream_reason_codes,
+        CAST({upstream_validity_sql} AS VARCHAR) AS upstream_validity_status,
+        {upstream_reason_sql} AS upstream_reason_codes,
         CAST(state_engine_version AS VARCHAR) AS state_engine_version,
         CAST(nested_invariant_ok AS BOOLEAN) AS nested_invariant_ok
       FROM invariant_checked,
@@ -506,6 +527,23 @@ def _daily_confirmation_sql() -> str:
       '{CONFIRMATION_ENGINE_VERSION}' AS confirmation_engine_version
     FROM confirmed
     """
+
+
+def _state_specific_case_sql(
+    fields_by_state: Mapping[str, str], *, fallback_field: str
+) -> str:
+    clauses = " ".join(
+        f"WHEN '{state_name}' THEN COALESCE({field_name}, {fallback_field})"
+        for state_name, field_name in fields_by_state.items()
+    )
+    return f"CASE states.state_name {clauses} ELSE {fallback_field} END"
+
+
+def _attached_nested_daily_columns(conn: Any) -> set[str]:
+    rows = conn.execute(
+        f"DESCRIBE SELECT * FROM nested_db.{quote_ident(NESTED_DAILY_TABLE_NAME)}"
+    ).fetchall()
+    return {str(row[0]) for row in rows}
 
 
 def _confirmed_interval_sql() -> str:
