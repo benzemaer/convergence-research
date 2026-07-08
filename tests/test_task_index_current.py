@@ -23,7 +23,8 @@ class TaskIndexCurrentTest(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "`R1-T03` 27 组 W/q/K 全量轻量结构扫描：completed via this PR against the repaired R0-T10-05 package",
+            "`R1-T03` 27 组 W/q/K 全量轻量结构扫描："
+            "completed via this PR against the repaired R0-T10-05 package",
             text,
         )
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
