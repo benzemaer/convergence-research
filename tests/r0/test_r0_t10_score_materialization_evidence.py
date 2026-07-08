@@ -78,11 +78,11 @@ class R0T10ScoreMaterializationEvidenceTest(unittest.TestCase):
             task_text,
         )
         self.assertIn(
-            "current_task: R0-T10-05 authorized input manifest 与 27 组 full-grid 执行",
+            "current_task: R0-T11 R0 审计报告与 R1 交接",
             readme_text,
         )
         self.assertIn(
-            "next_planned_task: R0-T11 R0 审计报告与 R1 交接",
+            "next_planned_task: R1-T01 状态存在性与频率轮廓",
             readme_text,
         )
         self.assertIn(

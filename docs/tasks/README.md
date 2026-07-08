@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R0
-current_task: R0-T10-05 authorized input manifest 与 27 组 full-grid 执行
-next_planned_task: R0-T11 R0 审计报告与 R1 交接
+current_task: R0-T11 R0 审计报告与 R1 交接
+next_planned_task: R1-T01 状态存在性与频率轮廓
 ```
 
 ## 命名与路径规则
@@ -233,7 +233,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T10-02` R0-T05 strict-past score 物化：completed via PR #70
 - `R0-T10-03` R0-T06 nested state 物化：completed via PR #71
 - `R0-T10-04` R0-T07 confirmation / interval 物化：completed via PR #72
-- `R0-T10-05` authorized input manifest 与 27 组 full-grid 执行：planned
+- `R0-T10-05` authorized input manifest 与 27 组 full-grid 执行：completed via PR #73
 - `R0-T11` R0 审计报告与 R1 交接：planned
 - `R0-T12` 替代指标口径敏感性骨架：optional
 - `R0-T13` Post-Up-Release Short-PCT 研究接口占位：optional
