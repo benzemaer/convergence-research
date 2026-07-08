@@ -8,6 +8,12 @@
     "task_id",
     "schema_version",
     "depends_on",
+    "r1_t01_config_path",
+    "r1_t01_evidence_path",
+    "r0_input_package_lock_source",
+    "required_checks",
+    "zero_interval_policy",
+    "strict_artifacts",
     "audit_scope",
     "expected_grid",
     "forbidden_inputs",
@@ -25,6 +31,70 @@
         "r1_t01": { "const": "validator_status_passed" },
         "r0_t10_05": { "const": "completed_authorized_input_manifest_full_grid" },
         "r0_t11": { "const": "completed_r1_handoff" }
+      }
+    },
+    "r1_t01_config_path": {
+      "const": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
+    },
+    "r1_t01_evidence_path": {
+      "const": "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md"
+    },
+    "r0_input_package_lock_source": {
+      "const": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json#/r0_input_package_lock"
+    },
+    "required_checks": {
+      "type": "array",
+      "minItems": 12,
+      "contains": { "const": "strict_past_evidence_chain_check" },
+      "items": {
+        "enum": [
+          "r1_t01_gate",
+          "r0_evidence_chain_hash",
+          "strict_past_evidence_chain_check",
+          "strict_past_artifact_field_check",
+          "unknown_blocked_semantics_check",
+          "confirmation_time_backfill_check",
+          "forbidden_column_absence_check",
+          "row_payload_absence_check",
+          "validation_result_path_hash_check",
+          "locked_manifest_hashes",
+          "config_artifact_hashes",
+          "zero_interval_consistency"
+        ]
+      }
+    },
+    "zero_interval_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confirmed_interval_row_count_total_zero_handling",
+        "confirmation_time_backfill_allowed",
+        "daily_confirmed_true_count_total_must_be_zero",
+        "all_config_zero_interval_required"
+      ],
+      "properties": {
+        "confirmed_interval_row_count_total_zero_handling": {
+          "const": "treat_as_input_fact_and_do_not_backfill"
+        },
+        "confirmation_time_backfill_allowed": { "const": false },
+        "daily_confirmed_true_count_total_must_be_zero": { "const": true },
+        "all_config_zero_interval_required": { "const": true }
+      }
+    },
+    "strict_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_check",
+        "path_existence_check",
+        "row_payload_embedding_allowed",
+        "field_level_strict_past_check"
+      ],
+      "properties": {
+        "hash_check": { "const": true },
+        "path_existence_check": { "const": true },
+        "row_payload_embedding_allowed": { "const": false },
+        "field_level_strict_past_check": { "const": "evidence_chain_only" }
       }
     },
     "audit_scope": {
@@ -48,11 +118,24 @@
     "forbidden_inputs": {
       "type": "array",
       "contains": { "const": "future_return" },
+      "allOf": [
+        { "contains": { "const": "raw_external" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ],
       "items": { "type": "string" }
     },
     "forbidden_outputs": {
       "type": "array",
       "contains": { "const": "backtest" },
+      "allOf": [
+        { "contains": { "const": "JointLift" } },
+        { "contains": { "const": "empirical_p" } },
+        { "contains": { "const": "z_score" } },
+        { "contains": { "const": "R2_decision_matrix" } },
+        { "contains": { "const": "freeze_candidate" } },
+        { "contains": { "const": "review_candidate" } }
+      ],
       "items": { "type": "string" }
     },
     "downstream_authorization": {

@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
-from hashlib import sha256
 from pathlib import Path
 
 from src.r1.r1_t02_lineage_pit_audit import run_r1_t02_lineage_pit_audit
@@ -13,8 +12,15 @@ from src.r1.r1_t02_lineage_pit_audit_validator import (
     validate_r1_t02_lineage_pit_audit,
 )
 
-
 FULL_SHA = "1111111111111111111111111111111111111111"
+R1_T01_CONFIG_PATH = "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
+R1_T01_EVIDENCE_PATH = (
+    "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md"
+)
+R0_INPUT_LOCK_SOURCE = f"{R1_T01_CONFIG_PATH}#/r0_input_package_lock"
+R0_STRICT_PAST_EVIDENCE_PATH = (
+    "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md"
+)
 
 
 class R1T02LineagePitAuditContractTest(unittest.TestCase):
@@ -22,17 +28,7 @@ class R1T02LineagePitAuditContractTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             fixture = _write_fixture(root)
-            summary = run_r1_t02_lineage_pit_audit(
-                output_dir=root / "data/generated/r1/r1_t02/R1-T02-fixture",
-                run_id="R1-T02-fixture",
-                code_commit=FULL_SHA,
-                root=root,
-                config_path=fixture["config"],
-                r1_t01_config_path=fixture["r1_config"],
-                r1_t01_evidence_path=fixture["r1_evidence"],
-                r0_t10_evidence_path=fixture["r0_t10_evidence"],
-                r0_t11_evidence_path=fixture["r0_t11_evidence"],
-            )
+            summary = _run_fixture_audit(root, fixture)
             self.assertEqual(summary["status"], "completed")
             evidence = _write_r1_t02_evidence(root, summary)
             result = validate_r1_t02_lineage_pit_audit(
@@ -49,73 +45,120 @@ class R1T02LineagePitAuditContractTest(unittest.TestCase):
             full_grid["future_return"] = "forbidden"
             _write_json(fixture["full_grid_manifest"], full_grid)
             _refresh_r1_lock_hashes(fixture)
-            summary = run_r1_t02_lineage_pit_audit(
-                output_dir=root / "out",
-                run_id="R1-T02-fixture",
-                code_commit=FULL_SHA,
-                root=root,
-                config_path=fixture["config"],
-                r1_t01_config_path=fixture["r1_config"],
-                r1_t01_evidence_path=fixture["r1_evidence"],
-                r0_t10_evidence_path=fixture["r0_t10_evidence"],
-                r0_t11_evidence_path=fixture["r0_t11_evidence"],
-            )
+            summary = _run_fixture_audit(root, fixture)
             self.assertEqual(summary["status"], "blocked")
             self.assertIn("full_grid_manifest_forbidden_token_check", summary["checks"])
+
+    def test_forbidden_r2_decision_output_blocks_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fixture = _write_fixture(root)
+            full_grid = _load_json(fixture["full_grid_manifest"])
+            full_grid["R2_decision_matrix"] = "forbidden"
+            _write_json(fixture["full_grid_manifest"], full_grid)
+            _refresh_r1_lock_hashes(fixture)
+            summary = _run_fixture_audit(root, fixture)
+            self.assertEqual(summary["status"], "blocked")
+            self.assertEqual(
+                summary["checks"]["forbidden_column_absence_check"], "blocked"
+            )
 
     def test_artifact_hash_mismatch_blocks_audit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             fixture = _write_fixture(root)
-            target = root / "data/generated/r0/full_grid/configs/R0_W120_Q10_K2_WEAK_D010/candidate_daily_state.parquet"
-            target.write_text("tampered\n", encoding="utf-8")
-            summary = run_r1_t02_lineage_pit_audit(
-                output_dir=root / "out",
-                run_id="R1-T02-fixture",
-                code_commit=FULL_SHA,
-                root=root,
-                config_path=fixture["config"],
-                r1_t01_config_path=fixture["r1_config"],
-                r1_t01_evidence_path=fixture["r1_evidence"],
-                r0_t10_evidence_path=fixture["r0_t10_evidence"],
-                r0_t11_evidence_path=fixture["r0_t11_evidence"],
+            target = root / (
+                "data/generated/r0/full_grid/configs/"
+                "R0_W120_Q10_K2_WEAK_D010/candidate_daily_state.parquet"
             )
+            target.write_text("tampered\n", encoding="utf-8")
+            summary = _run_fixture_audit(root, fixture)
             self.assertEqual(summary["status"], "blocked")
             self.assertEqual(summary["checks"]["config_artifact_hashes"], "blocked")
+
+    def test_missing_strict_past_evidence_blocks_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fixture = _write_fixture(root)
+            fixture["r0_strict_past_evidence"].unlink()
+            summary = _run_fixture_audit(root, fixture)
+            self.assertEqual(summary["status"], "blocked")
+            self.assertEqual(
+                summary["checks"]["strict_past_evidence_chain_check"], "blocked"
+            )
+
+    def test_unknown_to_false_marker_blocks_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fixture = _write_fixture(root)
+            full_grid = _load_json(fixture["full_grid_manifest"])
+            full_grid["quality_note"] = "unknown_to_false"
+            _write_json(fixture["full_grid_manifest"], full_grid)
+            _refresh_r1_lock_hashes(fixture)
+            summary = _run_fixture_audit(root, fixture)
+            self.assertEqual(summary["status"], "blocked")
+            self.assertEqual(
+                summary["checks"]["unknown_blocked_semantics_check"], "blocked"
+            )
+
+    def test_validator_rejects_missing_validation_result(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fixture = _write_fixture(root)
+            summary = _run_fixture_audit(root, fixture)
+            evidence = _write_r1_t02_evidence(
+                root, summary, include_validation_result=False
+            )
+            with self.assertRaises(R1T02LineagePitAuditValidationError):
+                validate_r1_t02_lineage_pit_audit(
+                    root / summary["summary_path"], evidence
+                )
 
     def test_validator_rejects_evidence_that_unblocks_r2(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             fixture = _write_fixture(root)
-            summary = run_r1_t02_lineage_pit_audit(
-                output_dir=root / "out",
-                run_id="R1-T02-fixture",
-                code_commit=FULL_SHA,
-                root=root,
-                config_path=fixture["config"],
-                r1_t01_config_path=fixture["r1_config"],
-                r1_t01_evidence_path=fixture["r1_evidence"],
-                r0_t10_evidence_path=fixture["r0_t10_evidence"],
-                r0_t11_evidence_path=fixture["r0_t11_evidence"],
-            )
+            summary = _run_fixture_audit(root, fixture)
             evidence = _write_r1_t02_evidence(root, summary, r2_allowed="true")
             with self.assertRaises(R1T02LineagePitAuditValidationError):
-                validate_r1_t02_lineage_pit_audit(root / summary["summary_path"], evidence)
+                validate_r1_t02_lineage_pit_audit(
+                    root / summary["summary_path"], evidence
+                )
+
+
+def _run_fixture_audit(root: Path, fixture: dict[str, Path]) -> dict[str, object]:
+    return run_r1_t02_lineage_pit_audit(
+        output_dir=root / "data/generated/r1/r1_t02/R1-T02-fixture",
+        run_id="R1-T02-fixture",
+        code_commit=FULL_SHA,
+        root=root,
+        config_path=fixture["config"],
+        r1_t01_config_path=fixture["r1_config"],
+        r1_t01_evidence_path=fixture["r1_evidence"],
+        r0_t10_evidence_path=fixture["r0_t10_evidence"],
+        r0_t11_evidence_path=fixture["r0_t11_evidence"],
+        r0_strict_past_evidence_path=fixture["r0_strict_past_evidence"],
+    )
 
 
 def _write_fixture(root: Path) -> dict[str, Path]:
     paths = {
         "config": root / "configs/r1/r1_t02_r0_lineage_pit_audit.v1.json",
-        "r1_config": root / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
-        "r1_evidence": root / "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md",
-        "r0_t10_evidence": root / "docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md",
-        "r0_t11_evidence": root / "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+        "r1_config": root
+        / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+        "r1_evidence": root
+        / "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md",
+        "r0_t10_evidence": root
+        / "docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md",
+        "r0_t11_evidence": root
+        / "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+        "r0_strict_past_evidence": root / R0_STRICT_PAST_EVIDENCE_PATH,
         "authorized_manifest": root / "data/generated/r0/authorized.json",
         "full_grid_manifest": root / "data/generated/r0/full_grid/manifest.json",
     }
     for path in paths.values():
         path.parent.mkdir(parents=True, exist_ok=True)
-    _write_json(paths["config"], {"task_id": "R1-T02"})
+    _write_json(paths["config"], _r1_t02_config())
     authorized = {
         "manifest_type": "r0_t10_05_authorized_input_manifest",
         "authorized_r0_input": True,
@@ -155,55 +198,96 @@ def _write_fixture(root: Path) -> dict[str, Path]:
         },
         "r0_input_package_lock": {
             "authorized_input_manifest_path": _rel(root, paths["authorized_manifest"]),
-            "authorized_input_manifest_sha256": sha256_file(paths["authorized_manifest"]),
+            "authorized_input_manifest_sha256": sha256_file(
+                paths["authorized_manifest"]
+            ),
             "full_grid_manifest_path": _rel(root, paths["full_grid_manifest"]),
             "full_grid_manifest_sha256": sha256_file(paths["full_grid_manifest"]),
             "selected_config_count": 27,
         },
     }
     _write_json(paths["r1_config"], r1_config)
-    paths["r1_evidence"].write_text(
-        "\n".join(
-            [
-                "`task_id`: R1-T01",
-                "`status`: completed",
-                "`validator_status`: passed",
-                "`R1-T02_allowed_to_start`: true",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
+    _write_evidence(
+        paths["r1_evidence"],
+        {
+            "task_id": "R1-T01",
+            "status": "completed",
+            "validator_status": "passed",
+            "R1-T02_allowed_to_start": "true",
+        },
     )
-    paths["r0_t10_evidence"].write_text(
-        "\n".join(
-            [
-                "`task_id`: R0-T10-05",
-                "`status`: completed",
-                "`validator_status`: passed",
-                f"`authorized_input_manifest_path`: {_rel(root, paths['authorized_manifest'])}",
-                f"`authorized_input_manifest_sha256`: {sha256_file(paths['authorized_manifest'])}",
-                f"`global_manifest_path`: {_rel(root, paths['full_grid_manifest'])}",
-                f"`global_manifest_sha256`: {sha256_file(paths['full_grid_manifest'])}",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
+    _write_evidence(
+        paths["r0_t10_evidence"],
+        {
+            "task_id": "R0-T10-05",
+            "status": "completed",
+            "validator_status": "passed",
+            "authorized_input_manifest_path": _rel(root, paths["authorized_manifest"]),
+            "authorized_input_manifest_sha256": sha256_file(
+                paths["authorized_manifest"]
+            ),
+            "global_manifest_path": _rel(root, paths["full_grid_manifest"]),
+            "global_manifest_sha256": sha256_file(paths["full_grid_manifest"]),
+        },
     )
-    paths["r0_t11_evidence"].write_text(
-        "\n".join(
-            [
-                "`task_id`: R0-T11",
-                "`status`: completed",
-                "`validator_status`: passed",
-                "`R1_allowed_to_start`: true",
-                f"`R0-T10-05_evidence_path`: {_rel(root, paths['r0_t10_evidence'])}",
-                f"`R0-T10-05_evidence_sha256`: {sha256_file(paths['r0_t10_evidence'])}",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
+    _write_evidence(
+        paths["r0_t11_evidence"],
+        {
+            "task_id": "R0-T11",
+            "status": "completed",
+            "validator_status": "passed",
+            "R1_allowed_to_start": "true",
+            "R0-T10-05_evidence_path": _rel(root, paths["r0_t10_evidence"]),
+            "R0-T10-05_evidence_sha256": sha256_file(paths["r0_t10_evidence"]),
+        },
+    )
+    _write_evidence(
+        paths["r0_strict_past_evidence"],
+        {
+            "task_id": "R0-T10-02",
+            "status": "completed",
+            "validator_status": "passed",
+            "strict_past_percentile_check": "passed",
+        },
     )
     return paths
+
+
+def _r1_t02_config() -> dict[str, object]:
+    return {
+        "task_id": "R1-T02",
+        "r1_t01_config_path": R1_T01_CONFIG_PATH,
+        "r1_t01_evidence_path": R1_T01_EVIDENCE_PATH,
+        "r0_input_package_lock_source": R0_INPUT_LOCK_SOURCE,
+        "required_checks": [
+            "r1_t01_gate",
+            "r0_evidence_chain_hash",
+            "strict_past_evidence_chain_check",
+            "strict_past_artifact_field_check",
+            "unknown_blocked_semantics_check",
+            "confirmation_time_backfill_check",
+            "forbidden_column_absence_check",
+            "row_payload_absence_check",
+            "validation_result_path_hash_check",
+            "locked_manifest_hashes",
+            "config_artifact_hashes",
+            "zero_interval_consistency",
+        ],
+        "zero_interval_policy": {
+            "confirmed_interval_row_count_total_zero_handling": (
+                "treat_as_input_fact_and_do_not_backfill"
+            ),
+            "confirmation_time_backfill_allowed": False,
+            "daily_confirmed_true_count_total_must_be_zero": True,
+            "all_config_zero_interval_required": True,
+        },
+        "strict_artifacts": {
+            "hash_check": True,
+            "path_existence_check": True,
+            "row_payload_embedding_allowed": False,
+            "field_level_strict_past_check": "evidence_chain_only",
+        },
+    }
 
 
 def _full_grid_manifest(root: Path) -> dict[str, object]:
@@ -258,7 +342,6 @@ def _full_grid_manifest(root: Path) -> dict[str, object]:
 def _write_artifacts(root: Path, config_id: str) -> dict[str, str]:
     base = root / "data/generated/r0/full_grid/configs" / config_id
     base.mkdir(parents=True, exist_ok=True)
-    result: dict[str, str] = {}
     for name in (
         "DONE.json",
         "candidate_config_snapshot.json",
@@ -269,57 +352,99 @@ def _write_artifacts(root: Path, config_id: str) -> dict[str, str]:
     ):
         path = base / name
         path.write_text(f"{config_id}:{name}\n", encoding="utf-8")
-    result["DONE_path"] = _rel(root, base / "DONE.json")
-    result["config_snapshot_path"] = _rel(root, base / "candidate_config_snapshot.json")
-    result["daily_duckdb_path"] = _rel(root, base / "candidate_daily_state.duckdb")
-    result["daily_duckdb_sha256"] = sha256_file(base / "candidate_daily_state.duckdb")
-    result["daily_parquet_path"] = _rel(root, base / "candidate_daily_state.parquet")
-    result["daily_parquet_sha256"] = sha256_file(base / "candidate_daily_state.parquet")
-    result["interval_duckdb_path"] = _rel(root, base / "candidate_confirmed_interval.duckdb")
-    result["interval_duckdb_sha256"] = sha256_file(base / "candidate_confirmed_interval.duckdb")
-    result["interval_parquet_path"] = _rel(root, base / "candidate_confirmed_interval.parquet")
-    result["interval_parquet_sha256"] = sha256_file(base / "candidate_confirmed_interval.parquet")
-    return result
+    return {
+        "DONE_path": _rel(root, base / "DONE.json"),
+        "config_snapshot_path": _rel(root, base / "candidate_config_snapshot.json"),
+        "daily_duckdb_path": _rel(root, base / "candidate_daily_state.duckdb"),
+        "daily_duckdb_sha256": sha256_file(base / "candidate_daily_state.duckdb"),
+        "daily_parquet_path": _rel(root, base / "candidate_daily_state.parquet"),
+        "daily_parquet_sha256": sha256_file(base / "candidate_daily_state.parquet"),
+        "interval_duckdb_path": _rel(
+            root, base / "candidate_confirmed_interval.duckdb"
+        ),
+        "interval_duckdb_sha256": sha256_file(
+            base / "candidate_confirmed_interval.duckdb"
+        ),
+        "interval_parquet_path": _rel(
+            root, base / "candidate_confirmed_interval.parquet"
+        ),
+        "interval_parquet_sha256": sha256_file(
+            base / "candidate_confirmed_interval.parquet"
+        ),
+    }
 
 
 def _write_r1_t02_evidence(
-    root: Path, summary: dict[str, object], *, r2_allowed: str = "false"
+    root: Path,
+    summary: dict[str, object],
+    *,
+    r2_allowed: str = "false",
+    include_validation_result: bool = True,
 ) -> Path:
     path = root / "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     summary_path = root / str(summary["summary_path"])
-    lines = [
-        "`task_id`: R1-T02",
-        "`status`: completed",
-        "`validator_status`: passed",
-        f"`code_commit`: {FULL_SHA}",
-        f"`summary_path`: {_display_path(summary_path)}",
-        f"`summary_sha256`: {sha256_file(summary_path)}",
-        f"`authorized_input_manifest_path`: {summary['authorized_input_manifest_path']}",
-        f"`authorized_input_manifest_sha256`: {summary['authorized_input_manifest_sha256']}",
-        f"`full_grid_manifest_path`: {summary['full_grid_manifest_path']}",
-        f"`full_grid_manifest_sha256`: {summary['full_grid_manifest_sha256']}",
-        f"`r1_t01_evidence_path`: {summary['r1_t01_evidence_path']}",
-        f"`r1_t01_evidence_sha256`: {summary['r1_t01_evidence_sha256']}",
-        f"`r0_t10_05_evidence_path`: {summary['r0_t10_05_evidence_path']}",
-        f"`r0_t10_05_evidence_sha256`: {summary['r0_t10_05_evidence_sha256']}",
-        f"`r0_t11_evidence_path`: {summary['r0_t11_evidence_path']}",
-        f"`r0_t11_evidence_sha256`: {summary['r0_t11_evidence_sha256']}",
-        "`row_payload_embedded`: false",
-        "`forbidden_input_check`: passed",
-        "`forbidden_output_check`: passed",
-        "`no_future_label_check`: passed",
-        "`no_backtest_check`: passed",
-        "`no_trading_signal_check`: passed",
-        "`config_artifact_hash_check`: passed",
-        "`zero_interval_consistency_check`: passed",
-        "`strict_past_artifact_field_check`: passed",
-        "`R1-T03_allowed_to_start`: true",
-        "`R1-T07_allowed_to_start`: false",
-        f"`R2_allowed_to_start`: {r2_allowed}",
-    ]
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    validation_result_path = root / "data/generated/r1/r1_t02/validation_result.json"
+    if include_validation_result:
+        _write_json(
+            validation_result_path,
+            {
+                "task_id": "R1-T02",
+                "validator_status": "passed",
+                "summary_path": _display_path(summary_path),
+                "summary_sha256": sha256_file(summary_path),
+                "errors": [],
+            },
+        )
+    fields = {
+        "task_id": "R1-T02",
+        "status": "completed",
+        "validator_status": "passed",
+        "code_commit": FULL_SHA,
+        "summary_path": _display_path(summary_path),
+        "summary_sha256": sha256_file(summary_path),
+        "authorized_input_manifest_path": summary["authorized_input_manifest_path"],
+        "authorized_input_manifest_sha256": summary["authorized_input_manifest_sha256"],
+        "full_grid_manifest_path": summary["full_grid_manifest_path"],
+        "full_grid_manifest_sha256": summary["full_grid_manifest_sha256"],
+        "r1_t01_evidence_path": summary["r1_t01_evidence_path"],
+        "r1_t01_evidence_sha256": summary["r1_t01_evidence_sha256"],
+        "r0_t10_05_evidence_path": summary["r0_t10_05_evidence_path"],
+        "r0_t10_05_evidence_sha256": summary["r0_t10_05_evidence_sha256"],
+        "r0_t11_evidence_path": summary["r0_t11_evidence_path"],
+        "r0_t11_evidence_sha256": summary["r0_t11_evidence_sha256"],
+        "r0_strict_past_evidence_path": summary["r0_strict_past_evidence_path"],
+        "r0_strict_past_evidence_sha256": summary["r0_strict_past_evidence_sha256"],
+        "row_payload_embedded": "false",
+        "forbidden_input_check": "passed",
+        "forbidden_output_check": "passed",
+        "no_future_label_check": "passed",
+        "no_backtest_check": "passed",
+        "no_trading_signal_check": "passed",
+        "config_artifact_hash_check": "passed",
+        "zero_interval_consistency_check": "passed",
+        "strict_past_evidence_chain_check": "passed",
+        "strict_past_artifact_field_check": "evidence_chain_only",
+        "unknown_blocked_semantics_check": "passed",
+        "confirmation_time_backfill_check": "skipped_zero_interval_input_fact",
+        "forbidden_column_absence_check": "passed",
+        "row_payload_absence_check": "passed",
+        "R1-T03_allowed_to_start": "true",
+        "R1-T07_allowed_to_start": "false",
+        "R2_allowed_to_start": r2_allowed,
+    }
+    if include_validation_result:
+        fields["validation_result_path"] = _display_path(validation_result_path)
+        fields["validation_result_sha256"] = sha256_file(validation_result_path)
+    _write_evidence(path, fields)
     return path
+
+
+def _write_evidence(path: Path, fields: dict[str, object]) -> None:
+    path.write_text(
+        "\n".join(f"`{key}`: {value}" for key, value in fields.items()) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _refresh_r1_lock_hashes(paths: dict[str, Path]) -> None:
@@ -335,7 +460,10 @@ def _load_json(path: Path) -> dict[str, object]:
 
 
 def _write_json(path: Path, payload: object) -> None:
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _rel(root: Path, path: Path) -> str:

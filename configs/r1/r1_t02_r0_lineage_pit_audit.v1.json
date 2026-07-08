@@ -6,6 +6,35 @@
     "r0_t10_05": "completed_authorized_input_manifest_full_grid",
     "r0_t11": "completed_r1_handoff"
   },
+  "r1_t01_config_path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+  "r1_t01_evidence_path": "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md",
+  "r0_input_package_lock_source": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json#/r0_input_package_lock",
+  "required_checks": [
+    "r1_t01_gate",
+    "r0_evidence_chain_hash",
+    "strict_past_evidence_chain_check",
+    "strict_past_artifact_field_check",
+    "unknown_blocked_semantics_check",
+    "confirmation_time_backfill_check",
+    "forbidden_column_absence_check",
+    "row_payload_absence_check",
+    "validation_result_path_hash_check",
+    "locked_manifest_hashes",
+    "config_artifact_hashes",
+    "zero_interval_consistency"
+  ],
+  "zero_interval_policy": {
+    "confirmed_interval_row_count_total_zero_handling": "treat_as_input_fact_and_do_not_backfill",
+    "confirmation_time_backfill_allowed": false,
+    "daily_confirmed_true_count_total_must_be_zero": true,
+    "all_config_zero_interval_required": true
+  },
+  "strict_artifacts": {
+    "hash_check": true,
+    "path_existence_check": true,
+    "row_payload_embedding_allowed": false,
+    "field_level_strict_past_check": "evidence_chain_only"
+  },
   "audit_scope": [
     "R1-T01 manifest lock and downstream gate",
     "R0-T10-05 authorized input manifest hash and forbidden guards",
@@ -30,7 +59,10 @@
     "backtest",
     "portfolio",
     "trade_signal",
-    "trading_signal"
+    "trading_signal",
+    "raw_external",
+    "MarketDB",
+    ".day"
   ],
   "forbidden_outputs": [
     "parameter_optimization",
@@ -39,6 +71,12 @@
     "portfolio",
     "trade_signal",
     "trading_signal",
+    "JointLift",
+    "empirical_p",
+    "z_score",
+    "R2_decision_matrix",
+    "freeze_candidate",
+    "review_candidate",
     "R2_state_freeze"
   ],
   "downstream_authorization": {

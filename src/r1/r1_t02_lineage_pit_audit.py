@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -10,7 +10,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_CONFIG = ROOT / "configs/r1/r1_t02_r0_lineage_pit_audit.v1.json"
-DEFAULT_R1_T01_CONFIG = ROOT / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
+DEFAULT_R1_T01_CONFIG = (
+    ROOT / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
+)
 DEFAULT_R1_T01_EVIDENCE = (
     ROOT / "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md"
 )
@@ -33,6 +35,19 @@ FORBIDDEN_FIELD_TOKENS = (
     "trading_signal",
     "pnl",
     "alpha",
+    "raw_external",
+    "marketdb",
+    ".day",
+    "jointlift",
+    "empirical_p",
+    "z_score",
+    "r2_decision_matrix",
+    "freeze_candidate",
+    "review_candidate",
+)
+R0_STRICT_PAST_EVIDENCE = (
+    ROOT
+    / "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md"
 )
 REQUIRED_FORBIDDEN_GUARDS = (
     "no_future_fields",
@@ -83,6 +98,7 @@ def run_r1_t02_lineage_pit_audit(
     r1_t01_evidence_path: Path = DEFAULT_R1_T01_EVIDENCE,
     r0_t10_evidence_path: Path = DEFAULT_R0_T10_EVIDENCE,
     r0_t11_evidence_path: Path = DEFAULT_R0_T11_EVIDENCE,
+    r0_strict_past_evidence_path: Path = R0_STRICT_PAST_EVIDENCE,
     strict_artifact_hashes: bool = True,
 ) -> dict[str, Any]:
     ctx = AuditContext(root=root)
@@ -92,10 +108,18 @@ def run_r1_t02_lineage_pit_audit(
     r1_t01_evidence = _parse_evidence(r1_t01_evidence_path)
     r0_t10_evidence = _parse_evidence(r0_t10_evidence_path)
     r0_t11_evidence = _parse_evidence(r0_t11_evidence_path)
+    r0_strict_past_evidence = _parse_evidence(r0_strict_past_evidence_path)
 
     _check_evidence_status(ctx, "r1_t01_evidence", r1_t01_evidence, "R1-T01")
     _check_evidence_status(ctx, "r0_t10_05_evidence", r0_t10_evidence, "R0-T10-05")
     _check_evidence_status(ctx, "r0_t11_evidence", r0_t11_evidence, "R0-T11")
+    _check_evidence_status(
+        ctx,
+        "strict_past_evidence_chain_check",
+        r0_strict_past_evidence,
+        "R0-T10-02",
+    )
+    _check_config_contract(ctx, config)
     _check_r1_t01_lock(ctx, r1_t01_config, r1_t01_evidence)
 
     auth_path = _resolve_manifest_path(
@@ -125,6 +149,8 @@ def run_r1_t02_lineage_pit_audit(
         ctx.checks["config_artifact_hashes"] = "skipped"
     _check_forbidden_tokens(ctx, authorized, "authorized_input_manifest")
     _check_forbidden_tokens(ctx, full_grid, "full_grid_manifest")
+    _check_row_payload_absence(ctx, authorized, full_grid)
+    _check_unknown_blocked_semantics(ctx, authorized, full_grid)
     _check_evidence_chain_hash(ctx, r0_t10_evidence_path, r0_t11_evidence)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -134,7 +160,7 @@ def run_r1_t02_lineage_pit_audit(
         "task_id": "R1-T02",
         "run_id": run_id,
         "status": status,
-        "created_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "code_commit": code_commit,
         "config_path": ctx.relative(config_path),
         "config_sha256": sha256_file(config_path) if config_path.exists() else None,
@@ -154,6 +180,10 @@ def run_r1_t02_lineage_pit_audit(
         "r0_t11_evidence_sha256": sha256_file(r0_t11_evidence_path)
         if r0_t11_evidence_path.exists()
         else None,
+        "r0_strict_past_evidence_path": ctx.relative(r0_strict_past_evidence_path),
+        "r0_strict_past_evidence_sha256": sha256_file(r0_strict_past_evidence_path)
+        if r0_strict_past_evidence_path.exists()
+        else None,
         "authorized_input_manifest_path": ctx.relative(auth_path),
         "authorized_input_manifest_sha256": sha256_file(auth_path)
         if auth_path.exists()
@@ -168,12 +198,14 @@ def run_r1_t02_lineage_pit_audit(
         "blocked_reasons": ctx.errors,
         "row_payload_embedded": False,
         "point_in_time_scope": "manifest_and_lineage_only",
-        "strict_past_artifact_field_check": "passed"
+        "strict_past_artifact_field_check": "evidence_chain_only"
         if status == "completed"
         else "blocked",
         "confirmation_time_backfill_check": "skipped_zero_interval_input_fact"
         if counts.get("confirmed_interval_row_count_total") == 0
         else "passed",
+        "validation_result_path": None,
+        "validation_result_sha256": None,
         "downstream_gates": {
             "R1-T03_allowed_to_start": status == "completed",
             "R1-T07_allowed_to_start": False,
@@ -193,6 +225,24 @@ def run_r1_t02_lineage_pit_audit(
     return summary
 
 
+def attach_validation_result(
+    summary_path: Path, validation_result_path: Path, *, root: Path = ROOT
+) -> dict[str, Any]:
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["validation_result_path"] = _display_path(validation_result_path, root)
+    summary["validation_result_sha256"] = sha256_file(validation_result_path)
+    summary_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    summary["summary_sha256"] = sha256_file(summary_path)
+    summary_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return summary
+
+
 def sha256_file(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as handle:
@@ -202,7 +252,7 @@ def sha256_file(path: Path) -> str:
 
 
 def _default_run_id() -> str:
-    return "R1-T02-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%MZ")
+    return "R1-T02-" + datetime.now(UTC).strftime("%Y%m%dT%H%MZ")
 
 
 def _load_json(path: Path, ctx: AuditContext, check_key: str) -> dict[str, Any]:
@@ -253,6 +303,42 @@ def _check_evidence_status(
     ctx.pass_check(key)
 
 
+def _check_config_contract(ctx: AuditContext, config: dict[str, Any]) -> None:
+    required_paths = (
+        "r1_t01_config_path",
+        "r1_t01_evidence_path",
+        "r0_input_package_lock_source",
+    )
+    missing_paths = [key for key in required_paths if not config.get(key)]
+    required_checks = set(config.get("required_checks", []))
+    missing_checks = {
+        "strict_past_evidence_chain_check",
+        "strict_past_artifact_field_check",
+        "unknown_blocked_semantics_check",
+        "confirmation_time_backfill_check",
+        "forbidden_column_absence_check",
+        "row_payload_absence_check",
+        "validation_result_path_hash_check",
+    } - required_checks
+    zero_policy = config.get("zero_interval_policy", {})
+    strict_artifacts = config.get("strict_artifacts", {})
+    if missing_paths:
+        ctx.fail_check("r1_t02_config_contract", "missing:" + ",".join(missing_paths))
+    elif missing_checks:
+        ctx.fail_check(
+            "r1_t02_config_contract",
+            "missing_checks:" + ",".join(sorted(missing_checks)),
+        )
+    elif zero_policy.get("confirmed_interval_row_count_total_zero_handling") != (
+        "treat_as_input_fact_and_do_not_backfill"
+    ):
+        ctx.fail_check("r1_t02_config_contract", "zero_interval_policy_mismatch")
+    elif strict_artifacts.get("hash_check") is not True:
+        ctx.fail_check("r1_t02_config_contract", "strict_artifacts_hash_check_missing")
+    else:
+        ctx.pass_check("r1_t02_config_contract")
+
+
 def _check_r1_t01_lock(
     ctx: AuditContext, config: dict[str, Any], evidence: dict[str, str]
 ) -> None:
@@ -290,7 +376,9 @@ def _resolve_manifest_path(
     return path
 
 
-def _audit_authorized_manifest(ctx: AuditContext, manifest: dict[str, Any]) -> dict[str, Any]:
+def _audit_authorized_manifest(
+    ctx: AuditContext, manifest: dict[str, Any]
+) -> dict[str, Any]:
     counts: dict[str, Any] = {}
     if manifest.get("manifest_type") != "r0_t10_05_authorized_input_manifest":
         ctx.fail_check("authorized_manifest_contract", "manifest_type_mismatch")
@@ -302,7 +390,9 @@ def _audit_authorized_manifest(ctx: AuditContext, manifest: dict[str, Any]) -> d
     else:
         ctx.pass_check("authorized_manifest_contract")
     guards = manifest.get("forbidden_guards", {})
-    missing_guards = [key for key in REQUIRED_FORBIDDEN_GUARDS if guards.get(key) is not True]
+    missing_guards = [
+        key for key in REQUIRED_FORBIDDEN_GUARDS if guards.get(key) is not True
+    ]
     if missing_guards:
         ctx.fail_check("forbidden_guards", ",".join(missing_guards))
     else:
@@ -330,15 +420,25 @@ def _audit_authorized_manifest(ctx: AuditContext, manifest: dict[str, Any]) -> d
     return counts
 
 
-def _audit_full_grid_manifest(ctx: AuditContext, manifest: dict[str, Any]) -> dict[str, Any]:
+def _audit_full_grid_manifest(
+    ctx: AuditContext, manifest: dict[str, Any]
+) -> dict[str, Any]:
     counts = {
         "selected_config_count": manifest.get("selected_config_count"),
         "completed_config_count": manifest.get("completed_config_count"),
         "failed_config_count": manifest.get("failed_config_count"),
-        "daily_candidate_row_count_total": manifest.get("daily_candidate_row_count_total"),
-        "confirmed_interval_row_count_total": manifest.get("confirmed_interval_row_count_total"),
-        "daily_confirmed_true_count_total": manifest.get("daily_confirmed_true_count_total"),
-        "confirmed_interval_zero_config_count": manifest.get("confirmed_interval_zero_config_count"),
+        "daily_candidate_row_count_total": manifest.get(
+            "daily_candidate_row_count_total"
+        ),
+        "confirmed_interval_row_count_total": manifest.get(
+            "confirmed_interval_row_count_total"
+        ),
+        "daily_confirmed_true_count_total": manifest.get(
+            "daily_confirmed_true_count_total"
+        ),
+        "confirmed_interval_zero_config_count": manifest.get(
+            "confirmed_interval_zero_config_count"
+        ),
         "zero_interval_reason": manifest.get("zero_interval_reason"),
     }
     candidates = manifest.get("candidate_configs", [])
@@ -350,9 +450,16 @@ def _audit_full_grid_manifest(ctx: AuditContext, manifest: dict[str, Any]) -> di
         ctx.fail_check("full_grid_manifest_contract", "status_not_completed")
     elif manifest.get("row_payload_embedded") is not False:
         ctx.fail_check("full_grid_manifest_contract", "row_payload_embedded_not_false")
-    elif manifest.get("selected_config_count") != 27 or len(candidates) != 27 or len(selected_ids) != 27:
+    elif (
+        manifest.get("selected_config_count") != 27
+        or len(candidates) != 27
+        or len(selected_ids) != 27
+    ):
         ctx.fail_check("full_grid_manifest_contract", "config_count_not_27")
-    elif manifest.get("completed_config_count") != 27 or manifest.get("failed_config_count") != 0:
+    elif (
+        manifest.get("completed_config_count") != 27
+        or manifest.get("failed_config_count") != 0
+    ):
         ctx.fail_check("full_grid_manifest_contract", "completion_count_mismatch")
     else:
         ctx.pass_check("full_grid_manifest_contract")
@@ -373,7 +480,10 @@ def _audit_full_grid_manifest(ctx: AuditContext, manifest: dict[str, Any]) -> di
             ctx.fail_check("zero_interval_consistency", "daily_confirmed_true_not_zero")
         elif manifest.get("confirmed_interval_zero_config_count") != 27:
             ctx.fail_check("zero_interval_consistency", "zero_config_count_not_27")
-        elif manifest.get("zero_interval_reason") != "no_confirmed_segments_in_r0_t07_input":
+        elif (
+            manifest.get("zero_interval_reason")
+            != "no_confirmed_segments_in_r0_t07_input"
+        ):
             ctx.fail_check("zero_interval_consistency", "reason_mismatch")
         else:
             ctx.pass_check("zero_interval_consistency")
@@ -388,13 +498,20 @@ def _grid_values(items: list[dict[str, Any]], key: str) -> list[Any]:
 
 
 def _check_hashes(
-    ctx: AuditContext, r1_t01_config: dict[str, Any], auth_path: Path, full_grid_path: Path
+    ctx: AuditContext,
+    r1_t01_config: dict[str, Any],
+    auth_path: Path,
+    full_grid_path: Path,
 ) -> None:
     lock = r1_t01_config.get("r0_input_package_lock", {})
     mismatches = []
-    if auth_path.exists() and lock.get("authorized_input_manifest_sha256") != sha256_file(auth_path):
+    if auth_path.exists() and lock.get(
+        "authorized_input_manifest_sha256"
+    ) != sha256_file(auth_path):
         mismatches.append("authorized_input_manifest_sha256")
-    if full_grid_path.exists() and lock.get("full_grid_manifest_sha256") != sha256_file(full_grid_path):
+    if full_grid_path.exists() and lock.get("full_grid_manifest_sha256") != sha256_file(
+        full_grid_path
+    ):
         mismatches.append("full_grid_manifest_sha256")
     if mismatches:
         ctx.fail_check("locked_manifest_hashes", ",".join(mismatches))
@@ -438,6 +555,11 @@ def _check_forbidden_tokens(ctx: AuditContext, value: Any, label: str) -> None:
         ctx.fail_check(f"{label}_forbidden_token_check", ",".join(sorted(found)))
     else:
         ctx.pass_check(f"{label}_forbidden_token_check")
+    if label == "full_grid_manifest":
+        if found:
+            ctx.fail_check("forbidden_column_absence_check", ",".join(sorted(found)))
+        else:
+            ctx.pass_check("forbidden_column_absence_check")
 
 
 def _collect_forbidden_tokens(value: Any, found: set[str]) -> None:
@@ -460,6 +582,42 @@ def _collect_forbidden_tokens(value: Any, found: set[str]) -> None:
                 found.add(token)
 
 
+def _check_row_payload_absence(
+    ctx: AuditContext, authorized: dict[str, Any], full_grid: dict[str, Any]
+) -> None:
+    if (
+        authorized.get("row_payload_embedded") is False
+        and full_grid.get("row_payload_embedded") is False
+    ):
+        ctx.pass_check("row_payload_absence_check")
+    else:
+        ctx.fail_check("row_payload_absence_check", "row_payload_embedded_not_false")
+
+
+def _check_unknown_blocked_semantics(
+    ctx: AuditContext, authorized: dict[str, Any], full_grid: dict[str, Any]
+) -> None:
+    forbidden_guard = authorized.get("forbidden_guards", {}).get("no_legacy_v1") is True
+    has_unknown_coercion = _contains_text(full_grid, "fillna(0)") or _contains_text(
+        full_grid, "unknown_to_false"
+    )
+    if forbidden_guard and not has_unknown_coercion:
+        ctx.pass_check("unknown_blocked_semantics_check")
+    else:
+        ctx.fail_check("unknown_blocked_semantics_check", "unknown_or_blocked_coercion")
+
+
+def _contains_text(value: Any, token: str) -> bool:
+    if isinstance(value, dict):
+        return any(
+            _contains_text(key, token) or _contains_text(item, token)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(_contains_text(item, token) for item in value)
+    return token.lower() in str(value).lower()
+
+
 def _check_evidence_chain_hash(
     ctx: AuditContext, r0_t10_path: Path, r0_t11_evidence: dict[str, str]
 ) -> None:
@@ -474,3 +632,10 @@ def _check_evidence_chain_hash(
         ctx.fail_check("r0_evidence_chain_hash", "r0_t11_hash_mismatch")
         return
     ctx.pass_check("r0_evidence_chain_hash")
+
+
+def _display_path(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root)).replace("\\", "/")
+    except ValueError:
+        return str(path).replace("\\", "/")

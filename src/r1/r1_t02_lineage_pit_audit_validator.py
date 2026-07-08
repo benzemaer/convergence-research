@@ -15,9 +15,11 @@ FORBIDDEN_BASE_COMMITS = {
     "718e1803afd8a8aa188ddc5e66a1cdac01b9cea6",
 }
 REQUIRED_CHECKS = (
+    "r1_t02_config_contract",
     "r1_t01_evidence",
     "r0_t10_05_evidence",
     "r0_t11_evidence",
+    "strict_past_evidence_chain_check",
     "r1_t01_gate",
     "authorized_manifest_contract",
     "forbidden_guards",
@@ -27,6 +29,9 @@ REQUIRED_CHECKS = (
     "zero_interval_consistency",
     "locked_manifest_hashes",
     "config_artifact_hashes",
+    "forbidden_column_absence_check",
+    "row_payload_absence_check",
+    "unknown_blocked_semantics_check",
     "authorized_input_manifest_forbidden_token_check",
     "full_grid_manifest_forbidden_token_check",
     "r0_evidence_chain_hash",
@@ -50,14 +55,13 @@ def validate_r1_t02_lineage_pit_audit(
         errors.append("evidence_missing_or_unparseable")
 
     _check_summary(summary, summary_path, errors)
-    _check_evidence(evidence, summary, summary_path, errors)
+    _check_evidence(evidence, summary, summary_path, errors, output_path)
     result = {
         "task_id": "R1-T02",
         "validator_status": "passed" if not errors else "failed",
         "summary_path": _display_path(summary_path),
         "summary_sha256": sha256_file(summary_path) if summary_path.exists() else None,
         "evidence_path": _display_path(evidence_path),
-        "evidence_sha256": sha256_file(evidence_path) if evidence_path.exists() else None,
         "errors": errors,
     }
     if output_path is not None:
@@ -134,6 +138,12 @@ def _check_summary(
             errors.append(f"summary_count_mismatch:{key}")
     if counts.get("zero_interval_reason") != "no_confirmed_segments_in_r0_t07_input":
         errors.append("summary_zero_interval_reason_mismatch")
+    if summary.get("strict_past_artifact_field_check") != "evidence_chain_only":
+        errors.append("summary_strict_past_artifact_field_check_overclaimed")
+    if summary.get("confirmation_time_backfill_check") != (
+        "skipped_zero_interval_input_fact"
+    ):
+        errors.append("summary_confirmation_time_backfill_check_mismatch")
     _check_commit(summary.get("code_commit"), errors, "summary_code_commit")
 
 
@@ -142,6 +152,7 @@ def _check_evidence(
     summary: dict[str, Any],
     summary_path: Path,
     errors: list[str],
+    validation_output_path: Path | None,
 ) -> None:
     if not evidence:
         return
@@ -160,7 +171,12 @@ def _check_evidence(
         "no_trading_signal_check": "passed",
         "config_artifact_hash_check": "passed",
         "zero_interval_consistency_check": "passed",
-        "strict_past_artifact_field_check": "passed",
+        "strict_past_evidence_chain_check": "passed",
+        "strict_past_artifact_field_check": "evidence_chain_only",
+        "unknown_blocked_semantics_check": "passed",
+        "confirmation_time_backfill_check": "skipped_zero_interval_input_fact",
+        "forbidden_column_absence_check": "passed",
+        "row_payload_absence_check": "passed",
     }
     for key, expected in required.items():
         if evidence.get(key) != expected:
@@ -175,11 +191,23 @@ def _check_evidence(
         ("r1_t01_evidence_path", "r1_t01_evidence_sha256"),
         ("r0_t10_05_evidence_path", "r0_t10_05_evidence_sha256"),
         ("r0_t11_evidence_path", "r0_t11_evidence_sha256"),
+        ("r0_strict_past_evidence_path", "r0_strict_past_evidence_sha256"),
     ):
         if evidence.get(path_key) != summary.get(path_key):
             errors.append(f"evidence_path_mismatch:{path_key}")
         if evidence.get(hash_key) != str(summary.get(hash_key)):
             errors.append(f"evidence_hash_mismatch:{hash_key}")
+    validation_path = evidence.get("validation_result_path")
+    validation_hash = evidence.get("validation_result_sha256")
+    if not validation_path or not validation_hash:
+        if validation_output_path is None:
+            errors.append("evidence_validation_result_missing")
+    else:
+        path = ROOT / validation_path
+        if not path.exists():
+            errors.append("evidence_validation_result_path_missing")
+        elif sha256_file(path) != validation_hash:
+            errors.append("evidence_validation_result_hash_mismatch")
     _check_commit(evidence.get("code_commit"), errors, "evidence_code_commit")
 
 
