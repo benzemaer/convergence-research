@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R1
-current_task: R1-T01 状态存在性与频率轮廓
-next_planned_task: R1-T02 结构关系与协同约束检验
+current_task: R1-T02 R0 产物接收、lineage 与无前视复检
+next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描
 ```
 
 ## 命名与路径规则
@@ -243,9 +243,18 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 
 状态：in_progress / active
 
-- `R1-T01` 状态存在性与频率轮廓：in_progress
-- `R1-T02` 结构关系与协同约束检验：planned
-- `R1-T03` 稳定性与零模型检验
+- `R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via PR #75
+- `R1-T02` R0 产物接收、lineage 与无前视复检：planned
+- `R1-T03` 27 组 W/q/K 全量轻量结构扫描：planned
+- `R1-T04` S_PCT 与 S_PCVT 分线状态画像：planned
+- `R1-T05` 单指标诊断与层内互补性分析：planned
+- `R1-T06` 层间条件 Lift 与固定滞后结构关系：planned
+- `R1-T07` S_PCT/S_PCVT 预注册配置的同步性零模型：planned
+- `R1-T08` 年份稳定性与状态集中度检查：planned
+- `R1-T09` R1 验收门禁与 R2 交接矩阵：planned
+- `R1-T10` 27 组全量零模型 family-level sidecar：optional / triggered
+- `R1-T11` CTV-bundle、无锚平移与块长 B 对照零模型：optional / triggered
+- `R1-T12` 替代指标口径 sensitivity sidecar：optional / triggered
 
 ## R2：参数、事件规则与状态版本冻结
 

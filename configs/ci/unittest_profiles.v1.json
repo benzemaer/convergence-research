@@ -1,0 +1,26 @@
+{
+  "profiles": {
+    "pr-fast": {
+      "files": [
+        "tests/test_task_index_current.py",
+        "tests/r1/test_r1_t01_validation_protocol_manifest_lock_contract.py"
+      ]
+    },
+    "stage-r1": {
+      "discover": [
+        {
+          "start_dir": "tests/r1",
+          "pattern": "test*.py"
+        }
+      ]
+    },
+    "full": {
+      "discover": [
+        {
+          "start_dir": "tests",
+          "pattern": "test*.py"
+        }
+      ]
+    }
+  }
+}

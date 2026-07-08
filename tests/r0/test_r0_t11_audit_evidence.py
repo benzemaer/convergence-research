@@ -42,9 +42,6 @@ class R0T11AuditEvidenceTest(unittest.TestCase):
 
     def test_readme_advances_to_r1(self) -> None:
         text = README.read_text(encoding="utf-8")
-        self.assertIn("current_stage: R1", text)
-        self.assertIn("current_task: R1-T01 状态存在性与频率轮廓", text)
-        self.assertIn("next_planned_task: R1-T02 结构关系与协同约束检验", text)
         self.assertIn("`R0-T11` R0 审计报告与 R1 交接：completed via PR #74", text)
 
     def test_evidence_has_no_row_payload(self) -> None:

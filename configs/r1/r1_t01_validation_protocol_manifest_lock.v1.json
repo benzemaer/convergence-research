@@ -1,0 +1,131 @@
+{
+  "task_id": "R1-T01",
+  "stage": "R1",
+  "protocol_version": "R1.v0.2.R1-T01.v1",
+  "reference_config": {
+    "config_id": "W250_q20_K3",
+    "W": 250,
+    "q": 0.2,
+    "K": 3,
+    "role": "reference_baseline",
+    "not_optimized": true,
+    "not_selected_by_future_performance": true
+  },
+  "all_27_configs_light_profile": true,
+  "locked_grid": {
+    "W": [120, 250, 500],
+    "q": [0.1, 0.2, 0.3],
+    "K": [2, 3, 5],
+    "weak_delta": 0.1,
+    "dimension_rule": "weak",
+    "config_count": 27,
+    "baseline": "W250_q20_K3"
+  },
+  "state_lines": [
+    {
+      "state_line": "S_PCT",
+      "definition": "P ∧ C ∧ T",
+      "participation_depletion_required": false,
+      "candidate_examples_registered_only": ["S_PCT_fast_candidate"]
+    },
+    {
+      "state_line": "S_PCVT",
+      "definition": "P ∧ C ∧ T ∧ V",
+      "participation_depletion_required": true,
+      "candidate_examples_registered_only": ["S_PCVT_depletion_candidate"]
+    }
+  ],
+  "diagnostic_layers": ["P", "C", "T", "V"],
+  "raw_confirmed_mode": "dual_line",
+  "raw_role": "diagnostic_definition_body_single_indicator_boundary_within_layer_complementarity_raw_fragment",
+  "confirmed_role": "r2_freeze_candidate_or_review_candidate_qualification_basis",
+  "r2_decision_basis": "confirmed_state",
+  "primary_hypothesis_test": {
+    "test_name": "PCVT_contemporaneous_alignment_exceeds_P_fixed_independent_CTV_circular_shift",
+    "primary_statistics": ["JointLift", "empirical_p"],
+    "descriptive_only_statistics": ["z_score"]
+  },
+  "formal_null_configs": [
+    {"state_line": "S_PCT", "W": 250, "q": 0.2, "K": 3},
+    {"state_line": "S_PCT", "W": 120, "q": 0.2, "K": 3},
+    {"state_line": "S_PCVT", "W": 250, "q": 0.2, "K": 3},
+    {"state_line": "S_PCVT", "W": 120, "q": 0.2, "K": 3}
+  ],
+  "sidecar_null_configs": [
+    {"state_line": "S_PCT", "W": 120, "q": 0.2, "K": 2, "trigger": "baseline_challenger_conflict_or_R2_family_level_request"},
+    {"state_line": "S_PCVT", "W": 500, "q": 0.2, "K": 3, "trigger": "baseline_challenger_conflict_or_R2_family_level_request"},
+    {"state_line": "S_PCVT", "W": 250, "q": 0.2, "K": 5, "trigger": "baseline_challenger_conflict_or_R2_family_level_request"}
+  ],
+  "primary_null_model": "P_fixed_independent_CTV_circular_shift",
+  "primary_null_model_detail": {
+    "P": "fixed",
+    "C": "independent_circular_shift_within_security_id_year_continuous_trading_segment",
+    "T": "independent_circular_shift_within_security_id_year_continuous_trading_segment",
+    "V": "independent_circular_shift_within_security_id_year_continuous_trading_segment",
+    "preserves": ["layer_marginal_distribution", "within_block_autocorrelation", "duration_structure"],
+    "breaks": ["contemporaneous_alignment_between_P_C_T_V"]
+  },
+  "N_perm": 2000,
+  "empirical_p_formula": "(n_extreme + 1) / (N_perm + 1)",
+  "lag_set": [1, 3, 5, 10, 20],
+  "year_stability_required": true,
+  "year_definition": "year = YEAR(trading_date)",
+  "future_labels_forbidden": true,
+  "forbidden_inputs": ["raw", "external", "MarketDB", ".day", "non_R0_authorized_source"],
+  "allowed_inputs": [
+    "R0 candidate daily state table",
+    "R0 confirmed interval table",
+    "R0 manifest",
+    "R0 config hash",
+    "R0 schema",
+    "R0 quality flags",
+    "R0 confirmation_time",
+    "R0-T11 evidence-bound handoff package"
+  ],
+  "r0_input_package_lock": {
+    "r0_t10_05_run_id": "R0-T10-05-20260707T1845Z",
+    "r0_t10_05_evidence_path": "docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md",
+    "r0_t10_05_evidence_sha256": "507b75bcbfc39afd72955e6b1b585c73a3c855cdbf080c1718c7e745b26e40ac",
+    "r0_t11_evidence_path": "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+    "r0_t11_evidence_sha256": "46e0e8c7f27d305238698043e2f5ea31f4666dc21ad4cc547dabbc16c053a24e",
+    "authorized_input_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t10_05_authorized_input_manifest.json",
+    "authorized_input_manifest_sha256": "77d92279e55ea8bb012390c033d4f4f1ada9cee2f284532cd4be733689d4a40e",
+    "full_grid_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+    "full_grid_manifest_sha256": "a30d5bc7d1613637dbdfaa0f889f1f58719335bbf9831d95c079c6ba33ac1a96",
+    "daily_candidate_row_count_total": 186923052,
+    "confirmed_interval_row_count_total": 0,
+    "daily_confirmed_true_count_total": 0,
+    "zero_interval_reason_if_any": "no_confirmed_segments_in_r0_t07_input",
+    "selected_config_count": 27,
+    "completed_config_count": 27,
+    "failed_config_count": 0,
+    "baseline_config_id": "R0_W250_Q20_K3_WEAK_D010",
+    "W_coverage": [120, 250, 500],
+    "q_coverage": [0.1, 0.2, 0.3],
+    "K_coverage": [2, 3, 5],
+    "weak_delta": 0.1,
+    "dimension_rule": "weak"
+  },
+  "forbidden_outputs": [
+    "future_label",
+    "future_return",
+    "release_direction",
+    "breakout_direction",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "trading_signal",
+    "parameter_optimization"
+  ],
+  "decision_status_enum": [
+    "freeze_candidate",
+    "review_candidate",
+    "do_not_freeze",
+    "blocked_return_to_R0"
+  ],
+  "downstream_authorization": {
+    "R1_T02_allowed_to_start_after_validator_pass": true,
+    "downstream_R2_allowed_to_start": false,
+    "max_next_task_after_merge": "R1-T02"
+  }
+}

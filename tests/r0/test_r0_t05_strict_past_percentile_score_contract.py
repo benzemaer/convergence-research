@@ -92,14 +92,6 @@ class R0T05StrictPastPercentileScoreContractTest(unittest.TestCase):
     def test_readme_advances_to_r0_t06_after_r0_t05_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
-        self.assertIn(
-            "current_task: R1-T01 状态存在性与频率轮廓",
-            text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T02 结构关系与协同约束检验",
-            text,
-        )
         self.assertRegex(
             text,
             r"`R0-T05` 严格过去分位、eligible 样本与 Score 体系：completed via PR #\d+",

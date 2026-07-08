@@ -78,14 +78,6 @@ class R0T10ScoreMaterializationEvidenceTest(unittest.TestCase):
             task_text,
         )
         self.assertIn(
-            "current_task: R1-T01 状态存在性与频率轮廓",
-            readme_text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T02 结构关系与协同约束检验",
-            readme_text,
-        )
-        self.assertIn(
             "`R0-T10-02` R0-T05 strict-past score 物化：completed via PR #70",
             readme_text,
         )

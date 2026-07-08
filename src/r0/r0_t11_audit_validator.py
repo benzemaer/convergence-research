@@ -248,7 +248,6 @@ def _check_readme_gate(
     text = readme_path.read_text(encoding="utf-8")
     advanced = (
         "current_stage: R1" in text
-        and "current_task: R1-T01 状态存在性与频率轮廓" in text
         and "R0-T11` R0 审计报告与 R1 交接：completed via PR #74" in text
     )
     if advanced and not audit_evidence_path.exists():

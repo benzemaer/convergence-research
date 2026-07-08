@@ -50,8 +50,6 @@ class R0T10FullGridEvidenceTest(unittest.TestCase):
             completed_status,
             readme_text,
         )
-        self.assertIn("current_task: R1-T01 状态存在性与频率轮廓", readme_text)
-        self.assertIn("next_planned_task: R1-T02 结构关系与协同约束检验", readme_text)
 
 
 if __name__ == "__main__":
