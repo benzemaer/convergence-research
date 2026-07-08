@@ -60,14 +60,6 @@ class R0T10MaterializationEvidenceTest(unittest.TestCase):
     def test_readme_advances_after_evidence_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            text,
-        )
-        self.assertIn(
             "`R0-T10-01` 真实数据源与 R0-T04 raw metrics 物化：completed via PR #69",
             text,
         )

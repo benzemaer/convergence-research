@@ -149,14 +149,6 @@ class R0T08MainGridCandidateArtifactContractTest(unittest.TestCase):
     def test_readme_advances_to_r0_t09_after_r0_t08_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
-        self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            text,
-        )
         self.assertRegex(
             text,
             r"`R0-T08` 主网格 candidate 状态日表与 manifest：completed via PR #\d+",

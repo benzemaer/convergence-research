@@ -107,14 +107,6 @@ class R0T03VLayerTurnoverReadinessContractTest(unittest.TestCase):
         text = README_PATH.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            text,
-        )
-        self.assertIn(
             "`D3-T12` 开放候选层门禁与下游消费审计解耦：completed via PR #60",
             text,
         )

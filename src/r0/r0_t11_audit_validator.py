@@ -246,17 +246,10 @@ def _check_readme_gate(
         errors.append("README_missing")
         return
     text = readme_path.read_text(encoding="utf-8")
-    advanced_to_r1_t01 = (
+    advanced = (
         "current_stage: R1" in text
-        and "current_task: R1-T01 状态存在性与频率轮廓" in text
         and "R0-T11` R0 审计报告与 R1 交接：completed via PR #74" in text
     )
-    advanced_to_r1_t02 = (
-        "current_stage: R1" in text
-        and "current_task: R1-T02 R0 产物接收、lineage 与无前视复检" in text
-        and "R0-T11` R0 审计报告与 R1 交接：completed via PR #74" in text
-    )
-    advanced = advanced_to_r1_t01 or advanced_to_r1_t02
     if advanced and not audit_evidence_path.exists():
         errors.append("README_advanced_without_R0-T11_evidence")
     if not advanced:

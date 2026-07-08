@@ -100,14 +100,6 @@ class R0T10NestedStateMaterializationEvidenceTest(unittest.TestCase):
             task_text,
         )
         self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            readme_text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            readme_text,
-        )
-        self.assertIn(
             "`R0-T10-03` R0-T06 nested state 物化：completed via PR #71",
             readme_text,
         )

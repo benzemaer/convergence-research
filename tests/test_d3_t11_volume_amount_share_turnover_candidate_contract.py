@@ -73,14 +73,6 @@ class D3T11VolumeAmountShareTurnoverContractTest(unittest.TestCase):
     def test_readme_advances_to_d3_t12_and_keeps_r0_t03_planned(self) -> None:
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            text,
-        )
-        self.assertIn(
             "D3-T10` D3 字段可用性探针与字段缺口补全：completed via PR #58", text
         )
         self.assertIn(

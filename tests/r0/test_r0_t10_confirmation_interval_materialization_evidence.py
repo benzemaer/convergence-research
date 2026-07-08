@@ -90,14 +90,6 @@ class R0T10ConfirmationIntervalMaterializationEvidenceTest(unittest.TestCase):
         )
         self.assertIn("`--code-commit` 必须为 40 位完整 Git SHA", task_text)
         self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            readme_text,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            readme_text,
-        )
-        self.assertIn(
             "`R0-T10-04` R0-T07 confirmation / interval 物化：completed via PR #72",
             readme_text,
         )

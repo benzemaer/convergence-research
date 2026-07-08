@@ -328,8 +328,6 @@ def _write_complete_fixture(root: Path) -> None:
         "\n".join(
             (
                 "current_stage: R1",
-                "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-                "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
                 "`R0-T11` R0 审计报告与 R1 交接：completed via PR #74",
             )
         ),

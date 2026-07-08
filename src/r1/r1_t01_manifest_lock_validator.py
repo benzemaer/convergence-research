@@ -22,6 +22,11 @@ WRAPPER = ROOT / "scripts/r1/validate_r1_t01_manifest_lock.py"
 R0_HANDOFF_EVIDENCE = (
     ROOT / "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md"
 )
+R0_T10_05_EVIDENCE = (
+    ROOT / "docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md"
+)
+BASE_COMMIT_FORBIDDEN = "2982ec0d3f674908f9527e938efbd7badf6de81a"
+PLACEHOLDER_COMMITS = {"", "fixture", "placeholder", "tbd", "unknown"}
 
 REQUIRED_FILES = (TASK_DOC, STAGE_DOC, CONFIG, SCHEMA, EVIDENCE, README, WRAPPER)
 R0_EVIDENCE_CHAIN = (
@@ -125,8 +130,9 @@ def validate_r1_t01_manifest_lock(root: Path = ROOT) -> dict[str, Any]:
         errors,
     )
     _check_r0_evidence_chain(paths["r0_chain"], errors)
+    _check_r0_input_package_lock(config, paths, errors)
     _check_readme_gate(paths["readme"], paths["evidence"], errors)
-    _check_evidence(paths["evidence"], paths, errors)
+    _check_evidence(paths["evidence"], paths, config, errors)
     _check_thin_wrapper(paths["wrapper"], errors)
 
     result = {
@@ -151,6 +157,12 @@ def validate_r1_t01_manifest_lock(root: Path = ROOT) -> dict[str, Any]:
         else "blocked",
         "r0_evidence_chain_check": "passed"
         if not any("R0_evidence" in error for error in errors)
+        else "blocked",
+        "r0_input_package_lock_check": "passed"
+        if not any("r0_input_package_lock" in error for error in errors)
+        else "blocked",
+        "evidence_commit_check": "passed"
+        if not any("evidence_commit" in error for error in errors)
         else "blocked",
         "readme_gate_check": "passed"
         if not any("README" in error for error in errors)
@@ -187,6 +199,8 @@ def _paths(root: Path) -> dict[str, Any]:
         "evidence": root / EVIDENCE.relative_to(ROOT),
         "readme": root / README.relative_to(ROOT),
         "wrapper": root / WRAPPER.relative_to(ROOT),
+        "r0_t10_05_evidence": root / R0_T10_05_EVIDENCE.relative_to(ROOT),
+        "r0_t11_evidence": root / R0_HANDOFF_EVIDENCE.relative_to(ROOT),
         "r0_chain": tuple(root / path.relative_to(ROOT) for path in R0_EVIDENCE_CHAIN),
         "required_files": tuple(
             root / path.relative_to(ROOT) for path in REQUIRED_FILES
@@ -263,6 +277,9 @@ def _check_config_semantics(config: dict[str, Any], errors: list[str]) -> None:
     unexpected = sorted(key for key in forbidden_keys if key not in allowed)
     if unexpected:
         errors.append("protocol_semantics_forbidden_field:" + ",".join(unexpected))
+    lock = config.get("r0_input_package_lock")
+    if not isinstance(lock, dict):
+        errors.append("protocol_semantics_missing:r0_input_package_lock")
 
 
 def _check_stage_doc(path: Path, errors: list[str]) -> None:
@@ -337,16 +354,23 @@ def _check_readme_gate(
             errors.append("README_advanced_without_validator_status_passed")
         if fields.get("R1-T02_allowed_to_start") != "true":
             errors.append("README_advanced_without_R1-T02_allowed")
+        if fields.get("R2_allowed_to_start") != "false":
+            errors.append("README_advanced_without_R2_blocked")
+        if "completed via PR #75" not in text:
+            errors.append("README_missing_R1-T01_PR75_completion")
     if not advanced:
         errors.append("README_not_advanced_to_R1-T02")
 
 
-def _check_evidence(path: Path, paths: dict[str, Any], errors: list[str]) -> None:
+def _check_evidence(
+    path: Path, paths: dict[str, Any], config: dict[str, Any], errors: list[str]
+) -> None:
     if not path.exists():
         return
     text = path.read_text(encoding="utf-8")
     _check_no_row_payload(text, errors)
     fields = _parse_evidence(path)
+    _check_evidence_commit(fields, errors)
     required = {
         "task_id": "R1-T01",
         "status": "completed",
@@ -391,6 +415,135 @@ def _check_evidence(path: Path, paths: dict[str, Any], errors: list[str]) -> Non
             paths[path_key]
         ):
             errors.append(f"evidence_hash_mismatch:{hash_field}")
+    _check_evidence_r0_lock_fields(fields, config, errors)
+
+
+def _check_evidence_commit(fields: dict[str, str], errors: list[str]) -> None:
+    commit = fields.get("code_commit") or fields.get("validation_source_commit")
+    if commit is None:
+        errors.append("evidence_commit_missing")
+        return
+    normalized = commit.strip().lower()
+    if normalized in PLACEHOLDER_COMMITS:
+        errors.append("evidence_commit_placeholder")
+        return
+    if not re.fullmatch(r"[0-9a-f]{40}", normalized):
+        errors.append("evidence_commit_invalid_sha")
+    if normalized == BASE_COMMIT_FORBIDDEN:
+        errors.append("evidence_commit_base_commit_forbidden")
+
+
+def _check_r0_input_package_lock(
+    config: dict[str, Any], paths: dict[str, Any], errors: list[str]
+) -> None:
+    lock = config.get("r0_input_package_lock")
+    if not isinstance(lock, dict):
+        return
+    t10_path = paths["r0_t10_05_evidence"]
+    t11_path = paths["r0_t11_evidence"]
+    if not t10_path.exists() or not t11_path.exists():
+        return
+    t10 = _parse_evidence(t10_path)
+    t11 = _parse_evidence(t11_path)
+    expected = _expected_r0_lock_from_evidence(
+        paths["root"], t10_path, t10, t11_path, t11
+    )
+    for key, value in expected.items():
+        if lock.get(key) != value:
+            errors.append(f"r0_input_package_lock_config_mismatch:{key}")
+    if t11.get("R0-T10-05_evidence_path") != _display_path(t10_path, paths["root"]):
+        errors.append("r0_input_package_lock_r0_t11_path_mismatch")
+    if t11.get("R0-T10-05_evidence_sha256") != sha256_file(t10_path):
+        errors.append("r0_input_package_lock_r0_t11_hash_mismatch")
+
+
+def _expected_r0_lock_from_evidence(
+    root: Path,
+    t10_path: Path,
+    t10: dict[str, str],
+    t11_path: Path,
+    t11: dict[str, str],
+) -> dict[str, Any]:
+    return {
+        "r0_t10_05_run_id": t10.get("run_id"),
+        "r0_t10_05_evidence_path": _display_path(t10_path, root),
+        "r0_t10_05_evidence_sha256": sha256_file(t10_path),
+        "r0_t11_evidence_path": _display_path(t11_path, root),
+        "r0_t11_evidence_sha256": sha256_file(t11_path),
+        "authorized_input_manifest_path": t10.get("authorized_input_manifest_path"),
+        "authorized_input_manifest_sha256": t10.get("authorized_input_manifest_sha256"),
+        "full_grid_manifest_path": t10.get("global_manifest_path"),
+        "full_grid_manifest_sha256": t10.get("global_manifest_sha256"),
+        "daily_candidate_row_count_total": _parse_int_field(
+            t10, "daily_candidate_row_count_total"
+        ),
+        "confirmed_interval_row_count_total": _parse_int_field(
+            t10, "confirmed_interval_row_count_total"
+        ),
+        "daily_confirmed_true_count_total": _parse_int_field(
+            t10, "daily_confirmed_true_count_total"
+        ),
+        "zero_interval_reason_if_any": t10.get("zero_interval_reason_if_any"),
+        "selected_config_count": _parse_int_field(t10, "selected_config_count"),
+        "completed_config_count": _parse_int_field(t10, "completed_config_count"),
+        "failed_config_count": _parse_int_field(t10, "failed_config_count"),
+        "baseline_config_id": t10.get("baseline_config_id"),
+        "W_coverage": _parse_coverage(t10.get("grid_W_coverage")),
+        "q_coverage": _parse_coverage(t10.get("grid_q_coverage")),
+        "K_coverage": _parse_coverage(t10.get("grid_K_coverage")),
+        "weak_delta": _parse_float_field(t10, "weak_delta"),
+        "dimension_rule": t10.get("dimension_rule"),
+    }
+
+
+def _check_evidence_r0_lock_fields(
+    fields: dict[str, str], config: dict[str, Any], errors: list[str]
+) -> None:
+    lock = config.get("r0_input_package_lock")
+    if not isinstance(lock, dict):
+        return
+    for key, value in lock.items():
+        evidence_value = fields.get(key)
+        if evidence_value is None:
+            errors.append(f"r0_input_package_lock_evidence_missing:{key}")
+            continue
+        if evidence_value != _format_lock_value(value):
+            errors.append(f"r0_input_package_lock_evidence_mismatch:{key}")
+
+
+def _parse_int_field(fields: dict[str, str], key: str) -> int | None:
+    value = fields.get(key)
+    if value is None:
+        return None
+    return int(value.replace(",", ""))
+
+
+def _parse_float_field(fields: dict[str, str], key: str) -> float | None:
+    value = fields.get(key)
+    if value is None:
+        return None
+    return float(value)
+
+
+def _parse_coverage(value: str | None) -> list[float | int] | None:
+    if value is None:
+        return None
+    parsed: list[float | int] = []
+    for item in value.split("/"):
+        stripped = item.strip()
+        number = float(stripped)
+        parsed.append(int(number) if number.is_integer() else number)
+    return parsed
+
+
+def _format_lock_value(value: Any) -> str:
+    if isinstance(value, list):
+        return "[" + ",".join(_format_lock_value(item) for item in value) + "]"
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return f"{value:.2f}".rstrip("0").rstrip(".")
+    return str(value)
 
 
 def _check_thin_wrapper(path: Path, errors: list[str]) -> None:

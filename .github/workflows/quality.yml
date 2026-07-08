@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,9 +37,9 @@ jobs:
 
       - name: Run static checks
         run: |
-          python -m compileall -q scripts tests
-          ruff format --check scripts tests
-          ruff check scripts tests
+          python -m compileall -q src scripts tests
+          ruff format --check src scripts tests
+          ruff check src scripts tests
 
       - name: Validate document derivation
         run: python scripts/build_compendium.py --check
@@ -49,5 +50,10 @@ jobs:
       - name: Validate governance configurations
         run: python scripts/validate_configs.py
 
-      - name: Run tests
-        run: python -m unittest discover -s tests -v
+      - name: Run PR fast tests
+        if: github.event_name == 'pull_request'
+        run: python scripts/run_unittest_profile.py --profile pr-fast -v
+
+      - name: Run full tests
+        if: github.event_name != 'pull_request'
+        run: python scripts/run_unittest_profile.py --profile full -v

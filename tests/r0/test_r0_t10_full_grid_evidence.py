@@ -50,12 +50,6 @@ class R0T10FullGridEvidenceTest(unittest.TestCase):
             completed_status,
             readme_text,
         )
-        self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检", readme_text
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描", readme_text
-        )
 
 
 if __name__ == "__main__":

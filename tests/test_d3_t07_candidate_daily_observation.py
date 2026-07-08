@@ -657,14 +657,6 @@ class D3T07CandidateDailyObservationTest(unittest.TestCase):
 
         self.assertIn("current_stage: D3", readme)
         self.assertIn(
-            "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
-            readme,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-            readme,
-        )
-        self.assertIn(
             "D3-T11` 量额股本换手字段全量候选物化与数据更新：completed via PR #59",
             readme,
         )

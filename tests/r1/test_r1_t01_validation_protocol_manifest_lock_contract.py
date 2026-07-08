@@ -204,6 +204,48 @@ class R1T01ValidationProtocolManifestLockContractTest(unittest.TestCase):
             with self.assertRaises(R1T01ManifestLockValidationError):
                 validate_r1_t01_manifest_lock(root)
 
+    def test_evidence_base_commit_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            _mutate_evidence(
+                root,
+                "code_commit",
+                "2982ec0d3f674908f9527e938efbd7badf6de81a",
+            )
+            with self.assertRaises(R1T01ManifestLockValidationError):
+                validate_r1_t01_manifest_lock(root)
+
+    def test_evidence_short_commit_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            _mutate_evidence(root, "code_commit", "e775032")
+            with self.assertRaises(R1T01ManifestLockValidationError):
+                validate_r1_t01_manifest_lock(root)
+
+    def test_evidence_placeholder_commit_blocks(self) -> None:
+        for value in ("fixture", "TBD", "unknown"):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                _write_complete_fixture(root)
+                _mutate_evidence(root, "code_commit", value)
+                with self.assertRaises(R1T01ManifestLockValidationError):
+                    validate_r1_t01_manifest_lock(root)
+
+    def test_r0_input_package_lock_mismatch_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            _mutate_config(
+                root,
+                lambda config: config["r0_input_package_lock"].__setitem__(
+                    "selected_config_count", 26
+                ),
+            )
+            with self.assertRaises(R1T01ManifestLockValidationError):
+                validate_r1_t01_manifest_lock(root)
+
     def test_real_r1_config_passes_schema(self) -> None:
         schema = json.loads(
             Path(
@@ -259,7 +301,7 @@ def _copy_repo_file(root: Path, relative_path: str) -> None:
     source = Path(relative_path)
     target = root / relative_path
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    target.write_bytes(source.read_bytes())
 
 
 def _write_readme(root: Path) -> None:
@@ -269,7 +311,7 @@ def _write_readme(root: Path) -> None:
                 "current_stage: R1",
                 "current_task: R1-T02 R0 产物接收、lineage 与无前视复检",
                 "next_planned_task: R1-T03 27 组 W/q/K 全量轻量结构扫描",
-                "`R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via this PR",
+                "`R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via PR #75",
             )
         ),
         encoding="utf-8",
@@ -282,25 +324,18 @@ def _write_r0_chain(root: Path) -> None:
         "R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md",
         "R0-T10-03_r0_t06_nested_state_materialization_evidence.md",
         "R0-T10-04_r0_t07_confirmation_interval_materialization_evidence.md",
-        "R0-T10-05_authorized_input_manifest_full_grid_evidence.md",
     )
     for name in names:
         (root / "docs/evidence/r0" / name).write_text(
             "`status`: completed\n", encoding="utf-8"
         )
-    (
-        root / "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md"
-    ).write_text(
-        "\n".join(
-            (
-                "`task_id`: R0-T11",
-                "`status`: completed",
-                "`validator_status`: passed",
-                "`R1_allowed_to_start`: true",
-                "`R1_starting_task`: R1-T01",
-            )
-        ),
-        encoding="utf-8",
+    _copy_repo_file(
+        root,
+        "docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md",
+    )
+    _copy_repo_file(
+        root,
+        "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
     )
 
 
@@ -309,7 +344,7 @@ def _write_evidence(root: Path) -> None:
         "task_id": "R1-T01",
         "status": "completed",
         "run_id": "R1-T01-fixture",
-        "code_commit": "fixture",
+        "code_commit": "a" * 40,
         "config_path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
         "config_sha256": _sha(
             root / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
@@ -355,6 +390,7 @@ def _write_evidence(root: Path) -> None:
         "R1-T02_allowed_to_start": "true",
         "R2_allowed_to_start": "false",
     }
+    fields.update(_r0_lock_evidence_fields(root))
     (
         root / "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md"
     ).write_text(
@@ -363,11 +399,44 @@ def _write_evidence(root: Path) -> None:
     )
 
 
+def _r0_lock_evidence_fields(root: Path) -> dict[str, str]:
+    config = json.loads(
+        (
+            root / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
+        ).read_text(encoding="utf-8")
+    )
+    return {
+        key: _format_lock_value(value)
+        for key, value in config["r0_input_package_lock"].items()
+    }
+
+
 def _mutate_config(root: Path, mutate: object) -> None:
     path = root / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json"
     config = json.loads(path.read_text(encoding="utf-8"))
     mutate(config)
     path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _mutate_evidence(root: Path, key: str, value: str) -> None:
+    path = (
+        root / "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md"
+    )
+    lines = path.read_text(encoding="utf-8").splitlines()
+    updated = [
+        f"`{key}`: {value}" if line.startswith(f"`{key}`:") else line for line in lines
+    ]
+    path.write_text("\n".join(updated) + "\n", encoding="utf-8")
+
+
+def _format_lock_value(value: object) -> str:
+    if isinstance(value, list):
+        return "[" + ",".join(_format_lock_value(item) for item in value) + "]"
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return f"{value:.2f}".rstrip("0").rstrip(".")
+    return str(value)
 
 
 def _sha(path: Path) -> str:
