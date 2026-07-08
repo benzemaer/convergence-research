@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R1
-current_task: R1-T03 27 组 W/q/K 全量轻量结构扫描（待基于修复后的 R0-T10-05 重新运行）
-next_planned_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像
+current_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像
+next_planned_task: R1-T05 单指标诊断与层内互补性分析
 ```
 
 ## 命名与路径规则
@@ -243,9 +243,11 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 
 状态：in_progress / active
 
+本 PR 修复 R0 C2 readiness alias 与 state-specific validity blocker，并将 R1-T01、R1-T02、R1-T03 重新锁定到修复后的 R0-T10-05 full-grid package。R1-T04 可以基于非零 `S_PC` / `S_PCT` / `S_PCVT` raw 与 confirmed 结构继续做分线画像；R1-T07 与 R2 仍保持 blocked。
+
 - `R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via PR #75
 - `R1-T02` R0 产物接收、lineage 与无前视复检：completed via this PR
-- `R1-T03` 27 组 W/q/K 全量轻量结构扫描：draft PR #77 exposed a superseded zero-package input issue; rerun pending against the repaired R0-T10-05 package
+- `R1-T03` 27 组 W/q/K 全量轻量结构扫描：completed via this PR against the repaired R0-T10-05 package; draft PR #77 is superseded by the repaired nonzero package evidence
 - `R1-T04` S_PCT 与 S_PCVT 分线状态画像：planned
 - `R1-T05` 单指标诊断与层内互补性分析：planned
 - `R1-T06` 层间条件 Lift 与固定滞后结构关系：planned

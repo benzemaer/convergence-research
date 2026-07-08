@@ -344,6 +344,7 @@ def _check_readme_gate(
     current_task_is_after_r1_t01 = (
         "current_task: R1-T02 R0 产物接收、lineage 与无前视复检" in text
         or "current_task: R1-T03 27 组 W/q/K 全量轻量结构扫描" in text
+        or "current_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像" in text
     )
     advanced = "current_stage: R1" in text and current_task_is_after_r1_t01
     if advanced and not evidence_path.exists():

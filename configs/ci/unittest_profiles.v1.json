@@ -3,8 +3,16 @@
     "pr-fast": {
       "files": [
         "tests/test_task_index_current.py",
+        "tests/r0/test_input_readiness_gate.py",
+        "tests/r0/test_raw_metric_engine.py",
+        "tests/r0/test_r0_t10_raw_metric_materializer.py",
+        "tests/r0/test_confirmation_interval_engine.py",
+        "tests/r0/test_r0_t10_nested_state_materializer.py",
+        "tests/r0/test_r0_t10_confirmation_interval_materializer.py",
+        "tests/r0/test_r0_t10_full_grid_materializer.py",
         "tests/r1/test_r1_t01_validation_protocol_manifest_lock_contract.py",
-        "tests/r1/test_r1_t02_lineage_pit_audit_contract.py"
+        "tests/r1/test_r1_t02_lineage_pit_audit_contract.py",
+        "tests/r1/test_r1_t03_27_grid_light_profile_contract.py"
       ]
     },
     "stage-r1": {
