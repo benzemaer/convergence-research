@@ -87,13 +87,13 @@ class R0T07ConfirmationStreakIntervalContractTest(unittest.TestCase):
 
     def test_readme_advances_to_r0_t08_after_r0_t07_completion(self) -> None:
         text = README_PATH.read_text(encoding="utf-8")
-        self.assertIn("current_stage: R0", text)
+        self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R0-T11 R0 审计报告与 R1 交接",
+            "current_task: R1-T01 状态存在性与频率轮廓",
             text,
         )
         self.assertIn(
-            "next_planned_task: R1-T01 状态存在性与频率轮廓",
+            "next_planned_task: R1-T02 结构关系与协同约束检验",
             text,
         )
         self.assertRegex(
