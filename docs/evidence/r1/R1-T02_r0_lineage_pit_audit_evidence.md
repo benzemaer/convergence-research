@@ -4,12 +4,12 @@
 `status`: completed
 `validator_status`: passed
 `run_id`: R1-T02-20260708T1420Z
-`code_commit`: 52b4f4de9cc82402476502dcecc3dd428e506dd4
+`code_commit`: 10504538d36a58c17a10ba28580bb95b26d2cf7b
 
 `summary_path`: data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_summary.json
-`summary_sha256`: cfc573e56cc6a9bb5e3ea776f94bce2129aada01d12a938f3db0075ca40e2f78
+`summary_sha256`: 36a2561455184374a6dab1290f1844ee50fb65e7531a9c8beb296f32f9038b08
 `validation_result_path`: data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_validation_result.json
-`validation_result_sha256`: 66d97093c1b1a55306a0552aee57e23cbef55005a3a35e74ff334ccd15bf9b39
+`validation_result_sha256`: c7cacf1b9671f241437bf2fa4cd1e4191d5c773991c625060c38560cc94fd7ae
 
 `config_path`: configs/r1/r1_t02_r0_lineage_pit_audit.v1.json
 `config_sha256`: 772a26936da330b138995f192336ec1f967325ccf987a3d2a34639ca90a9c833

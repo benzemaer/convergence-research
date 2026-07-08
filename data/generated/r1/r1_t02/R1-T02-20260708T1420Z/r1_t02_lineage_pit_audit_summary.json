@@ -28,7 +28,7 @@
     "unknown_blocked_semantics_check": "passed",
     "zero_interval_consistency": "passed"
   },
-  "code_commit": "52b4f4de9cc82402476502dcecc3dd428e506dd4",
+  "code_commit": "10504538d36a58c17a10ba28580bb95b26d2cf7b",
   "config_path": "configs/r1/r1_t02_r0_lineage_pit_audit.v1.json",
   "config_sha256": "772a26936da330b138995f192336ec1f967325ccf987a3d2a34639ca90a9c833",
   "confirmation_time_backfill_check": "skipped_zero_interval_input_fact",
@@ -46,7 +46,7 @@
     "selected_config_count": 27,
     "zero_interval_reason": "no_confirmed_segments_in_r0_t07_input"
   },
-  "created_at": "2026-07-08T14:36:00+00:00",
+  "created_at": "2026-07-08T14:47:36+00:00",
   "downstream_gates": {
     "R1-T03_allowed_to_start": true,
     "R1-T07_allowed_to_start": false,
@@ -70,9 +70,6 @@
   "status": "completed",
   "strict_past_artifact_field_check": "evidence_chain_only",
   "summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_summary.json",
-  "summary_sha256": "74b8d45cc4991e84d78c75c95c7a858600fadc4c80361fe6c797f64770d34eb0",
   "task_id": "R1-T02",
-  "validation_result_path": null,
-  "validation_result_sha256": null,
   "warnings": []
 }
