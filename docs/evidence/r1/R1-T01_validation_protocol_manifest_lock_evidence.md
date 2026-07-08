@@ -7,18 +7,44 @@ This evidence records only paths, hashes, validator results, and gate values for
 `task_id`: R1-T01
 `status`: completed
 `run_id`: R1-T01-20260708T1300Z
-`code_commit`: 2982ec0d3f674908f9527e938efbd7badf6de81a
+`code_commit`: 8396902a134d26c632acc288cf6d384fabb5b49e
+`evidence_record_commit_note`: this evidence record is finalized in the following commit and records the validated code tree commit above
 
 ## Locked Inputs
 
 `config_path`: configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json
-`config_sha256`: b7d6d132d7e70b7df3a52558108f50d6c82880eb294ac7832aa353be5740872f
+`config_sha256`: b0e951792032735eb6daee6c89fa006779b1540163e7a5bfb54cf55627884220
 `schema_path`: schemas/r1/r1_t01_validation_protocol_manifest_lock.schema.json
-`schema_sha256`: 9fefd6a078cdf8163f1ba1244e36b7433d76b94b8e50624305cddeaea4f9f689
+`schema_sha256`: 5919ecdac9412361c2a268d5f89cfdd9c74d15b7fa5256871ac06c793557ee80
 `task_doc_path`: docs/tasks/R1-T01_验证协议状态线假设与manifest锁定.md
 `task_doc_sha256`: 0aa0f06b643925f5f16f006e1258aedaa9c44dbcd1f3e72c0f4aa51d0d60a764
 `stage_doc_path`: docs/stages/R1_状态存在性、结构关系、稳定性与零模型检验.md
-`stage_doc_sha256`: 47d056c119558e5f63cf89a61503613c79d78ddbcd3a11374f85583f95f150ce
+`stage_doc_sha256`: f4697440b107b4d81716928006e058f20aae201a2ceac5e20cff0e44073ec15c
+
+## R0 Input Package Lock
+
+`r0_t10_05_run_id`: R0-T10-05-20260707T1845Z
+`r0_t10_05_evidence_path`: docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md
+`r0_t10_05_evidence_sha256`: 507b75bcbfc39afd72955e6b1b585c73a3c855cdbf080c1718c7e745b26e40ac
+`r0_t11_evidence_path`: docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md
+`r0_t11_evidence_sha256`: 46e0e8c7f27d305238698043e2f5ea31f4666dc21ad4cc547dabbc16c053a24e
+`authorized_input_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t10_05_authorized_input_manifest.json
+`authorized_input_manifest_sha256`: 77d92279e55ea8bb012390c033d4f4f1ada9cee2f284532cd4be733689d4a40e
+`full_grid_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json
+`full_grid_manifest_sha256`: a30d5bc7d1613637dbdfaa0f889f1f58719335bbf9831d95c079c6ba33ac1a96
+`daily_candidate_row_count_total`: 186923052
+`confirmed_interval_row_count_total`: 0
+`daily_confirmed_true_count_total`: 0
+`zero_interval_reason_if_any`: no_confirmed_segments_in_r0_t07_input
+`selected_config_count`: 27
+`completed_config_count`: 27
+`failed_config_count`: 0
+`baseline_config_id`: R0_W250_Q20_K3_WEAK_D010
+`W_coverage`: [120,250,500]
+`q_coverage`: [0.1,0.2,0.3]
+`K_coverage`: [2,3,5]
+`weak_delta`: 0.1
+`dimension_rule`: weak
 
 ## Validation
 
