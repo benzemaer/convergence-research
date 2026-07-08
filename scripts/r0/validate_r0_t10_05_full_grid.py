@@ -9,4 +9,5 @@ if str(ROOT) not in sys.path:
 
 from src.r0.r0_t10_full_grid_validator_cli import main  # noqa: E402
 
-raise SystemExit(main())
+if __name__ == "__main__":
+    raise SystemExit(main())
