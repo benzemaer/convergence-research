@@ -1,0 +1,63 @@
+{
+  "blocked_config_count": 0,
+  "blocked_configs": [],
+  "blocked_reasons": [],
+  "candidate_config_count": 27,
+  "checks": {
+    "config_contract": "passed",
+    "config_json": "passed",
+    "full_grid_manifest_contract": "passed",
+    "full_grid_manifest_json": "passed",
+    "parallelism_contract": "passed",
+    "per_config_profile": "passed",
+    "r1_t02_gate": "passed",
+    "r1_t02_summary_json": "passed",
+    "r1_t02_validation_result_json": "passed"
+  },
+  "code_commit": "0c5ea827ffb21641d2c515e2be40833712d33835",
+  "config_path": "configs/r1/r1_t03_27_grid_light_profile.v1.json",
+  "config_sha256": "3447d4112c504a8d64ff04364af1323f3a34bcdfef4dde34379bf08fd9f8336c",
+  "created_at": "2026-07-08T15:05:22+00:00",
+  "downstream_gates": {
+    "R1-T04_allowed_to_start": true,
+    "R1-T07_allowed_to_start": false,
+    "R2_allowed_to_start": false
+  },
+  "duckdb_threads_per_worker": 1,
+  "input_full_grid_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+  "input_full_grid_manifest_sha256": "a30d5bc7d1613637dbdfaa0f889f1f58719335bbf9831d95c079c6ba33ac1a96",
+  "input_r1_t02_evidence_path": "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md",
+  "input_r1_t02_evidence_sha256": "b6d897a96ae106a788fa82ff0455237d68e8e2be3d5a6942f23ea3d974fabeff",
+  "input_r1_t02_summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_summary.json",
+  "input_r1_t02_summary_sha256": "96c5b566c03953d90d2944413b0a11955c36ebf54f4a3328fad4aaa6b29d4ab9",
+  "input_r1_t02_validation_result_path": "data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_validation_result.json",
+  "input_r1_t02_validation_result_sha256": "95bebb39a37261a7e2d09ffc595788ed58938f62a1bbf98668282eff5f522a0d",
+  "max_workers": 3,
+  "output_paths": {
+    "profile_by_config_state_csv": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1510Z/r1_t03_light_profile_by_config_state.csv",
+      "sha256": "efc65f04fe564c0dac4bd420f784fcc41266a96da71c7da9b6c024ba920d83b5"
+    },
+    "profile_by_config_state_json": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1510Z/r1_t03_light_profile_by_config_state.json",
+      "sha256": "f3e0372e1bb0f0a60fb1a0cb9c3c9b10d9beb4319fc4a07504be8f5ea64e2246"
+    },
+    "relative_to_baseline_profile": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1510Z/r1_t03_relative_to_baseline_profile.json",
+      "sha256": "595bb111c6ec2e5594f0c17c54d4d49ecd8e89046bc37d57b4118adb458e0b2a"
+    },
+    "retention_profile": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1510Z/r1_t03_retention_profile_by_config.json",
+      "sha256": "b2322b6f7c337d4db6492f136369025eeeb0a82d42cabb2ba91f04d589bb3514"
+    }
+  },
+  "profile_row_count": 108,
+  "row_payload_embedded": false,
+  "run_id": "R1-T03-20260708T1510Z",
+  "state_name_count": 4,
+  "status": "completed",
+  "summary_path": "data/generated/r1/r1_t03/R1-T03-20260708T1510Z/r1_t03_27_grid_light_profile_summary.json",
+  "task_id": "R1-T03",
+  "warnings": [],
+  "zero_confirmed_interval_acknowledged": true
+}
