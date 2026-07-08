@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/r1/r1_t02_r0_lineage_pit_audit.schema.json",
+  "title": "R1-T02 R0 lineage and point-in-time audit contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "schema_version",
+    "depends_on",
+    "audit_scope",
+    "expected_grid",
+    "forbidden_inputs",
+    "forbidden_outputs",
+    "downstream_authorization"
+  ],
+  "properties": {
+    "task_id": { "const": "R1-T02" },
+    "schema_version": { "const": "r1_t02_r0_lineage_pit_audit.v1" },
+    "depends_on": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["r1_t01", "r0_t10_05", "r0_t11"],
+      "properties": {
+        "r1_t01": { "const": "validator_status_passed" },
+        "r0_t10_05": { "const": "completed_authorized_input_manifest_full_grid" },
+        "r0_t11": { "const": "completed_r1_handoff" }
+      }
+    },
+    "audit_scope": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "type": "string" }
+    },
+    "expected_grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["W", "q", "K", "state_lines", "selected_config_count", "baseline_config_id"],
+      "properties": {
+        "W": { "const": [120, 250, 500] },
+        "q": { "const": [0.1, 0.2, 0.3] },
+        "K": { "const": [2, 3, 5] },
+        "state_lines": { "const": ["S_P", "S_PC", "S_PCT", "S_PCVT"] },
+        "selected_config_count": { "const": 27 },
+        "baseline_config_id": { "const": "R0_W250_Q20_K3_WEAK_D010" }
+      }
+    },
+    "forbidden_inputs": {
+      "type": "array",
+      "contains": { "const": "future_return" },
+      "items": { "type": "string" }
+    },
+    "forbidden_outputs": {
+      "type": "array",
+      "contains": { "const": "backtest" },
+      "items": { "type": "string" }
+    },
+    "downstream_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "R1_T03_allowed_to_start_when_validator_status_passed",
+        "R1_T07_allowed_to_start",
+        "R2_allowed_to_start"
+      ],
+      "properties": {
+        "R1_T03_allowed_to_start_when_validator_status_passed": { "const": true },
+        "R1_T07_allowed_to_start": { "const": false },
+        "R2_allowed_to_start": { "const": false }
+      }
+    }
+  }
+}

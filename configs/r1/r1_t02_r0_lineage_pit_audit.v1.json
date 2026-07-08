@@ -1,0 +1,49 @@
+{
+  "task_id": "R1-T02",
+  "schema_version": "r1_t02_r0_lineage_pit_audit.v1",
+  "depends_on": {
+    "r1_t01": "validator_status_passed",
+    "r0_t10_05": "completed_authorized_input_manifest_full_grid",
+    "r0_t11": "completed_r1_handoff"
+  },
+  "audit_scope": [
+    "R1-T01 manifest lock and downstream gate",
+    "R0-T10-05 authorized input manifest hash and forbidden guards",
+    "R0-T10-05 full-grid manifest hash and 27 config coverage",
+    "per-config artifact path and hash traceability",
+    "zero confirmed interval consistency",
+    "manifest-level point-in-time forbidden field scan"
+  ],
+  "expected_grid": {
+    "W": [120, 250, 500],
+    "q": [0.1, 0.2, 0.3],
+    "K": [2, 3, 5],
+    "state_lines": ["S_P", "S_PC", "S_PCT", "S_PCVT"],
+    "selected_config_count": 27,
+    "baseline_config_id": "R0_W250_Q20_K3_WEAK_D010"
+  },
+  "forbidden_inputs": [
+    "future_return",
+    "future_volatility",
+    "future_breakout",
+    "future_path",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "trading_signal"
+  ],
+  "forbidden_outputs": [
+    "parameter_optimization",
+    "best_config_selection",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "trading_signal",
+    "R2_state_freeze"
+  ],
+  "downstream_authorization": {
+    "R1_T03_allowed_to_start_when_validator_status_passed": true,
+    "R1_T07_allowed_to_start": false,
+    "R2_allowed_to_start": false
+  }
+}
