@@ -1,0 +1,87 @@
+{
+  "task_id": "R1-T02",
+  "schema_version": "r1_t02_r0_lineage_pit_audit.v1",
+  "depends_on": {
+    "r1_t01": "validator_status_passed",
+    "r0_t10_05": "completed_authorized_input_manifest_full_grid",
+    "r0_t11": "completed_r1_handoff"
+  },
+  "r1_t01_config_path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+  "r1_t01_evidence_path": "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md",
+  "r0_input_package_lock_source": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json#/r0_input_package_lock",
+  "required_checks": [
+    "r1_t01_gate",
+    "r0_evidence_chain_hash",
+    "strict_past_evidence_chain_check",
+    "strict_past_artifact_field_check",
+    "unknown_blocked_semantics_check",
+    "confirmation_time_backfill_check",
+    "forbidden_column_absence_check",
+    "row_payload_absence_check",
+    "validation_result_path_hash_check",
+    "locked_manifest_hashes",
+    "config_artifact_hashes",
+    "zero_interval_consistency"
+  ],
+  "zero_interval_policy": {
+    "confirmed_interval_row_count_total_zero_handling": "treat_as_input_fact_and_do_not_backfill",
+    "confirmation_time_backfill_allowed": false,
+    "daily_confirmed_true_count_total_must_be_zero": true,
+    "all_config_zero_interval_required": true
+  },
+  "strict_artifacts": {
+    "hash_check": true,
+    "path_existence_check": true,
+    "row_payload_embedding_allowed": false,
+    "field_level_strict_past_check": "evidence_chain_only"
+  },
+  "audit_scope": [
+    "R1-T01 manifest lock and downstream gate",
+    "R0-T10-05 authorized input manifest hash and forbidden guards",
+    "R0-T10-05 full-grid manifest hash and 27 config coverage",
+    "per-config artifact path and hash traceability",
+    "zero confirmed interval consistency",
+    "manifest-level point-in-time forbidden field scan"
+  ],
+  "expected_grid": {
+    "W": [120, 250, 500],
+    "q": [0.1, 0.2, 0.3],
+    "K": [2, 3, 5],
+    "state_lines": ["S_P", "S_PC", "S_PCT", "S_PCVT"],
+    "selected_config_count": 27,
+    "baseline_config_id": "R0_W250_Q20_K3_WEAK_D010"
+  },
+  "forbidden_inputs": [
+    "future_return",
+    "future_volatility",
+    "future_breakout",
+    "future_path",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "trading_signal",
+    "raw_external",
+    "MarketDB",
+    ".day"
+  ],
+  "forbidden_outputs": [
+    "parameter_optimization",
+    "best_config_selection",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "trading_signal",
+    "JointLift",
+    "empirical_p",
+    "z_score",
+    "R2_decision_matrix",
+    "freeze_candidate",
+    "review_candidate",
+    "R2_state_freeze"
+  ],
+  "downstream_authorization": {
+    "R1_T03_allowed_to_start_when_validator_status_passed": true,
+    "R1_T07_allowed_to_start": false,
+    "R2_allowed_to_start": false
+  }
+}

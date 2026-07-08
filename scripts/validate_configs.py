@@ -242,6 +242,10 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
     ),
     (
+        ROOT / "schemas/r1/r1_t02_r0_lineage_pit_audit.schema.json",
+        ROOT / "configs/r1/r1_t02_r0_lineage_pit_audit.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),
