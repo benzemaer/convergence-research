@@ -18,7 +18,7 @@
 
 ```text
 current_stage: R1
-current_task: R1-T03 27 组 W/q/K 全量轻量结构扫描
+current_task: R1-T03 27 组 W/q/K 全量轻量结构扫描（待基于修复后的 R0-T10-05 重新运行）
 next_planned_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像
 ```
 
@@ -233,7 +233,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T10-02` R0-T05 strict-past score 物化：completed via PR #70
 - `R0-T10-03` R0-T06 nested state 物化：completed via PR #71
 - `R0-T10-04` R0-T07 confirmation / interval 物化：completed via PR #72
-- `R0-T10-05` authorized input manifest 与 27 组 full-grid 执行：completed via PR #73
+- `R0-T10-05` authorized input manifest 与 27 组 full-grid 执行：completed via PR #73; repaired by R0 C2 readiness and state-specific validity rerun
 - `R0-T11` R0 审计报告与 R1 交接：completed via PR #74
 - `R0-T12` 替代指标口径敏感性骨架：optional
 - `R0-T13` Post-Up-Release Short-PCT 研究接口占位：optional
@@ -245,7 +245,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 
 - `R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via PR #75
 - `R1-T02` R0 产物接收、lineage 与无前视复检：completed via this PR
-- `R1-T03` 27 组 W/q/K 全量轻量结构扫描：planned
+- `R1-T03` 27 组 W/q/K 全量轻量结构扫描：draft PR #77 exposed a superseded zero-package input issue; rerun pending against the repaired R0-T10-05 package
 - `R1-T04` S_PCT 与 S_PCVT 分线状态画像：planned
 - `R1-T05` 单指标诊断与层内互补性分析：planned
 - `R1-T06` 层间条件 Lift 与固定滞后结构关系：planned

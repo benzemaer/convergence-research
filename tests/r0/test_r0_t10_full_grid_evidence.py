@@ -20,12 +20,11 @@ class R0T10FullGridEvidenceTest(unittest.TestCase):
         self.assertIn("`selected_config_count`: 27", text)
         self.assertIn("`completed_config_count`: 27", text)
         self.assertIn("`failed_config_count`: 0", text)
-        self.assertIn("`confirmed_interval_row_count_total`: 0", text)
-        self.assertIn("`daily_confirmed_true_count_total`: 0", text)
-        self.assertIn(
-            "`zero_interval_reason_if_any`: no_confirmed_segments_in_r0_t07_input",
-            text,
-        )
+        self.assertIn("`confirmed_interval_row_count_total`: 1,012,396", text)
+        self.assertIn("`confirmed_interval_zero_config_count`: 0", text)
+        self.assertIn("`daily_confirmed_true_count_total`: 10,206,649", text)
+        self.assertIn("`zero_interval_reason_if_any`: null", text)
+        self.assertNotIn("no_confirmed_segments_in_r0_t07_input", text)
         self.assertIn("`manifest_contains_row_payload`: false", text)
         self.assertIn("`summary_contains_row_payload`: false", text)
         self.assertIn("`R0-T11_allowed_to_start`: true", text)
@@ -44,7 +43,8 @@ class R0T10FullGridEvidenceTest(unittest.TestCase):
         self.assertIn("`validator_status`: passed", evidence_text)
         completed_status = (
             "R0-T10-05` authorized input manifest 与 27 组 full-grid 执行："
-            "completed via PR #73"
+            "completed via PR #73; repaired by R0 C2 readiness and "
+            "state-specific validity rerun"
         )
         self.assertIn(
             completed_status,

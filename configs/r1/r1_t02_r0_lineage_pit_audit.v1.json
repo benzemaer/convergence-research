@@ -40,7 +40,7 @@
     "R0-T10-05 authorized input manifest hash and forbidden guards",
     "R0-T10-05 full-grid manifest hash and 27 config coverage",
     "per-config artifact path and hash traceability",
-    "zero confirmed interval consistency",
+    "confirmed interval consistency",
     "manifest-level point-in-time forbidden field scan"
   ],
   "expected_grid": {

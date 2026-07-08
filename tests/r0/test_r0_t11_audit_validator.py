@@ -58,14 +58,15 @@ class R0T11AuditValidatorTest(unittest.TestCase):
             with self.assertRaises(R0T11AuditValidationError):
                 validate_r0_t11_audit(root)
 
-    def test_audit_report_missing_zero_interval_explanation_blocks(self) -> None:
+    def test_audit_report_missing_confirmed_interval_package_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_complete_fixture(root)
             audit = root / "docs/reports/r0/R0_audit_report.md"
             audit.write_text(
                 audit.read_text(encoding="utf-8").replace(
-                    "no_confirmed_segments_in_r0_t07_input", "missing_reason"
+                    "zero_interval_reason_if_any: null",
+                    "zero_interval_reason_if_any: missing",
                 ),
                 encoding="utf-8",
             )
@@ -270,9 +271,10 @@ def _write_complete_fixture(root: Path) -> None:
             "R0_status: completed",
             "R1_allowed_to_start: true",
             "R1_starting_task: R1-T01",
-            "no_confirmed_segments_in_r0_t07_input",
-            "confirmed_interval_row_count_total: 0",
-            "daily_confirmed_true_count_total: 0",
+            "confirmed_interval_row_count_total: 1,012,396",
+            "daily_confirmed_true_count_total: 10,206,649",
+            "confirmed_interval_zero_config_count: 0",
+            "zero_interval_reason_if_any: null",
             "selected_config_count: 27",
             "failed_config_count: 0",
             "R0_W250_Q20_K3_WEAK_D010",
@@ -307,7 +309,7 @@ def _write_complete_fixture(root: Path) -> None:
                 "`R0_status`: completed",
                 "`R1_allowed_to_start`: true",
                 "`R1_starting_task`: R1-T01",
-                "`zero_interval_acknowledged`: true",
+                "`confirmed_interval_package_acknowledged`: true",
                 "`no_future_label_check`: passed",
                 "`no_backtest_check`: passed",
                 "`no_trading_signal_check`: passed",

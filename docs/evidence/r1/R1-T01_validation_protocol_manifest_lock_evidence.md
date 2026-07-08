@@ -6,16 +6,16 @@ This evidence records only paths, hashes, validator results, and gate values for
 
 `task_id`: R1-T01
 `status`: completed
-`run_id`: R1-T01-20260708T1300Z
-`code_commit`: 8396902a134d26c632acc288cf6d384fabb5b49e
+`run_id`: R1-T01-20260708T1815Z
+`code_commit`: e97ce154b174d661f0628c19014485509c022547
 `evidence_record_commit_note`: this evidence record is finalized in the following commit and records the validated code tree commit above
 
 ## Locked Inputs
 
 `config_path`: configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json
-`config_sha256`: b0e951792032735eb6daee6c89fa006779b1540163e7a5bfb54cf55627884220
+`config_sha256`: e91b679b1d0c3fc6054a144ad3dd02a81a9a745bb4251beeb8cafa1a10408fa0
 `schema_path`: schemas/r1/r1_t01_validation_protocol_manifest_lock.schema.json
-`schema_sha256`: 5919ecdac9412361c2a268d5f89cfdd9c74d15b7fa5256871ac06c793557ee80
+`schema_sha256`: a79b9d7a4f2df35349615899e53a32e133f1dfd44f3cdc8f712b6400a091e731
 `task_doc_path`: docs/tasks/R1-T01_验证协议状态线假设与manifest锁定.md
 `task_doc_sha256`: 0aa0f06b643925f5f16f006e1258aedaa9c44dbcd1f3e72c0f4aa51d0d60a764
 `stage_doc_path`: docs/stages/R1_状态存在性、结构关系、稳定性与零模型检验.md
@@ -23,19 +23,19 @@ This evidence records only paths, hashes, validator results, and gate values for
 
 ## R0 Input Package Lock
 
-`r0_t10_05_run_id`: R0-T10-05-20260707T1845Z
+`r0_t10_05_run_id`: R0-T10-05-20260708T1754Z
 `r0_t10_05_evidence_path`: docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md
-`r0_t10_05_evidence_sha256`: 507b75bcbfc39afd72955e6b1b585c73a3c855cdbf080c1718c7e745b26e40ac
+`r0_t10_05_evidence_sha256`: 25b6176de27add5532bb0a3809b6b7e0fd8403ef350f82685faa9cb5a0a52dab
 `r0_t11_evidence_path`: docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md
-`r0_t11_evidence_sha256`: 46e0e8c7f27d305238698043e2f5ea31f4666dc21ad4cc547dabbc16c053a24e
-`authorized_input_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t10_05_authorized_input_manifest.json
-`authorized_input_manifest_sha256`: 77d92279e55ea8bb012390c033d4f4f1ada9cee2f284532cd4be733689d4a40e
-`full_grid_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json
-`full_grid_manifest_sha256`: a30d5bc7d1613637dbdfaa0f889f1f58719335bbf9831d95c079c6ba33ac1a96
+`r0_t11_evidence_sha256`: f6e16acb25b929ff3f96dbadec10b0253a9031e47943de6646a4b564a0eac65c
+`authorized_input_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t10_05_authorized_input_manifest.json
+`authorized_input_manifest_sha256`: d18d4841476abb80da804635d15d9b9b853e5fb9e40545288c445be27af713f9
+`full_grid_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json
+`full_grid_manifest_sha256`: b031ae22a3cf396961bcefcf6479c18870b8206a348372cf87d4b9f73c1fd96b
 `daily_candidate_row_count_total`: 186923052
-`confirmed_interval_row_count_total`: 0
-`daily_confirmed_true_count_total`: 0
-`zero_interval_reason_if_any`: no_confirmed_segments_in_r0_t07_input
+`confirmed_interval_row_count_total`: 1012396
+`daily_confirmed_true_count_total`: 10206649
+`zero_interval_reason_if_any`: null
 `selected_config_count`: 27
 `completed_config_count`: 27
 `failed_config_count`: 0

@@ -6,22 +6,22 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 
 `task_id`: R0-T11
 `status`: completed
-`run_id`: R0-T11-20260708T0900Z
-`code_commit`: e5722410896ac8f7559e02fd6d7cd3d80f1d1a29
+`run_id`: R0-T11-20260708T1810Z
+`code_commit`: e97ce154b174d661f0628c19014485509c022547
 
 ## Source Evidence
 
 `source_evidence_files`: R0-T10-01, R0-T10-02, R0-T10-03, R0-T10-04, R0-T10-05
-`R0-T10-01_evidence_path`: `docs/evidence/r0/R0-T10-01_r0_t04_raw_metrics_materialization_evidence.md`
-`R0-T10-01_evidence_sha256`: `4a145e4363be47220e0cca55cdd92142bd422b2ee8f341a6c5ed7a114af59c31`
-`R0-T10-02_evidence_path`: `docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md`
-`R0-T10-02_evidence_sha256`: `6c4f14fa819b82f43e2a751a894f7f659d330edced57f26914cca8627d95a526`
-`R0-T10-03_evidence_path`: `docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence.md`
-`R0-T10-03_evidence_sha256`: `3996ede8d0f5df5f3084792e961e5e77c43e457ad2bfefc7d9b2192ac132c6f9`
-`R0-T10-04_evidence_path`: `docs/evidence/r0/R0-T10-04_r0_t07_confirmation_interval_materialization_evidence.md`
-`R0-T10-04_evidence_sha256`: `da5ab8cab732dd4fac7bd873b9569fa60dcd7fd6f0ad0be36518a9dccf0a5fd5`
+`R0-T10-01_evidence_path`: `docs/evidence/r0/R0-T10-01_r0_t04_raw_metrics_materialization_evidence_repair_20260708T1715Z.md`
+`R0-T10-01_evidence_sha256`: `732a0fb622d1bc78d80383a35dd1a142a32626935e9b156216517f1291bc1df9`
+`R0-T10-02_evidence_path`: `docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md`
+`R0-T10-02_evidence_sha256`: `1ff5674690dad654d3f6f731e953748b90d5710ee65cb132e4b45177115d1a2f`
+`R0-T10-03_evidence_path`: `docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md`
+`R0-T10-03_evidence_sha256`: `255d3419be61bdb54a1c47696e416135ccbddaa7f6130da577f61cffc900e71a`
+`R0-T10-04_evidence_path`: `docs/evidence/r0/R0-T10-04_r0_t07_confirmation_interval_materialization_evidence_repair_20260708T1746Z.md`
+`R0-T10-04_evidence_sha256`: `1029c22daf3819db9cba12010c43f065e06a8deac8a880f67387d6175c0ee59e`
 `R0-T10-05_evidence_path`: `docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md`
-`R0-T10-05_evidence_sha256`: `507b75bcbfc39afd72955e6b1b585c73a3c855cdbf080c1718c7e745b26e40ac`
+`R0-T10-05_evidence_sha256`: `25b6176de27add5532bb0a3809b6b7e0fd8403ef350f82685faa9cb5a0a52dab`
 
 ## Audit Outputs
 
@@ -30,13 +30,13 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 `engineering_standard_path`: `docs/03_可复现研究工程标准.md`
 `engineering_standard_sha256`: `27b7cd0da0a18eecc641746901fb98e245d54c8bd57237eef8e95ca3af6ae6d4`
 `audit_report_path`: `docs/reports/r0/R0_audit_report.md`
-`audit_report_sha256`: `e60869814f751d99dedeb8d5b4bee4ab0bc678f5c5f3b63436fbb5510acccbda`
+`audit_report_sha256`: `6c0c470c36e42c4cdd92906b17ada97ab54bfb475dd75b29ad3a437537717add`
 `r1_handoff_path`: `docs/reports/r0/R0_r1_handoff.md`
-`r1_handoff_sha256`: `1f2fe654925d7a2bf904a6ab04a3a556e77de4411b8111a8db6f1b707ebad4bc`
+`r1_handoff_sha256`: `04023419357e30e7e566ec25896c6ac547087c250b786a4ba30fddeb94669b86`
 `evidence_index_path`: `docs/reports/r0/R0_evidence_index.md`
-`evidence_index_sha256`: `975e1cfdbcfc74f2cf659edaf9298051c02d8b82690d0a01978bf2dd9e2267b7`
+`evidence_index_sha256`: `671174159c74bc79265e321fd5c3104bb13b49741e745d05c98a7ae533838800`
 `known_limitations_path`: `docs/reports/r0/R0_known_limitations.md`
-`known_limitations_sha256`: `ceabd546f7563f9024610090fcd908d87c3bded8c0a85fb7ff9a0ac2f719b12c`
+`known_limitations_sha256`: `8ef03a2010668532228dd5ce379908de5e6e5c991efb70c0bcf1cc01c1fde4df`
 
 ## Validation
 
@@ -58,7 +58,7 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 `R1_allowed_to_start`: true
 `R1_starting_task`: R1-T01
 `r_stage_formal_run_standard_updated`: true
-`zero_interval_acknowledged`: true
+`confirmed_interval_package_acknowledged`: true
 `no_future_label_check`: passed
 `no_backtest_check`: passed
 `no_trading_signal_check`: passed
