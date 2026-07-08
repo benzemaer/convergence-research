@@ -16,7 +16,7 @@
 
 ## 输出
 
-输出包括 `configs/r1/r1_t02_r0_lineage_pit_audit.v1.json`、对应 schema、审计 runner、验证器、合成契约测试和 `docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md`。正式运行摘要写入 `data/generated/r1/r1_t02/`，该目录是可重建运行产物，不提交到 Git。
+输出包括 `configs/r1/r1_t02_r0_lineage_pit_audit.v1.json`、对应 schema、审计 runner、验证器、合成契约测试和 `docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md`。大型 row artifacts 不提交到 Git；小型 governance summary 与 validation result 可提交，用于 evidence 在干净 checkout 下复核。
 
 ## 验收标准
 

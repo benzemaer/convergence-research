@@ -204,8 +204,6 @@ def run_r1_t02_lineage_pit_audit(
         "confirmation_time_backfill_check": "skipped_zero_interval_input_fact"
         if counts.get("confirmed_interval_row_count_total") == 0
         else "passed",
-        "validation_result_path": None,
-        "validation_result_sha256": None,
         "downstream_gates": {
             "R1-T03_allowed_to_start": status == "completed",
             "R1-T07_allowed_to_start": False,
@@ -217,25 +215,6 @@ def run_r1_t02_lineage_pit_audit(
         encoding="utf-8",
     )
     summary["summary_path"] = ctx.relative(summary_path)
-    summary["summary_sha256"] = sha256_file(summary_path)
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return summary
-
-
-def attach_validation_result(
-    summary_path: Path, validation_result_path: Path, *, root: Path = ROOT
-) -> dict[str, Any]:
-    summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    summary["validation_result_path"] = _display_path(validation_result_path, root)
-    summary["validation_result_sha256"] = sha256_file(validation_result_path)
-    summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    summary["summary_sha256"] = sha256_file(summary_path)
     summary_path.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -632,10 +611,3 @@ def _check_evidence_chain_hash(
         ctx.fail_check("r0_evidence_chain_hash", "r0_t11_hash_mismatch")
         return
     ctx.pass_check("r0_evidence_chain_hash")
-
-
-def _display_path(path: Path, root: Path) -> str:
-    try:
-        return str(path.relative_to(root)).replace("\\", "/")
-    except ValueError:
-        return str(path).replace("\\", "/")
