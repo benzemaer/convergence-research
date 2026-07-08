@@ -456,7 +456,12 @@ def _daily_confirmation_sql(*, has_state_specific_fields: bool = False) -> str:
         *,
         CASE
           WHEN raw_state = true AND computed_validity_status = 'valid'
-          THEN COUNT(*) OVER (
+          THEN SUM(
+            CASE
+              WHEN raw_state = true AND computed_validity_status = 'valid' THEN 1
+              ELSE 0
+            END
+          ) OVER (
             PARTITION BY security_id, percentile_window_W, q, weak_delta, state_name, raw_segment_id
             ORDER BY trading_date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
@@ -466,7 +471,12 @@ def _daily_confirmation_sql(*, has_state_specific_fields: bool = False) -> str:
         END AS raw_streak,
         CASE
           WHEN raw_state = true AND computed_validity_status = 'valid'
-          THEN MIN(trading_date) OVER (
+          THEN MIN(
+            CASE
+              WHEN raw_state = true AND computed_validity_status = 'valid' THEN trading_date
+              ELSE NULL
+            END
+          ) OVER (
             PARTITION BY security_id, percentile_window_W, q, weak_delta, state_name, raw_segment_id
           )
           ELSE NULL

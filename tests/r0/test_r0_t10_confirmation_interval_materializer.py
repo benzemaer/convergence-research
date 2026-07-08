@@ -90,10 +90,23 @@ class R0T10ConfirmationIntervalMaterializerTest(unittest.TestCase):
                       AND confirmation_k = 2
                     """
                 ).fetchone()
+                first_true_streak = conn.execute(
+                    f"""
+                    SELECT raw_streak, raw_streak_start_date, confirmed_state, confirmation_date
+                    FROM {DAILY_CONFIRMATION_TABLE_NAME}
+                    WHERE security_id = '000005.SZ'
+                      AND percentile_window_W = 120
+                      AND abs(q - 0.10) < 1e-12
+                      AND trading_date = '20260102'
+                      AND state_name = 'S_P'
+                      AND confirmation_k = 2
+                    """
+                ).fetchone()
             finally:
                 conn.close()
             self.assertEqual(s_p, True)
             self.assertEqual(s_pc, "unknown")
+            self.assertEqual(first_true_streak, (1, "20260102", False, None))
 
     def test_short_code_commit_and_excess_workers_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -243,6 +256,7 @@ def _write_nested_source(root: Path) -> Path:
         "000002.SZ": ("p", "p", "unknown"),
         "000003.SZ": ("p", "p", "p"),
         "000004.SZ": ("p_c_unknown", "p_c_unknown", "p_c_unknown"),
+        "000005.SZ": ("unknown", "p", "p"),
     }.items():
         for window in (120, 250, 500):
             for q_value in (0.10, 0.20, 0.30):
