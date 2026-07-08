@@ -1,0 +1,123 @@
+{
+  "task_id": "R1-T03",
+  "stage": "R1",
+  "protocol_version": "r1_t03_27_grid_light_profile.v1",
+  "depends_on_task": "R1-T02",
+  "r1_t02_evidence_path": "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md",
+  "r1_t02_summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_summary.json",
+  "r1_t02_validation_result_path": "data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_validation_result.json",
+  "r0_full_grid_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+  "r0_full_grid_manifest_sha256": "a30d5bc7d1613637dbdfaa0f889f1f58719335bbf9831d95c079c6ba33ac1a96",
+  "grid": {
+    "W": [120, 250, 500],
+    "q": [0.1, 0.2, 0.3],
+    "K": [2, 3, 5],
+    "config_count": 27,
+    "weak_delta": 0.1,
+    "dimension_rule": "weak"
+  },
+  "state_names": ["S_P", "S_PC", "S_PCT", "S_PCVT"],
+  "baseline_config_id": "R0_W250_Q20_K3_WEAK_D010",
+  "profile_scope": [
+    "raw_state_profile",
+    "confirmed_state_profile",
+    "validity_status_profile",
+    "unknown_blocked_profile",
+    "year_coverage_profile",
+    "raw_fragment_profile",
+    "confirmed_interval_profile",
+    "retention_profile",
+    "relative_to_baseline_profile"
+  ],
+  "metrics": [
+    "eligible_day_count",
+    "valid_day_count",
+    "unknown_day_count",
+    "blocked_day_count",
+    "diagnostic_required_day_count",
+    "raw_state_true_day_count",
+    "raw_state_false_day_count",
+    "raw_state_null_day_count",
+    "confirmed_state_true_day_count",
+    "confirmed_state_false_day_count",
+    "confirmed_state_null_day_count",
+    "raw_coverage",
+    "confirmed_coverage",
+    "unique_security_count_raw_true",
+    "unique_security_count_confirmed_true",
+    "nonzero_year_count_raw",
+    "nonzero_year_count_confirmed",
+    "year_coverage_raw",
+    "year_coverage_confirmed",
+    "raw_segment_count",
+    "raw_fragment_rate",
+    "raw_average_duration",
+    "confirmed_interval_count",
+    "confirmed_interval_average_duration",
+    "unknown_ratio",
+    "blocked_ratio",
+    "diagnostic_required_ratio"
+  ],
+  "retention_metrics": [
+    "C_given_P_raw",
+    "T_given_PC_raw",
+    "V_given_PCT_raw",
+    "C_given_P_confirmed",
+    "T_given_PC_confirmed",
+    "V_given_PCT_confirmed"
+  ],
+  "relative_to_baseline_policy": {
+    "same_state_name_same_metric": true,
+    "outputs": ["ratio", "delta"],
+    "baseline_denominator_zero_ratio": "null",
+    "descriptive_only": true,
+    "forbidden_selection_fields": ["best_config", "winner", "optimized_config"]
+  },
+  "zero_interval_policy": {
+    "confirmed_interval_row_count_total_zero_handling": "zero_confirmed_input_fact",
+    "confirmed_profile_may_be_zero": true,
+    "change_K_allowed": false,
+    "confirmed_state_backfill_allowed": false,
+    "gap_merge_allowed": false,
+    "rerun_R0_allowed": false,
+    "treat_as_materialization_failure": false
+  },
+  "parallelism": {
+    "max_workers": 3,
+    "duckdb_threads_per_worker": 1,
+    "max_workers_allowed": 3,
+    "parallelism_level": "config-level only",
+    "parent_receives_row_payload": false
+  },
+  "forbidden_inputs": [
+    "future_return",
+    "future_volatility",
+    "release_direction",
+    "breakout_direction",
+    "raw_external",
+    "MarketDB",
+    ".day",
+    "loose_D3_generated"
+  ],
+  "forbidden_outputs": [
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "trading_signal",
+    "JointLift",
+    "empirical_p",
+    "z_score",
+    "R2_decision_matrix",
+    "freeze_candidate",
+    "review_candidate",
+    "do_not_freeze",
+    "best_config",
+    "winner",
+    "optimized_config"
+  ],
+  "downstream_authorization": {
+    "R1_T04_allowed_to_start_when_validator_status_passed": true,
+    "R1_T07_allowed_to_start": false,
+    "R2_allowed_to_start": false
+  }
+}

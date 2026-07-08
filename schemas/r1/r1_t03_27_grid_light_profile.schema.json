@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/r1/r1_t03_27_grid_light_profile.schema.json",
+  "title": "R1-T03 27-grid light profile contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "stage",
+    "protocol_version",
+    "depends_on_task",
+    "r1_t02_evidence_path",
+    "r1_t02_summary_path",
+    "r1_t02_validation_result_path",
+    "r0_full_grid_manifest_path",
+    "r0_full_grid_manifest_sha256",
+    "grid",
+    "state_names",
+    "baseline_config_id",
+    "profile_scope",
+    "metrics",
+    "retention_metrics",
+    "relative_to_baseline_policy",
+    "zero_interval_policy",
+    "parallelism",
+    "forbidden_inputs",
+    "forbidden_outputs",
+    "downstream_authorization"
+  ],
+  "properties": {
+    "task_id": { "const": "R1-T03" },
+    "stage": { "const": "R1" },
+    "protocol_version": { "const": "r1_t03_27_grid_light_profile.v1" },
+    "depends_on_task": { "const": "R1-T02" },
+    "r1_t02_evidence_path": { "type": "string", "minLength": 1 },
+    "r1_t02_summary_path": { "type": "string", "minLength": 1 },
+    "r1_t02_validation_result_path": { "type": "string", "minLength": 1 },
+    "r0_full_grid_manifest_path": { "type": "string", "minLength": 1 },
+    "r0_full_grid_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["W", "q", "K", "config_count", "weak_delta", "dimension_rule"],
+      "properties": {
+        "W": { "const": [120, 250, 500] },
+        "q": { "const": [0.1, 0.2, 0.3] },
+        "K": { "const": [2, 3, 5] },
+        "config_count": { "const": 27 },
+        "weak_delta": { "const": 0.1 },
+        "dimension_rule": { "const": "weak" }
+      }
+    },
+    "state_names": { "const": ["S_P", "S_PC", "S_PCT", "S_PCVT"] },
+    "baseline_config_id": { "const": "R0_W250_Q20_K3_WEAK_D010" },
+    "profile_scope": {
+      "type": "array",
+      "minItems": 9,
+      "items": { "type": "string" }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 27,
+      "items": { "type": "string" }
+    },
+    "retention_metrics": {
+      "const": [
+        "C_given_P_raw",
+        "T_given_PC_raw",
+        "V_given_PCT_raw",
+        "C_given_P_confirmed",
+        "T_given_PC_confirmed",
+        "V_given_PCT_confirmed"
+      ]
+    },
+    "relative_to_baseline_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "same_state_name_same_metric",
+        "outputs",
+        "baseline_denominator_zero_ratio",
+        "descriptive_only",
+        "forbidden_selection_fields"
+      ],
+      "properties": {
+        "same_state_name_same_metric": { "const": true },
+        "outputs": { "const": ["ratio", "delta"] },
+        "baseline_denominator_zero_ratio": { "const": "null" },
+        "descriptive_only": { "const": true },
+        "forbidden_selection_fields": {
+          "const": ["best_config", "winner", "optimized_config"]
+        }
+      }
+    },
+    "zero_interval_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confirmed_interval_row_count_total_zero_handling",
+        "confirmed_profile_may_be_zero",
+        "change_K_allowed",
+        "confirmed_state_backfill_allowed",
+        "gap_merge_allowed",
+        "rerun_R0_allowed",
+        "treat_as_materialization_failure"
+      ],
+      "properties": {
+        "confirmed_interval_row_count_total_zero_handling": {
+          "const": "zero_confirmed_input_fact"
+        },
+        "confirmed_profile_may_be_zero": { "const": true },
+        "change_K_allowed": { "const": false },
+        "confirmed_state_backfill_allowed": { "const": false },
+        "gap_merge_allowed": { "const": false },
+        "rerun_R0_allowed": { "const": false },
+        "treat_as_materialization_failure": { "const": false }
+      }
+    },
+    "parallelism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_workers",
+        "duckdb_threads_per_worker",
+        "max_workers_allowed",
+        "parallelism_level",
+        "parent_receives_row_payload"
+      ],
+      "properties": {
+        "max_workers": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "duckdb_threads_per_worker": { "const": 1 },
+        "max_workers_allowed": { "const": 3 },
+        "parallelism_level": { "const": "config-level only" },
+        "parent_receives_row_payload": { "const": false }
+      }
+    },
+    "forbidden_inputs": {
+      "type": "array",
+      "allOf": [
+        { "contains": { "const": "future_return" } },
+        { "contains": { "const": "MarketDB" } },
+        { "contains": { "const": ".day" } }
+      ],
+      "items": { "type": "string" }
+    },
+    "forbidden_outputs": {
+      "type": "array",
+      "allOf": [
+        { "contains": { "const": "JointLift" } },
+        { "contains": { "const": "empirical_p" } },
+        { "contains": { "const": "z_score" } },
+        { "contains": { "const": "R2_decision_matrix" } },
+        { "contains": { "const": "freeze_candidate" } },
+        { "contains": { "const": "review_candidate" } },
+        { "contains": { "const": "do_not_freeze" } }
+      ],
+      "items": { "type": "string" }
+    },
+    "downstream_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "R1_T04_allowed_to_start_when_validator_status_passed",
+        "R1_T07_allowed_to_start",
+        "R2_allowed_to_start"
+      ],
+      "properties": {
+        "R1_T04_allowed_to_start_when_validator_status_passed": { "const": true },
+        "R1_T07_allowed_to_start": { "const": false },
+        "R2_allowed_to_start": { "const": false }
+      }
+    }
+  }
+}

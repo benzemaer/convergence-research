@@ -2,7 +2,7 @@
   "errors": [],
   "evidence_path": "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md",
   "summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1420Z/r1_t02_lineage_pit_audit_summary.json",
-  "summary_sha256": "36a2561455184374a6dab1290f1844ee50fb65e7531a9c8beb296f32f9038b08",
+  "summary_sha256": "96c5b566c03953d90d2944413b0a11955c36ebf54f4a3328fad4aaa6b29d4ab9",
   "task_id": "R1-T02",
   "validator_status": "passed"
 }
