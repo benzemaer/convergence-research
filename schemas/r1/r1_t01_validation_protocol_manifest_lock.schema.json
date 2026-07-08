@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r1/r1_t01_validation_protocol_manifest_lock.schema.json",
+  "title": "R1-T01 validation protocol manifest lock",
+  "type": "object",
+  "additionalProperties": false,
+  "not": {
+    "anyOf": [
+      {"required": ["future_return"]},
+      {"required": ["return"]},
+      {"required": ["backtest"]},
+      {"required": ["portfolio"]},
+      {"required": ["trade_signal"]},
+      {"required": ["trading_signal"]}
+    ]
+  },
+  "required": [
+    "task_id",
+    "stage",
+    "protocol_version",
+    "reference_config",
+    "all_27_configs_light_profile",
+    "locked_grid",
+    "state_lines",
+    "diagnostic_layers",
+    "raw_confirmed_mode",
+    "r2_decision_basis",
+    "primary_hypothesis_test",
+    "formal_null_configs",
+    "sidecar_null_configs",
+    "primary_null_model",
+    "N_perm",
+    "empirical_p_formula",
+    "lag_set",
+    "year_stability_required",
+    "future_labels_forbidden",
+    "forbidden_inputs",
+    "forbidden_outputs",
+    "decision_status_enum",
+    "downstream_authorization"
+  ],
+  "properties": {
+    "task_id": {"const": "R1-T01"},
+    "stage": {"const": "R1"},
+    "protocol_version": {"type": "string", "minLength": 1},
+    "reference_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_id", "W", "q", "K", "role", "not_optimized", "not_selected_by_future_performance"],
+      "properties": {
+        "config_id": {"const": "W250_q20_K3"},
+        "W": {"const": 250},
+        "q": {"const": 0.2},
+        "K": {"const": 3},
+        "role": {"const": "reference_baseline"},
+        "not_optimized": {"const": true},
+        "not_selected_by_future_performance": {"const": true}
+      }
+    },
+    "all_27_configs_light_profile": {"const": true},
+    "locked_grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["W", "q", "K", "weak_delta", "dimension_rule", "config_count", "baseline"],
+      "properties": {
+        "W": {"type": "array", "prefixItems": [{"const": 120}, {"const": 250}, {"const": 500}], "items": false, "minItems": 3, "maxItems": 3},
+        "q": {"type": "array", "prefixItems": [{"const": 0.1}, {"const": 0.2}, {"const": 0.3}], "items": false, "minItems": 3, "maxItems": 3},
+        "K": {"type": "array", "prefixItems": [{"const": 2}, {"const": 3}, {"const": 5}], "items": false, "minItems": 3, "maxItems": 3, "not": {"contains": {"const": 1}}},
+        "weak_delta": {"const": 0.1},
+        "dimension_rule": {"const": "weak"},
+        "config_count": {"const": 27},
+        "baseline": {"const": "W250_q20_K3"}
+      }
+    },
+    "state_lines": {
+      "type": "array",
+      "minItems": 2,
+      "contains": {"type": "object", "required": ["state_line"], "properties": {"state_line": {"const": "S_PCT"}}},
+      "allOf": [
+        {"contains": {"type": "object", "required": ["state_line"], "properties": {"state_line": {"const": "S_PCVT"}}}},
+        {"not": {"maxItems": 1}}
+      ],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state_line", "definition", "participation_depletion_required"],
+        "properties": {
+          "state_line": {"enum": ["S_PCT", "S_PCVT"]},
+          "definition": {"type": "string"},
+          "participation_depletion_required": {"type": "boolean"},
+          "candidate_examples_registered_only": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "diagnostic_layers": {"type": "array", "prefixItems": [{"const": "P"}, {"const": "C"}, {"const": "T"}, {"const": "V"}], "items": false},
+    "raw_confirmed_mode": {"const": "dual_line"},
+    "raw_role": {"type": "string"},
+    "confirmed_role": {"type": "string"},
+    "r2_decision_basis": {"const": "confirmed_state"},
+    "primary_hypothesis_test": {"type": "object"},
+    "formal_null_configs": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/grid_config"}},
+    "sidecar_null_configs": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/sidecar_config"}},
+    "primary_null_model": {"const": "P_fixed_independent_CTV_circular_shift"},
+    "primary_null_model_detail": {"type": "object"},
+    "N_perm": {"const": 2000},
+    "empirical_p_formula": {"const": "(n_extreme + 1) / (N_perm + 1)"},
+    "lag_set": {"type": "array", "prefixItems": [{"const": 1}, {"const": 3}, {"const": 5}, {"const": 10}, {"const": 20}], "items": false, "minItems": 5, "maxItems": 5},
+    "year_stability_required": {"const": true},
+    "year_definition": {"type": "string"},
+    "future_labels_forbidden": {"const": true},
+    "forbidden_inputs": {"type": "array", "contains": {"const": "MarketDB"}, "items": {"type": "string"}},
+    "allowed_inputs": {"type": "array", "items": {"type": "string"}},
+    "forbidden_outputs": {
+      "type": "array",
+      "allOf": [
+        {"contains": {"const": "future_return"}},
+        {"contains": {"const": "backtest"}},
+        {"contains": {"const": "portfolio"}},
+        {"contains": {"const": "trade_signal"}}
+      ],
+      "items": {"type": "string"}
+    },
+    "decision_status_enum": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "freeze_candidate"},
+        {"const": "review_candidate"},
+        {"const": "do_not_freeze"},
+        {"const": "blocked_return_to_R0"}
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "downstream_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["R1_T02_allowed_to_start_after_validator_pass", "downstream_R2_allowed_to_start", "max_next_task_after_merge"],
+      "properties": {
+        "R1_T02_allowed_to_start_after_validator_pass": {"const": true},
+        "downstream_R2_allowed_to_start": {"const": false},
+        "max_next_task_after_merge": {"const": "R1-T02"}
+      }
+    }
+  },
+  "$defs": {
+    "grid_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state_line", "W", "q", "K"],
+      "properties": {
+        "state_line": {"enum": ["S_PCT", "S_PCVT"]},
+        "W": {"enum": [120, 250, 500]},
+        "q": {"enum": [0.1, 0.2, 0.3]},
+        "K": {"enum": [2, 3, 5]}
+      }
+    },
+    "sidecar_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state_line", "W", "q", "K", "trigger"],
+      "properties": {
+        "state_line": {"enum": ["S_PCT", "S_PCVT"]},
+        "W": {"enum": [120, 250, 500]},
+        "q": {"enum": [0.1, 0.2, 0.3]},
+        "K": {"enum": [2, 3, 5]},
+        "trigger": {"type": "string"}
+      }
+    }
+  }
+}
