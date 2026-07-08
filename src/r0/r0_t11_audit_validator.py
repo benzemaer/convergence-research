@@ -30,6 +30,7 @@ R0_T11_EVIDENCE = (
     ROOT / "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md"
 )
 README = ROOT / "docs/tasks/README.md"
+ENGINEERING_STANDARD = ROOT / "docs/03_可复现研究工程标准.md"
 
 REQUIRED_AUDIT_SNIPPETS = (
     "R0_status: completed",
@@ -45,6 +46,37 @@ REQUIRED_AUDIT_SNIPPETS = (
     "q=0.10/0.20/0.30",
     "K=2/3/5",
     "weak_delta=0.10",
+    "R_stage_formal_run_standard",
+    "docs/03 §12",
+    "R1_must_follow_formal_run_standard: true",
+)
+REQUIRED_HANDOFF_SNIPPETS = (
+    "R1工程执行约束",
+    "docs/03 §12",
+    "evidence-bound",
+)
+REQUIRED_ENGINEERING_STANDARD_HEADINGS = (
+    "## 12. R阶段正式运行、物化与交接 PR 规范",
+    "### 12.1 适用范围",
+    "### 12.2 两阶段推进",
+    "### 12.3 Evidence 最小字段",
+    "### 12.4 R阶段入口分层硬规则",
+    "### 12.5 Resume、失败与监控",
+    "### 12.6 并发与 DuckDB 写入",
+    "### 12.7 Validator、README gate 与下游授权",
+)
+REQUIRED_ENGINEERING_STANDARD_KEYWORDS = (
+    ("full 40-char SHA", "40 位完整"),
+    ("row payload",),
+    ("downstream_gate_allowed",),
+    ("ProcessPoolExecutor",),
+    ("spawn",),
+    ("DuckDB",),
+    ("read_parquet", "CTAS", "COPY"),
+    ("DONE",),
+    ("FAILED",),
+    ("validator_status",),
+    ("README",),
 )
 FORBIDDEN_AFFIRMATIVE_PATTERNS = (
     r"\bstrategy (?:is )?validated\b",
@@ -73,9 +105,13 @@ def validate_r0_t11_audit(root: Path = ROOT) -> dict[str, Any]:
     )
     audit_evidence_path = root / R0_T11_EVIDENCE.relative_to(ROOT)
     readme_path = root / README.relative_to(ROOT)
+    engineering_standard_path = root / ENGINEERING_STANDARD.relative_to(ROOT)
 
     _check_required_files(report_paths, "report", errors)
     _check_required_files(evidence_paths, "formal_evidence", errors)
+    engineering_standard_sha256 = _check_engineering_standard(
+        engineering_standard_path, errors
+    )
     evidence = {
         path.name: _parse_evidence(path) for path in evidence_paths if path.exists()
     }
@@ -86,6 +122,13 @@ def validate_r0_t11_audit(root: Path = ROOT) -> dict[str, Any]:
         for snippet in REQUIRED_AUDIT_SNIPPETS:
             if snippet not in audit_text:
                 errors.append(f"audit_report_missing:{snippet}")
+    if report_paths[1].exists():
+        handoff_text = report_paths[1].read_text(encoding="utf-8")
+        for snippet in REQUIRED_HANDOFF_SNIPPETS:
+            if snippet not in handoff_text:
+                errors.append(f"handoff_missing:{snippet}")
+        if "two-stage" not in handoff_text and "两阶段" not in handoff_text:
+            errors.append("handoff_missing:two-stage_or_两阶段")
     _check_forbidden_claims(report_paths, errors)
     _check_readme_gate(readme_path, audit_evidence_path, errors)
     if audit_evidence_path.exists():
@@ -107,6 +150,13 @@ def validate_r0_t11_audit(root: Path = ROOT) -> dict[str, Any]:
         "audit_report_content_check": "passed"
         if not any("audit_report_missing" in error for error in errors)
         else "blocked",
+        "handoff_content_check": "passed"
+        if not any("handoff_missing" in error for error in errors)
+        else "blocked",
+        "r_stage_formal_run_standard_check": "passed"
+        if not any("engineering_standard" in error for error in errors)
+        else "blocked",
+        "engineering_standard_sha256": engineering_standard_sha256,
         "forbidden_claim_check": "passed"
         if not any("forbidden_affirmative_claim" in error for error in errors)
         else "blocked",
@@ -161,6 +211,22 @@ def _check_formal_evidence_gates(
             errors.append(f"R0-T10-05_gate_missing:{key}")
 
 
+def _check_engineering_standard(path: Path, errors: list[str]) -> str | None:
+    if not path.exists():
+        errors.append(f"engineering_standard_missing:{_display_path(path)}")
+        return None
+    text = path.read_text(encoding="utf-8")
+    for heading in REQUIRED_ENGINEERING_STANDARD_HEADINGS:
+        if heading not in text:
+            errors.append(f"engineering_standard_heading_missing:{heading}")
+    for alternatives in REQUIRED_ENGINEERING_STANDARD_KEYWORDS:
+        if not any(keyword in text for keyword in alternatives):
+            errors.append(
+                "engineering_standard_keyword_missing:" + "|".join(alternatives)
+            )
+    return sha256_file(path)
+
+
 def _check_forbidden_claims(paths: tuple[Path, ...], errors: list[str]) -> None:
     for path in paths:
         if not path.exists():
@@ -207,6 +273,9 @@ def _check_t11_evidence(path: Path, errors: list[str]) -> None:
         "no_parameter_optimization_claim_check": "passed",
         "README_updated_to_R1": "true",
         "downstream_gate_allowed": "true",
+        "r_stage_formal_run_standard_updated": "true",
+        "r_stage_formal_run_standard_check": "passed",
+        "r1_formal_run_standard_gate": "passed",
     }
     for key, expected in required.items():
         if fields.get(key) != expected:
@@ -215,6 +284,8 @@ def _check_t11_evidence(path: Path, errors: list[str]) -> None:
         if "sha256" in key or key.endswith("_hash"):
             if not re.fullmatch(r"[0-9a-f]{64}", value):
                 errors.append(f"R0-T11_evidence_hash_invalid:{key}")
+    if fields.get("engineering_standard_path") != "docs/03_可复现研究工程标准.md":
+        errors.append("R0-T11_evidence_field_mismatch:engineering_standard_path")
     _check_no_row_payload(path.read_text(encoding="utf-8"), errors)
 
 

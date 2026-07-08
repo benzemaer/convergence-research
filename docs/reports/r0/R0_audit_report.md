@@ -40,6 +40,12 @@ R1-T01 cannot use confirmed interval as the primary analysis object because the 
 
 R0-T10-05 uses no monolithic JSON payload production path. It uses artifact-backed input, a spawn process pool, parent-process summary aggregation without row payloads, and per-worker artifact reads. Generated DuckDB and Parquet outputs are not committed. Formal code_commit values use the full SHA policy, with short SHA forbidden since PR #72; R0-T10-03 remains documented as a historical short-SHA run argument rather than being rewritten. `scripts/r0` contains thin wrappers, and core logic resides under `src/r0`.
 
+## R阶段工程规范收口
+
+R0-T10 formal materialization 的工程规则已经固化到 `docs/03_可复现研究工程标准.md §12`，作为 R1–R6 formal run、formal materialization、audit 和 handoff PR 的通用规范。R1–R6 formal run 必须遵守 `docs/03 §12` 中的两阶段推进、evidence 最小字段、R 阶段入口分层、resume/failure 语义、监控、并发、DuckDB 写入策略、validator gate 和 README downstream authorization 规则。
+
+R1-T01 只能在该规范下从 evidence-bound R0 handoff package 开始。R1-T01 不得绕过 evidence chain 直接读取 loose local artifacts，也不得把 contract-only、synthetic-only 或 smoke-only 输出当成 formal evidence。
+
 ## Forbidden Field Audit
 
 The R0 formal path records no future label, no future return, no release direction, no breakout direction, no backtest output, no portfolio output, no trade signal output, no direct raw/external/MarketDB/.day source lineage in R0-T10 formal input, no synthetic contract-grid production input, and no legacy V1 field. R0-T10-05 validator_status is passed, with source_evidence_check, input_artifact_hash_check, synthetic_input_check, raw_external_source_check, full_code_commit_check, forbidden_field_check, and legacy_v1_check all passed.
@@ -51,3 +57,7 @@ R0_status: completed
 R1_allowed_to_start: true
 
 R1_starting_task: R1-T01 状态存在性与频率轮廓
+
+R_stage_formal_run_standard: docs/03 §12
+
+R1_must_follow_formal_run_standard: true

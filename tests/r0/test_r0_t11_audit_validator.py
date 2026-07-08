@@ -86,6 +86,101 @@ class R0T11AuditValidatorTest(unittest.TestCase):
             with self.assertRaises(R0T11AuditValidationError):
                 validate_r0_t11_audit(root)
 
+    def test_missing_two_stage_section_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            standard = root / "docs/03_可复现研究工程标准.md"
+            standard.write_text(
+                standard.read_text(encoding="utf-8").replace(
+                    "### 12.2 两阶段推进", "### 12.2 missing"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
+    def test_missing_evidence_minimum_section_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            standard = root / "docs/03_可复现研究工程标准.md"
+            standard.write_text(
+                standard.read_text(encoding="utf-8").replace(
+                    "### 12.3 Evidence 最小字段", "### 12.3 missing"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
+    def test_missing_r_stage_layering_section_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            standard = root / "docs/03_可复现研究工程标准.md"
+            standard.write_text(
+                standard.read_text(encoding="utf-8").replace(
+                    "### 12.4 R阶段入口分层硬规则", "### 12.4 missing"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
+    def test_missing_resume_done_failed_rules_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            standard = root / "docs/03_可复现研究工程标准.md"
+            standard.write_text(
+                standard.read_text(encoding="utf-8")
+                .replace("DONE", "done_marker")
+                .replace("FAILED", "failed_marker"),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
+    def test_missing_duckdb_spawn_row_payload_rules_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            standard = root / "docs/03_可复现研究工程标准.md"
+            standard.write_text(
+                standard.read_text(encoding="utf-8")
+                .replace("DuckDB", "database")
+                .replace("spawn", "process_context")
+                .replace("row payload", "row body"),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
+    def test_audit_report_must_reference_engineering_standard(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            audit = root / "docs/reports/r0/R0_audit_report.md"
+            audit.write_text(
+                audit.read_text(encoding="utf-8").replace("docs/03 §12", "docs/03"),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
+    def test_handoff_must_reference_engineering_standard(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_complete_fixture(root)
+            handoff = root / "docs/reports/r0/R0_r1_handoff.md"
+            handoff.write_text(
+                handoff.read_text(encoding="utf-8").replace("docs/03 §12", "docs/03"),
+                encoding="utf-8",
+            )
+            with self.assertRaises(R0T11AuditValidationError):
+                validate_r0_t11_audit(root)
+
     def test_forbidden_affirmative_claim_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -117,14 +212,32 @@ class R0T11AuditValidatorTest(unittest.TestCase):
         for marker in forbidden:
             self.assertNotIn(marker, wrapper)
 
+    def test_real_engineering_standard_section_exists(self) -> None:
+        text = Path("docs/03_可复现研究工程标准.md").read_text(encoding="utf-8")
+        for heading in (
+            "## 12. R阶段正式运行、物化与交接 PR 规范",
+            "### 12.1 适用范围",
+            "### 12.2 两阶段推进",
+            "### 12.3 Evidence 最小字段",
+            "### 12.4 R阶段入口分层硬规则",
+            "### 12.5 Resume、失败与监控",
+            "### 12.6 并发与 DuckDB 写入",
+            "### 12.7 Validator、README gate 与下游授权",
+        ):
+            self.assertIn(heading, text)
+
 
 def _write_complete_fixture(root: Path) -> None:
     for directory in (
         root / "docs/reports/r0",
         root / "docs/evidence/r0",
         root / "docs/tasks",
+        root / "docs",
     ):
         directory.mkdir(parents=True, exist_ok=True)
+    (root / "docs/03_可复现研究工程标准.md").write_text(
+        _engineering_standard_fixture(), encoding="utf-8"
+    )
     for name, gate in (
         ("R0-T10-01_r0_t04_raw_metrics_materialization_evidence.md", ""),
         ("R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md", ""),
@@ -167,12 +280,19 @@ def _write_complete_fixture(root: Path) -> None:
             "q=0.10/0.20/0.30",
             "K=2/3/5",
             "weak_delta=0.10",
+            "R_stage_formal_run_standard: docs/03 §12",
+            "R1_must_follow_formal_run_standard: true",
         )
     )
     (root / "docs/reports/r0/R0_audit_report.md").write_text(
         audit_text, encoding="utf-8"
     )
-    for name in ("R0_r1_handoff.md", "R0_evidence_index.md", "R0_known_limitations.md"):
+    (root / "docs/reports/r0/R0_r1_handoff.md").write_text(
+        "## R1工程执行约束\n"
+        "R1 must follow docs/03 §12 with two-stage and evidence-bound gates.\n",
+        encoding="utf-8",
+    )
+    for name in ("R0_evidence_index.md", "R0_known_limitations.md"):
         (root / "docs/reports/r0" / name).write_text(
             "allowed scope\n", encoding="utf-8"
         )
@@ -194,6 +314,11 @@ def _write_complete_fixture(root: Path) -> None:
                 "`no_parameter_optimization_claim_check`: passed",
                 "`README_updated_to_R1`: true",
                 "`downstream_gate_allowed`: true",
+                "`r_stage_formal_run_standard_updated`: true",
+                "`engineering_standard_path`: `docs/03_可复现研究工程标准.md`",
+                "`engineering_standard_sha256`: `" + "b" * 64 + "`",
+                "`r_stage_formal_run_standard_check`: passed",
+                "`r1_formal_run_standard_gate`: passed",
                 "`audit_report_sha256`: `" + "a" * 64 + "`",
             )
         ),
@@ -209,6 +334,28 @@ def _write_complete_fixture(root: Path) -> None:
             )
         ),
         encoding="utf-8",
+    )
+
+
+def _engineering_standard_fixture() -> str:
+    return "\n".join(
+        (
+            "## 12. R阶段正式运行、物化与交接 PR 规范",
+            "### 12.1 适用范围",
+            "formal evidence chain and README gate",
+            "### 12.2 两阶段推进",
+            "two-stage downstream_gate_allowed validator_status",
+            "### 12.3 Evidence 最小字段",
+            "full 40-char SHA row payload",
+            "### 12.4 R阶段入口分层硬规则",
+            "src/rN scripts/rN",
+            "### 12.5 Resume、失败与监控",
+            "DONE FAILED retry",
+            "### 12.6 并发与 DuckDB 写入",
+            "ProcessPoolExecutor spawn DuckDB read_parquet",
+            "### 12.7 Validator、README gate 与下游授权",
+            "README validator_status",
+        )
     )
 
 

@@ -18,6 +18,12 @@ R1-T01 should begin with 状态存在性与频率轮廓. The minimum question se
 
 The current formal package has no confirmed intervals. R1-T01 should treat that as an input fact and should profile raw nested states and daily confirmation rows before considering any later-stage outcome study.
 
+## R1工程执行约束
+
+R1-T01 必须引用并遵守 `docs/03 §12`。如果 R1-T01 只是 contract/synthetic work，则不能推进 formal evidence gate；如果 R1-T01 产生正式统计结果，则必须采用 two-stage / 两阶段推进、formal evidence、validator 和 README gate。R1-T01 不得生成 monolithic row payload input，不得绕过 evidence-bound R0 handoff package，也不得使用 future labels、future returns、backtest、portfolio 或 trade signal。
+
+R1-T01 的输出如果进入 R1-T02，必须有 validator passed 的 evidence。R1-T02 只能消费 evidence-bound artifacts，不能直接读取 loose local artifacts 或未验证的 generated outputs。
+
 ## R1-T01 Forbidden Scope
 
 R1-T01 must not introduce future收益, release direction, release magnitude, trading signal, backtest, parameter selection, portfolio construction, or out-of-sample validation. Those topics belong to later stages after R1 has completed existence, frequency, structure, stability, and null-model review.

@@ -26,11 +26,13 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 ## Audit Outputs
 
 `task_doc_path`: `docs/tasks/R0-T11_R0审计报告与R1交接.md`
-`task_doc_sha256`: `5e18a7eae0bd571521668fab88f5dadb52cb6aa7cb5f9f9640801184dc373483`
+`task_doc_sha256`: `9e0e07988327856e602c6d8d4d0a19f1be88eb329714767168a40c542c392570`
+`engineering_standard_path`: `docs/03_可复现研究工程标准.md`
+`engineering_standard_sha256`: `27b7cd0da0a18eecc641746901fb98e245d54c8bd57237eef8e95ca3af6ae6d4`
 `audit_report_path`: `docs/reports/r0/R0_audit_report.md`
-`audit_report_sha256`: `548475b25b3dbe485b1ef9a91a20d450b32fdee3bac17b702f30c95f9745b314`
+`audit_report_sha256`: `e60869814f751d99dedeb8d5b4bee4ab0bc678f5c5f3b63436fbb5510acccbda`
 `r1_handoff_path`: `docs/reports/r0/R0_r1_handoff.md`
-`r1_handoff_sha256`: `3fbe21ca1c1d5d2e77c4ff7a81f3ef3ece3e3a52c6a8ef2ce6d007dffddf4ae9`
+`r1_handoff_sha256`: `1f2fe654925d7a2bf904a6ab04a3a556e77de4411b8111a8db6f1b707ebad4bc`
 `evidence_index_path`: `docs/reports/r0/R0_evidence_index.md`
 `evidence_index_sha256`: `975e1cfdbcfc74f2cf659edaf9298051c02d8b82690d0a01978bf2dd9e2267b7`
 `known_limitations_path`: `docs/reports/r0/R0_known_limitations.md`
@@ -45,6 +47,8 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 `required_formal_evidence_check`: passed
 `formal_evidence_gate_check`: passed
 `audit_report_content_check`: passed
+`r_stage_formal_run_standard_check`: passed
+`r1_formal_run_standard_gate`: passed
 `forbidden_claim_check`: passed
 `readme_gate_check`: passed
 
@@ -53,6 +57,7 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 `R0_status`: completed
 `R1_allowed_to_start`: true
 `R1_starting_task`: R1-T01
+`r_stage_formal_run_standard_updated`: true
 `zero_interval_acknowledged`: true
 `no_future_label_check`: passed
 `no_backtest_check`: passed
