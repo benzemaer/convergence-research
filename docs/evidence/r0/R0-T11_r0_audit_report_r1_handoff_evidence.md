@@ -7,7 +7,7 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 `task_id`: R0-T11
 `status`: completed
 `run_id`: R0-T11-20260708T0900Z
-`code_commit`: 2dc086b9eba2d470db9cce7152d5631b7654dc1b
+`code_commit`: e5722410896ac8f7559e02fd6d7cd3d80f1d1a29
 
 ## Source Evidence
 
@@ -32,7 +32,7 @@ This evidence records the R0-T11 audit and handoff closure. It records only path
 `r1_handoff_path`: `docs/reports/r0/R0_r1_handoff.md`
 `r1_handoff_sha256`: `3fbe21ca1c1d5d2e77c4ff7a81f3ef3ece3e3a52c6a8ef2ce6d007dffddf4ae9`
 `evidence_index_path`: `docs/reports/r0/R0_evidence_index.md`
-`evidence_index_sha256`: `7957c71e6055cf6e15ad1e31c83d86e9b76fb485d9f326e2963a569ec64ed86c`
+`evidence_index_sha256`: `975e1cfdbcfc74f2cf659edaf9298051c02d8b82690d0a01978bf2dd9e2267b7`
 `known_limitations_path`: `docs/reports/r0/R0_known_limitations.md`
 `known_limitations_sha256`: `ceabd546f7563f9024610090fcd908d87c3bded8c0a85fb7ff9a0ac2f719b12c`
 
