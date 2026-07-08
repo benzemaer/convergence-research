@@ -83,7 +83,7 @@ This evidence records the local formal R0-T10-05 authorized input manifest gener
 `summary_path`: `data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_execution_summary.json`
 `summary_sha256`: `d85a05619ae88371d5998c3733409dfee4f2813673935ae17dcae08d896cd398`
 `validation_result_path`: `data/generated/r0/r0_t10/R0-T10-05-20260707T1845Z/r0_t09_full_grid/r0_t10_05_validation_result.json`
-`validation_result_sha256`: `3344c707d4c1e830f4d67250db45bd6cc5f47a8ebb76b196b7b4d28d3cc1c022`
+`validation_result_sha256`: `2b1157a05724e3d9a92b3ec3d67b47f3ba50640901d30795232832d3d6a3b362`
 
 `daily_candidate_row_count_total`: 186,923,052
 `confirmed_interval_row_count_total`: 0
@@ -121,6 +121,8 @@ This evidence records the local formal R0-T10-05 authorized input manifest gener
 ## Validation And Gates
 
 `validator_status`: passed
+`source_evidence_check`: passed
+`input_artifact_hash_check`: passed
 `forbidden_field_check`: passed
 `legacy_v1_check`: passed
 `synthetic_input_check`: passed

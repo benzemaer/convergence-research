@@ -44,6 +44,20 @@ LEGACY_V1_FIELDS = {
     "VolShrink20_60",
     "volume_shrink_20_60",
 }
+REQUIRED_SOURCE_EVIDENCE = {
+    "R0-T04": "R0-T05_allowed_to_start",
+    "R0-T05": "R0-T06_allowed_to_start",
+    "R0-T06": "R0-T07_allowed_to_start",
+    "R0-T07": "R0-T10-05_allowed_to_start",
+}
+SYNTHETIC_MARKERS = (
+    "synthetic",
+    "fixture",
+    "contract-grid",
+    "contract_grid",
+    "smoke_fixture",
+)
+RAW_EXTERNAL_MARKERS = ("data/raw", "data/external", "MarketDB", ".day")
 
 
 class R0T10FullGridValidationError(RuntimeError):
@@ -70,6 +84,7 @@ def validate_full_grid(
     _check_code_commit(authorized, global_manifest, summary, errors)
     _check_grid(global_manifest, errors)
     _check_authorized_manifest_hash(manifest_path, global_manifest, summary, errors)
+    lineage_result = _validate_authorized_manifest_lineage(authorized, errors)
 
     config_results = _validate_config_artifacts(output, global_manifest, errors)
     daily_true_total = sum(
@@ -125,8 +140,10 @@ def validate_full_grid(
         "legacy_v1_check": "passed"
         if not any("legacy_v1" in error for error in errors)
         else "blocked",
-        "synthetic_input_check": "passed",
-        "raw_external_source_check": "passed",
+        "source_evidence_check": lineage_result["source_evidence_check"],
+        "input_artifact_hash_check": lineage_result["input_artifact_hash_check"],
+        "synthetic_input_check": lineage_result["synthetic_input_check"],
+        "raw_external_source_check": lineage_result["raw_external_source_check"],
         "full_code_commit_check": "passed"
         if not any("code_commit" in error for error in errors)
         else "blocked",
@@ -139,6 +156,98 @@ def validate_full_grid(
     if errors:
         raise R0T10FullGridValidationError(";".join(errors))
     return result
+
+
+def _validate_authorized_manifest_lineage(
+    authorized: Mapping[str, Any], errors: list[str]
+) -> dict[str, str]:
+    lineage_errors: list[str] = []
+    artifact_errors: list[str] = []
+    synthetic_errors: list[str] = []
+    raw_external_errors: list[str] = []
+
+    _check_no_row_payload(authorized, "authorized_manifest", lineage_errors)
+    if _contains_marker(authorized, SYNTHETIC_MARKERS):
+        synthetic_errors.append("synthetic_contract_grid_marker_forbidden")
+    if _contains_marker(authorized, RAW_EXTERNAL_MARKERS):
+        raw_external_errors.append("raw_external_marketdb_day_lineage_forbidden")
+
+    source_evidence = authorized.get("source_evidence")
+    if not isinstance(source_evidence, Mapping):
+        lineage_errors.append("source_evidence_missing")
+    else:
+        for task_id, gate_field in REQUIRED_SOURCE_EVIDENCE.items():
+            entry = source_evidence.get(task_id)
+            if not isinstance(entry, Mapping):
+                lineage_errors.append(f"source_evidence_missing:{task_id}")
+                continue
+            path = Path(str(entry.get("path", "")))
+            if not path.exists():
+                lineage_errors.append(f"source_evidence_file_missing:{task_id}")
+                continue
+            if entry.get("sha256") != sha256_file(path):
+                lineage_errors.append(f"source_evidence_hash_mismatch:{task_id}")
+            evidence = _parse_evidence(path)
+            if str(evidence.get("status", "")) != "completed":
+                lineage_errors.append(f"source_evidence_not_completed:{task_id}")
+            if str(evidence.get(gate_field, "")).lower() != "true":
+                lineage_errors.append(f"source_evidence_gate_not_open:{task_id}")
+            if (
+                task_id in {"R0-T05", "R0-T06", "R0-T07"}
+                and str(evidence.get("validator_status", "")) != "passed"
+            ):
+                lineage_errors.append(f"source_evidence_validator_not_passed:{task_id}")
+            if _contains_marker(evidence, SYNTHETIC_MARKERS):
+                synthetic_errors.append(f"source_evidence_synthetic_marker:{task_id}")
+            if _contains_marker(evidence, RAW_EXTERNAL_MARKERS):
+                raw_external_errors.append(f"source_evidence_raw_external:{task_id}")
+
+    input_artifacts = authorized.get("input_artifacts")
+    if not isinstance(input_artifacts, Mapping):
+        artifact_errors.append("input_artifacts_missing")
+    else:
+        for artifact_id, artifact in input_artifacts.items():
+            if not isinstance(artifact, Mapping):
+                artifact_errors.append(f"input_artifact_invalid:{artifact_id}")
+                continue
+            path = Path(str(artifact.get("path", "")))
+            if not path.exists():
+                artifact_errors.append(f"input_artifact_missing:{artifact_id}")
+                continue
+            if artifact.get("sha256") != sha256_file(path):
+                artifact_errors.append(f"input_artifact_hash_mismatch:{artifact_id}")
+            row_count = artifact.get("row_count")
+            if row_count is None:
+                artifact_errors.append(
+                    f"input_artifact_row_count_missing:{artifact_id}"
+                )
+            else:
+                try:
+                    if int(row_count) < 0:
+                        artifact_errors.append(
+                            f"input_artifact_row_count_negative:{artifact_id}"
+                        )
+                except (TypeError, ValueError):
+                    artifact_errors.append(
+                        f"input_artifact_row_count_invalid:{artifact_id}"
+                    )
+            if _contains_marker(artifact, SYNTHETIC_MARKERS):
+                synthetic_errors.append(
+                    f"input_artifact_synthetic_marker:{artifact_id}"
+                )
+            if _contains_marker(artifact, RAW_EXTERNAL_MARKERS):
+                raw_external_errors.append(f"input_artifact_raw_external:{artifact_id}")
+
+    errors.extend(lineage_errors)
+    errors.extend(artifact_errors)
+    errors.extend(synthetic_errors)
+    errors.extend(raw_external_errors)
+    return {
+        "source_evidence_check": "passed" if not lineage_errors else "blocked",
+        "input_artifact_hash_check": "passed" if not artifact_errors else "blocked",
+        "synthetic_input_check": "passed" if not synthetic_errors else "blocked",
+        "raw_external_source_check": "passed" if not raw_external_errors else "blocked",
+    }
 
 
 def _check_code_commit(
@@ -339,6 +448,33 @@ def _check_no_row_payload(payload: Any, label: str, errors: list[str]) -> None:
     elif isinstance(payload, list):
         for value in payload:
             _check_no_row_payload(value, label, errors)
+
+
+def _parse_evidence(path: Path) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("`") or "`:" not in line:
+            continue
+        key_end = line.find("`:")
+        key = line[1:key_end].strip()
+        value_text = line[key_end + 2 :].strip()
+        if value_text.startswith("`") and value_text.endswith("`"):
+            value = value_text[1:-1]
+        else:
+            value = value_text.replace("`", "")
+        fields.setdefault(key, value.strip())
+    return fields
+
+
+def _contains_marker(payload: Any, markers: tuple[str, ...]) -> bool:
+    if isinstance(payload, Mapping):
+        return any(_contains_marker(value, markers) for value in payload.values())
+    if isinstance(payload, list | tuple):
+        return any(_contains_marker(value, markers) for value in payload)
+    if isinstance(payload, str):
+        lowered = payload.lower()
+        return any(marker.lower() in lowered for marker in markers)
+    return False
 
 
 def _load_json(path: Path) -> dict[str, Any]:

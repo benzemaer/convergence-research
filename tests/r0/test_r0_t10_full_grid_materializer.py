@@ -82,6 +82,10 @@ class R0T10FullGridMaterializerTest(unittest.TestCase):
             self.assertEqual(result["status"], "passed")
             self.assertEqual(result["selected_config_count"], 27)
             self.assertEqual(result["full_code_commit_check"], "passed")
+            self.assertEqual(result["source_evidence_check"], "passed")
+            self.assertEqual(result["input_artifact_hash_check"], "passed")
+            self.assertEqual(result["synthetic_input_check"], "passed")
+            self.assertEqual(result["raw_external_source_check"], "passed")
 
             resume_summary = materialize_full_grid(
                 authorized_input_manifest=manifest_path,
@@ -230,6 +234,61 @@ class R0T10FullGridMaterializerTest(unittest.TestCase):
                 )
             self.assertIn("daily_confirmed_true_without_interval", str(ctx.exception))
 
+    def test_validator_rechecks_authorized_manifest_lineage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path, output_dir = _completed_small_full_grid(root)
+
+            cases = (
+                (
+                    "source_evidence_hash_mismatch",
+                    lambda manifest: manifest["source_evidence"]["R0-T04"].update(
+                        {"sha256": "0" * 64}
+                    ),
+                    "source_evidence_hash_mismatch:R0-T04",
+                ),
+                (
+                    "source_evidence_file_missing",
+                    lambda manifest: manifest["source_evidence"]["R0-T05"].update(
+                        {"path": str(root / "missing_evidence.md")}
+                    ),
+                    "source_evidence_file_missing:R0-T05",
+                ),
+                (
+                    "input_artifact_hash_mismatch",
+                    lambda manifest: manifest["input_artifacts"][
+                        "r0_t07_daily_confirmation"
+                    ].update({"sha256": "1" * 64}),
+                    "input_artifact_hash_mismatch:r0_t07_daily_confirmation",
+                ),
+                (
+                    "synthetic_marker",
+                    lambda manifest: manifest.update(
+                        {"production_marker": "synthetic_contract-grid"}
+                    ),
+                    "synthetic_contract_grid_marker_forbidden",
+                ),
+                (
+                    "raw_external_lineage",
+                    lambda manifest: manifest.update(
+                        {"lineage_probe": "data/raw/MarketDB/foo.day"}
+                    ),
+                    "raw_external",
+                ),
+            )
+            for name, mutate, expected in cases:
+                case_manifest = root / f"{name}.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                mutate(manifest)
+                _write_json(case_manifest, manifest)
+                with self.subTest(name=name):
+                    with self.assertRaises(R0T10FullGridValidationError) as ctx:
+                        validate_full_grid(
+                            authorized_input_manifest=case_manifest,
+                            output_dir=output_dir,
+                        )
+                    self.assertIn(expected, str(ctx.exception))
+
     def test_wrappers_remain_thin(self) -> None:
         for path in (
             Path("scripts/r0/build_r0_t10_05_authorized_input_manifest.py"),
@@ -360,6 +419,34 @@ def _write_upstream_artifacts(root: Path, *, include_interval: bool) -> dict[str
     return artifacts
 
 
+def _completed_small_full_grid(root: Path) -> tuple[Path, Path]:
+    artifacts = _write_upstream_artifacts(root, include_interval=True)
+    evidence = _write_evidence_set(root, artifacts)
+    manifest_summary = build_authorized_input_manifest(
+        output_dir=root / "manifest",
+        run_id="lineage",
+        code_commit=FULL_SHA,
+        r0_t04_evidence=evidence["t04"],
+        r0_t05_evidence=evidence["t05"],
+        r0_t06_evidence=evidence["t06"],
+        r0_t07_evidence=evidence["t07"],
+    )
+    manifest_path = Path(manifest_summary["authorized_input_manifest_path"])
+    output_dir = root / "full_grid"
+    materialize_full_grid(
+        authorized_input_manifest=manifest_path,
+        output_dir=output_dir,
+        run_id="lineage",
+        code_commit=FULL_SHA,
+        max_workers=1,
+    )
+    validate_full_grid(
+        authorized_input_manifest=manifest_path,
+        output_dir=output_dir,
+    )
+    return manifest_path, output_dir
+
+
 def _write_evidence_set(root: Path, artifacts: dict[str, str]) -> dict[str, Path]:
     paths = {
         "t04": root / "t04_evidence.md",
@@ -449,3 +536,10 @@ def _lines(task_id: str, gate: str, **fields: str) -> str:
         else:
             lines.append(f"`{key}`: `{value}`")
     return "\n".join(lines)
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True),
+        encoding="utf-8",
+    )
