@@ -6,6 +6,7 @@ import numpy as np
 
 from src.r1.r1_t14_02_formal_structural_revalidation import (
     _confirmed_coverage_fast,
+    _sign,
     _step_metrics,
 )
 
@@ -29,6 +30,11 @@ class R1T1402FormalStructuralRevalidationTests(unittest.TestCase):
         self.assertIsNone(result["retention"])
         self.assertIsNone(result["lift"])
         self.assertIsNone(result["joint_excess"])
+
+    def test_sign_gate_uses_tolerance_and_detects_reversal(self) -> None:
+        self.assertEqual(_sign(0.2), "positive")
+        self.assertEqual(_sign(-0.2), "negative")
+        self.assertEqual(_sign(1e-14), "zero")
 
 
 if __name__ == "__main__":

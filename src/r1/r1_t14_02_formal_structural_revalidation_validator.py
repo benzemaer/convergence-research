@@ -111,6 +111,10 @@ def validate_r1_t14_02_formal_structural_revalidation(
         or row.get("scientific_review_status") != "pending"
         or row.get("formal_task_completed") != "false"
         or row.get("selection_path_not_independently_confirmed") != "true"
+        or row.get("parent_child_raw_violation_count") != "0"
+        or row.get("parent_child_confirmed_violation_count") != "0"
+        or row.get("year_level_delta_conflict") != "false"
+        or row.get("pooled_security_sign_reversal") != "false"
         for row in decisions
     ):
         errors.append("candidate_decision_boundary")

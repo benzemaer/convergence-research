@@ -214,6 +214,7 @@ def run_r1_t14_02_formal_structural_revalidation(
         registry,
         state_cache,
         step_cache,
+        interlayer_rows,
         multiplicity_rows,
         year_rows,
         loyo_rows,
@@ -1302,6 +1303,7 @@ def _decision_rows(
     registry: Sequence[Mapping[str, Any]],
     state_cache: Mapping[tuple[str, str], Mapping[str, Any]],
     step_cache: Mapping[tuple[str, str], Mapping[str, Any]],
+    interlayer_rows: Sequence[Mapping[str, Any]],
     multiplicity: Sequence[Mapping[str, Any]],
     year_rows: Sequence[Mapping[str, Any]],
     loyo_rows: Sequence[Mapping[str, Any]],
@@ -1320,17 +1322,33 @@ def _decision_rows(
         vector_id = spec["formal_vector_id"]
         state = _relevant_states(spec)[0]
         if state == "S_PCT":
-            families = ("F1_GLOBAL_PCT", "F3_C_GIVEN_P", "F4_T_GIVEN_PC")
+            family_members = (
+                ("F1_GLOBAL_PCT", vector_id),
+                ("F3_C_GIVEN_P", vector_id),
+                ("F4_T_GIVEN_PC", vector_id),
+            )
             affected_step = "T_GIVEN_PC"
         else:
-            families = ("F2_GLOBAL_PCVT", "F5_V_GIVEN_PCT")
+            parent = next(
+                row
+                for row in registry
+                if row["candidate_q_vector_id"] == spec["same_parameter_parent_id"]
+            )
+            parent_id = parent["formal_vector_id"]
+            family_members = (
+                ("F1_GLOBAL_PCT", parent_id),
+                ("F3_C_GIVEN_P", parent_id),
+                ("F4_T_GIVEN_PC", parent_id),
+                ("F2_GLOBAL_PCVT", vector_id),
+                ("F5_V_GIVEN_PCT", vector_id),
+            )
             affected_step = "V_GIVEN_PCT"
         null_pass = all(
-            float(p[(family, vector_id)]["joint_lift"]) > 1
-            and float(p[(family, vector_id)]["joint_excess"]) > 0
-            and float(p[(family, vector_id)]["family_adjusted_p"])
+            float(p[(family, member_id)]["joint_lift"]) > 1
+            and float(p[(family, member_id)]["joint_excess"]) > 0
+            and float(p[(family, member_id)]["family_adjusted_p"])
             <= thresholds["family_adjusted_p_max"]
-            for family in families
+            for family, member_id in family_members
         )
         max_year = max(
             (
@@ -1354,18 +1372,52 @@ def _decision_rows(
         )
         neighborhood_pass = n.get(vector_id, {}).get("neighborhood_status") == "passed"
         complexity_pass = not d.get(vector_id, {}).get("complexity_not_justified", True)
+        affected_rows = [
+            row
+            for row in interlayer_rows
+            if row["formal_vector_id"] == vector_id and row["step_id"] == affected_step
+        ]
+        year_delta = [
+            float(row["delta"])
+            for row in affected_rows
+            if row["analysis_level"] == "year" and row["delta"] is not None
+        ]
+        security_delta = [
+            float(row["delta"])
+            for row in affected_rows
+            if row["analysis_level"] == "security" and row["delta"] is not None
+        ]
+        pooled_delta = float(step_cache[(vector_id, affected_step)]["delta"])
+        security_median_delta = (
+            float(np.median(security_delta)) if security_delta else None
+        )
+        pooled_security_reversal = security_median_delta is None or _sign(
+            pooled_delta
+        ) != _sign(security_median_delta)
+        year_delta_conflict = any(
+            _sign(value) != _sign(pooled_delta) for value in year_delta
+        )
+        parent_child_raw_violations = int(
+            np.count_nonzero(
+                (state_cache[(vector_id, "S_PCVT")]["raw"] == RAW_TRUE)
+                & (state_cache[(vector_id, "S_PCT")]["raw"] != RAW_TRUE)
+            )
+        )
+        parent_child_confirmed_violations = int(
+            np.count_nonzero(
+                (state_cache[(vector_id, "S_PCVT")]["confirmed"] == RAW_TRUE)
+                & (state_cache[(vector_id, "S_PCT")]["confirmed"] != RAW_TRUE)
+            )
+        )
         same_parent = (
-            state_cache[(vector_id, "S_PCVT")]["confirmed_true_count"]
-            <= state_cache[
-                (_baseline_spec(registry, int(spec["W"]))["formal_vector_id"], "S_PCT")
-            ]["confirmed_true_count"]
-            if state == "S_PCVT"
-            else True
+            parent_child_raw_violations == 0 and parent_child_confirmed_violations == 0
         )
         if (
             not null_pass
             or max_year > thresholds["max_year_share"]
             or not loyo_stable
+            or year_delta_conflict
+            or pooled_security_reversal
             or not same_parent
         ):
             status = "do_not_advance"
@@ -1382,8 +1434,16 @@ def _decision_rows(
                 "global_and_nested_adjusted_null_pass": null_pass,
                 "max_year_share": max_year,
                 "year_gate_pass": max_year <= thresholds["max_year_share"],
+                "year_level_delta_conflict": year_delta_conflict,
                 "loyo_direction_stable": loyo_stable,
-                "pooled_security_sign_reversal": False,
+                "pooled_delta": pooled_delta,
+                "security_median_delta": security_median_delta,
+                "security_negative_delta_share": _safe_div(
+                    sum(value < 0 for value in security_delta), len(security_delta)
+                ),
+                "pooled_security_sign_reversal": pooled_security_reversal,
+                "parent_child_raw_violation_count": parent_child_raw_violations,
+                "parent_child_confirmed_violation_count": parent_child_confirmed_violations,
                 "parent_child_gate_pass": same_parent,
                 "neighborhood_gate_pass": neighborhood_pass,
                 "complexity_return_gate_pass": complexity_pass,
@@ -1471,6 +1531,14 @@ def _anomaly_scan(
             "multiplicity_complete",
             len(multiplicity) == 30
             and all(0 < float(row["family_adjusted_p"]) <= 1 for row in multiplicity),
+        ),
+        _check(
+            "parent_child_geometry",
+            all(
+                int(row["parent_child_raw_violation_count"]) == 0
+                and int(row["parent_child_confirmed_violation_count"]) == 0
+                for row in decisions
+            ),
         ),
         _check(
             "selection_limitation_propagated",
@@ -1586,6 +1654,14 @@ def _safe_div(left: Any, right: Any) -> float | None:
     if left is None or right in (None, 0):
         return None
     return float(left) / float(right)
+
+
+def _sign(value: float, tolerance: float = 1e-12) -> str:
+    if value > tolerance:
+        return "positive"
+    if value < -tolerance:
+        return "negative"
+    return "zero"
 
 
 def _as_bool(value: Any) -> bool:
