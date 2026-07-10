@@ -5,7 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.r1.r1_t04_state_line_profiles_validator import R1T04ValidationError, validate_r1_t04_state_line_profiles
+from src.r1.r1_t04_state_line_profiles_validator import (
+    R1T04ValidationError,
+    validate_r1_t04_state_line_profiles,
+)
 
 
 class R1T04ValidatorTest(unittest.TestCase):
@@ -13,7 +16,18 @@ class R1T04ValidatorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             summary = root / "summary.json"
-            summary.write_text(json.dumps({"task_id": "R1-T04", "status": "blocked", "output_paths": {}, "checks": {}, "blocked_reasons": ["input"]}), encoding="utf-8")
+            summary.write_text(
+                json.dumps(
+                    {
+                        "task_id": "R1-T04",
+                        "status": "blocked",
+                        "output_paths": {},
+                        "checks": {},
+                        "blocked_reasons": ["input"],
+                    }
+                ),
+                encoding="utf-8",
+            )
             with self.assertRaises(R1T04ValidationError):
                 validate_r1_t04_state_line_profiles(summary_path=summary, root=root)
 

@@ -7,7 +7,9 @@ import subprocess
 
 class R1T04FormalExperimentContractTest(unittest.TestCase):
     def test_author_draft_gate_remains_pending(self) -> None:
-        task = Path("docs/tasks/R1-T04_S_PCT与S_PCVT分线状态画像.md").read_text(encoding="utf-8")
+        task = Path("docs/tasks/R1-T04_S_PCT与S_PCVT分线状态画像.md").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("scientific_review_status=pending", task)
         self.assertIn("downstream_gate_allowed=false", task)
         self.assertNotIn("freeze_candidate", task)
