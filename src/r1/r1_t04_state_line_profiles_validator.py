@@ -108,6 +108,11 @@ def _csv_count(path: Path) -> int:
 def _check_required_profile_metrics(
     outputs: dict[str, Any], root: Path, errors: list[str]
 ) -> None:
+    state_profiles = {
+        row["candidate_config_id"]: row
+        for row in _csv_rows(outputs, root, "state_line_profile_csv", errors)
+        if row.get("state_line") == "S_PCVT" and row.get("analysis_level") == "raw"
+    }
     overlap = _csv_rows(outputs, root, "daily_overlap_profile_csv", errors)
     for row in overlap:
         _require_numeric(
@@ -150,10 +155,27 @@ def _check_required_profile_metrics(
                 errors.append("raw_parent_child_geometry_unit")
             _require_numeric(
                 row,
-                ("child_segment_count", "child_segment_contained_in_parent_count"),
+                (
+                    "child_left_censored_start_count",
+                    "child_segment_count",
+                    "child_segment_contained_in_parent_count",
+                ),
                 "raw_parent_child_segment",
                 errors,
             )
+            config_id = row.get("candidate_config_id", "")
+            profile = state_profiles.get(config_id)
+            if profile is None:
+                errors.append("raw_parent_child_state_profile_missing")
+            elif (
+                _float(row, "child_onset_count")
+                + _float(row, "child_left_censored_start_count")
+                != _float(row, "child_segment_count")
+                or _float(row, "child_onset_count") != _float(profile, "onset_count")
+                or _float(row, "child_segment_count")
+                != _float(profile, "segment_or_interval_count")
+            ):
+                errors.append("raw_parent_child_onset_accounting")
         elif row.get("analysis_level") == "confirmed":
             if row.get("geometry_unit") != "confirmed_interval":
                 errors.append("confirmed_parent_child_geometry_unit")
@@ -163,6 +185,12 @@ def _check_required_profile_metrics(
                 "confirmed_parent_child_interval",
                 errors,
             )
+            if _float(row, "child_onset_count") != _float(row, "child_interval_count"):
+                errors.append("confirmed_parent_child_onset_accounting")
+        if _float(row, "child_onset_parent_active_count") > _float(
+            row, "child_onset_count"
+        ):
+            errors.append("parent_child_onset_parent_active_exceeds_onset")
         else:
             errors.append("parent_child_analysis_level")
     comparisons = _csv_rows(

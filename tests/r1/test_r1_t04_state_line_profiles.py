@@ -109,6 +109,16 @@ class R1T04StateLineProfilesTest(unittest.TestCase):
                             "INSERT INTO daily VALUES ('A', ?, ?, ?, ?, 'valid')",
                             [date, state, raw, confirmed],
                         )
+                    for date, raw, confirmed, validity in (
+                        ("20200101", None, None, "unknown"),
+                        ("20200102", True, False, "valid"),
+                        ("20200103", True, True, "valid"),
+                        ("20200104", False, False, "valid"),
+                    ):
+                        con.execute(
+                            "INSERT INTO daily VALUES ('B', ?, ?, ?, ?, ?)",
+                            [date, state, raw, confirmed, validity],
+                        )
                 con.execute(
                     """
                     CREATE TABLE intervals(
@@ -145,6 +155,10 @@ class R1T04StateLineProfilesTest(unittest.TestCase):
             raw, confirmed = geometry
             self.assertEqual(raw["geometry_unit"], "raw_segment")
             self.assertEqual(confirmed["geometry_unit"], "confirmed_interval")
+            self.assertEqual(raw["child_onset_count"], 1)
+            self.assertEqual(raw["child_left_censored_start_count"], 1)
+            self.assertEqual(raw["child_segment_count"], 2)
+            self.assertEqual(raw["child_onset_parent_active_count"], 1)
             self.assertEqual(raw["child_segment_containment_mismatch_count"], 0)
             self.assertEqual(confirmed["child_interval_containment_mismatch_count"], 0)
             self.assertIsNotNone(raw["child_start_delay_from_parent_observations"])

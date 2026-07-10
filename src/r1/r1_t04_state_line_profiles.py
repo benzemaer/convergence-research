@@ -944,6 +944,7 @@ def _parent_child_geometry(
         return {
             "geometry_unit": "confirmed_interval",
             "child_onset_count": child_count,
+            "child_left_censored_start_count": 0,
             "child_onset_parent_active_count": contained,
             "child_segment_count": None,
             "child_segment_contained_in_parent_count": None,
@@ -966,7 +967,10 @@ def _parent_child_geometry(
         ), marked AS (
           SELECT *, CASE WHEN validity_status='valid' AND raw_state IS TRUE
             AND NOT (prior_validity='valid' AND prior_raw IS TRUE)
-            THEN 1 ELSE 0 END AS start_flag
+            THEN 1 ELSE 0 END AS start_flag,
+            CASE WHEN validity_status='valid' AND raw_state IS TRUE
+              AND prior_validity='valid' AND prior_raw IS FALSE
+              THEN 1 ELSE 0 END AS strict_onset_flag
           FROM ordered
         ), numbered AS (
           SELECT *, sum(start_flag) OVER (
@@ -975,7 +979,8 @@ def _parent_child_geometry(
           ) AS segment_id FROM marked
         ), segments AS (
           SELECT state_name, security_id, segment_id, min(trading_date) AS start_date,
-            max(trading_date) AS end_date, count(*) AS duration
+            max(trading_date) AS end_date, count(*) AS duration,
+            max(strict_onset_flag) AS strict_onset_flag
           FROM numbered WHERE validity_status='valid' AND raw_state IS TRUE
           GROUP BY state_name, security_id, segment_id
         ), child AS (SELECT * FROM segments WHERE state_name='S_PCVT'),
@@ -989,8 +994,10 @@ def _parent_child_geometry(
             ORDER BY p.start_date DESC LIMIT 1
           ) p ON true
         )
-        SELECT count(*), sum(parent_start IS NOT NULL),
-          avg(CASE WHEN parent_start IS NOT NULL THEN (
+        SELECT count(*), sum(strict_onset_flag),
+          sum(strict_onset_flag=0), sum(parent_start IS NOT NULL),
+          sum(strict_onset_flag=1 AND parent_start IS NOT NULL),
+          avg(CASE WHEN strict_onset_flag=1 AND parent_start IS NOT NULL THEN (
             SELECT count(*) - 1 FROM {daily} d
             WHERE d.state_name='S_PCT' AND d.security_id=matched.security_id
               AND d.validity_status='valid' AND d.raw_state IS TRUE
@@ -1000,13 +1007,25 @@ def _parent_child_geometry(
         FROM matched
         """
     ).fetchone()
-    child_count, contained, delay, duration_share = values
+    (
+        child_count,
+        strict_onsets,
+        left_censored,
+        contained,
+        onset_parent_active,
+        delay,
+        duration_share,
+    ) = values
     child_count = int(child_count or 0)
+    strict_onsets = int(strict_onsets or 0)
+    left_censored = int(left_censored or 0)
     contained = int(contained or 0)
+    onset_parent_active = int(onset_parent_active or 0)
     return {
         "geometry_unit": "raw_segment",
-        "child_onset_count": child_count,
-        "child_onset_parent_active_count": contained,
+        "child_onset_count": strict_onsets,
+        "child_left_censored_start_count": left_censored,
+        "child_onset_parent_active_count": onset_parent_active,
         "child_segment_count": child_count,
         "child_segment_contained_in_parent_count": contained,
         "child_segment_containment_mismatch_count": child_count - contained,
@@ -1146,6 +1165,40 @@ def _check_invariants(
         ),
         "required_parent_child_geometry_null",
     )
+    raw_pcvt_profiles = {
+        row["candidate_config_id"]: row
+        for row in state_rows
+        if row["state_line"] == "S_PCVT" and row["analysis_level"] == "raw"
+    }
+    raw_parent_rows = [row for row in parent_rows if row["analysis_level"] == "raw"]
+    check(
+        "parent_child_raw_onset_accounting",
+        all(
+            row["child_onset_count"] + row["child_left_censored_start_count"]
+            == row["child_segment_count"]
+            and row["child_onset_count"]
+            == raw_pcvt_profiles[row["candidate_config_id"]]["onset_count"]
+            and row["child_segment_count"]
+            == raw_pcvt_profiles[row["candidate_config_id"]][
+                "segment_or_interval_count"
+            ]
+            and row["child_onset_parent_active_count"] <= row["child_onset_count"]
+            for row in raw_parent_rows
+        ),
+        "raw_child_onset_or_segment_mismatch",
+    )
+    confirmed_parent_rows = [
+        row for row in parent_rows if row["analysis_level"] == "confirmed"
+    ]
+    check(
+        "parent_child_confirmed_onset_accounting",
+        all(
+            row["child_onset_count"] == row["child_interval_count"]
+            and row["child_onset_parent_active_count"] <= row["child_onset_count"]
+            for row in confirmed_parent_rows
+        ),
+        "confirmed_child_onset_or_interval_mismatch",
+    )
     check(
         "comparison_year_concentration_completeness",
         all(row["max_year_share_delta"] is not None for row in comparison_rows),
@@ -1275,6 +1328,8 @@ def _anomaly_scan(
         "all_null_check": (
             "onset_overlap_completeness",
             "parent_child_geometry_completeness",
+            "parent_child_raw_onset_accounting",
+            "parent_child_confirmed_onset_accounting",
             "comparison_year_concentration_completeness",
         ),
         "validity_rate_check": ("w_availability_response",),
@@ -1291,6 +1346,8 @@ def _anomaly_scan(
         "nested_invariant_check": (
             "nested_invariant",
             "parent_child_geometry_completeness",
+            "parent_child_raw_onset_accounting",
+            "parent_child_confirmed_onset_accounting",
         ),
         "funnel_accounting_check": (
             "funnel_accounting",
