@@ -74,12 +74,14 @@ def validate_r1_t07_p_onset_fixed_lag_relations(
     primary = _rows(outputs, root, "fixed_lag_profile_csv", errors)
     baseline = _rows(outputs, root, "baseline_sensitivity_csv", errors)
     survival = _rows(outputs, root, "p_survival_profile_csv", errors)
+    anchor_target = _rows(outputs, root, "anchor_target_status_profile_csv", errors)
     funnel = _rows(outputs, root, "anchor_funnel_csv", errors)
     state = _rows(outputs, root, "state_reconciliation_csv", errors)
     lag_alignment = _rows(outputs, root, "lag_alignment_reconciliation_csv", errors)
     _validate_primary(primary, errors)
     _validate_baseline(baseline, errors)
     _validate_survival(survival, errors)
+    _validate_anchor_target(anchor_target, primary, errors)
     _validate_funnel(funnel, errors)
     _validate_state_reconciliation(state, errors)
     _validate_lag_alignment(lag_alignment, errors)
@@ -217,6 +219,29 @@ def _validate_survival(rows: list[dict[str, str]], errors: list[str]) -> None:
                 for i in range(len(availability) - 1)
             ):
                 errors.append("p_survival_eligibility_increases_with_lag")
+
+
+def _validate_anchor_target(
+    rows: list[dict[str, str]],
+    primary: list[dict[str, str]],
+    errors: list[str],
+) -> None:
+    if len(rows) != 45:
+        return
+    primary_counts = {
+        (row["transition_path"], row["W"], row["q"]): _int(row, "anchor_event_count")
+        for row in primary
+        if row["lag_k"] == "1"
+    }
+    for row in rows:
+        key = (row["transition_path"], row["W"], row["q"])
+        if _int(row, "anchor_event_count") != primary_counts.get(key):
+            errors.append("anchor_target_anchor_count_mismatch")
+        valid = _int(row, "target_valid_at_anchor_count")
+        active = _int(row, "target_already_active_at_anchor_count")
+        inactive = _int(row, "target_inactive_at_anchor_count")
+        if active + inactive != valid:
+            errors.append("anchor_target_status_sum_mismatch")
 
 
 def _validate_funnel(rows: list[dict[str, str]], errors: list[str]) -> None:
