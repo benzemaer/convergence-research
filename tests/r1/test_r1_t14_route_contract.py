@@ -167,13 +167,22 @@ class R1T14RouteContractTest(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
-    def test_no_t14_implementation_or_generated_artifacts_exist(self) -> None:
+    def test_only_t14_01_implementation_exists_before_stacked_downstream(self) -> None:
+        required_patterns = (
+            "src/r1/r1_t14_01*",
+            "scripts/r1/*r1_t14_01*",
+            "configs/r1/r1_t14_01*",
+            "schemas/r1/r1_t14_01*",
+        )
+        for pattern in required_patterns:
+            self.assertTrue(list(ROOT.glob(pattern)), pattern)
         forbidden_patterns = (
-            "src/r1/r1_t14*",
-            "scripts/r1/*r1_t14*",
-            "configs/r1/r1_t14*",
-            "schemas/r1/r1_t14*",
-            "data/generated/r1/r1_t14*",
+            "src/r1/r1_t14_02*",
+            "scripts/r1/*r1_t14_02*",
+            "configs/r1/r1_t14_02*",
+            "schemas/r1/r1_t14_02*",
+            "src/r0/r0_t15*",
+            "scripts/r0/*r0_t15*",
         )
         for pattern in forbidden_patterns:
             self.assertEqual(list(ROOT.glob(pattern)), [], pattern)

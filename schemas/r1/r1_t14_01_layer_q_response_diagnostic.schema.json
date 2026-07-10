@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "task_id", "stage", "task_class", "protocol_version", "diagnostic_namespace",
+    "authoritative", "formal_candidate_state", "grid", "input_artifacts",
+    "existence_floors", "fallback_tolerances", "candidate_rules", "parallelism",
+    "governance", "forbidden_inputs"
+  ],
+  "properties": {
+    "task_id": {"const": "R1-T14-01"},
+    "stage": {"const": "R1"},
+    "task_class": {"const": "exploratory_structural_diagnostic"},
+    "diagnostic_namespace": {"const": "r1_t14_01_diagnostic_only"},
+    "authoritative": {"const": false},
+    "formal_candidate_state": {"const": false},
+    "grid": {
+      "type": "object",
+      "required": ["W", "K", "Q", "baseline_q_vector", "weak_delta", "expected_vectors_per_W", "expected_vector_W_count"],
+      "properties": {
+        "W": {"const": [120, 250]},
+        "K": {"const": 3},
+        "Q": {"const": [0.1, 0.15, 0.2, 0.25, 0.3]},
+        "baseline_q_vector": {"const": {"qP": 0.2, "qC": 0.2, "qT": 0.2, "qV": 0.2}},
+        "weak_delta": {"const": 0.1},
+        "expected_vectors_per_W": {"const": 17},
+        "expected_vector_W_count": {"const": 34}
+      },
+      "additionalProperties": false
+    },
+    "input_artifacts": {
+      "type": "object",
+      "required": ["dimension_score", "baseline_daily_confirmation", "baseline_confirmed_interval"]
+    },
+    "existence_floors": {
+      "type": "object",
+      "required": ["confirmed_state_days", "unique_securities", "confirmed_intervals", "nonzero_years", "max_year_share"]
+    },
+    "fallback_tolerances": {"type": "object", "minProperties": 8},
+    "candidate_rules": {
+      "type": "object",
+      "required": ["center_count_max", "nonbaseline_vector_count_max", "v_selectivity_retained_min", "affected_step_by_layer", "affected_state_by_layer", "archetype_by_layer_W", "archetype_priority", "pareto_metrics", "deterministic_tie_break"]
+    },
+    "parallelism": {
+      "type": "object",
+      "required": ["parallelism_mode", "duckdb_threads", "duckdb_memory_limit"],
+      "properties": {"duckdb_memory_limit": {"const": "12GB"}}
+    },
+    "governance": {
+      "type": "object",
+      "required": ["scientific_review_status", "review_phase", "independent_review_status", "downstream_gate_allowed", "formal_task_completed", "R0_q_vector_materialization_allowed_to_start", "R1-T14-02_allowed_to_start", "R1-T10_allowed_to_start", "R2_allowed_to_start"],
+      "properties": {
+        "scientific_review_status": {"const": "pending"},
+        "review_phase": {"const": "author_analysis_complete"},
+        "independent_review_status": {"const": "not_started"},
+        "downstream_gate_allowed": {"const": false},
+        "formal_task_completed": {"const": false},
+        "R0_q_vector_materialization_allowed_to_start": {"const": false},
+        "R1-T14-02_allowed_to_start": {"const": false},
+        "R1-T10_allowed_to_start": {"const": false},
+        "R2_allowed_to_start": {"const": false}
+      }
+    },
+    "forbidden_inputs": {"type": "array", "minItems": 6, "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}
