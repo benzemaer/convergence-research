@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "mandatory_anomaly_checks": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 18,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "required_artifact_roles": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 9,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "status_enums": {
+      "type": "object"
+    },
+    "task_id": {
+      "const": "GOV-T01"
+    },
+    "version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "task_id",
+    "version",
+    "formal_task_classification",
+    "required_artifact_roles",
+    "mandatory_anomaly_checks",
+    "status_enums",
+    "draft_gate_policy",
+    "final_gate_policy",
+    "scientific_review_independence_policy",
+    "supersession_policy",
+    "readme_gate_policy"
+  ],
+  "type": "object"
+}

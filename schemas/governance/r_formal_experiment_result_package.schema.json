@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "artifact": {
+      "additionalProperties": true,
+      "anyOf": [
+        {
+          "required": [
+            "row_count"
+          ]
+        },
+        {
+          "required": [
+            "record_count"
+          ]
+        }
+      ],
+      "properties": {
+        "artifact_role": {
+          "type": "string"
+        },
+        "committed_to_repo": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "record_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "row_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_role",
+        "path",
+        "sha256",
+        "committed_to_repo"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "anomaly_scan_path": {
+      "type": "string"
+    },
+    "anomaly_scan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "code_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "diagnostic_artifacts": {
+      "items": {
+        "$ref": "#/$defs/artifact"
+      },
+      "type": "array"
+    },
+    "downstream_gate_allowed": {
+      "type": "boolean"
+    },
+    "engineering_validation_result_path": {
+      "type": "string"
+    },
+    "engineering_validation_result_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "experiment_summary_path": {
+      "type": "string"
+    },
+    "experiment_summary_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "formal_evidence_path": {
+      "type": "string"
+    },
+    "formal_evidence_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "gate_status": {
+      "additionalProperties": true,
+      "properties": {
+        "anomaly_resolution_status": {
+          "enum": [
+            "not_applicable",
+            "passed",
+            "unresolved",
+            "blocked"
+          ]
+        },
+        "author_result_analysis_status": {
+          "enum": [
+            "passed",
+            "needs_revision",
+            "blocked"
+          ]
+        },
+        "engineering_validator_status": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "readme_gate_updated": {
+          "type": "boolean"
+        },
+        "result_artifact_status": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "review_phase": {
+          "enum": [
+            "author_analysis_complete",
+            "independent_review_complete"
+          ]
+        },
+        "scientific_review_status": {
+          "enum": [
+            "pending",
+            "passed",
+            "needs_revision",
+            "blocked"
+          ]
+        }
+      },
+      "required": [
+        "engineering_validator_status",
+        "result_artifact_status",
+        "author_result_analysis_status",
+        "scientific_review_status",
+        "anomaly_resolution_status",
+        "review_phase",
+        "readme_gate_updated"
+      ],
+      "type": "object"
+    },
+    "implementation_actor": {
+      "type": "string"
+    },
+    "input_package": {
+      "type": "object"
+    },
+    "readme_path": {
+      "type": "string"
+    },
+    "readme_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "expected_current_stage": {
+      "type": "string"
+    },
+    "expected_current_task": {
+      "type": "string"
+    },
+    "expected_next_planned_task": {
+      "type": "string"
+    },
+    "expected_downstream_gate_marker": {
+      "type": "string"
+    },
+    "primary_result_artifacts": {
+      "items": {
+        "$ref": "#/$defs/artifact"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "result_analysis_path": {
+      "type": "string"
+    },
+    "result_analysis_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "scientific_review_record_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scientific_review_record_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scientific_review_md_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scientific_review_md_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "author_analysis_complete",
+        "completed"
+      ]
+    },
+    "superseded": {
+      "type": "boolean"
+    },
+    "superseded_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "task_class": {
+      "const": "formal_experiment"
+    },
+    "task_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "task_class",
+    "run_id",
+    "code_commit",
+    "implementation_actor",
+    "status",
+    "input_package",
+    "config_path",
+    "config_sha256",
+    "experiment_summary_path",
+    "experiment_summary_sha256",
+    "primary_result_artifacts",
+    "diagnostic_artifacts",
+    "anomaly_scan_path",
+    "anomaly_scan_sha256",
+    "result_analysis_path",
+    "result_analysis_sha256",
+    "engineering_validation_result_path",
+    "engineering_validation_result_sha256",
+    "formal_evidence_path",
+    "formal_evidence_sha256",
+    "scientific_review_record_path",
+    "scientific_review_record_sha256",
+    "scientific_review_md_path",
+    "scientific_review_md_sha256",
+    "readme_path",
+    "readme_sha256",
+    "expected_current_stage",
+    "expected_current_task",
+    "expected_next_planned_task",
+    "expected_downstream_gate_marker",
+    "superseded",
+    "superseded_by",
+    "gate_status",
+    "downstream_gate_allowed"
+  ],
+  "type": "object"
+}

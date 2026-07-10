@@ -37,6 +37,12 @@ branch 使用英文 slug。task 文件路径使用中文任务标题，可保留
 
 不批量重命名历史 task 文件。历史英文或中英混排 task 文件继续保留，除非未来单独开 rename-only PR。`docs/tasks/` 继续平铺管理，不拆成 `d0/`、`d1/`、`d2/`、`d3/`、`r0/` 等子目录。
 
+跨阶段治理 task 使用 `GOV-Txx`。GOV task 不改变 current_stage/current_task，只有直接推进研究阶段的 task 才能修改 current_task。
+
+## 跨阶段研究治理
+
+- `GOV-T01` R1-R6 formal 实验结果包、异常门禁与独立科学审阅治理：completed via this PR。该治理 task 不改变当前 R1 task 指针。draft PR #77 is superseded by PR #78 / merge commit `8694cba4ddbd5a18e43ab18454dfc19cfb9903cd`；PR #77 不合并、不 rebase、不 cherry-pick，其结果不得作为当前 evidence、参数选择依据或后续 formal input。
+
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
 `next_planned_task: D2-T03`；D2-T02 完成本 PR 后当前索引继续推进到 D2-T03 / D2-T04。
 D2-T02 完成时的任务队列仍为：`D2-T03` 原始行情价格落账：planned。

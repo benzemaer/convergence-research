@@ -132,6 +132,8 @@ draft → candidate → validated → frozen → released
 
 没有 manifest 的产物不得进入 `validated`、`frozen` 或 `released`。
 
+R1-R6 formal experiment 必须遵守 `docs/03_可复现研究工程标准.md` §12.8-12.14：工程 validator 通过不等于科学结果通过；正式运行后必须立即读取并分析真实结果包；author-draft 阶段不得自行设置 `scientific_review_status=passed` 或推进 downstream gate；superseded 结果不得作为当前 evidence、formal input、参数选择或 README gate 依据。
+
 ## 9. Pull Request 与变更控制
 
 - `main` 只接受通过审核与 CI 的 PR。

@@ -12,7 +12,9 @@
         "tests/r0/test_r0_t10_full_grid_materializer.py",
         "tests/r1/test_r1_t01_validation_protocol_manifest_lock_contract.py",
         "tests/r1/test_r1_t02_lineage_pit_audit_contract.py",
-        "tests/r1/test_r1_t03_27_grid_light_profile_contract.py"
+        "tests/r1/test_r1_t03_27_grid_light_profile_contract.py",
+        "tests/governance/test_r_formal_experiment_governance_contract.py",
+        "tests/governance/test_r_formal_experiment_package_validator.py"
       ]
     },
     "stage-r1": {
