@@ -237,7 +237,21 @@ class R1T06ContemporaneousRetentionLiftTest(unittest.TestCase):
                 and row["q_low"] == "0.1"
                 and row["q_high"] == "0.2"
             )
-            self.assertEqual(p_check["missing_from_higher_q_count"], "1")
+            self.assertEqual(p_check["lower_not_in_higher_count"], "1")
+            self.assertEqual(p_check["higher_not_in_lower_count"], "1")
+            self.assertEqual(p_check["symmetric_difference_count"], "2")
+
+            c_check = next(
+                row
+                for row in rows
+                if row["scope_type"] == "dimension_active"
+                and row["scope_id"] == "C"
+                and row["q_low"] == "0.1"
+                and row["q_high"] == "0.2"
+            )
+            self.assertEqual(c_check["lower_not_in_higher_count"], "0")
+            self.assertEqual(c_check["higher_not_in_lower_count"], "1")
+            self.assertEqual(c_check["symmetric_difference_count"], "1")
 
 
 def _read_rows(path: Path) -> list[dict[str, str]]:

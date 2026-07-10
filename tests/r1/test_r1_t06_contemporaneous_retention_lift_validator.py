@@ -81,13 +81,33 @@ class R1T06ValidatorTest(unittest.TestCase):
                 )
             self.assertIn("nested_false_count_mismatch", str(raised.exception))
 
+    def test_q_nesting_legal_expansion_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            recon = root / "r1_t06_q_nesting_reconciliation.csv"
+            rows = _read_rows(recon)
+            rows[0]["lower_set_count"] = "1"
+            rows[0]["higher_set_count"] = "2"
+            rows[0]["lower_not_in_higher_count"] = "0"
+            rows[0]["higher_not_in_lower_count"] = "1"
+            rows[0]["symmetric_difference_count"] = "1"
+            _write_csv(recon, rows)
+            _refresh_summary_hash(root, summary, "q_nesting_reconciliation_csv")
+            result = validate_r1_t06_contemporaneous_retention_lift(
+                summary_path=summary,
+                result_package_path=package,
+                root=root,
+            )
+            self.assertEqual(result["validator_status"], "passed")
+
     def test_q_nesting_reversal_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             summary, package = _write_fixture(root)
             recon = root / "r1_t06_q_nesting_reconciliation.csv"
             rows = _read_rows(recon)
-            rows[0]["missing_from_higher_q_count"] = "1"
+            rows[0]["lower_not_in_higher_count"] = "1"
             rows[0]["symmetric_difference_count"] = "1"
             _write_csv(recon, rows)
             _refresh_summary_hash(root, summary, "q_nesting_reconciliation_csv")
@@ -97,7 +117,7 @@ class R1T06ValidatorTest(unittest.TestCase):
                     result_package_path=package,
                     root=root,
                 )
-            self.assertIn("q_nesting_missing_from_higher", str(raised.exception))
+            self.assertIn("q_nesting_lower_not_in_higher", str(raised.exception))
 
     def test_author_draft_scientific_review_must_remain_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -394,7 +414,9 @@ def _q_nesting_rows() -> list[dict[str, str]]:
     for scope_id in ("P", "C", "T", "V"):
         for w in WS:
             for q_low, q_high in (("0.1", "0.2"), ("0.2", "0.3")):
-                rows.append(_q_nesting_row("dimension_active", scope_id, w, q_low, q_high))
+                rows.append(
+                    _q_nesting_row("dimension_active", scope_id, w, q_low, q_high)
+                )
     for scope_type in ("anchor_active", "child_active", "denominator_keys"):
         for step in STEPS:
             for w in WS:
@@ -413,9 +435,9 @@ def _q_nesting_row(
         "q_low": q_low,
         "q_high": q_high,
         "lower_set_count": "10",
-        "higher_set_count": "12",
-        "missing_from_higher_q_count": "0",
-        "missing_from_lower_q_count": "0",
+        "higher_set_count": "10",
+        "lower_not_in_higher_count": "0",
+        "higher_not_in_lower_count": "0",
         "symmetric_difference_count": "0",
     }
 

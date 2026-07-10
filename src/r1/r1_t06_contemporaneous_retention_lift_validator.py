@@ -302,14 +302,21 @@ def _validate_q_nesting_reconciliation(
         errors.append("q_nesting_scope_mismatch")
     denominator_rows = 0
     for row in rows:
-        if _int(row, "missing_from_higher_q_count") != 0:
-            errors.append("q_nesting_missing_from_higher")
-        if _int(row, "symmetric_difference_count") != 0:
-            errors.append("q_nesting_symmetric_difference")
+        if _int(row, "lower_not_in_higher_count") != 0:
+            errors.append("q_nesting_lower_not_in_higher")
+        expected_symmetric_difference = _int(row, "lower_not_in_higher_count") + _int(
+            row, "higher_not_in_lower_count"
+        )
+        if _int(row, "symmetric_difference_count") != expected_symmetric_difference:
+            errors.append("q_nesting_symmetric_difference_formula")
         if row.get("scope_type") == "denominator_keys":
             denominator_rows += 1
-            if _int(row, "missing_from_lower_q_count") != 0:
-                errors.append("q_denominator_missing_from_lower")
+            if _int(row, "higher_not_in_lower_count") != 0:
+                errors.append("q_denominator_higher_not_in_lower")
+            if _int(row, "symmetric_difference_count") != 0:
+                errors.append("q_denominator_symmetric_difference")
+            if _int(row, "lower_set_count") != _int(row, "higher_set_count"):
+                errors.append("q_denominator_count_mismatch")
     if denominator_rows != 18:
         errors.append("q_denominator_row_count_mismatch")
 

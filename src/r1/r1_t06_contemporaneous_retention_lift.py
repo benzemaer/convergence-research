@@ -92,9 +92,7 @@ def run_r1_t06_contemporaneous_retention_lift(
                 con, paths["dimension_state_reconciliation_csv"]
             )
             _write_nested_reconciliation(con, paths["r0_nested_reconciliation_csv"])
-            _write_q_nesting_reconciliation(
-                con, paths["q_nesting_reconciliation_csv"]
-            )
+            _write_q_nesting_reconciliation(con, paths["q_nesting_reconciliation_csv"])
         finally:
             con.close()
 
@@ -802,15 +800,31 @@ def _write_q_nesting_reconciliation(con: Any, path: Path) -> None:
           EXCEPT
           SELECT security_id, trading_date FROM dimension_sets ds
           WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
-        ))::BIGINT AS missing_from_higher_q_count,
-        0::BIGINT AS missing_from_lower_q_count,
+        ))::BIGINT AS lower_not_in_higher_count,
         (SELECT count(*) FROM (
           SELECT security_id, trading_date FROM dimension_sets ds
-          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low
+          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
           EXCEPT
           SELECT security_id, trading_date FROM dimension_sets ds
-          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
-        ))::BIGINT AS symmetric_difference_count
+          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low
+        ))::BIGINT AS higher_not_in_lower_count,
+        (
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM dimension_sets ds
+            WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low
+            EXCEPT
+            SELECT security_id, trading_date FROM dimension_sets ds
+            WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
+          ))
+          +
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM dimension_sets ds
+            WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
+            EXCEPT
+            SELECT security_id, trading_date FROM dimension_sets ds
+            WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low
+          ))
+        )::BIGINT AS symmetric_difference_count
       FROM dimension_grid g
     ),
     anchor_checks AS (
@@ -823,15 +837,31 @@ def _write_q_nesting_reconciliation(con: Any, path: Path) -> None:
           EXCEPT
           SELECT security_id, trading_date FROM anchor_sets s
           WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
-        ))::BIGINT AS missing_from_higher_q_count,
-        0::BIGINT AS missing_from_lower_q_count,
+        ))::BIGINT AS lower_not_in_higher_count,
         (SELECT count(*) FROM (
           SELECT security_id, trading_date FROM anchor_sets s
-          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
           EXCEPT
           SELECT security_id, trading_date FROM anchor_sets s
-          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
-        ))::BIGINT AS symmetric_difference_count
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+        ))::BIGINT AS higher_not_in_lower_count,
+        (
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM anchor_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+            EXCEPT
+            SELECT security_id, trading_date FROM anchor_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+          ))
+          +
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM anchor_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+            EXCEPT
+            SELECT security_id, trading_date FROM anchor_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          ))
+        )::BIGINT AS symmetric_difference_count
       FROM step_grid g
     ),
     child_checks AS (
@@ -844,15 +874,31 @@ def _write_q_nesting_reconciliation(con: Any, path: Path) -> None:
           EXCEPT
           SELECT security_id, trading_date FROM child_sets s
           WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
-        ))::BIGINT AS missing_from_higher_q_count,
-        0::BIGINT AS missing_from_lower_q_count,
+        ))::BIGINT AS lower_not_in_higher_count,
         (SELECT count(*) FROM (
           SELECT security_id, trading_date FROM child_sets s
-          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
           EXCEPT
           SELECT security_id, trading_date FROM child_sets s
-          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
-        ))::BIGINT AS symmetric_difference_count
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+        ))::BIGINT AS higher_not_in_lower_count,
+        (
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM child_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+            EXCEPT
+            SELECT security_id, trading_date FROM child_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+          ))
+          +
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM child_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+            EXCEPT
+            SELECT security_id, trading_date FROM child_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          ))
+        )::BIGINT AS symmetric_difference_count
       FROM step_grid g
     ),
     denominator_checks AS (
@@ -865,14 +911,14 @@ def _write_q_nesting_reconciliation(con: Any, path: Path) -> None:
           EXCEPT
           SELECT security_id, trading_date FROM denominator_sets s
           WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
-        ))::BIGINT AS missing_from_higher_q_count,
+        ))::BIGINT AS lower_not_in_higher_count,
         (SELECT count(*) FROM (
           SELECT security_id, trading_date FROM denominator_sets s
           WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
           EXCEPT
           SELECT security_id, trading_date FROM denominator_sets s
           WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
-        ))::BIGINT AS missing_from_lower_q_count,
+        ))::BIGINT AS higher_not_in_lower_count,
         (
           (SELECT count(*) FROM (
             SELECT security_id, trading_date FROM denominator_sets s
@@ -993,8 +1039,7 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
     )
     check(
         "time_alignment_check",
-        _q_independent_denominator_ok(primary)
-        and _q_denominator_keyset_ok(q_nesting),
+        _q_independent_denominator_ok(primary) and _q_denominator_keyset_ok(q_nesting),
         "time_alignment_q_denominator_mismatch",
     )
     check(
@@ -1258,22 +1303,28 @@ def _nested_reconciliation_ok(rows: list[dict[str, str]]) -> bool:
 
 def _q_nesting_reconciliation_ok(rows: list[dict[str, str]]) -> bool:
     return len(rows) == Q_NESTING_RECONCILIATION_ROWS and all(
-        _int(row, "missing_from_higher_q_count") == 0
-        and _int(row, "symmetric_difference_count") == 0
+        _int(row, "lower_not_in_higher_count") == 0
         and (
             row["scope_type"] != "denominator_keys"
-            or _int(row, "missing_from_lower_q_count") == 0
+            or (
+                _int(row, "higher_not_in_lower_count") == 0
+                and _int(row, "symmetric_difference_count") == 0
+                and _int(row, "lower_set_count") == _int(row, "higher_set_count")
+            )
         )
         for row in rows
     )
 
 
 def _q_denominator_keyset_ok(rows: list[dict[str, str]]) -> bool:
-    denominator_rows = [row for row in rows if row.get("scope_type") == "denominator_keys"]
+    denominator_rows = [
+        row for row in rows if row.get("scope_type") == "denominator_keys"
+    ]
     return len(denominator_rows) == 18 and all(
         _int(row, "symmetric_difference_count") == 0
-        and _int(row, "missing_from_higher_q_count") == 0
-        and _int(row, "missing_from_lower_q_count") == 0
+        and _int(row, "lower_not_in_higher_count") == 0
+        and _int(row, "higher_not_in_lower_count") == 0
+        and _int(row, "lower_set_count") == _int(row, "higher_set_count")
         for row in denominator_rows
     )
 
