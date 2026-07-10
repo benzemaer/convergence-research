@@ -191,7 +191,16 @@ def run_r1_t04_state_line_profiles(
         "year_row_count": len(year_rows),
     }
     _write_json(paths["diagnostic_summary"], diagnostic)
-    anomaly = _anomaly_scan(status, run_id, code_commit, paths, invariants, errors)
+    anomaly = _anomaly_scan(
+        status,
+        run_id,
+        code_commit,
+        paths,
+        invariants,
+        errors,
+        state_rows,
+        comparison_rows,
+    )
     _write_json(paths["anomaly_scan"], anomaly)
     summary = {
         "task_id": TASK_ID,
@@ -1235,6 +1244,8 @@ def _anomaly_scan(
     paths: dict[str, Path],
     invariants: dict[str, Any],
     errors: list[str],
+    state_rows: list[dict[str, Any]],
+    comparison_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
     names = (
         "primary_output_nonempty",
@@ -1310,6 +1321,7 @@ def _anomaly_scan(
             "metrics": {check: source_checks.get(check) for check in required},
             "artifact_references": [_rel(paths["diagnostic_summary"], ROOT)],
         }
+    warnings = _material_warnings(state_rows, comparison_rows)
     return {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -1317,10 +1329,86 @@ def _anomaly_scan(
         "scan_status": "passed" if status == "completed" else "blocked",
         "checks": checks,
         "blocking_anomalies": sorted(set(errors)),
-        "nonblocking_anomalies": [],
-        "investigations": [],
+        "nonblocking_anomalies": [warning["name"] for warning in warnings],
+        "investigations": warnings,
         "unresolved_questions": [],
     }
+
+
+def _material_warnings(
+    state_rows: list[dict[str, Any]], comparison_rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    warnings: list[dict[str, Any]] = []
+    cross_window = [
+        row
+        for row in comparison_rows
+        if row["comparison_id"] in ("PCT_W250K3_vs_W120K3", "PCVT_W250K3_vs_W120K3")
+    ]
+    if any(
+        (row["coverage_ratio"] is not None and row["coverage_ratio"] > 1.0)
+        for row in cross_window
+    ) and any(row["comparison_id"] == "PCT_W250K3_vs_W120K3" for row in cross_window):
+        warnings.append(
+            {
+                "name": "window_dependent_state_identity",
+                "status": "material_warning",
+                "metrics": [
+                    {
+                        "comparison_id": row["comparison_id"],
+                        "analysis_level": row["analysis_level"],
+                    }
+                    for row in cross_window
+                ],
+                "rationale": "Cross-window exact-day overlap is reported as a state-identity warning, not a parameter-selection result.",
+            }
+        )
+    k_rows = [
+        row
+        for row in comparison_rows
+        if row["comparison_id"] in ("PCT_W120K3_vs_W120K2", "PCVT_W250K3_vs_W250K5")
+        and row["analysis_level"] == "confirmed"
+    ]
+    if k_rows:
+        warnings.append(
+            {
+                "name": "confirmation_population_k_sensitivity",
+                "status": "material_warning",
+                "metrics": [
+                    {
+                        "comparison_id": row["comparison_id"],
+                        "coverage_ratio": row["coverage_ratio"],
+                        "unique_security_ratio": row["unique_security_ratio"],
+                    }
+                    for row in k_rows
+                ],
+                "rationale": "K changes follow the required mechanical direction but materially change the confirmed population.",
+            }
+        )
+    fragmented = [
+        row
+        for row in state_rows
+        if row["state_line"] == "S_PCVT"
+        and row["analysis_level"] == "confirmed"
+        and row["fragment_rate"] is not None
+        and row["fragment_rate"] >= 0.4
+    ]
+    if fragmented:
+        warnings.append(
+            {
+                "name": "pcvt_confirmed_high_fragmentation",
+                "status": "material_warning",
+                "metrics": [
+                    {
+                        "candidate_config_id": row["candidate_config_id"],
+                        "fragment_rate": row["fragment_rate"],
+                        "median_duration": row["median_duration"],
+                    }
+                    for row in fragmented
+                ],
+                "rationale": "A substantial share of confirmed PCVT intervals contain one observation.",
+            }
+        )
+    return warnings
 
 
 def _load_lineage(
