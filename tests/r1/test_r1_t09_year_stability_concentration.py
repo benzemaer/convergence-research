@@ -6,6 +6,7 @@ import unittest
 from src.r1.r1_t09_year_stability_concentration import (
     CONFIG_PATH,
     R1T09Error,
+    _build_anomaly_scan,
     _load_json,
     _step_metrics,
     _validate_frozen_registry,
@@ -31,11 +32,19 @@ def state_rows(state_line: str = "S_PCT", W: int = 120) -> list[dict[str, object
                 "year": year,
                 "eligible_trading_days": 100,
                 "valid_day_count": 90,
+                "unknown_day_count": 10,
+                "blocked_day_count": 0,
+                "diagnostic_required_day_count": 0,
                 "confirmed_state_true_count": count,
+                "confirmed_state_false_count": 90 - count,
+                "confirmed_state_null_count": 10,
                 "confirmed_coverage": count / 100,
                 "raw_state_true_count": count * 2,
+                "raw_state_false_count": 90 - count * 2,
+                "raw_state_null_count": 10,
                 "raw_coverage": count * 2 / 100,
                 "confirmed_unique_security_count": count,
+                "partial_year_observation": year == 2026,
             }
         )
     return result
@@ -195,6 +204,40 @@ class R1T09YearStabilityTest(unittest.TestCase):
         self.assertIn(
             "availability_difference_requires_caution", compared[0]["warnings"]
         )
+
+    def test_anomaly_scan_summarizes_availability_and_partial_year(self) -> None:
+        state = state_rows(W=120) + state_rows(W=250)
+        state[11].update(
+            {
+                "valid_day_count": 0,
+                "unknown_day_count": 100,
+                "raw_state_true_count": 0,
+                "raw_state_false_count": 0,
+                "raw_state_null_count": 100,
+                "confirmed_state_true_count": 0,
+                "confirmed_state_false_count": 0,
+                "confirmed_state_null_count": 100,
+            }
+        )
+        comparisons = [
+            {"state_line": "S_PCT", "year": 2016, "availability_difference": 10}
+        ]
+        reconciliation = [{"mismatch_count": 0}]
+        anomaly = _build_anomaly_scan(
+            "run",
+            "commit",
+            state,
+            [],
+            [],
+            [],
+            [],
+            comparisons,
+            reconciliation,
+        )
+        warning_ids = {row["check_id"] for row in anomaly["material_warnings"]}
+        self.assertIn("availability_difference_requires_caution", warning_ids)
+        self.assertIn("partial_year_observation", warning_ids)
+        self.assertIn("boundary_year_zero_valid_denominator", warning_ids)
 
 
 if __name__ == "__main__":

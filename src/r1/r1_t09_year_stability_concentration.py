@@ -113,6 +113,7 @@ def run_r1_t09_year_stability_concentration(
         interlayer_rows,
         concentration_rows,
         loyo_rows,
+        comparison_rows,
         reconciliation_rows,
     )
     dependencies = {
@@ -1146,6 +1147,7 @@ def _build_anomaly_scan(
     interlayer_rows: Sequence[Mapping[str, Any]],
     concentration_rows: Sequence[Mapping[str, Any]],
     loyo_rows: Sequence[Mapping[str, Any]],
+    comparison_rows: Sequence[Mapping[str, Any]],
     reconciliation_rows: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     blocking: list[dict[str, Any]] = []
@@ -1226,6 +1228,52 @@ def _build_anomaly_scan(
                 "message": f"{zero_years} candidate-years have zero confirmed state days and were retained.",
             }
         )
+    zero_valid_years = [
+        row
+        for row in state_rows
+        if int(row["valid_day_count"]) == 0 and int(row["eligible_trading_days"]) > 0
+    ]
+    if zero_valid_years:
+        warnings.append(
+            {
+                "check_id": "boundary_year_zero_valid_denominator",
+                "scope_id": "W250|2016",
+                "message": (
+                    f"{len(zero_valid_years)} candidate-years have zero valid days; "
+                    "all are W250 in 2016 under strict-past availability."
+                ),
+                "affected_row_count": len(zero_valid_years),
+            }
+        )
+    availability_rows = [
+        row for row in comparison_rows if int(row["availability_difference"]) != 0
+    ]
+    if availability_rows:
+        peak = max(
+            availability_rows, key=lambda row: abs(int(row["availability_difference"]))
+        )
+        warnings.append(
+            {
+                "check_id": "availability_difference_requires_caution",
+                "scope_id": "W120_vs_W250",
+                "message": (
+                    f"All {len(availability_rows)} state-line/year comparisons have "
+                    "different valid-day availability; coverage differences remain descriptive."
+                ),
+                "max_absolute_availability_difference": abs(
+                    int(peak["availability_difference"])
+                ),
+                "peak_state_line": peak["state_line"],
+                "peak_year": peak["year"],
+            }
+        )
+    warnings.append(
+        {
+            "check_id": "partial_year_observation",
+            "scope_id": "2026",
+            "message": "2026 is observed only through 2026-06-30 and is not treated as a full year.",
+        }
+    )
     return {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -1243,6 +1291,8 @@ def _build_anomaly_scan(
             ),
             "leave_one_year_out_sign_flip_count": len(sign_flips),
             "zero_confirmed_state_year_count": zero_years,
+            "zero_valid_candidate_year_count": len(zero_valid_years),
+            "availability_difference_row_count": len(availability_rows),
         },
         "generated_at_utc": datetime.now(UTC).isoformat(),
     }
