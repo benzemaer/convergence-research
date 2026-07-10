@@ -18,19 +18,21 @@
 
 ```text
 current_stage: R1
-current_task: R1-T09 年份稳定性与状态集中度检查
-next_planned_task: R1-T10 R1 验收门禁与 R2 交接矩阵
+current_task: R1-T10 R1 验收门禁与 R2 交接矩阵
+next_planned_task: R2-T01 参数候选收敛
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
 R1-T07 completed via PR #83
 R1-T08 completed via PR #84
+R1-T09 completed via PR #85
 R1-T05_allowed_to_start: true
 R1-T06_allowed_to_start: true
 R1-T07_allowed_to_start: true
 R1-T08_allowed_to_start: true
 R1-T09_allowed_to_start: true
-R1-T10_allowed_to_start: false
+R1-T10_allowed_to_start: true
+R1-T11_allowed_to_start: false
 R2_allowed_to_start: false
 ```
 
@@ -271,7 +273,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R1-T06` 层间同期留存、关联 Lift 与嵌套增量：completed via PR #82
 - `R1-T07` P 首入锚定的固定滞后结构关系：completed via PR #83
 - `R1-T08` S_PCT/S_PCVT 同步性与嵌套增量零模型：completed via PR #84
-- `R1-T09` 年份稳定性与状态集中度检查：planned
+- `R1-T09` 年份稳定性与状态集中度检查：completed via PR #85
 - `R1-T10` R1 验收门禁与 R2 交接矩阵：planned
 - `R1-T11` 27 组全量零模型 family-level sidecar：optional / triggered
 - `R1-T12` CTV-bundle、无锚平移与块长 B 对照零模型：optional / triggered

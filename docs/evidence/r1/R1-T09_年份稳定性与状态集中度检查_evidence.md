@@ -2,17 +2,17 @@
 
 `task_id`: R1-T09
 `task_class`: formal_experiment
-`status`: author_analysis_complete
+`status`: completed
 `run_id`: R1-T09-20260710T1825Z
 `code_commit`: 31e2533adcf1852d55ea8e5f16ac38e0a8453e97
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
 `author_result_analysis_status`: passed
-`scientific_review_status`: pending
+`scientific_review_status`: passed
 `anomaly_resolution_status`: passed
-`review_phase`: author_analysis_complete
-`downstream_gate_allowed`: false
+`review_phase`: independent_review_complete
+`downstream_gate_allowed`: true
 
 `experiment_summary_path`: data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_experiment_summary.json
 `experiment_summary_sha256`: 1802fb7a74f6642361fdf9d633b0658794896f49a5daf0ce0e03f50480cd0178
@@ -42,16 +42,23 @@
 `anomaly_scan_sha256`: f3223609351b841e7c8b42c0599d47ac08a55c43dd4ce382a1e1b3069a1b1bb9
 `result_analysis_path`: docs/experiments/r1/R1-T09_年份稳定性与状态集中度检查_result_analysis.md
 `result_analysis_sha256`: ca9c5ac88112bf3e6d6c734df6be404295e07c4254a61669d5337c73bc7cb7db
+`scientific_review_path`: data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_scientific_review.json
+`scientific_review_sha256`: 75d28376aa7f5b3dadd2b641430ebed432e3569754a56bdaca1675a250f2ef50
+`scientific_review_md_path`: docs/reviews/r1/R1-T09_年份稳定性与状态集中度检查_scientific_review.md
+`scientific_review_md_sha256`: 3beffd0eb1817cd2d067816fff38fa933e887f961fc8b38c71b1b17b5b4cf008
 `readme_path`: docs/tasks/README.md
-`readme_sha256`: af8419b5514d95b82b95aee346bdb275b769a83e2ce210e01607e0857187e4a4
+`readme_sha256`: ed2ab9af0cceca3f705d751c2fa94cd02317eb3705f144f2cb0f6babb85b86f5
 `expected_current_stage`: R1
-`expected_current_task`: R1-T09 年份稳定性与状态集中度检查
-`expected_next_planned_task`: R1-T10 R1 验收门禁与 R2 交接矩阵
-`expected_downstream_gate_marker`: R1-T10_allowed_to_start: false
+`expected_current_task`: R1-T10 R1 验收门禁与 R2 交接矩阵
+`expected_next_planned_task`: R2-T01 参数候选收敛
+`expected_downstream_gate_marker`: R2_allowed_to_start: false
 `author_draft_package_validation_result_path`: data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_author_draft_package_validation_result.json
+`final_gate_package_validation_result_path`: data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_final_gate_package_validation_result.json
 
 ## 结果与门禁说明
 
 正式 run 输出 44 条年度状态、44 条 confirmation-year interval、44 条 calendar-year clipped geometry、66 条年度 step、14 条集中度摘要、110 条 leave-one-year-out、22 条 W 配对和 891 条 reconciliation。engineering validator 从实际 CSV 重算年度集合、守恒、coverage、interval duration、2x2、集中度、LOYO sign、warning 与 artifact hash，结果为 passed，errors=[]。
 
-四个 candidate 在 10 或 11 个年份出现 confirmed state，最大年度 state share 为 16.9%-21.9%；六个 step 的合法年度 Delta 全正、Lift 全大于 1，LOYO sign flip 为 0。anomaly scan 保留 W250/2016 strict-past 零有效 denominator、全部 W 配对的 availability difference 与 2026 部分年份 warning，无 blocking finding。当前仅完成 author analysis：science pending、downstream false、README 未推进、R1-T10 与 R2 均未授权。
+四个 candidate 在 10 或 11 个年份出现 confirmed state，最大年度 state share 为 16.9%-21.9%；六个 step 的合法年度 Delta 全正、Lift 全大于 1，LOYO sign flip 为 0。anomaly scan 保留 W250/2016 strict-past 零有效 denominator、全部 W 配对的 availability difference 与 2026 部分年份 warning，无 blocking finding。
+
+独立科学审阅已通过，blocking findings 为空，六项 nonblocking caveat 已写入 review artifact。final gate 只推进到 R1-T10；R1-T11 未自动触发，R2 继续关闭。
