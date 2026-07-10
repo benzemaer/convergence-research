@@ -93,6 +93,8 @@ def run_r1_t04_state_line_profiles(
             daily, interval = config_sources[config_id]
             parent_rows.extend(_parent_child_rows(daily, interval, config_id, run_id, code_commit))
 
+    _attach_year_concentration(state_rows, year_rows)
+
     overlap_rows = _overlap_rows(config_sources, run_id, code_commit) if not errors else []
     comparison_rows = _comparison_rows(state_rows, run_id, code_commit) if not errors else []
     invariants = _check_invariants(state_rows, duration_rows, overlap_rows, parent_rows, t03_rows)
@@ -283,6 +285,22 @@ def _duration_row(base: dict[str, Any], level: str, stats: dict[str, Any]) -> di
 
 def _year_rows(con: Any, daily: str, interval: str, base: dict[str, Any], state: str) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
+    raw_onsets = {
+        year: int(count or 0)
+        for year, count in con.execute(f"""
+          WITH ordered AS (
+            SELECT security_id, trading_date, raw_state, lower(coalesce(validity_status,'')) AS validity_status,
+              lag(raw_state) OVER w AS prior_raw, lag(lower(coalesce(validity_status,''))) OVER w AS prior_validity
+            FROM {daily} WHERE state_name=? WINDOW w AS (PARTITION BY security_id ORDER BY trading_date)
+          )
+          SELECT substr(trading_date,1,4), sum(CASE WHEN validity_status='valid' AND raw_state IS TRUE AND NOT (prior_validity='valid' AND prior_raw IS TRUE) THEN 1 ELSE 0 END)
+          FROM ordered GROUP BY 1
+        """, [state]).fetchall()
+    }
+    confirmed_intervals = {
+        year: int(count or 0)
+        for year, count in con.execute(f"SELECT substr(confirmation_time,1,4), count(*) FROM {interval} WHERE state_level=? GROUP BY 1", [state]).fetchall()
+    }
     for level, column in (("raw", "raw_state"), ("confirmed", "confirmed_state")):
         rows = con.execute(f"""
           SELECT substr(trading_date,1,4), count(*), sum({column} IS TRUE), count(DISTINCT CASE WHEN {column} IS TRUE THEN security_id END)
@@ -291,7 +309,8 @@ def _year_rows(con: Any, daily: str, interval: str, base: dict[str, Any], state:
         total = sum(int(row[2]) for row in rows)
         for year, eligible, true_count, security_count in rows:
             share = _safe_div(int(true_count), total)
-            output.append(base | {"analysis_level": level, "year": int(year), "eligible_day_count": int(eligible), "state_true_day_count": int(true_count), "coverage": _safe_div(int(true_count), int(eligible)), "unique_security_count": int(security_count), "onset_count": None, "segment_or_interval_count": None, "duration_total_days": int(true_count), "year_share_of_state_days": share})
+            starts = raw_onsets.get(year, 0) if level == "raw" else confirmed_intervals.get(year, 0)
+            output.append(base | {"analysis_level": level, "year": int(year), "eligible_day_count": int(eligible), "state_true_day_count": int(true_count), "coverage": _safe_div(int(true_count), int(eligible)), "unique_security_count": int(security_count), "onset_count": starts, "segment_or_interval_count": starts, "duration_total_days": int(true_count), "year_share_of_state_days": share})
     for level in ("raw", "confirmed"):
         relevant = [row for row in output if row["analysis_level"] == level]
         shares = [row["year_share_of_state_days"] for row in relevant]
@@ -300,6 +319,17 @@ def _year_rows(con: Any, daily: str, interval: str, base: dict[str, Any], state:
         for row in relevant:
             row["nonzero_year_count"] = len(relevant); row["max_year_share"] = max_share; row["year_hhi"] = hhi
     return output
+
+
+def _attach_year_concentration(state_rows: list[dict[str, Any]], year_rows: list[dict[str, Any]]) -> None:
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in year_rows:
+        grouped.setdefault((row["state_line"], row["candidate_config_id"], row["analysis_level"]), []).append(row)
+    for row in state_rows:
+        years = grouped.get((row["state_line"], row["candidate_config_id"], row["analysis_level"]), [])
+        shares = [item["year_share_of_state_days"] for item in years]
+        row["max_year_share"] = max(shares) if shares else None
+        row["year_hhi"] = sum(value * value for value in shares) if shares else None
 
 
 def _overlap_rows(sources: dict[str, tuple[str, str]], run_id: str, code_commit: str) -> list[dict[str, Any]]:
