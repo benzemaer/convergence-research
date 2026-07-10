@@ -7,17 +7,17 @@ from pathlib import Path
 
 
 class R1T07FormalExperimentContractTest(unittest.TestCase):
-    def test_readme_remains_on_r1_t07_author_draft_gate(self) -> None:
+    def test_readme_advances_to_r1_t08_after_final_gate(self) -> None:
         text = Path("docs/tasks/README.md").read_text(encoding="utf-8")
-        self.assertIn("current_task: R1-T07 P 首入锚定的固定滞后结构关系", text)
-        self.assertIn(
-            "next_planned_task: R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型", text
-        )
+        self.assertIn("current_task: R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型", text)
+        self.assertIn("next_planned_task: R1-T09 年份稳定性检查", text)
+        self.assertIn("R1-T07 completed via PR #83", text)
         self.assertIn("R1-T07_allowed_to_start: true", text)
-        self.assertIn("R1-T08_allowed_to_start: false", text)
+        self.assertIn("R1-T08_allowed_to_start: true", text)
+        self.assertIn("R1-T09_allowed_to_start: false", text)
         self.assertIn("R2_allowed_to_start: false", text)
 
-    def test_independent_scientific_review_passes_without_downstream_authorization(
+    def test_independent_scientific_review_is_bound_to_final_gate(
         self,
     ) -> None:
         root = Path.cwd()
@@ -44,9 +44,9 @@ class R1T07FormalExperimentContractTest(unittest.TestCase):
         self.assertEqual(gate["scientific_review_status"], "passed")
         self.assertEqual(gate["review_phase"], "independent_review_complete")
         self.assertTrue(gate["anomaly_resolution_status"] == "passed")
-        self.assertFalse(package["downstream_gate_allowed"])
-        self.assertFalse(gate["readme_gate_updated"])
-        self.assertEqual(package["status"], "author_analysis_complete")
+        self.assertTrue(package["downstream_gate_allowed"])
+        self.assertTrue(gate["readme_gate_updated"])
+        self.assertEqual(package["status"], "completed")
         self.assertEqual(
             package["scientific_review_record_sha256"], _sha256(review_path)
         )

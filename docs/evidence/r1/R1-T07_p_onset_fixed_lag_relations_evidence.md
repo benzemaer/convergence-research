@@ -2,7 +2,7 @@
 
 `task_id`: R1-T07
 `task_class`: formal_experiment
-`status`: author_analysis_complete
+`status`: completed
 `run_id`: R1-T07-20260710T1915Z
 `code_commit`: 100fb7a5a4f8107a22efcfbe38509fc5342ccc9e
 
@@ -12,7 +12,7 @@
 `scientific_review_status`: passed
 `anomaly_resolution_status`: passed
 `review_phase`: independent_review_complete
-`downstream_gate_allowed`: false
+`downstream_gate_allowed`: true
 
 `experiment_summary_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_experiment_summary.json
 `experiment_summary_sha256`: d6bf46f110aaf1a86683e2a19d7fa89cf6ae8e115ac578086998a155cd91e1a1
@@ -23,6 +23,7 @@
 `engineering_validation_result_sha256`: 308cbeb7b4214f2e59586471e8ba03ad9aa1b3b16076da1982361b89ecc1d8c9
 `author_draft_package_validation_result_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_author_draft_package_validation_result.json
 `review_complete_package_validation_result_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_review_complete_package_validation_result.json
+`final_gate_package_validation_result_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_final_gate_package_validation_result.json
 `anomaly_scan_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json
 `anomaly_scan_sha256`: 065c77172a0dfa79a29b996d74fe435e1f0b1f8b6f35f23643c86bbdc121da9d
 `result_analysis_path`: docs/experiments/r1/R1-T07_p_onset_fixed_lag_relations_result_analysis.md
@@ -36,4 +37,4 @@
 
 ## 说明
 
-1915Z supersedes `R1-T07-20260710T1800Z` after the target-status standardized difference was aligned to its anchor-valid matched event population and hard bootstrap execution gates were added. The older 1800Z package is retained as `needs_revision/unresolved/superseded`; it is not current evidence or a formal input. Independent scientific review for 1915Z is passed and recommends eventual downstream authorization, but final gate has not run: `downstream_gate_allowed=false`, README remains on R1-T07, and R1-T08/R2 remain blocked.
+1915Z supersedes `R1-T07-20260710T1800Z` after the target-status standardized difference was aligned to its anchor-valid matched event population and hard bootstrap execution gates were added. The older 1800Z package is retained as `needs_revision/unresolved/superseded`; it is not current evidence or a formal input. Independent scientific review and final-gate validation are passed. README now advances to R1-T08; R1-T09 and R2 remain blocked.
