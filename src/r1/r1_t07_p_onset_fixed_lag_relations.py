@@ -814,21 +814,20 @@ def _write_state_reconciliation(con: Any, path: Path) -> None:
         T_raw_from_dimension AS T_raw,
         V_raw_from_dimension AS V_raw,
         CASE
-          WHEN NOT (P_valid AND C_valid AND T_valid) THEN NULL
-          WHEN P_raw_from_dimension IS TRUE
-            AND C_raw_from_dimension IS TRUE
-            AND T_raw_from_dimension IS TRUE
-          THEN true
-          ELSE false
+          WHEN P_raw_from_dimension = false THEN false
+          WHEN P_raw_from_dimension IS NULL THEN NULL
+          WHEN C_raw_from_dimension = false THEN false
+          WHEN C_raw_from_dimension IS NULL THEN NULL
+          ELSE T_raw_from_dimension
         END AS S_PCT_raw,
         CASE
-          WHEN NOT (P_valid AND C_valid AND T_valid AND V_valid) THEN NULL
-          WHEN P_raw_from_dimension IS TRUE
-            AND C_raw_from_dimension IS TRUE
-            AND T_raw_from_dimension IS TRUE
-            AND V_raw_from_dimension IS TRUE
-          THEN true
-          ELSE false
+          WHEN P_raw_from_dimension = false THEN false
+          WHEN P_raw_from_dimension IS NULL THEN NULL
+          WHEN C_raw_from_dimension = false THEN false
+          WHEN C_raw_from_dimension IS NULL THEN NULL
+          WHEN T_raw_from_dimension = false THEN false
+          WHEN T_raw_from_dimension IS NULL THEN NULL
+          ELSE V_raw_from_dimension
         END AS S_PCVT_raw
       FROM dimension_wide
     ),
