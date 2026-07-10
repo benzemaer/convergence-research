@@ -36,7 +36,8 @@ def validate_r1_t04_state_line_profiles(*, summary_path: Path, result_package_pa
         if package.get("code_commit")!=summary.get("code_commit"): errors.append("result_package_commit_mismatch")
     result={"task_id":"R1-T04","run_id":summary.get("run_id"),"code_commit":summary.get("code_commit"),"validator_status":"passed" if not errors else "failed","summary_path":_rel(summary_path,root),"summary_sha256":sha256_file(summary_path) if summary_path.exists() else None,"result_package_path":_rel(result_package_path,root) if result_package_path else None,"errors":errors}
     if output_path:
-        output_path.parent.mkdir(parents=True,exist_ok=True); output_path.write_text(json.dumps(result,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes((json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"))
     if errors: raise R1T04ValidationError(json.dumps(result,ensure_ascii=False))
     return result
 

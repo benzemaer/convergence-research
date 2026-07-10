@@ -486,15 +486,16 @@ def _load_json(path: Path) -> Any:
 
 
 def _write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(payload,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes((json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"))
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True,exist_ok=True)
     if not rows: path.write_text("",encoding="utf-8"); return
     keys=list(rows[0]);
-    with path.open("w",encoding="utf-8",newline="") as handle:
-        writer=csv.DictWriter(handle,fieldnames=keys,extrasaction="raise"); writer.writeheader(); writer.writerows(rows)
+    with path.open("w",encoding="utf-8",newline="\n") as handle:
+        writer=csv.DictWriter(handle,fieldnames=keys,extrasaction="raise",lineterminator="\n"); writer.writeheader(); writer.writerows(rows)
 
 
 def _safe_div(numerator: int | float | None, denominator: int | float | None) -> float | None:
