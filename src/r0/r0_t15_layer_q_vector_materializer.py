@@ -912,7 +912,8 @@ def _query_dicts(
 
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
     if not rows:
-        path.write_text("\n", encoding="utf-8")
+        with path.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write("\n")
         return
     fields: list[str] = []
     for row in rows:
@@ -920,7 +921,7 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
             if key not in fields:
                 fields.append(key)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({key: _csv_value(row.get(key)) for key in fields})

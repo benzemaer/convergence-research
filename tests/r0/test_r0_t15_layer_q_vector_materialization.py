@@ -18,8 +18,10 @@ from src.r0.r0_t15_layer_q_vector_materializer import (
     _drop_vector_tables,
     _insert_vector_outputs,
     _integrity_checks,
+    _write_csv,
     build_formal_registry,
 )
+from src.r0.upstream_artifact_io import write_json_atomic
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -159,6 +161,17 @@ class R0T15LayerQVectorMaterializationTests(unittest.TestCase):
             result = validate_r0_t15_layer_q_vector_materialization(run_dir=directory)
         self.assertEqual(result["status"], "failed")
         self.assertGreater(result["error_count"], 0)
+
+    def test_text_artifacts_use_repository_lf_line_endings(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            json_path = root / "artifact.json"
+            csv_path = root / "artifact.csv"
+            write_json_atomic(json_path, {"status": "passed"})
+            _write_csv(csv_path, [{"status": "passed"}, {"status": "pending"}])
+            self.assertNotIn(b"\r\n", json_path.read_bytes())
+            self.assertNotIn(b"\r\n", csv_path.read_bytes())
+            self.assertEqual(csv_path.read_bytes().count(b"\n"), 3)
 
 
 if __name__ == "__main__":

@@ -69,7 +69,8 @@ def write_json_atomic(path: str | Path, payload: Mapping[str, Any]) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(target.name + ".partial")
-    partial.write_text(canonical_json(payload) + "\n", encoding="utf-8")
+    with partial.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(canonical_json(payload) + "\n")
     partial.replace(target)
 
 
