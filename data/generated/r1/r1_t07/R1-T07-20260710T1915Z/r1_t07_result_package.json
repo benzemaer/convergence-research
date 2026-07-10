@@ -1,0 +1,152 @@
+{
+  "anomaly_scan_path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json",
+  "anomaly_scan_sha256": "065c77172a0dfa79a29b996d74fe435e1f0b1f8b6f35f23643c86bbdc121da9d",
+  "code_commit": "100fb7a5a4f8107a22efcfbe38509fc5342ccc9e",
+  "config_path": "configs/r1/r1_t07_p_onset_fixed_lag_relations.v1.json",
+  "config_sha256": "2353cf6cc55131025d21c82d6b6a5708af0fc1428f94f54ccc238a822c30f117",
+  "diagnostic_artifacts": [
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+      "record_count": 1,
+      "sha256": "82aa27bd0e460c0ada37caec98e1660c471bc3a01459084089c58babc590bac2"
+    },
+    {
+      "artifact_role": "anomaly_scan",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json",
+      "record_count": 1,
+      "sha256": "065c77172a0dfa79a29b996d74fe435e1f0b1f8b6f35f23643c86bbdc121da9d"
+    }
+  ],
+  "downstream_gate_allowed": true,
+  "engineering_validation_result_path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "308cbeb7b4214f2e59586471e8ba03ad9aa1b3b16076da1982361b89ecc1d8c9",
+  "expected_current_stage": "R1",
+  "expected_current_task": "R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型",
+  "expected_downstream_gate_marker": "R1-T09_allowed_to_start: false",
+  "expected_next_planned_task": "R1-T09 年份稳定性检查",
+  "experiment_summary_path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_experiment_summary.json",
+  "experiment_summary_sha256": "d6bf46f110aaf1a86683e2a19d7fa89cf6ae8e115ac578086998a155cd91e1a1",
+  "formal_evidence_path": "docs/evidence/r1/R1-T07_p_onset_fixed_lag_relations_evidence.md",
+  "formal_evidence_sha256": "458cd9051038c0dd13d494e976d33b507462a2fe9f68c6330b336f509a4875a3",
+  "gate_status": {
+    "anomaly_resolution_status": "passed",
+    "author_result_analysis_status": "passed",
+    "engineering_validator_status": "passed",
+    "readme_gate_updated": true,
+    "result_artifact_status": "passed",
+    "review_phase": "independent_review_complete",
+    "scientific_review_status": "passed"
+  },
+  "implementation_actor": "codex",
+  "input_package": {
+    "dimension_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "row_count": 62307684,
+      "security_count": 800,
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "table": "r0_t06_dimension_state_results"
+    },
+    "nested_daily_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+      "row_count": 15576921,
+      "security_count": 800,
+      "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+      "table": "r0_t06_nested_daily_state_results"
+    }
+  },
+  "primary_result_artifacts": [
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+      "record_count": 225,
+      "sha256": "c491fd02928aecd279892bccefc746cfe14524cb7bdac90f0f745bab00af265f"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+      "record_count": 225,
+      "sha256": "003843d7bdb6b9e7e0c057e0cad536a254618f4aa3c2571d431ae0d3d4d275de"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+      "record_count": 45,
+      "sha256": "4924f209a9b67f46d1b2285a2486387b26aac8ba6ef614cf6c90214bf65018c6"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+      "record_count": 45,
+      "sha256": "9183d04f61fe8c052bdc7b2cfd04d9aeb84577f5fd2646aae5ff01434bbb5e75"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+      "record_count": 9,
+      "sha256": "2654b68875226732a8eebce5c1fd71f2bca8a085f3aa20d23b605e7fffaf5d2b"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+      "record_count": 2250,
+      "sha256": "a1574f9a14be359e5e697488e82cb5efe5f74da6cb3a6b55208d57d3ebfebff8"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+      "record_count": 225,
+      "sha256": "82d93d7b2f9538ca763546651272ef463d931de2ca3b532475c1da3585591c5f"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+      "record_count": 54,
+      "sha256": "04b4dea3ac621c12765005272d82790e7b193660b317f55b730496154006d2fd"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+      "record_count": 66,
+      "sha256": "028710991f3113fdef396eb94f2e2f1400bb441a3426160efcda8f69065992a2"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+      "record_count": 45,
+      "sha256": "46ed9b46520958fd3e7f223b4fa37212a55783c6eaefc227b2d1072915278888"
+    }
+  ],
+  "readme_path": "docs/tasks/README.md",
+  "readme_sha256": "80c0832f6ab00a9d20acb0208229f7e57db7638f8d81dddbab0327e9f2a8a47a",
+  "result_analysis_path": "docs/experiments/r1/R1-T07_p_onset_fixed_lag_relations_result_analysis.md",
+  "result_analysis_sha256": "0fbaea27431557e22d2510939d90d88e94a953ace353fb420f3aaff86bba8e84",
+  "run_id": "R1-T07-20260710T1915Z",
+  "scientific_review_md_path": "docs/reviews/r1/R1-T07_p_onset_fixed_lag_relations_scientific_review.md",
+  "scientific_review_md_sha256": "cb740731c0a28aebbe4d89a752b7a27c3141ab46bd50e9345bee78a1492ae936",
+  "scientific_review_record_path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_scientific_review.json",
+  "scientific_review_record_sha256": "9f14bbfc118477c17823a6b1786f37922aa909e26b9ff26bdf4b1b6e89d89204",
+  "status": "completed",
+  "superseded": false,
+  "superseded_by": null,
+  "task_class": "formal_experiment",
+  "task_id": "R1-T07"
+}

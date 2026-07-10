@@ -88,6 +88,27 @@ class FormalExperimentPackageValidatorTest(unittest.TestCase):
         self.assertTrue(result["formal_task_completed"])
         self.assertTrue(result["downstream_gate_allowed"])
 
+    def test_review_complete_valid_package_passes_without_authorization(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            package["status"] = "author_analysis_complete"
+            package["downstream_gate_allowed"] = False
+            package["gate_status"]["readme_gate_updated"] = False
+            write_evidence(root / "formal_evidence.md", package)
+            package["formal_evidence_sha256"] = sha256_path(root / "formal_evidence.md")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package_path = build_fixture(root, final=True, mutate=mutate)
+            result = validate_formal_experiment_package(
+                package_path,
+                mode="review-complete",
+                output_path=root / "out.json",
+                root=root,
+            )
+        self.assertEqual(result["author_package_validator_status"], "passed")
+        self.assertFalse(result["formal_task_completed"])
+        self.assertFalse(result["downstream_gate_allowed"])
+
     def test_pending_review_final_gate_fails(self) -> None:
         self.assert_fixture_fails(
             final=True,

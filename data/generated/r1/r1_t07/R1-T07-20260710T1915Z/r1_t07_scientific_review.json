@@ -1,0 +1,61 @@
+{
+  "alternative_explanations": [
+    "C/V 的短 lag pooled difference 在 target 已于 P onset 当日活跃的分层调整后明显减弱，说明 target pre-existence 和 persistence 可以解释相当部分表观关系。",
+    "W、q 会改变 P onset 的构成、target base rate 与可用样本，参数响应不能解释为参数优选。",
+    "P_TO_PCVT 的 pooled positive effect 与证券层面 median sign 不一致，结果可能由高权重或高 anchor-count 证券集中驱动。",
+    "严格历史 percentile 的非均匀性、rolling-window availability 与横截面异质性仍需要后续零模型和年份稳定性检查。"
+  ],
+  "anomaly_review": "已复核 committed anomaly scan、bootstrap diagnostic、互斥 anchor funnel、full outer state reconciliation 和 lag alignment。mandatory checks 均通过，bootstrap 实际记录 B_boot=2000、seed=20260710、interval_rows_written=225、failed_replicates=0；material warnings 保留但不构成 blocking finding。",
+  "baseline_challenger_review": "已比较固定 reference W250/q20 与 W120/q20、W500/q20、W250/q10、W250/q30。target-status standardization 现报告同一 anchor-valid matched event subset 的 count、coverage、observed probability 和 difference，未将其与 full primary observed probability 混合解释。",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "8750 / 25489 - 167952 / 1146574",
+      "metric": "P_TO_C W250/q20 k1 primary absolute difference",
+      "value": 0.19680373357409867
+    },
+    {
+      "calculation": "3953 / 26382 - 177972 / 1180548",
+      "metric": "P_TO_T W250/q20 k10 primary absolute difference",
+      "value": -0.0009167076823380915
+    },
+    {
+      "calculation": "1723 / 25868 - 7665 / 1182218",
+      "metric": "P_TO_PCT W250/q20 k5 primary absolute difference",
+      "value": 0.06012381558437203
+    },
+    {
+      "calculation": "353 / 25857 - 1257 / 1182165",
+      "metric": "P_TO_PCVT W250/q20 k5 primary absolute difference",
+      "value": 0.012588705781142628
+    },
+    {
+      "calculation": "800 + 214474 + 0 + 26385 + 1188450 + 274012 + 26648 + 0",
+      "metric": "W250/q20 anchor funnel exact partition",
+      "value": 1730769
+    },
+    {
+      "calculation": "P_TO_T W250/q20 k10 bootstrap CI = [-0.0053905530, 0.0035578156]",
+      "metric": "security-cluster bootstrap interval overlaps zero",
+      "value": 0
+    }
+  ],
+  "nonblocking_findings": [
+    "inherits_r1_t06_C_near_redundancy_warning",
+    "inherits_r1_t06_V_window_dependent_identity_warning",
+    "inherits_r1_t06_T_q10_fragmentation_warning",
+    "q_onset_set_not_nested",
+    "P_TO_PCT_and_P_TO_PCVT_pooled_security_sign_reversals",
+    "target_pre_existence_and_P_persistence_limit_interpretation"
+  ],
+  "parameter_response_review": "已检查 225 条 primary grid、lag availability、P run survival、W availability、q onset transition、security summary 与 baseline sensitivity。输出没有全零、全一、全 NULL 或参数完全无响应；P_TO_T@k10 的区间跨零、k20 的区间完全为负，符合实际 cluster bootstrap，不被误写为稳定正向关系。",
+  "reviewed_analysis_sha256": "0fbaea27431557e22d2510939d90d88e94a953ace353fb420f3aaff86bba8e84",
+  "reviewed_code_commit": "100fb7a5a4f8107a22efcfbe38509fc5342ccc9e",
+  "reviewed_summary_sha256": "d6bf46f110aaf1a86683e2a19d7fa89cf6ae8e115ac578086998a155cd91e1a1",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}

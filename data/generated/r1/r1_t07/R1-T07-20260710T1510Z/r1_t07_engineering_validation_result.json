@@ -1,0 +1,10 @@
+{
+  "code_commit": "e48178558714b05a04c4b99fc65439253228984b",
+  "errors": [],
+  "result_package_path": null,
+  "run_id": "R1-T07-20260710T1510Z",
+  "summary_path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_experiment_summary.json",
+  "summary_sha256": "9aac778d6476736fb171872dd7361d3fed52ed6885e667ab30042b9552cf84ac",
+  "task_id": "R1-T07",
+  "validator_status": "passed"
+}
