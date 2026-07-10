@@ -1,0 +1,10 @@
+{
+  "author_package_validator_status": "passed",
+  "downstream_gate_allowed": false,
+  "errors": [],
+  "formal_task_completed": false,
+  "mode": "author-draft",
+  "result_package_path": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_result_package.json",
+  "result_package_sha256": "77b447202e8f7e38107a9761ddfa7ee7f3d38e6b7757f9d882d96da4863c9462",
+  "validator": "r_formal_experiment_package_validator"
+}

@@ -1,0 +1,314 @@
+{
+  "bootstrap": {
+    "B_boot": 2000,
+    "failed_replicates": 0,
+    "interval_rows_written": 225,
+    "replicate_detail_written": false,
+    "seed": 20260710
+  },
+  "checks": {
+    "all_null_check": "passed",
+    "all_one_check": "passed",
+    "all_zero_check": "passed",
+    "baseline_challenger_check": "passed",
+    "bootstrap_execution_check": "passed",
+    "conclusion_support_check": "passed",
+    "coverage_check": "passed",
+    "denominator_integrity_check": "passed",
+    "funnel_accounting_check": "passed",
+    "future_leakage_check": "passed",
+    "nested_invariant_check": "passed",
+    "parameter_response_check": "passed",
+    "post_hoc_selection_check": "passed",
+    "primary_output_nonempty": "passed",
+    "sample_size_check": "passed",
+    "scale_shift_check": "passed",
+    "time_alignment_check": "passed",
+    "upstream_consistency_check": "passed",
+    "validity_rate_check": "passed"
+  },
+  "code_commit": "100fb7a5a4f8107a22efcfbe38509fc5342ccc9e",
+  "errors": [],
+  "gate": {
+    "errors": [],
+    "lineage": {
+      "r1_t06_evidence_path": "docs/evidence/r1/R1-T06_contemporaneous_retention_lift_nested_increment_evidence.md",
+      "r1_t06_final_gate_validation_path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_final_gate_package_validation_result.json",
+      "r1_t06_final_gate_validation_sha256": "ee78f24790e1c51d47f21317d6d2a052b6e3380c9d377ad0dfcb5c80010ebe75",
+      "r1_t06_result_package_path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_result_package.json",
+      "r1_t06_result_package_sha256": "91bdcc37a3efa02fc7ecf98de8c1a278593f25758690fa52bf32f9c195a6959f",
+      "r1_t06_scientific_review_path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_scientific_review.json",
+      "r1_t06_scientific_review_sha256": "a211cd824ba6fafe0b09c4f40ca0e7a397e686de31deace3bd24ac543d2a0823"
+    }
+  },
+  "input_checks": {
+    "errors": [],
+    "lineage": {
+      "dimension_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+        "row_count": 62307684,
+        "security_count": 800,
+        "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+        "table": "r0_t06_dimension_state_results"
+      },
+      "nested_daily_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+        "row_count": 15576921,
+        "security_count": 800,
+        "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+        "table": "r0_t06_nested_daily_state_results"
+      }
+    }
+  },
+  "material_warnings": [
+    {
+      "name": "inherits_r1_t06_C_near_redundancy_warning",
+      "rationale": "R1-T07 inherits R1-T06/R1-T05 warnings when interpreting P to C/PCT apparent structure.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t06_V_window_dependent_identity_warning",
+      "rationale": "V-related paths must be read against the inherited W-sensitive V identity warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t06_T_q10_fragmentation_warning",
+      "rationale": "T-related q10 rows may be affected by inherited fragmentation diagnostics.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "q_transition_rows": 66
+      },
+      "name": "q_onset_set_not_nested",
+      "rationale": "q active sets may expand, but onset sets are transition-defined and are not expected to be nested.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q30_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    }
+  ],
+  "row_counts": {
+    "anchor_funnel_csv": 9,
+    "anchor_target_status_profile_csv": 45,
+    "baseline_sensitivity_csv": 225,
+    "fixed_lag_profile_csv": 225,
+    "lag_alignment_reconciliation_csv": 45,
+    "p_survival_profile_csv": 45,
+    "q_onset_transition_profile_csv": 66,
+    "security_lag_summary_csv": 225,
+    "state_reconciliation_csv": 54,
+    "year_lag_profile_csv": 2250
+  },
+  "run_id": "R1-T07-20260710T1915Z",
+  "status": "completed",
+  "task_id": "R1-T07"
+}

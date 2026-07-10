@@ -1,0 +1,1040 @@
+{
+  "blocking_anomalies": [],
+  "checks": {
+    "all_null_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: all_null_check",
+      "status": "passed"
+    },
+    "all_one_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: all_one_check",
+      "status": "passed"
+    },
+    "all_zero_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: all_zero_check",
+      "status": "passed"
+    },
+    "baseline_challenger_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: baseline_challenger_check",
+      "status": "passed"
+    },
+    "bootstrap_execution_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: bootstrap_execution_check",
+      "status": "passed"
+    },
+    "conclusion_support_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: conclusion_support_check",
+      "status": "passed"
+    },
+    "coverage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: coverage_check",
+      "status": "passed"
+    },
+    "denominator_integrity_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: denominator_integrity_check",
+      "status": "passed"
+    },
+    "funnel_accounting_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: funnel_accounting_check",
+      "status": "passed"
+    },
+    "future_leakage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: future_leakage_check",
+      "status": "passed"
+    },
+    "nested_invariant_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: nested_invariant_check",
+      "status": "passed"
+    },
+    "parameter_response_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: parameter_response_check",
+      "status": "passed"
+    },
+    "post_hoc_selection_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: post_hoc_selection_check",
+      "status": "passed"
+    },
+    "primary_output_nonempty": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: primary_output_nonempty",
+      "status": "passed"
+    },
+    "sample_size_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: sample_size_check",
+      "status": "passed"
+    },
+    "scale_shift_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: scale_shift_check",
+      "status": "passed"
+    },
+    "time_alignment_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: time_alignment_check",
+      "status": "passed"
+    },
+    "upstream_consistency_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: upstream_consistency_check",
+      "status": "passed"
+    },
+    "validity_rate_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_fixed_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_baseline_sensitivity.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_p_survival_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_target_status_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anchor_funnel.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_year_lag_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_security_lag_summary.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_state_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_q_onset_transition_profile.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_lag_alignment_reconciliation.csv",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_diagnostic_summary.json",
+        "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json"
+      ],
+      "metrics": {
+        "anchor_funnel_csv": 9,
+        "anchor_target_status_profile_csv": 45,
+        "baseline_sensitivity_csv": 225,
+        "fixed_lag_profile_csv": 225,
+        "lag_alignment_reconciliation_csv": 45,
+        "p_survival_profile_csv": 45,
+        "q_onset_transition_profile_csv": 66,
+        "security_lag_summary_csv": 225,
+        "state_reconciliation_csv": 54,
+        "year_lag_profile_csv": 2250
+      },
+      "rationale": "R1-T07 task-specific machine-readable check: validity_rate_check",
+      "status": "passed"
+    }
+  },
+  "code_commit": "100fb7a5a4f8107a22efcfbe38509fc5342ccc9e",
+  "investigations": [
+    {
+      "name": "inherits_r1_t06_C_near_redundancy_warning",
+      "rationale": "R1-T07 inherits R1-T06/R1-T05 warnings when interpreting P to C/PCT apparent structure.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t06_V_window_dependent_identity_warning",
+      "rationale": "V-related paths must be read against the inherited W-sensitive V identity warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t06_T_q10_fragmentation_warning",
+      "rationale": "T-related q10 rows may be affected by inherited fragmentation diagnostics.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "q_transition_rows": 66
+      },
+      "name": "q_onset_set_not_nested",
+      "rationale": "q active sets may expand, but onset sets are transition-defined and are not expected to be nested.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q30_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    }
+  ],
+  "material_warnings": [
+    {
+      "name": "inherits_r1_t06_C_near_redundancy_warning",
+      "rationale": "R1-T07 inherits R1-T06/R1-T05 warnings when interpreting P to C/PCT apparent structure.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t06_V_window_dependent_identity_warning",
+      "rationale": "V-related paths must be read against the inherited W-sensitive V identity warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t06_T_q10_fragmentation_warning",
+      "rationale": "T-related q10 rows may be affected by inherited fragmentation diagnostics.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "q_transition_rows": 66
+      },
+      "name": "q_onset_set_not_nested",
+      "rationale": "q active sets may expand, but onset sets are transition-defined and are not expected to be nested.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W120_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W250_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCT_W500_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W120_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W250_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q10_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L3_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L5_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L10_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q20_L20_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    },
+    {
+      "name": "P_TO_PCVT_W500_Q30_L1_pooled_security_sign_reversal",
+      "rationale": "Pooled absolute difference sign differs from per-security median sign.",
+      "status": "material_warning"
+    }
+  ],
+  "run_id": "R1-T07-20260710T1915Z",
+  "scan_status": "passed",
+  "task_id": "R1-T07",
+  "unresolved_questions": []
+}
