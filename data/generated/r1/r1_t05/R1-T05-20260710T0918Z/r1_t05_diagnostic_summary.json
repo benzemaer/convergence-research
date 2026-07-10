@@ -1,0 +1,121 @@
+{
+  "checks": {
+    "c2_repaired_validity": "passed",
+    "diagnostic_status_complete": "passed",
+    "forbidden_output_tokens": "passed",
+    "indicator_hit_accounting": "passed",
+    "primary_output_nonempty": "passed",
+    "q_hit_nesting": "passed",
+    "r0_t06_reconciliation": "passed",
+    "raw_domain": "passed",
+    "score_formula": "passed",
+    "spearman_reconciliation": "passed",
+    "threshold_accounting": "passed",
+    "w_availability_response": "passed"
+  },
+  "code_commit": "c6899a9a3e840f749291dc57fb70f22e58e082e5",
+  "errors": [],
+  "gate": {
+    "errors": [],
+    "lineage": {
+      "r1_t04_evidence_path": "docs/evidence/r1/R1-T04_state_line_profiles_evidence.md",
+      "r1_t04_result_package_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_result_package.json",
+      "r1_t04_result_package_sha256": "f347b30b05b7d6ceb99b814023841d3190e9b6054a942a87f9d2771e93a1252b",
+      "r1_t04_scientific_review_md_path": "docs/reviews/r1/R1-T04_state_line_profiles_scientific_review.md",
+      "r1_t04_scientific_review_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_scientific_review.json",
+      "r1_t04_scientific_review_sha256": "1e25f676fcd48a0d7fd73069b9ffedc2c990a6d6615d23ec2acb1ed9790ff789"
+    }
+  },
+  "input_checks": {
+    "errors": [],
+    "lineage": {
+      "indicator_score": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+        "row_count": 41538456,
+        "security_count": 800,
+        "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+        "table": "r0_t05_indicator_score_results"
+      },
+      "indicator_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_indicator_state_results.duckdb",
+        "row_count": 124615368,
+        "security_count": 800,
+        "sha256": "c82fda0c89265ed9b8d5fbbb4f4fec9ca64acfd8b0d2954b856841a72ef7cc2e",
+        "table": "r0_t06_indicator_state_results"
+      },
+      "raw_metric": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-01_r0_t04_raw_metrics_materialization_evidence_repair_20260708T1715Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-01-20260708T1715Z/r0_t04/r0_t04_raw_metric_results.duckdb",
+        "row_count": 13846152,
+        "security_count": 800,
+        "sha256": "89ff2979f8e151c1611c0c61b1b547783f76a4ad94953c9252b0ecef98ed56a0",
+        "table": "r0_t04_raw_metric_results"
+      }
+    }
+  },
+  "material_warnings": [
+    {
+      "name": "inherits_r1_t04_window_dependent_state_identity",
+      "rationale": "R1-T04 final gate recorded window-dependent state identity; R1-T05 describes indicator-level availability and overlap without selecting W.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t04_confirmation_population_k_sensitivity",
+      "rationale": "R1-T05 is K-not-applicable and does not remove the R1-T04 confirmation population warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t04_pcvt_confirmed_high_fragmentation",
+      "rationale": "R1-T05 reports indicator and joint-hit duration fragments but does not alter PCVT confirmation semantics.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "segment_count": "111640",
+        "single_day_fragment_ratio": "0.63026692941598"
+      },
+      "name": "T1_ER20_W120_Q10_high_fragment_rate",
+      "rationale": "High single-day hit fragmentation is reported for scientific review.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "segment_count": "101761",
+        "single_day_fragment_ratio": "0.6465443539273396"
+      },
+      "name": "T1_ER20_W250_Q10_high_fragment_rate",
+      "rationale": "High single-day hit fragmentation is reported for scientific review.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "segment_count": "88366",
+        "single_day_fragment_ratio": "0.655919697621257"
+      },
+      "name": "T1_ER20_W500_Q10_high_fragment_rate",
+      "rationale": "High single-day hit fragmentation is reported for scientific review.",
+      "status": "material_warning"
+    }
+  ],
+  "row_counts": {
+    "indicator_hit_duration_csv": 72,
+    "indicator_raw_distribution_csv": 8,
+    "indicator_score_distribution_csv": 24,
+    "intralayer_correlation_csv": 12,
+    "intralayer_diagnostic_summary_csv": 12,
+    "intralayer_threshold_structure_csv": 36,
+    "r0_t06_reconciliation_csv": 72,
+    "validity_reason_profile_csv": 146
+  },
+  "run_id": "R1-T05-20260710T0918Z",
+  "status": "completed",
+  "task_id": "R1-T05"
+}
