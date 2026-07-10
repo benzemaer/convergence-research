@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+import subprocess
 
 
 class R1T04FormalExperimentContractTest(unittest.TestCase):
@@ -19,6 +20,19 @@ class R1T04FormalExperimentContractTest(unittest.TestCase):
             "scripts/r1/validate_r1_t04_state_line_profiles.py",
         ):
             self.assertTrue(Path(path).exists(), path)
+
+    def test_thin_wrappers_expose_help(self) -> None:
+        for script in (
+            "scripts/r1/run_r1_t04_state_line_profiles.py",
+            "scripts/r1/validate_r1_t04_state_line_profiles.py",
+        ):
+            completed = subprocess.run(
+                ["python", script, "--help"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":

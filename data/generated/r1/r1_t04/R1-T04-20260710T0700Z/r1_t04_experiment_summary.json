@@ -1,0 +1,161 @@
+{
+  "blocked_reasons": [],
+  "checks": {
+    "comparison_pair_completeness": "passed",
+    "duration_quantiles": "passed",
+    "funnel_accounting": "passed",
+    "interval_daily_reconciliation": "passed",
+    "k_confirmed_monotonicity": "passed",
+    "k_raw_invariance": "passed",
+    "nested_invariant": "passed",
+    "parent_child_completeness": "passed",
+    "primary_output_nonempty": "passed",
+    "profile_registry": "passed",
+    "r1_t03_reconciliation": "passed",
+    "raw_confirmed_response": "passed",
+    "w_availability_response": "passed"
+  },
+  "code_commit": "c443e05a603b35a5c3956d61532130cf5edbe41d",
+  "config_path": "configs/r1/r1_t04_state_line_profiles.v1.json",
+  "config_sha256": "99f9b13c1bb7b40d941da714774ace77e40dc9f3553c55720009edfa737454b4",
+  "counts": {
+    "code_commit": "c443e05a603b35a5c3956d61532130cf5edbe41d",
+    "comparison_row_count": 10,
+    "duration_row_count": 14,
+    "errors": [],
+    "invariants": {
+      "checks": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "errors": []
+    },
+    "overlap_row_count": 10,
+    "parent_child_row_count": 8,
+    "profile_row_count": 14,
+    "run_id": "R1-T04-20260710T0700Z",
+    "selected_config_count": 5,
+    "status": "completed",
+    "task_id": "R1-T04",
+    "year_row_count": 144
+  },
+  "created_at": "2026-07-10T06:36:40+00:00",
+  "downstream_gates": {
+    "R1-T05_allowed_to_start": false,
+    "downstream_gate_allowed": false
+  },
+  "input_lineage": {
+    "full_grid_manifest": {
+      "path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+      "sha256": "b031ae22a3cf396961bcefcf6479c18870b8206a348372cf87d4b9f73c1fd96b"
+    },
+    "r1_t01_manifest_lock": {
+      "path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+      "sha256": "e91b679b1d0c3fc6054a144ad3dd02a81a9a745bb4251beeb8cafa1a10408fa0"
+    },
+    "r1_t02_summary": {
+      "path": "data/generated/r1/r1_t02/R1-T02-20260708T1820Z/r1_t02_lineage_pit_audit_summary.json",
+      "sha256": "345c15a6e0b646229c2334c70ea6bad6065564af9ecffdbf77f755964fba9cb6"
+    },
+    "r1_t03_summary": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_summary.json",
+      "sha256": "b813599f823ec4ba97e039fed53d10a182ffbc4797ab3db2dd7d6ebad8a22db8"
+    }
+  },
+  "output_paths": {
+    "anomaly_scan": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_anomaly_scan.json",
+      "sha256": "91784641118768dc084d370fc12ad7f1ea37bfde14d9a2bb9a521361e5a18b24"
+    },
+    "daily_overlap_profile_csv": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_daily_overlap_profile.csv",
+      "sha256": "889ea0f46b6cf1cb73650cb93ad897f8bec9b6acde1f4cb7d66d669ce3683c25"
+    },
+    "diagnostic_summary": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json",
+      "sha256": "f619d4c84f091e06f0e0b18b951bbcd1b05c104183d3b8f87998c9583a8e7176"
+    },
+    "duration_profile_csv": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_duration_profile.csv",
+      "sha256": "b183f37a09a4c2a7be1328057f78fa93ded58e842df6d61ede9d3d618ba8823c"
+    },
+    "parent_child_profile_csv": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_parent_child_profile.csv",
+      "sha256": "f0c6b2b6e4fc83df848caac469f11c878231876e683bbdd79dc7267cd52eb2b3"
+    },
+    "reference_challenger_comparison_csv": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_reference_challenger_comparison.csv",
+      "sha256": "8933defd49a8622990640b25b43f3c09e37dba46268439798bcce5633b21b8a6"
+    },
+    "state_line_profile_csv": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_state_line_profile.csv",
+      "sha256": "5fcbfc5de04dc053db6a7ce84918dd676f1471ccd025221828532f53e7161b86"
+    },
+    "state_line_profile_json": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_state_line_profile.json",
+      "sha256": "a075013a6fba3e25ce08e2c8a38e02447506f1c3e981b276ac03017d8262bc51"
+    },
+    "year_concentration_profile_csv": {
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_year_concentration_profile.csv",
+      "sha256": "988912227afc267388fcfea427739382674a439d2b1333334a609ee01c5ee15d"
+    }
+  },
+  "profile_registry": [
+    {
+      "candidate_config_id": "R0_W250_Q20_K3_WEAK_D010",
+      "profile_id": "PCT_REFERENCE",
+      "role": "reference_baseline",
+      "state_line": "S_PCT"
+    },
+    {
+      "candidate_config_id": "R0_W120_Q20_K3_WEAK_D010",
+      "profile_id": "PCT_FAST_CHALLENGER",
+      "role": "fast_structural_convergence_challenger",
+      "state_line": "S_PCT"
+    },
+    {
+      "candidate_config_id": "R0_W250_Q20_K3_WEAK_D010",
+      "profile_id": "PCVT_REFERENCE",
+      "role": "reference_depletion_profile",
+      "state_line": "S_PCVT"
+    },
+    {
+      "candidate_config_id": "R0_W120_Q20_K3_WEAK_D010",
+      "profile_id": "PCVT_SHORT_WINDOW",
+      "role": "short_window_counterfactual",
+      "state_line": "S_PCVT"
+    },
+    {
+      "candidate_config_id": "R0_W120_Q20_K2_WEAK_D010",
+      "profile_id": "PCT_K2_SIDECAR",
+      "role": "k2_confirmation_sidecar",
+      "state_line": "S_PCT"
+    },
+    {
+      "candidate_config_id": "R0_W500_Q20_K3_WEAK_D010",
+      "profile_id": "PCVT_LONG_WINDOW_SIDECAR",
+      "role": "long_window_sidecar",
+      "state_line": "S_PCVT"
+    },
+    {
+      "candidate_config_id": "R0_W250_Q20_K5_WEAK_D010",
+      "profile_id": "PCVT_K5_SIDECAR",
+      "role": "stricter_confirmation_sidecar",
+      "state_line": "S_PCVT"
+    }
+  ],
+  "run_id": "R1-T04-20260710T0700Z",
+  "status": "completed",
+  "task_id": "R1-T04"
+}

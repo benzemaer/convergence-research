@@ -20,6 +20,7 @@
 current_stage: R1
 current_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像
 next_planned_task: R1-T05 单指标诊断与层内互补性分析
+R1-T05_allowed_to_start: false
 ```
 
 ## 命名与路径规则
