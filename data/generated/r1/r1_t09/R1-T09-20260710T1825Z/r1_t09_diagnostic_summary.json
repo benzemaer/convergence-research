@@ -1,0 +1,41 @@
+{
+  "anomaly_scan_status": "passed",
+  "candidate_count": 4,
+  "code_commit": "31e2533adcf1852d55ea8e5f16ac38e0a8453e97",
+  "dependency_versions": {
+    "duckdb_version": "1.5.4",
+    "jsonschema_version": "4.25.1",
+    "python_version": "3.12.10"
+  },
+  "duckdb_memory_limit": "12GB",
+  "duckdb_threads": 4,
+  "generated_at_utc": "2026-07-10T18:25:40.013226+00:00",
+  "input_row_counts": {
+    "confirmed_interval": 1012396,
+    "daily_confirmation": 186923052,
+    "dimension_state": 62307684,
+    "nested_daily_state": 15576921
+  },
+  "output_row_counts": {
+    "calendar_year_clipped_geometry": 44,
+    "candidate_registry": 4,
+    "leave_one_year_out": 110,
+    "reference_challenger_year_comparison": 22,
+    "upstream_reconciliation": 891,
+    "year_concentration_summary": 14,
+    "year_interlayer_profile": 66,
+    "year_interval_profile": 44,
+    "year_state_profile": 44
+  },
+  "partial_year": 2026,
+  "reconciliation_mismatch_count": 0,
+  "run_id": "R1-T09-20260710T1825Z",
+  "runtime_seconds": 10.32675329997437,
+  "task_id": "R1-T09",
+  "year_count_by_candidate": {
+    "R0_W120_Q20_K3_WEAK_D010|S_PCT": 11,
+    "R0_W120_Q20_K3_WEAK_D010|S_PCVT": 11,
+    "R0_W250_Q20_K3_WEAK_D010|S_PCT": 11,
+    "R0_W250_Q20_K3_WEAK_D010|S_PCVT": 11
+  }
+}
