@@ -10,9 +10,7 @@ if str(ROOT) not in sys.path:
 
 
 def main() -> int:
-    return import_module(
-        "src.r1.r1_t08_global_nested_null_models_validator_cli"
-    ).main()
+    return import_module("src.r1.r1_t08_global_nested_null_models_validator_cli").main()
 
 
 if __name__ == "__main__":

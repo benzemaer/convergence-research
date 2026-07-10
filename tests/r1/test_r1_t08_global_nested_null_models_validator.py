@@ -32,9 +32,7 @@ class R1T08ValidatorTest(unittest.TestCase):
         self.assertEqual(index["C_GIVEN_P"]["shifted_layers"], "C")
         self.assertEqual(index["T_GIVEN_PC"]["shifted_layers"], "T")
         self.assertEqual(index["V_GIVEN_PCT"]["shifted_layers"], "V")
-        self.assertTrue(
-            all("S_PCT" not in row["shifted_layers"] for row in self.tests)
-        )
+        self.assertTrue(all("S_PCT" not in row["shifted_layers"] for row in self.tests))
 
     def test_replicate_validator_rejects_missing_duplicate_and_failed_rows(
         self,

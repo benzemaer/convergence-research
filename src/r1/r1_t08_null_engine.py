@@ -118,9 +118,7 @@ def shifted_source_indices(
     target_blocks = block_id[targets]
     return (
         block_starts[target_blocks]
-        + (
-            within_block[targets] - offsets[target_blocks]
-        )
+        + (within_block[targets] - offsets[target_blocks])
         % block_lengths[target_blocks]
     ).astype(np.int64)
 
@@ -155,9 +153,8 @@ def sparse_confirmed_metrics(
     if np.any(indices[1:] <= indices[:-1]):
         raise ValueError("true_indices must be unique and sorted")
     breaks = np.ones(indices.size, dtype=bool)
-    breaks[1:] = (
-        (indices[1:] != indices[:-1] + 1)
-        | (security_code[indices[1:]] != security_code[indices[:-1]])
+    breaks[1:] = (indices[1:] != indices[:-1] + 1) | (
+        security_code[indices[1:]] != security_code[indices[:-1]]
     )
     run_starts = np.flatnonzero(breaks)
     run_ends = np.r_[run_starts[1:], indices.size]
@@ -210,9 +207,7 @@ def nested_retention_metrics(
         "child_unknown_count": unknown,
         "child_blocked_count": blocked,
         "child_diagnostic_count": diagnostic,
-        "nested_retention": (
-            float(child_true / denominator) if denominator else None
-        ),
+        "nested_retention": (float(child_true / denominator) if denominator else None),
     }
 
 

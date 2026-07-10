@@ -73,9 +73,7 @@ def validate_r1_t08_global_nested_null_models(
         "replicate_row_count": len(replicates),
         "result_row_count": len(results),
         "N_perm": n_perm,
-        "failed_simulation_count": sum(
-            _int(row["failed_flag"]) for row in replicates
-        ),
+        "failed_simulation_count": sum(_int(row["failed_flag"]) for row in replicates),
         "offset_plan_reproducibility_checked": verify_offset_plans,
         "errors": errors,
     }
@@ -176,8 +174,7 @@ def _check_results(
         grouped.setdefault(row["test_group_id"], []).append(row)
     test_index = {row["test_group_id"]: row for row in tests}
     expected_row_count = sum(
-        4 if row["null_model_role"] == "global_synchronization" else 1
-        for row in tests
+        4 if row["null_model_role"] == "global_synchronization" else 1 for row in tests
     )
     if len(results) != expected_row_count:
         errors.append("result_row_count_mismatch")
@@ -220,7 +217,9 @@ def _check_results(
         }
         for field, expected in checks.items():
             if not _optional_close(result[field], expected):
-                errors.append(f"result_recompute_mismatch:{group_id}:{statistic}:{field}")
+                errors.append(
+                    f"result_recompute_mismatch:{group_id}:{statistic}:{field}"
+                )
         if _int(result["n_extreme"]) != n_extreme:
             errors.append(f"n_extreme_mismatch:{group_id}:{statistic}")
         if _int(result["failed_simulation_count"]) != 0:
@@ -229,9 +228,7 @@ def _check_results(
             errors.append(f"interval_ordering_mismatch:{group_id}:{statistic}")
 
 
-def _check_reconciliation(
-    rows: Sequence[Mapping[str, str]], errors: list[str]
-) -> None:
+def _check_reconciliation(rows: Sequence[Mapping[str, str]], errors: list[str]) -> None:
     if len(rows) != 4:
         errors.append("observed_reconciliation_row_count_mismatch")
     zero_fields = (
@@ -249,12 +246,9 @@ def _check_reconciliation(
             errors.append(f"observed_reconciliation_mismatch:{key}")
         if row.get("confirmation_time_consistency") != "passed":
             errors.append(f"confirmation_time_mismatch:{key}")
-        if (
-            _int(row["raw_state_true_count"])
-            + _int(row["raw_state_false_count"])
-            + _int(row["raw_state_null_count"])
-            != _int(row["key_count"])
-        ):
+        if _int(row["raw_state_true_count"]) + _int(
+            row["raw_state_false_count"]
+        ) + _int(row["raw_state_null_count"]) != _int(row["key_count"]):
             errors.append(f"observed_funnel_mismatch:{key}")
     index = {(row["W"], row["state_line"]): row for row in rows}
     for W in ("120", "250"):
@@ -298,9 +292,7 @@ def _check_blocks_and_offsets(
             errors.append(f"offset_violation:{row['test_group_id']}")
         block = block_index[row["W"]]
         expected = (
-            n_perm
-            * _int(row["shifted_layer_count"])
-            * _int(block["block_count"])
+            n_perm * _int(row["shifted_layer_count"]) * _int(block["block_count"])
         )
         if _int(row["planned_block_layer_shift_count"]) != expected:
             errors.append(f"offset_plan_count_mismatch:{row['test_group_id']}")
@@ -316,8 +308,7 @@ def _check_offset_plan_reproducibility(
 ) -> None:
     block_lengths_by_w = _load_block_lengths(config)
     replicate_index = {
-        (row["test_group_id"], _int(row["replicate_id"])): row
-        for row in replicates
+        (row["test_group_id"], _int(row["replicate_id"])): row for row in replicates
     }
     offset_index = {row["test_group_id"]: row for row in offsets}
     root_seed = int(config["permutation"]["root_seed"])
@@ -337,7 +328,9 @@ def _check_offset_plan_reproducibility(
                 )
                 plan = deterministic_offsets(lengths, seed)
                 if np.any((lengths > 1) & ((plan == 0) | (plan >= lengths))):
-                    errors.append(f"recomputed_offset_invalid:{group_id}:{replicate_id}:{layer}")
+                    errors.append(
+                        f"recomputed_offset_invalid:{group_id}:{replicate_id}:{layer}"
+                    )
                 plans.append((layer, plan))
             plan_hash = offset_plan_hash(plans)
             chain.update(bytes.fromhex(plan_hash))

@@ -259,9 +259,7 @@ def _attach_inputs(con: Any, config: Mapping[str, Any]) -> None:
         con.execute(f"ATTACH '{_sql_path(path)}' AS {alias} (READ_ONLY)")
 
 
-def _load_candidate_data(
-    con: Any, W: int
-) -> tuple[CandidateData, dict[str, int]]:
+def _load_candidate_data(con: Any, W: int) -> tuple[CandidateData, dict[str, int]]:
     key_stats_row = con.execute(
         """
         WITH d AS (
@@ -409,9 +407,7 @@ def _reconcile_observed(
         )
         confirmed_mismatch = int(
             np.count_nonzero(derived_confirmed != upstream_daily["confirmed_state"])
-            + np.count_nonzero(
-                confirmation_date != upstream_daily["confirmation_date"]
-            )
+            + np.count_nonzero(confirmation_date != upstream_daily["confirmation_date"])
         )
         derived_intervals = _derived_intervals(data, raw, status, 3)
         upstream_intervals = _load_upstream_intervals(con, data.W, state)
@@ -435,13 +431,16 @@ def _reconcile_observed(
                 != metrics["interval_count"],
                 not _close(upstream_profile["coverage"], metrics["confirmed_coverage"]),
                 not _close(upstream_profile["mean_duration"], metrics["duration_mean"]),
-                not _close(upstream_profile["median_duration"], metrics["duration_median"]),
-                int(upstream_profile["fragment_count"])
-                != metrics["fragment_count"],
+                not _close(
+                    upstream_profile["median_duration"], metrics["duration_median"]
+                ),
+                int(upstream_profile["fragment_count"]) != metrics["fragment_count"],
                 not _close(upstream_profile["fragment_rate"], metrics["fragment_rate"]),
             )
         )
-        nested_steps = ("C_GIVEN_P", "T_GIVEN_PC") if state == "S_PCT" else ("V_GIVEN_PCT",)
+        nested_steps = (
+            ("C_GIVEN_P", "T_GIVEN_PC") if state == "S_PCT" else ("V_GIVEN_PCT",)
+        )
         nested_mismatches = 0
         for step in nested_steps:
             observed_nested = _observed_nested_for_step(data, step)
@@ -539,12 +538,8 @@ def _true_run_spans(
     if not true_indices.size:
         return
     breaks = np.ones(true_indices.size, dtype=bool)
-    breaks[1:] = (
-        (true_indices[1:] != true_indices[:-1] + 1)
-        | (
-            security_code[true_indices[1:]]
-            != security_code[true_indices[:-1]]
-        )
+    breaks[1:] = (true_indices[1:] != true_indices[:-1] + 1) | (
+        security_code[true_indices[1:]] != security_code[true_indices[:-1]]
     )
     run_starts = np.flatnonzero(breaks)
     run_ends = np.r_[run_starts[1:], true_indices.size]
@@ -614,14 +609,14 @@ def _load_upstream_daily(con: Any, W: int, state: str) -> dict[str, np.ndarray]:
         [W, state],
     ).fetchnumpy()
     return {
-        key: np.asarray(value, dtype=np.int8 if key != "confirmation_date" else np.int32)
+        key: np.asarray(
+            value, dtype=np.int8 if key != "confirmation_date" else np.int32
+        )
         for key, value in arrays.items()
     }
 
 
-def _load_upstream_intervals(
-    con: Any, W: int, state: str
-) -> list[tuple[Any, ...]]:
+def _load_upstream_intervals(con: Any, W: int, state: str) -> list[tuple[Any, ...]]:
     rows = con.execute(
         """
         SELECT
@@ -654,11 +649,51 @@ def _multiset_mismatch(
 def _test_registry(candidates: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     by_key = {(int(row["W"]), str(row["state_line"])): row for row in candidates}
     specs = (
-        ("GLOBAL_PCT_SYNC", "S_PCT", "global_synchronization", "P_C_T", "C,T", "confirmed_coverage", "upper"),
-        ("GLOBAL_PCVT_SYNC", "S_PCVT", "global_synchronization", "P_C_T_V", "C,T,V", "confirmed_coverage", "upper"),
-        ("C_GIVEN_P", "S_PCT", "nested_increment", "P_TO_PC", "C", "nested_retention", "upper"),
-        ("T_GIVEN_PC", "S_PCT", "nested_increment", "PC_TO_PCT", "T", "nested_retention", "upper"),
-        ("V_GIVEN_PCT", "S_PCVT", "nested_increment", "PCT_TO_PCVT", "V", "nested_retention", "upper"),
+        (
+            "GLOBAL_PCT_SYNC",
+            "S_PCT",
+            "global_synchronization",
+            "P_C_T",
+            "C,T",
+            "confirmed_coverage",
+            "upper",
+        ),
+        (
+            "GLOBAL_PCVT_SYNC",
+            "S_PCVT",
+            "global_synchronization",
+            "P_C_T_V",
+            "C,T,V",
+            "confirmed_coverage",
+            "upper",
+        ),
+        (
+            "C_GIVEN_P",
+            "S_PCT",
+            "nested_increment",
+            "P_TO_PC",
+            "C",
+            "nested_retention",
+            "upper",
+        ),
+        (
+            "T_GIVEN_PC",
+            "S_PCT",
+            "nested_increment",
+            "PC_TO_PCT",
+            "T",
+            "nested_retention",
+            "upper",
+        ),
+        (
+            "V_GIVEN_PCT",
+            "S_PCVT",
+            "nested_increment",
+            "PCT_TO_PCVT",
+            "V",
+            "nested_retention",
+            "upper",
+        ),
     )
     rows: list[dict[str, Any]] = []
     for W in (120, 250):
@@ -815,9 +850,8 @@ def _run_test_group(
             for layer in shifted_layers:
                 payload = data.layers[layer]
                 source = shifted_sources[layer]
-                active &= (
-                    (payload.raw[source] == RAW_TRUE)
-                    & (payload.status[source] == VALID)
+                active &= (payload.raw[source] == RAW_TRUE) & (
+                    payload.status[source] == VALID
                 )
             metrics = sparse_confirmed_metrics(
                 parent[active],
@@ -858,9 +892,7 @@ def _run_test_group(
         "offset_plan_chain_sha256": chain.hexdigest(),
         "status": "passed"
         if not (
-            zero_offset_count
-            + out_of_range_offset_count
-            + preservation_violation_count
+            zero_offset_count + out_of_range_offset_count + preservation_violation_count
         )
         else "failed",
     }
@@ -1033,9 +1065,15 @@ def _anomaly_scan(
     offset_rows: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     result_path = f"data/generated/r1/r1_t08/{run_id}/r1_t08_null_model_results.csv"
-    replicate_path = f"data/generated/r1/r1_t08/{run_id}/r1_t08_null_replicate_metrics.csv"
-    reconciliation_path = f"data/generated/r1/r1_t08/{run_id}/r1_t08_observed_reconciliation.csv"
-    offset_path = f"data/generated/r1/r1_t08/{run_id}/r1_t08_offset_plan_diagnostics.csv"
+    replicate_path = (
+        f"data/generated/r1/r1_t08/{run_id}/r1_t08_null_replicate_metrics.csv"
+    )
+    reconciliation_path = (
+        f"data/generated/r1/r1_t08/{run_id}/r1_t08_observed_reconciliation.csv"
+    )
+    offset_path = (
+        f"data/generated/r1/r1_t08/{run_id}/r1_t08_offset_plan_diagnostics.csv"
+    )
     primary = [float(row["observed_value"]) for row in results]
     null_values = [
         float(row["confirmed_coverage"])
@@ -1063,9 +1101,7 @@ def _anomaly_scan(
         for row in offset_rows
     )
     observed_pcvt_over_pct = 0
-    indexed = {
-        (int(row["W"]), str(row["state_line"])): row for row in reconciliation
-    }
+    indexed = {(int(row["W"]), str(row["state_line"])): row for row in reconciliation}
     for W in (120, 250):
         observed_pcvt_over_pct += int(
             int(indexed[(W, "S_PCVT")]["raw_state_true_count"])
@@ -1088,25 +1124,166 @@ def _anomaly_scan(
             "artifact_references": list(references),
         }
 
-    add("primary_output_nonempty", "passed" if results else "blocked", "Null result rows were read from the actual aggregate artifact.", {"row_count": len(results)}, [result_path])
-    add("all_zero_check", "passed" if any(value != 0 for value in primary + null_values) else "blocked", "Observed and null statistics are not uniformly zero.", {"nonzero_count": sum(value != 0 for value in primary + null_values)}, [result_path, replicate_path])
-    add("all_one_check", "passed" if any(value != 1 for value in primary + null_values) else "blocked", "Observed and null statistics are not uniformly one.", {"nonone_count": sum(value != 1 for value in primary + null_values)}, [result_path, replicate_path])
-    add("all_null_check", "passed", "Required primary replicate statistics contain no NULL values.", {"required_null_count": 0}, [replicate_path])
-    add("validity_rate_check", "passed" if not reconciliation_mismatches else "blocked", "Unknown and blocked states remain explicit and reconcile to upstream.", {"reconciliation_mismatch_count": reconciliation_mismatches}, [reconciliation_path])
-    add("coverage_check", "passed", "Both preregistered windows have nonzero observed and null coverage.", {"window_count": 2}, [result_path])
-    add("parameter_response_check", "passed" if len({round(float(row["observed_value"]), 15) for row in results if row["statistic_name"] == "confirmed_coverage"}) > 1 else "blocked", "W120 and W250 observed global coverage are not identical across all state lines.", {"distinct_global_observed_coverage_count": len({round(float(row["observed_value"]), 15) for row in results if row["statistic_name"] == "confirmed_coverage"})}, [result_path])
-    add("baseline_challenger_check", "passed", "Reference and challenger windows are both present without winner selection.", {"W_values": [120, 250]}, [result_path])
-    add("nested_invariant_check", "passed" if not observed_pcvt_over_pct else "blocked", "Observed PCVT remains a subset of observed PCT.", {"violation_count": observed_pcvt_over_pct}, [reconciliation_path])
-    add("funnel_accounting_check", "passed" if not reconciliation_mismatches else "blocked", "True/false/null and explicit validity counts derive from full aligned keys.", {"mismatch_count": reconciliation_mismatches}, [reconciliation_path])
-    add("denominator_integrity_check", "passed", "Global coverage uses full candidate keys and nested retention uses target-valid parent-active risk sets.", {"candidate_row_count": int(reconciliation[0]["key_count"])}, [reconciliation_path, replicate_path])
-    add("sample_size_check", "passed" if len(replicates) == 20000 else "blocked", "All ten groups contain the preregistered 2,000 replicates.", {"replicate_row_count": len(replicates)}, [replicate_path])
-    add("upstream_consistency_check", "passed" if not reconciliation_mismatches else "blocked", "Observed daily, confirmation, interval, R1-T04 and R1-T06 values reconcile before permutation.", {"mismatch_count": reconciliation_mismatches}, [reconciliation_path])
-    add("scale_shift_check", "passed", "Finite observed/null ratios and differences were computed without infinite substitution.", {"nonfinite_ratio_count": sum(row["observed_null_ratio"] is not None and not np.isfinite(float(row["observed_null_ratio"])) for row in results)}, [result_path])
-    add("time_alignment_check", "passed" if not offset_violations else "blocked", "Offsets stay inside security/year/continuous-segment blocks and exclude zero on shiftable blocks.", {"offset_or_preservation_violation_count": offset_violations, "block_rows": len(block_rows)}, [offset_path])
-    add("future_leakage_check", "passed", "The runner reads only authorized contemporaneous R0 state and confirmation artifacts.", {"future_field_count": 0}, [reconciliation_path])
-    add("post_hoc_selection_check", "passed", "Exactly four candidates and ten preregistered test groups were executed; sidecars were excluded.", {"formal_candidate_count": 4, "test_group_count": 10}, [result_path])
-    add("conclusion_support_check", "passed" if not failed and not reconciliation_mismatches and not offset_violations else "blocked", "Engineering evidence supports descriptive null separation only; scientific review remains pending.", {"failed_simulation_count": failed, "blocking_contract_count": reconciliation_mismatches + offset_violations}, [result_path, replicate_path, reconciliation_path, offset_path])
-    blocking = sorted(name for name, item in checks.items() if item["status"] == "blocked")
+    add(
+        "primary_output_nonempty",
+        "passed" if results else "blocked",
+        "Null result rows were read from the actual aggregate artifact.",
+        {"row_count": len(results)},
+        [result_path],
+    )
+    add(
+        "all_zero_check",
+        "passed" if any(value != 0 for value in primary + null_values) else "blocked",
+        "Observed and null statistics are not uniformly zero.",
+        {"nonzero_count": sum(value != 0 for value in primary + null_values)},
+        [result_path, replicate_path],
+    )
+    add(
+        "all_one_check",
+        "passed" if any(value != 1 for value in primary + null_values) else "blocked",
+        "Observed and null statistics are not uniformly one.",
+        {"nonone_count": sum(value != 1 for value in primary + null_values)},
+        [result_path, replicate_path],
+    )
+    add(
+        "all_null_check",
+        "passed",
+        "Required primary replicate statistics contain no NULL values.",
+        {"required_null_count": 0},
+        [replicate_path],
+    )
+    add(
+        "validity_rate_check",
+        "passed" if not reconciliation_mismatches else "blocked",
+        "Unknown and blocked states remain explicit and reconcile to upstream.",
+        {"reconciliation_mismatch_count": reconciliation_mismatches},
+        [reconciliation_path],
+    )
+    add(
+        "coverage_check",
+        "passed",
+        "Both preregistered windows have nonzero observed and null coverage.",
+        {"window_count": 2},
+        [result_path],
+    )
+    add(
+        "parameter_response_check",
+        "passed"
+        if len(
+            {
+                round(float(row["observed_value"]), 15)
+                for row in results
+                if row["statistic_name"] == "confirmed_coverage"
+            }
+        )
+        > 1
+        else "blocked",
+        "W120 and W250 observed global coverage are not identical across all state lines.",
+        {
+            "distinct_global_observed_coverage_count": len(
+                {
+                    round(float(row["observed_value"]), 15)
+                    for row in results
+                    if row["statistic_name"] == "confirmed_coverage"
+                }
+            )
+        },
+        [result_path],
+    )
+    add(
+        "baseline_challenger_check",
+        "passed",
+        "Reference and challenger windows are both present without winner selection.",
+        {"W_values": [120, 250]},
+        [result_path],
+    )
+    add(
+        "nested_invariant_check",
+        "passed" if not observed_pcvt_over_pct else "blocked",
+        "Observed PCVT remains a subset of observed PCT.",
+        {"violation_count": observed_pcvt_over_pct},
+        [reconciliation_path],
+    )
+    add(
+        "funnel_accounting_check",
+        "passed" if not reconciliation_mismatches else "blocked",
+        "True/false/null and explicit validity counts derive from full aligned keys.",
+        {"mismatch_count": reconciliation_mismatches},
+        [reconciliation_path],
+    )
+    add(
+        "denominator_integrity_check",
+        "passed",
+        "Global coverage uses full candidate keys and nested retention uses target-valid parent-active risk sets.",
+        {"candidate_row_count": int(reconciliation[0]["key_count"])},
+        [reconciliation_path, replicate_path],
+    )
+    add(
+        "sample_size_check",
+        "passed" if len(replicates) == 20000 else "blocked",
+        "All ten groups contain the preregistered 2,000 replicates.",
+        {"replicate_row_count": len(replicates)},
+        [replicate_path],
+    )
+    add(
+        "upstream_consistency_check",
+        "passed" if not reconciliation_mismatches else "blocked",
+        "Observed daily, confirmation, interval, R1-T04 and R1-T06 values reconcile before permutation.",
+        {"mismatch_count": reconciliation_mismatches},
+        [reconciliation_path],
+    )
+    add(
+        "scale_shift_check",
+        "passed",
+        "Finite observed/null ratios and differences were computed without infinite substitution.",
+        {
+            "nonfinite_ratio_count": sum(
+                row["observed_null_ratio"] is not None
+                and not np.isfinite(float(row["observed_null_ratio"]))
+                for row in results
+            )
+        },
+        [result_path],
+    )
+    add(
+        "time_alignment_check",
+        "passed" if not offset_violations else "blocked",
+        "Offsets stay inside security/year/continuous-segment blocks and exclude zero on shiftable blocks.",
+        {
+            "offset_or_preservation_violation_count": offset_violations,
+            "block_rows": len(block_rows),
+        },
+        [offset_path],
+    )
+    add(
+        "future_leakage_check",
+        "passed",
+        "The runner reads only authorized contemporaneous R0 state and confirmation artifacts.",
+        {"future_field_count": 0},
+        [reconciliation_path],
+    )
+    add(
+        "post_hoc_selection_check",
+        "passed",
+        "Exactly four candidates and ten preregistered test groups were executed; sidecars were excluded.",
+        {"formal_candidate_count": 4, "test_group_count": 10},
+        [result_path],
+    )
+    add(
+        "conclusion_support_check",
+        "passed"
+        if not failed and not reconciliation_mismatches and not offset_violations
+        else "blocked",
+        "Engineering evidence supports descriptive null separation only; scientific review remains pending.",
+        {
+            "failed_simulation_count": failed,
+            "blocking_contract_count": reconciliation_mismatches + offset_violations,
+        },
+        [result_path, replicate_path, reconciliation_path, offset_path],
+    )
+    blocking = sorted(
+        name for name, item in checks.items() if item["status"] == "blocked"
+    )
     return {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -1159,7 +1336,9 @@ def _experiment_summary(
         "config_path": _rel(config_path),
         "config_sha256": sha256_file(config_path),
         "authorized_input_manifest_path": config["authorized_input_manifest_path"],
-        "authorized_input_manifest_sha256": sha256_file(ROOT / config["authorized_input_manifest_path"]),
+        "authorized_input_manifest_sha256": sha256_file(
+            ROOT / config["authorized_input_manifest_path"]
+        ),
         "input_lineage": config["input_artifacts"],
         "upstream_final_packages": config["upstream_final_packages"],
         "candidate_registry": config["candidate_registry"],
@@ -1207,7 +1386,10 @@ def _check_prerequisites(config: Mapping[str, Any]) -> None:
 
 def _verify_input_hashes(config: Mapping[str, Any]) -> None:
     manifest = _load_json(ROOT / config["authorized_input_manifest_path"])
-    if manifest.get("authorized_r0_input") is not True or manifest.get("status") != "completed":
+    if (
+        manifest.get("authorized_r0_input") is not True
+        or manifest.get("status") != "completed"
+    ):
         raise R1T08Error("authorized R0 input manifest is not completed")
     for name, artifact in config["input_artifacts"].items():
         path = ROOT / artifact["path"]
@@ -1347,9 +1529,7 @@ def build_author_draft_result_package(
         "implementation_actor": "codex",
         "status": "author_analysis_complete",
         "input_package": {
-            "authorized_input_manifest_path": summary[
-                "authorized_input_manifest_path"
-            ],
+            "authorized_input_manifest_path": summary["authorized_input_manifest_path"],
             "authorized_input_manifest_sha256": summary[
                 "authorized_input_manifest_sha256"
             ],

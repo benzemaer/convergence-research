@@ -31,18 +31,14 @@ class R1T08NullEngineTest(unittest.TestCase):
         ps = np.array([VALID, VALID, VALID, UNKNOWN], dtype=np.int8)
         cs = np.array([BLOCKED, VALID, BLOCKED, VALID], dtype=np.int8)
         raw, status = ordered_and((p, c), (ps, cs))
-        np.testing.assert_array_equal(
-            raw, [RAW_FALSE, RAW_FALSE, RAW_NULL, RAW_NULL]
-        )
+        np.testing.assert_array_equal(raw, [RAW_FALSE, RAW_FALSE, RAW_NULL, RAW_NULL])
         np.testing.assert_array_equal(status, [VALID, VALID, BLOCKED, UNKNOWN])
 
     def test_blocks_split_on_security_year_and_calendar_gap(self) -> None:
         sec = np.array([0, 0, 0, 0, 1, 1])
         year = np.array([2020, 2020, 2020, 2021, 2020, 2020])
         ordinal = np.array([1, 2, 4, 5, 1, 2])
-        starts, lengths, block_id, within = derive_continuous_blocks(
-            sec, year, ordinal
-        )
+        starts, lengths, block_id, within = derive_continuous_blocks(sec, year, ordinal)
         np.testing.assert_array_equal(starts, [0, 2, 3, 4])
         np.testing.assert_array_equal(lengths, [2, 1, 1, 2])
         np.testing.assert_array_equal(block_id, [0, 0, 1, 2, 3, 3])
