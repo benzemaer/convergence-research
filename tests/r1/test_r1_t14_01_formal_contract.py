@@ -43,6 +43,14 @@ class R1T1401FormalContractTests(unittest.TestCase):
             },
         )
 
+    def test_formal_runner_emits_vector_heartbeat(self) -> None:
+        source = (ROOT / "src/r1/r1_t14_01_layer_q_response_diagnostic.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("phase=vector_start", source)
+        self.assertIn("phase=vector_complete", source)
+        self.assertIn("flush=True", source)
+
 
 if __name__ == "__main__":
     unittest.main()

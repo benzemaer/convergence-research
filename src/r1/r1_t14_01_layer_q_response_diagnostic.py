@@ -140,6 +140,11 @@ def run_r1_t14_01_layer_q_response_diagnostic(
     inputs = _resolve_and_verify_inputs(config, verify_input_hashes)
     registry = build_grid_registry(config)
     _write_csv(output_dir / CSV_ARTIFACTS[0], registry)
+    print(
+        f"heartbeat task={TASK_ID} run_id={run_id} phase=input_verified "
+        f"vectors={len(registry)} code_commit={code_commit}",
+        flush=True,
+    )
 
     import duckdb  # noqa: PLC0415
 
@@ -314,9 +319,16 @@ def _run_vectors(
             "reconciliation",
         )
     }
+    completed = 0
+    total = len(registry)
     for window in config["grid"]["W"]:
         ordered = [row for row in registry if row["W"] == window]
         for row in ordered:
+            print(
+                f"heartbeat task={TASK_ID} phase=vector_start "
+                f"completed={completed}/{total} vector={row['candidate_q_vector_id']}",
+                flush=True,
+            )
             _create_vector_daily(con, row)
             _create_vector_intervals(con)
             state_rows = _state_profile(con, row)
@@ -350,6 +362,12 @@ def _run_vectors(
             results["identity"].extend(identity_rows)
             con.execute("DROP TABLE vector_intervals")
             con.execute("DROP TABLE vector_daily")
+            completed += 1
+            print(
+                f"heartbeat task={TASK_ID} phase=vector_complete "
+                f"completed={completed}/{total} vector={row['candidate_q_vector_id']}",
+                flush=True,
+            )
     return results
 
 
