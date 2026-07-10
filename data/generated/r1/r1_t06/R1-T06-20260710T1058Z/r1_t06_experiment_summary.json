@@ -1,0 +1,249 @@
+{
+  "blocked_reasons": [],
+  "challengers": [
+    {
+      "W": 120,
+      "id": "short_window",
+      "q": 0.2
+    },
+    {
+      "W": 500,
+      "id": "long_window",
+      "q": 0.2
+    },
+    {
+      "W": 250,
+      "id": "strict_threshold",
+      "q": 0.1
+    },
+    {
+      "W": 250,
+      "id": "loose_threshold",
+      "q": 0.3
+    }
+  ],
+  "checks": {
+    "all_null_check": "passed",
+    "all_one_check": "passed",
+    "all_zero_check": "passed",
+    "baseline_challenger_check": "passed",
+    "conclusion_support_check": "passed",
+    "coverage_check": "passed",
+    "denominator_integrity_check": "passed",
+    "funnel_accounting_check": "passed",
+    "future_leakage_check": "passed",
+    "nested_invariant_check": "passed",
+    "parameter_response_check": "passed",
+    "post_hoc_selection_check": "passed",
+    "primary_output_nonempty": "passed",
+    "sample_size_check": "passed",
+    "scale_shift_check": "passed",
+    "time_alignment_check": "passed",
+    "upstream_consistency_check": "passed",
+    "validity_rate_check": "passed"
+  },
+  "code_commit": "7622d7741f88cf22fb9328466556bd927629c1ab",
+  "config_path": "configs/r1/r1_t06_contemporaneous_retention_lift.v1.json",
+  "config_sha256": "f423e2f57ec60bbb4667ebe7380701f3948776e8933121aec91fe99e38957cab",
+  "counts": {
+    "denominator_sensitivity_csv": 27,
+    "dimension_state_reconciliation_csv": 36,
+    "layer_step_profile_csv": 27,
+    "r0_nested_reconciliation_csv": 36,
+    "security_step_summary_csv": 27,
+    "year_step_profile_csv": 270
+  },
+  "created_at": "2026-07-10T10:58:37+00:00",
+  "downstream_gates": {
+    "R1-T07_allowed_to_start": false,
+    "downstream_gate_allowed": false
+  },
+  "grid": {
+    "K": "not_applicable",
+    "W": [
+      120,
+      250,
+      500
+    ],
+    "q": [
+      0.1,
+      0.2,
+      0.3
+    ]
+  },
+  "input_lineage": {
+    "r0_inputs": {
+      "dimension_score": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+        "row_count": 20769228,
+        "security_count": 800,
+        "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+        "table": "r0_t05_dimension_score_results"
+      },
+      "dimension_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+        "row_count": 62307684,
+        "security_count": 800,
+        "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+        "table": "r0_t06_dimension_state_results"
+      },
+      "nested_daily_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+        "row_count": 15576921,
+        "security_count": 800,
+        "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+        "table": "r0_t06_nested_daily_state_results"
+      }
+    },
+    "r0_repair_evidence_path": "docs/evidence/r0/R0_blocker_C2_readiness_state_validity_fullgrid_repair_evidence.md",
+    "r0_t11_handoff_evidence_path": "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+    "r0_t11_handoff_report_path": "docs/reports/r0/R0_r1_handoff.md",
+    "r1_t05_gate": {
+      "r1_t05_evidence_path": "docs/evidence/r1/R1-T05_indicator_intralayer_diagnostics_evidence.md",
+      "r1_t05_result_package_path": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_result_package.json",
+      "r1_t05_result_package_sha256": "9c54e2dea2d1ddd5248aa6a0dcc1d7e26eef954d9ac14de19f7dae2750a25b2f",
+      "r1_t05_scientific_review_md_path": "docs/reviews/r1/R1-T05_indicator_intralayer_diagnostics_scientific_review.md",
+      "r1_t05_scientific_review_path": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_scientific_review.json",
+      "r1_t05_scientific_review_sha256": "3cb54ff8fe7892b9686f7f7a0c487d9fd2d4ad40470c2e36d0265c149a4aa0e6"
+    }
+  },
+  "material_warnings": [
+    {
+      "name": "inherits_r1_t05_C_layer_near_redundancy",
+      "rationale": "R1-T06 uses R0 weak dimension states and inherits R1-T05's C-layer near-redundancy warning as a possible same-time association amplifier.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_V_layer_W_dependent_identity",
+      "rationale": "R1-T06 reports W response without selecting W; V_given_PCT must be read against the inherited V window-dependence warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_T_q10_joint_high_fragmentation",
+      "rationale": "T_given_PC q10 results may be affected by high single-day fragmentation inherited from R1-T05 diagnostics.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_T2_extreme_right_tail",
+      "rationale": "R1-T06 does not modify T2 raw-scale tail behavior; it only describes contemporaneous weak dimension states.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_strict_past_percentile_nonuniformity",
+      "rationale": "Strict-past percentile buckets are nonuniform; nominal q remains a threshold rather than exact target coverage.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_nominal_q_actual_hit_rate_divergence",
+      "rationale": "Observed active rates can diverge from nominal q under ties, availability, and rolling history.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "delta_median": "-0.03844414292175486"
+      },
+      "name": "V_GIVEN_PCT_W250_Q10_pooled_security_sign_reversal",
+      "rationale": "Pooled association sign differs from the security-level median sign.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "delta_median": "-0.022245762711864406"
+      },
+      "name": "V_GIVEN_PCT_W500_Q10_pooled_security_sign_reversal",
+      "rationale": "Pooled association sign differs from the security-level median sign.",
+      "status": "material_warning"
+    }
+  ],
+  "output_paths": {
+    "anomaly_scan": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_anomaly_scan.json",
+      "sha256": "38b362166c2037d41401bd054ba9a6136de73a3a0b3869e278846895eaa61b0f"
+    },
+    "denominator_sensitivity_csv": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_denominator_sensitivity.csv",
+      "sha256": "3829c9e07ab1df05204c8d9306e82ec9fbcde38bb47265128bf7863a4f389655"
+    },
+    "diagnostic_summary": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json",
+      "sha256": "21b1a52c3f7828f02d83376ccd049975b99fe5cd53e2756448de2fe7e8a7ed73"
+    },
+    "dimension_state_reconciliation_csv": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_dimension_state_reconciliation.csv",
+      "sha256": "0b1e32e2146b45eb664326c24df8c426b2e917ff756bbe45434e8357cb496460"
+    },
+    "layer_step_profile_csv": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_layer_step_profile.csv",
+      "sha256": "47fefe538080a0f9351034c9d460106ea1e944dea96d8091869062622f80842c"
+    },
+    "r0_nested_reconciliation_csv": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_r0_nested_reconciliation.csv",
+      "sha256": "301858808a2c92c04c6d647114031a8b01e218003af2c0a1c021af47a0efb2fe"
+    },
+    "security_step_summary_csv": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_security_step_summary.csv",
+      "sha256": "f8a6aedb9267b37d214c7b70981812c8a2efd493071e0884fcaf6786e21c76f6"
+    },
+    "year_step_profile_csv": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_year_step_profile.csv",
+      "sha256": "f1f90060a56cb1f492a018e7e179388831e54c1fcbb9bde2e111947e507b8d03"
+    }
+  },
+  "parallelism": {
+    "duckdb_memory_limit": "4GB",
+    "duckdb_threads": 4,
+    "parallelism_mode": "duckdb_native_single_process"
+  },
+  "primary_baseline": {
+    "W": 250,
+    "q": 0.2
+  },
+  "protocol_version": "R1.v0.3.R1-T06.v1",
+  "run_id": "R1-T06-20260710T1058Z",
+  "status": "completed",
+  "step_registry": [
+    {
+      "anchor_state": "P",
+      "child_state": "S_PC",
+      "required_dimensions": [
+        "P",
+        "C"
+      ],
+      "step_id": "C_GIVEN_P",
+      "target_dimension": "C"
+    },
+    {
+      "anchor_state": "S_PC",
+      "child_state": "S_PCT",
+      "required_dimensions": [
+        "P",
+        "C",
+        "T"
+      ],
+      "step_id": "T_GIVEN_PC",
+      "target_dimension": "T"
+    },
+    {
+      "anchor_state": "S_PCT",
+      "child_state": "S_PCVT",
+      "required_dimensions": [
+        "P",
+        "C",
+        "T",
+        "V"
+      ],
+      "step_id": "V_GIVEN_PCT",
+      "target_dimension": "V"
+    }
+  ],
+  "task_id": "R1-T06"
+}

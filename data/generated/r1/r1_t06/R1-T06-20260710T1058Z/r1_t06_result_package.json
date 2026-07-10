@@ -1,0 +1,134 @@
+{
+  "anomaly_scan_path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_anomaly_scan.json",
+  "anomaly_scan_sha256": "38b362166c2037d41401bd054ba9a6136de73a3a0b3869e278846895eaa61b0f",
+  "code_commit": "7622d7741f88cf22fb9328466556bd927629c1ab",
+  "config_path": "configs/r1/r1_t06_contemporaneous_retention_lift.v1.json",
+  "config_sha256": "f423e2f57ec60bbb4667ebe7380701f3948776e8933121aec91fe99e38957cab",
+  "diagnostic_artifacts": [
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json",
+      "record_count": 1,
+      "sha256": "21b1a52c3f7828f02d83376ccd049975b99fe5cd53e2756448de2fe7e8a7ed73"
+    },
+    {
+      "artifact_role": "anomaly_scan",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_anomaly_scan.json",
+      "record_count": 1,
+      "sha256": "38b362166c2037d41401bd054ba9a6136de73a3a0b3869e278846895eaa61b0f"
+    }
+  ],
+  "downstream_gate_allowed": false,
+  "engineering_validation_result_path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "b84ae9f0d8d8cfcc415828bd79dc7bc0bb45a3ceb558d315b9ca98a548a865ce",
+  "expected_current_stage": "R1",
+  "expected_current_task": "R1-T06 层间同期留存、关联 Lift 与嵌套增量",
+  "expected_downstream_gate_marker": "R1-T07_allowed_to_start: false",
+  "expected_next_planned_task": "R1-T07 S_PCT/S_PCVT 预注册配置的同步性零模型",
+  "experiment_summary_path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_experiment_summary.json",
+  "experiment_summary_sha256": "f676c3f21719ad3e56556f7cdd29b01bdda00ab736c61956cb23ff5c3831f33a",
+  "formal_evidence_path": "docs/evidence/r1/R1-T06_contemporaneous_retention_lift_nested_increment_evidence.md",
+  "formal_evidence_sha256": "397af6d74f479306773c36ec05797001f368d6eb89801a55ca650036ef5a2fca",
+  "gate_status": {
+    "anomaly_resolution_status": "passed",
+    "author_result_analysis_status": "passed",
+    "engineering_validator_status": "passed",
+    "readme_gate_updated": false,
+    "result_artifact_status": "passed",
+    "review_phase": "author_analysis_complete",
+    "scientific_review_status": "pending"
+  },
+  "implementation_actor": "codex",
+  "input_package": {
+    "dimension_score": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "row_count": 20769228,
+      "security_count": 800,
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "table": "r0_t05_dimension_score_results"
+    },
+    "dimension_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "row_count": 62307684,
+      "security_count": 800,
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "table": "r0_t06_dimension_state_results"
+    },
+    "nested_daily_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+      "row_count": 15576921,
+      "security_count": 800,
+      "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+      "table": "r0_t06_nested_daily_state_results"
+    }
+  },
+  "primary_result_artifacts": [
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_layer_step_profile.csv",
+      "record_count": 27,
+      "sha256": "47fefe538080a0f9351034c9d460106ea1e944dea96d8091869062622f80842c"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_denominator_sensitivity.csv",
+      "record_count": 27,
+      "sha256": "3829c9e07ab1df05204c8d9306e82ec9fbcde38bb47265128bf7863a4f389655"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_year_step_profile.csv",
+      "record_count": 270,
+      "sha256": "f1f90060a56cb1f492a018e7e179388831e54c1fcbb9bde2e111947e507b8d03"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_security_step_summary.csv",
+      "record_count": 27,
+      "sha256": "f8a6aedb9267b37d214c7b70981812c8a2efd493071e0884fcaf6786e21c76f6"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_r0_nested_reconciliation.csv",
+      "record_count": 36,
+      "sha256": "301858808a2c92c04c6d647114031a8b01e218003af2c0a1c021af47a0efb2fe"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_dimension_state_reconciliation.csv",
+      "record_count": 36,
+      "sha256": "0b1e32e2146b45eb664326c24df8c426b2e917ff756bbe45434e8357cb496460"
+    }
+  ],
+  "readme_path": "docs/tasks/README.md",
+  "readme_sha256": "faca0994e2c8ec421dbaa1076548f8be8f254ebb19aad3b6887195dab4f0079d",
+  "result_analysis_path": "docs/experiments/r1/R1-T06_contemporaneous_retention_lift_nested_increment_result_analysis.md",
+  "result_analysis_sha256": "e1d5f607f8a893cc81a799903d0a68a61238ab80398f5a7accdef6c5e9ede682",
+  "run_id": "R1-T06-20260710T1058Z",
+  "scientific_review_md_path": null,
+  "scientific_review_md_sha256": null,
+  "scientific_review_record_path": null,
+  "scientific_review_record_sha256": null,
+  "status": "author_analysis_complete",
+  "superseded": false,
+  "superseded_by": null,
+  "task_class": "formal_experiment",
+  "task_id": "R1-T06"
+}
