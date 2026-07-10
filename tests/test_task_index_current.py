@@ -15,7 +15,7 @@ class TaskIndexCurrentTest(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+            "next_planned_task: branch-dependent after R1-T14-01 final decision",
             text,
         )
         self.assertIn(
@@ -46,6 +46,12 @@ class TaskIndexCurrentTest(unittest.TestCase):
             "`R1-T09` 年份稳定性与状态集中度检查：completed via PR #85",
             text,
         )
+        self.assertIn("R1-T14-01_decision_status: pending", text)
+        self.assertIn("R1-T14-02_status: blocked_pending_t14_01_decision", text)
+        self.assertIn("R0_q_vector_materialization_request_status: not_requested", text)
+        self.assertIn("R0_q_vector_materialization_task_id: unbound", text)
+        self.assertIn("R0_q_vector_materialization_allowed_to_start: false", text)
+        self.assertIn("R0_q_vector_materialization_status: not_started", text)
         self.assertIn("R1-T09_allowed_to_start: true", text)
         self.assertIn("R1-T14-01_allowed_to_start: true", text)
         self.assertIn("R1-T14-02_allowed_to_start: false", text)

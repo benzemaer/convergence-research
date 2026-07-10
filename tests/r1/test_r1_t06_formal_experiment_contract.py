@@ -8,22 +8,9 @@ from pathlib import Path
 class R1T06FormalExperimentContractTest(unittest.TestCase):
     def test_readme_records_r1_t06_completion_after_later_final_gates(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
-        self.assertIn(
-            "current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名",
-            readme,
-        )
-        self.assertIn(
-            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
-            readme,
-        )
         self.assertIn("R1-T06 completed via PR #82", readme)
         self.assertIn("R1-T06_allowed_to_start: true", readme)
         self.assertIn("R1-T07_allowed_to_start: true", readme)
-        self.assertIn("R1-T08_allowed_to_start: true", readme)
-        self.assertIn("R1-T09_allowed_to_start: true", readme)
-        self.assertIn("R1-T14-01_allowed_to_start: true", readme)
-        self.assertIn("R1-T10_allowed_to_start: false", readme)
-        self.assertIn("R2_allowed_to_start: false", readme)
 
     def test_required_implementation_files_exist(self) -> None:
         for path in (

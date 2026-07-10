@@ -19,13 +19,19 @@
 ```text
 current_stage: R1
 current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名
-next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验
+next_planned_task: branch-dependent after R1-T14-01 final decision
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
 R1-T07 completed via PR #83
 R1-T08 completed via PR #84
 R1-T09 completed via PR #85
+R1-T14-01_decision_status: pending
+R1-T14-02_status: blocked_pending_t14_01_decision
+R0_q_vector_materialization_request_status: not_requested
+R0_q_vector_materialization_task_id: unbound
+R0_q_vector_materialization_allowed_to_start: false
+R0_q_vector_materialization_status: not_started
 R1-T05_allowed_to_start: true
 R1-T06_allowed_to_start: true
 R1-T07_allowed_to_start: true
@@ -286,6 +292,71 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R1-T13` 替代指标口径 sensitivity sidecar：optional / triggered
 
 若 R1-T14-01 输出 `no_q_decoupling_candidate`，R1-T14-02 可正式记录为 `not_triggered`，经 T14-01 final gate 后直接推进 R1-T10。若输出 `q_vector_materialization_request`，必须先完成单独授权的 R0 formal materialization handoff，再允许启动 R1-T14-02。R1-T11/T12/T13 不因本路线自动触发，R2 在 R1-T10 完成前始终关闭。
+
+### R1-T14 分支状态机
+
+T14-01 当前初始状态为：
+
+```text
+R1-T14-01_decision_status: pending
+R1-T14-02_status: blocked_pending_t14_01_decision
+R0_q_vector_materialization_request_status: not_requested
+R0_q_vector_materialization_task_id: unbound
+R0_q_vector_materialization_allowed_to_start: false
+R0_q_vector_materialization_status: not_started
+R1-T14-02_allowed_to_start: false
+R1-T10_allowed_to_start: false
+R2_allowed_to_start: false
+```
+
+若 T14-01 final gate 选择 `no_q_decoupling_candidate`，README 只能推进到：
+
+```text
+current_stage: R1
+current_task: R1-T10 R1 验收门禁与 R2 交接矩阵
+next_planned_task: R2-T01 参数候选收敛
+R1-T14-01_decision_status: no_q_decoupling_candidate
+R1-T14-02_status: not_triggered
+R0_q_vector_materialization_request_status: not_requested
+R0_q_vector_materialization_task_id: unbound
+R0_q_vector_materialization_allowed_to_start: false
+R0_q_vector_materialization_status: not_started
+R1-T14-02_allowed_to_start: false
+R1-T10_allowed_to_start: true
+R2_allowed_to_start: false
+```
+
+若 T14-01 final gate 选择 `q_vector_materialization_request`，必须先绑定具体 `R0_q_vector_materialization_task_id`，README 只能推进到：
+
+```text
+current_stage: R0
+current_task: <bound R0 task_id and title>
+next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验
+R1-T14-01_decision_status: q_vector_materialization_request
+R0_q_vector_materialization_request_status: approved
+R0_q_vector_materialization_task_id: <bound concrete R0 task_id before final gate>
+R0_q_vector_materialization_allowed_to_start: true
+R0_q_vector_materialization_status: authorized
+R1-T14-02_status: blocked_pending_R0
+R1-T14-02_allowed_to_start: false
+R1-T10_allowed_to_start: false
+R2_allowed_to_start: false
+```
+
+R0 q-vector materialization final gate 通过后，README 才能返回 R1：
+
+```text
+current_stage: R1
+current_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验
+next_planned_task: R1-T10 R1 验收门禁与 R2 交接矩阵
+R0_q_vector_materialization_request_status: fulfilled
+R0_q_vector_materialization_allowed_to_start: false
+R0_q_vector_materialization_status: completed
+R1-T14-02_status: authorized
+R1-T14-02_allowed_to_start: true
+R1-T10_allowed_to_start: false
+R2_allowed_to_start: false
+```
 
 ## R2：参数、事件规则与状态版本冻结
 

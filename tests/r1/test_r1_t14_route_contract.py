@@ -63,14 +63,58 @@ class R1T14RouteContractTest(unittest.TestCase):
         self.assertIn("no_q_decoupling_candidate", text)
         self.assertIn("T14-01 不产生 `freeze_candidate`", text)
         self.assertIn("不能直接放行 T14-02", text)
+        for marker in (
+            "initial_after_R1-T09",
+            "no_q_decoupling_candidate:",
+            "q_vector_materialization_request:",
+            "R0_q_vector_materialization_final_gate:",
+            "R0_q_vector_materialization_task_id: "
+            "<bound concrete R0 task_id before final gate>",
+        ):
+            self.assertIn(marker, text)
+
+    def test_t14_01_diagnostic_derivation_boundary_is_explicit(self) -> None:
+        text = TASK_01.read_text(encoding="utf-8")
+        stage = STAGE_SPEC.read_text(encoding="utf-8")
+        for document in (text, stage):
+            self.assertIn("diagnostic-only / non-authoritative", document)
+            self.assertIn("r1_t14_01_diagnostic_only", document)
+            self.assertIn("不得替代 R0 formal materialization", document)
+            self.assertIn("重新计算 strict-past percentile score", document)
+        self.assertIn("不得直接作为 R1-T14-02 或 R1-T10 输入", text)
+        self.assertIn(
+            "不得对未正式物化的 q 水平执行正式 R1-T08 global/nested null",
+            text,
+        )
+        self.assertIn(
+            "不产生正式 R1-T08 global/nested null gate evidence",
+            text,
+        )
 
     def test_t14_02_requires_r0_formal_materialization(self) -> None:
         task_01 = TASK_01.read_text(encoding="utf-8")
         text = TASK_02.read_text(encoding="utf-8")
         self.assertIn("T14-01 不得直接授权 T14-02", task_01)
-        self.assertIn("R0 formal materialization package 必须完成接收", text)
+        self.assertIn("R0_q_vector_materialization_status: completed", text)
+        self.assertIn("R0_q_vector_materialization_task_id", text)
         self.assertIn("blocked_return_to_R0", text)
         self.assertIn("没有 R1-T14-01 `q_vector_materialization_request`", text)
+        self.assertIn(
+            "T14-01 的 `r1_t14_01_diagnostic_only` artifacts "
+            "不得作为本 task 的 formal input",
+            text,
+        )
+
+    def test_t14_02_is_same_sample_revalidation_with_selection_limitation(self) -> None:
+        text = TASK_02.read_text(encoding="utf-8")
+        stage = STAGE_SPEC.read_text(encoding="utf-8")
+        for document in (text, stage):
+            self.assertIn("same-sample formal", document)
+            self.assertIn("不是独立 confirmatory test", document)
+            self.assertIn("selection_path_not_independently_confirmed=true", document)
+            self.assertIn("校正 T14-01", document)
+        self.assertIn("只控制 T14-02 formal run 的冻结 family", text)
+        self.assertIn("不得描述为独立 confirmation sample", text)
 
     def test_both_tasks_forbid_future_labels_and_direct_freeze(self) -> None:
         for path in (TASK_01, TASK_02):
@@ -89,12 +133,39 @@ class R1T14RouteContractTest(unittest.TestCase):
 
     def test_readme_keeps_downstream_gates_closed(self) -> None:
         text = README.read_text(encoding="utf-8")
+        self.assertIn(
+            "next_planned_task: branch-dependent after R1-T14-01 final decision",
+            text,
+        )
+        self.assertIn("R1-T14-01_decision_status: pending", text)
+        self.assertIn("R1-T14-02_status: blocked_pending_t14_01_decision", text)
+        self.assertIn("R0_q_vector_materialization_request_status: not_requested", text)
+        self.assertIn("R0_q_vector_materialization_task_id: unbound", text)
+        self.assertIn("R0_q_vector_materialization_allowed_to_start: false", text)
+        self.assertIn("R0_q_vector_materialization_status: not_started", text)
         self.assertIn("R1-T14-01_allowed_to_start: true", text)
         for task in ("R1-T14-02", "R1-T10", "R1-T11", "R1-T12", "R1-T13"):
             self.assertIn(f"{task}_allowed_to_start: false", text)
         self.assertIn("R2_allowed_to_start: false", text)
         for task in ("R1-T11", "R1-T12", "R1-T13"):
             self.assertRegex(text, rf"`{task}`.*optional / triggered")
+
+    def test_readme_records_all_t14_branch_state_transitions(self) -> None:
+        text = README.read_text(encoding="utf-8")
+        for marker in (
+            "若 T14-01 final gate 选择 `no_q_decoupling_candidate`",
+            "R1-T14-01_decision_status: no_q_decoupling_candidate",
+            "R1-T14-02_status: not_triggered",
+            "若 T14-01 final gate 选择 `q_vector_materialization_request`",
+            "R0_q_vector_materialization_request_status: approved",
+            "R0_q_vector_materialization_task_id: "
+            "<bound concrete R0 task_id before final gate>",
+            "R1-T14-02_status: blocked_pending_R0",
+            "R0 q-vector materialization final gate 通过后",
+            "R0_q_vector_materialization_request_status: fulfilled",
+            "R1-T14-02_status: authorized",
+        ):
+            self.assertIn(marker, text)
 
     def test_no_t14_implementation_or_generated_artifacts_exist(self) -> None:
         forbidden_patterns = (
