@@ -1,0 +1,30 @@
+{
+  "task_id": "R1-T04",
+  "stage": "R1",
+  "protocol_version": "R1.v0.3.R1-T04.v1",
+  "task_class": "formal_experiment",
+  "depends_on_task": "R1-T03",
+  "r1_t01_manifest_lock_path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+  "r1_t01_evidence_path": "docs/evidence/r1/R1-T01_validation_protocol_manifest_lock_evidence.md",
+  "r1_t02_summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1820Z/r1_t02_lineage_pit_audit_summary.json",
+  "r1_t02_evidence_path": "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md",
+  "r1_t03_summary_path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_summary.json",
+  "r1_t03_validation_result_path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_validation_result.json",
+  "r1_t03_evidence_path": "docs/evidence/r1/R1-T03_27_grid_light_profile_evidence.md",
+  "q": 0.2,
+  "parallelism": {
+    "max_workers": 3,
+    "duckdb_threads_per_worker": 1,
+    "parallelism_level": "config-level only"
+  },
+  "profiles": [
+    {"profile_id": "PCT_REFERENCE", "state_line": "S_PCT", "candidate_config_id": "R0_W250_Q20_K3_WEAK_D010", "role": "reference_baseline"},
+    {"profile_id": "PCT_FAST_CHALLENGER", "state_line": "S_PCT", "candidate_config_id": "R0_W120_Q20_K3_WEAK_D010", "role": "fast_structural_convergence_challenger"},
+    {"profile_id": "PCVT_REFERENCE", "state_line": "S_PCVT", "candidate_config_id": "R0_W250_Q20_K3_WEAK_D010", "role": "reference_depletion_profile"},
+    {"profile_id": "PCVT_SHORT_WINDOW", "state_line": "S_PCVT", "candidate_config_id": "R0_W120_Q20_K3_WEAK_D010", "role": "short_window_counterfactual"},
+    {"profile_id": "PCT_K2_SIDECAR", "state_line": "S_PCT", "candidate_config_id": "R0_W120_Q20_K2_WEAK_D010", "role": "k2_confirmation_sidecar"},
+    {"profile_id": "PCVT_LONG_WINDOW_SIDECAR", "state_line": "S_PCVT", "candidate_config_id": "R0_W500_Q20_K3_WEAK_D010", "role": "long_window_sidecar"},
+    {"profile_id": "PCVT_K5_SIDECAR", "state_line": "S_PCVT", "candidate_config_id": "R0_W250_Q20_K5_WEAK_D010", "role": "stricter_confirmation_sidecar"}
+  ],
+  "forbidden_tokens": ["future", "return", "release", "backtest", "portfolio", "signal", "freeze_candidate", "review_candidate", "do_not_freeze", "best_config", "winner", "optimal"]
+}
