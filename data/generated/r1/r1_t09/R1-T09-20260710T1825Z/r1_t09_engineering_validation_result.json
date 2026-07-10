@@ -1,0 +1,14 @@
+{
+  "candidate_count": 4,
+  "code_commit": "31e2533adcf1852d55ea8e5f16ac38e0a8453e97",
+  "errors": [],
+  "leave_one_year_out_rows": 110,
+  "reconciliation_mismatch_count": 0,
+  "run_id": "R1-T09-20260710T1825Z",
+  "task_id": "R1-T09",
+  "validator": "r1_t09_year_stability_concentration_validator",
+  "validator_status": "passed",
+  "year_interlayer_rows": 66,
+  "year_interval_rows": 44,
+  "year_state_rows": 44
+}

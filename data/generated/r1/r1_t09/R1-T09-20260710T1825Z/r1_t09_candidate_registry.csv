@@ -1,0 +1,5 @@
+candidate_config_id,state_line,W,q,K,primary_role,same_parameter_parent_config_id,formal_or_sidecar,upstream_t08_test_group_ids
+R0_W250_Q20_K3_WEAK_D010,S_PCT,250,0.2,3,reference_baseline,R0_W250_Q20_K3_WEAK_D010,formal,W250_GLOBAL_PCT_SYNC|W250_T_GIVEN_PC
+R0_W120_Q20_K3_WEAK_D010,S_PCT,120,0.2,3,fast_state_challenger,R0_W120_Q20_K3_WEAK_D010,formal,W120_GLOBAL_PCT_SYNC|W120_T_GIVEN_PC
+R0_W250_Q20_K3_WEAK_D010,S_PCVT,250,0.2,3,depletion_reference,R0_W250_Q20_K3_WEAK_D010,formal,W250_GLOBAL_PCVT_SYNC|W250_V_GIVEN_PCT
+R0_W120_Q20_K3_WEAK_D010,S_PCVT,120,0.2,3,short_window_challenger,R0_W120_Q20_K3_WEAK_D010,formal,W120_GLOBAL_PCVT_SYNC|W120_V_GIVEN_PCT

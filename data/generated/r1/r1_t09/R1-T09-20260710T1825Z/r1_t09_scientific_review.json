@@ -1,0 +1,44 @@
+{
+  "alternative_explanations": [
+    "年份频率不相等可能反映共同市场 regime、横截面组成和状态定义共享输入，不等同于不稳定或因果机制。",
+    "W120 与 W250 的年度 coverage 差异同时受 strict-past valid availability 影响，不能据此选择 best window。",
+    "年度结果仍是 pooled cross-sectional panel，年度同向不能外推为多数证券同向。",
+    "T08 pooled null separation 没有在 R1-T09 按年份重新执行，不能外推为逐年 null pass。",
+    "自然年 LOYO 不能排除跨多年 regime 或其他时间分块下的敏感性。"
+  ],
+  "anomaly_review": "已复核 18 个 mandatory anomaly checks、44 条年度状态、44 条 interval、44 条 clipped geometry、66 条年度 2x2、14 条集中度摘要、110 条 LOYO、22 条 W 配对和 891 条 reconciliation。未发现全零、全一、全 NULL、参数无响应、PCVT 超出 PCT、年度 partition 丢失、interval 重复、单年过半或 LOYO 方向翻转。",
+  "baseline_challenger_review": "W120 pooled coverage 较高，但年度差异并非恒定方向；PCT 在 2023/2025、PCVT 在 2023 的 W120 coverage 低于 W250。22 个年度配对均存在 valid availability 差异，因此不支持 best-window 或 freeze 选择。",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {"calculation": "12480 / 1730769", "metric": "W120 S_PCT pooled confirmed coverage", "value": 0.007210667628089017},
+    {"calculation": "10854 / 1730769", "metric": "W250 S_PCT pooled confirmed coverage", "value": 0.006271200836160112},
+    {"calculation": "2941 / 1730769", "metric": "W120 S_PCVT pooled confirmed coverage", "value": 0.0016992446710104006},
+    {"calculation": "2143 / 1730769", "metric": "W250 S_PCVT pooled confirmed coverage", "value": 0.00123817794286817},
+    {"calculation": "sum(year_share^2)", "metric": "W120 S_PCT confirmed year HHI", "value": 0.11459613586867193},
+    {"calculation": "1 / 0.11459613586867193", "metric": "W120 S_PCT effective years", "value": 8.726297727403374},
+    {"calculation": "6278/(6278+4143) - (6278+2849)/27827", "metric": "C_GIVEN_P W120 2016 Delta", "value": 0.27444658574553915},
+    {"calculation": "97/(97+746) - (97+1728)/18593", "metric": "V_GIVEN_PCT W120 2016 Delta", "value": 0.01691002347278109},
+    {"calculation": "remove 2023 from pooled C_GIVEN_P W250 2x2", "metric": "C_GIVEN_P W250 LOYO-2023 Delta", "value": 0.2539516851049704},
+    {"calculation": "all 110 LOYO rows", "metric": "Delta or Lift-excess sign flip count", "value": 0}
+  ],
+  "nonblocking_findings": [
+    "W250_2016_zero_valid_denominator_is_strict_past_boundary",
+    "W120_2016_and_W250_2017_are_window_maturity_transition_years",
+    "2026_is_partial_through_June_30",
+    "yearly_pooled_panel_does_not_imply_security_level_direction",
+    "evaluable_year_count_uses_eligible_not_valid_denominator",
+    "candidate_registry_t08_metadata_omits_C_nested_for_S_PCT"
+  ],
+  "parameter_response_review": "已比较 W120/W250 年度 coverage、interval、fragment、unique securities、availability、集中度和 LOYO。输出具有合理窗口与年份响应，未执行 sidecar、q scan 或按结果选择参数。",
+  "review_source": "https://github.com/benzemaer/convergence-research/pull/85#issuecomment-4938516039",
+  "reviewed_analysis_sha256": "ca9c5ac88112bf3e6d6c734df6be404295e07c4254a61669d5337c73bc7cb7db",
+  "reviewed_code_commit": "31e2533adcf1852d55ea8e5f16ac38e0a8453e97",
+  "reviewed_pr_head_commit": "45e85ef7899e4f604e9e563950d493e4deec8e09",
+  "reviewed_summary_sha256": "1802fb7a74f6642361fdf9d633b0658794896f49a5daf0ce0e03f50480cd0178",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}
