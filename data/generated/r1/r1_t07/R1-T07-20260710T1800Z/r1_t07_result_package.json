@@ -1,44 +1,44 @@
 {
-  "anomaly_scan_path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_anomaly_scan.json",
-  "anomaly_scan_sha256": "e05d3a7d4bc2581dae0479483ada24a7dce684a47f97c9b8a0d91133042182c8",
-  "code_commit": "e48178558714b05a04c4b99fc65439253228984b",
+  "anomaly_scan_path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_anomaly_scan.json",
+  "anomaly_scan_sha256": "eca378753cb204e58af7d884d636aacc3f53766e77a2b01e5f715f215275d36e",
+  "code_commit": "eb800a828eda028d07913c143eb995169ab626a7",
   "config_path": "configs/r1/r1_t07_p_onset_fixed_lag_relations.v1.json",
-  "config_sha256": "4c91f866b0ef31495e4920de9a40b5867572dd1ba612927b5abd17cfa5e86baf",
+  "config_sha256": "04e77933c94bee8356d6e3a02aed4a2b88094cc77aa764952f7db5af8357bbff",
   "diagnostic_artifacts": [
     {
       "artifact_role": "diagnostic_summary",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_diagnostic_summary.json",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_diagnostic_summary.json",
       "record_count": 1,
-      "sha256": "9bbcfc0c81dad97388f093b8caa7eb61497a01b35c4ce90fb19401aeba09a3ed"
+      "sha256": "6a07b3a64082ce581d20204ff8d7e69e76425d5129f435ad4c895e6c61d02dd9"
     },
     {
       "artifact_role": "anomaly_scan",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_anomaly_scan.json",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_anomaly_scan.json",
       "record_count": 1,
-      "sha256": "e05d3a7d4bc2581dae0479483ada24a7dce684a47f97c9b8a0d91133042182c8"
+      "sha256": "eca378753cb204e58af7d884d636aacc3f53766e77a2b01e5f715f215275d36e"
     }
   ],
   "downstream_gate_allowed": false,
-  "engineering_validation_result_path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_engineering_validation_result.json",
-  "engineering_validation_result_sha256": "bc345972a03463c52d4554a5989b816cdf22c4e190b80d98cac90ba03dc111e3",
+  "engineering_validation_result_path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "7645771a94a23670b5b849e430607037db39259a9ece101609c4cf59842a7534",
   "expected_current_stage": "R1",
   "expected_current_task": "R1-T07 P 首入锚定的固定滞后结构关系",
   "expected_downstream_gate_marker": "R1-T08_allowed_to_start: false",
   "expected_next_planned_task": "R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型",
-  "experiment_summary_path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_experiment_summary.json",
-  "experiment_summary_sha256": "9aac778d6476736fb171872dd7361d3fed52ed6885e667ab30042b9552cf84ac",
+  "experiment_summary_path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_experiment_summary.json",
+  "experiment_summary_sha256": "47bd9f168bb3ae9c64712f10bf8bc89de74c0a634631d3505593ce0350599eda",
   "formal_evidence_path": "docs/evidence/r1/R1-T07_p_onset_fixed_lag_relations_evidence.md",
-  "formal_evidence_sha256": "98a02fa87024604e63cb38f87b1982c25c69b7f63c3cca4aa846b6f769ed7763",
+  "formal_evidence_sha256": "2a9f5085f719e3c61bb1c7fd1abc0f231390fb5a0823ab5a9d9c3257bf8f3659",
   "gate_status": {
-    "anomaly_resolution_status": "unresolved",
+    "anomaly_resolution_status": "passed",
     "author_result_analysis_status": "passed",
     "engineering_validator_status": "passed",
     "readme_gate_updated": false,
     "result_artifact_status": "passed",
     "review_phase": "author_analysis_complete",
-    "scientific_review_status": "needs_revision"
+    "scientific_review_status": "pending"
   },
   "implementation_actor": "codex",
   "input_package": {
@@ -67,70 +67,70 @@
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_fixed_lag_profile.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_fixed_lag_profile.csv",
       "record_count": 225,
-      "sha256": "de523403a120fff1f5f79fcbe8a2de3463c9f4e451a1172c4c9ce22d09d2fb33"
+      "sha256": "0081d3146904a11c025072ac4832770f6c9153df451835e0c052bb888903d8bf"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_baseline_sensitivity.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_baseline_sensitivity.csv",
       "record_count": 225,
-      "sha256": "fd8e09cc6373fb8b5c9c7f99fda55017d6f624d551625a14a658daf89d86040b"
+      "sha256": "d6758eb6d0c707374e27bc2113b7d0483b2e6fb94064a21d44c0a0183fbc6ba4"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_p_survival_profile.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_p_survival_profile.csv",
       "record_count": 45,
-      "sha256": "128253b296aca0e2caa1623e19d520a5f615cff83d38a3886124fafe9b41e9bc"
+      "sha256": "4924f209a9b67f46d1b2285a2486387b26aac8ba6ef614cf6c90214bf65018c6"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_anchor_target_status_profile.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_anchor_target_status_profile.csv",
       "record_count": 45,
       "sha256": "9183d04f61fe8c052bdc7b2cfd04d9aeb84577f5fd2646aae5ff01434bbb5e75"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_anchor_funnel.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_anchor_funnel.csv",
       "record_count": 9,
-      "sha256": "1baace358c6f3b94e98b640431b4b161bfdc4577778be71d7a7ac1475f0eea97"
+      "sha256": "2654b68875226732a8eebce5c1fd71f2bca8a085f3aa20d23b605e7fffaf5d2b"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_year_lag_profile.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_year_lag_profile.csv",
       "record_count": 2250,
       "sha256": "a1574f9a14be359e5e697488e82cb5efe5f74da6cb3a6b55208d57d3ebfebff8"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_security_lag_summary.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_security_lag_summary.csv",
       "record_count": 225,
       "sha256": "82d93d7b2f9538ca763546651272ef463d931de2ca3b532475c1da3585591c5f"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_state_reconciliation.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_state_reconciliation.csv",
       "record_count": 54,
       "sha256": "04b4dea3ac621c12765005272d82790e7b193660b317f55b730496154006d2fd"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_q_onset_transition_profile.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_q_onset_transition_profile.csv",
       "record_count": 66,
       "sha256": "028710991f3113fdef396eb94f2e2f1400bb441a3426160efcda8f69065992a2"
     },
     {
       "artifact_role": "primary_results",
       "committed_to_repo": true,
-      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1510Z/r1_t07_lag_alignment_reconciliation.csv",
+      "path": "data/generated/r1/r1_t07/R1-T07-20260710T1800Z/r1_t07_lag_alignment_reconciliation.csv",
       "record_count": 45,
       "sha256": "46ed9b46520958fd3e7f223b4fa37212a55783c6eaefc227b2d1072915278888"
     }
@@ -138,16 +138,15 @@
   "readme_path": "docs/tasks/README.md",
   "readme_sha256": "afbaf724f5c07cc658f057bb41e2593a99f5501d8d883f9167a6ae611ce5d9e8",
   "result_analysis_path": "docs/experiments/r1/R1-T07_p_onset_fixed_lag_relations_result_analysis.md",
-  "result_analysis_sha256": "af9ff6f3581fdf5d08dda1fed6224395d1fcdb97ad9e24464e0d240434dc545a",
-  "run_id": "R1-T07-20260710T1510Z",
+  "result_analysis_sha256": "eecc55ae0871bf85663e72c6f255b39dd69466e3987949abcf1e3ab469726050",
+  "run_id": "R1-T07-20260710T1800Z",
   "scientific_review_md_path": null,
   "scientific_review_md_sha256": null,
   "scientific_review_record_path": null,
   "scientific_review_record_sha256": null,
   "status": "author_analysis_complete",
-  "superseded": true,
-  "superseded_by": "R1-T07-20260710T1800Z",
-  "supersession_reason": "Superseded after independent review found non-executed point bootstrap intervals, overlapping anchor funnel counts, constructed state reconciliation, and target-valid denominator mismatch in standardized baselines.",
+  "superseded": false,
+  "superseded_by": null,
   "task_class": "formal_experiment",
   "task_id": "R1-T07"
 }
