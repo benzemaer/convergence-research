@@ -3,8 +3,8 @@
 `task_id`: R1-T05
 `task_class`: formal_experiment
 `status`: author_analysis_complete
-`run_id`: R1-T05-20260710T0918Z
-`code_commit`: c6899a9a3e840f749291dc57fb70f22e58e082e5
+`run_id`: R1-T05-20260710T0959Z
+`code_commit`: 5a9de4d94f294e849fd9be87238917558d55ce54
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
@@ -13,25 +13,29 @@
 `anomaly_resolution_status`: passed
 `review_phase`: author_analysis_complete
 
-`experiment_summary_path`: data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_experiment_summary.json
-`experiment_summary_sha256`: 4938ed1391fd6c482f995c14e2a3cdd61405f5c3df9217d5606bb5c9138e82cb
+`supersedes_run_id`: R1-T05-20260710T0918Z
+`supersession_reason`: scientific review found incorrect individual hit denominator, joint segment gap handling, missing percentile bucket artifact, and ambiguous validity reason denominator. The superseded run package is marked `superseded=true`.
+
+`experiment_summary_path`: data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_experiment_summary.json
+`experiment_summary_sha256`: 70276a55f7409674994bba9ddb3061c38b0c3f2dfc7834e42b1490de9c000028
 `primary_result_artifacts`:
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_indicator_raw_distribution.csv / a3996867d2a8ed5d29e55065fc2f40fef83d80e3af3c9dfed973dd6ec19e0c09 / 8 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_indicator_score_distribution.csv / 45a2a7256fb0651f44c4b9e6091bcf2012dc95c393dced4f2d5b96d2e6be9f37 / 24 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_indicator_hit_duration.csv / 7eceb10ccc9bf0d7747936ec187cf891da3c10d65a159c431a1436d12d891d63 / 72 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_intralayer_correlation.csv / 80bb612b98ad6770c77eb7930f18ea0a2739489f953c4348b44be145849c3d6c / 12 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_intralayer_threshold_structure.csv / ae6a897a0c09e2c29567de534260e041510b69c18d02bd9d7a0746100796e91f / 36 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_intralayer_diagnostic_summary.csv / a6879852a4627118e6a89c16574bb811d21f707db77affb28be64d8d2c73ed1f / 12 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_validity_reason_profile.csv / 0d839dafca445fa10d9997bfad33e3535327c8cf7a7c7edcfd91161a6b1f62c2 / 146 rows
-- data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_r0_t06_reconciliation.csv / 3b9725b6401af777e9ba400d4356def558a540646d782e509aa7e6c387ebf776 / 72 rows
-`diagnostic_summary_path`: data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_diagnostic_summary.json
-`diagnostic_summary_sha256`: 4e21a27c31c0713024de30bfa22c4fde57fff6f144299cf866395c7ec4aa7edf
-`engineering_validation_result_path`: data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_engineering_validation_result.json
-`engineering_validation_result_sha256`: 62621c9bd3f78e17bfd76488c983e6dc3f884141fac59cf47a52422709e7972f
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_indicator_raw_distribution.csv / a3996867d2a8ed5d29e55065fc2f40fef83d80e3af3c9dfed973dd6ec19e0c09 / 8 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_indicator_score_distribution.csv / 45a2a7256fb0651f44c4b9e6091bcf2012dc95c393dced4f2d5b96d2e6be9f37 / 24 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_indicator_percentile_bucket_distribution.csv / 0b7b4b4e46f7025fee4cb5323efce24cad0ee81644b857eceb0d011ddd1c29ae / 240 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_indicator_hit_duration.csv / 54ab887c02369799491fae044bb866c4fa912e7ecd82c525435375ede6eaa2a8 / 72 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_intralayer_correlation.csv / 85bd32d34c12fed94bf83d7fb7423661495d8f416a6c3a728770c9e3465860d5 / 12 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_intralayer_threshold_structure.csv / 0d31862d6b42fe67d5d31fcd7c8fda627e90aa0c285861efdaed9d60509d06e3 / 36 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_intralayer_diagnostic_summary.csv / 4d57094d86d510551159ad3a2ac9f3b6881d10186533ba4512ca2a6fa55c5252 / 12 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_validity_reason_profile.csv / b9710d5f1145fe2163900b5009f7d21924643feb94c6ab67af473248e027b7be / 146 rows
+- data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_r0_t06_reconciliation.csv / 3b9725b6401af777e9ba400d4356def558a540646d782e509aa7e6c387ebf776 / 72 rows
+`diagnostic_summary_path`: data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_diagnostic_summary.json
+`diagnostic_summary_sha256`: be374b1efb2f4e4f825476de08aebca5ffc98eb7a045caf7dbc37fd2982bbfff
+`engineering_validation_result_path`: data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_engineering_validation_result.json
+`engineering_validation_result_sha256`: e87616c3b97403d6838d6e26bd246d14205dd82b625302f6006d9c12cf2dd364
 `result_analysis_path`: docs/experiments/r1/R1-T05_indicator_intralayer_diagnostics_result_analysis.md
-`result_analysis_sha256`: 662f9c6bb30204b9364bd00ada8dbf0de22ad4605f154e5849b39c2fee9cc15d
-`anomaly_scan_path`: data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_anomaly_scan.json
-`anomaly_scan_sha256`: af0023d4c42ab24b2f3b5e669127870263301f4ecc4af0080ff9b73b7b1e2768
+`result_analysis_sha256`: 5c9b930359e35724b55c9cb49f465065844da85ca3caa9fb5c923b2b2f220ab6
+`anomaly_scan_path`: data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_anomaly_scan.json
+`anomaly_scan_sha256`: 1561e287d0d813c17b1acf5efde3abf980cac0acc815e9b1e72b4bfe3d1ab80b
 `formal_evidence_path`: docs/evidence/r1/R1-T05_indicator_intralayer_diagnostics_evidence.md
 `formal_evidence_sha256`: computed in result package
 `scientific_review_path`: null
@@ -54,15 +58,17 @@
 Command:
 
 ```bash
-python -m src.r1.r1_t05_indicator_intralayer_diagnostics_cli --output-dir data/generated/r1/r1_t05/R1-T05-20260710T0918Z --run-id R1-T05-20260710T0918Z --code-commit c6899a9a3e840f749291dc57fb70f22e58e082e5
+python -m src.r1.r1_t05_indicator_intralayer_diagnostics_cli --output-dir data/generated/r1/r1_t05/R1-T05-20260710T0959Z --run-id R1-T05-20260710T0959Z --code-commit 5a9de4d94f294e849fd9be87238917558d55ce54
 ```
 
 Task-specific validation:
 
 ```bash
-python -m src.r1.r1_t05_indicator_intralayer_diagnostics_validator_cli --summary data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_experiment_summary.json --output data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_engineering_validation_result.json
+python -m src.r1.r1_t05_indicator_intralayer_diagnostics_validator_cli --summary data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_experiment_summary.json --output data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_engineering_validation_result.json
 ```
 
 ## Gate Notes
 
 R1-T04 final gate passed before this run. Repaired R0-T10-01/T10-02/T10-03 input hashes, row counts, security counts and date ranges matched the locked config. Author-draft stops with `scientific_review_status=pending`, `downstream_gate_allowed=false`, and README still on R1-T05.
+
+The previous run `R1-T05-20260710T0918Z` is superseded and must not be used as current R1-T05 evidence.
