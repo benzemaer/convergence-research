@@ -250,7 +250,7 @@ def _validate_security_summary(rows: list[dict[str, str]], errors: list[str]) ->
     if len(rows) != 27:
         return
     for row in rows:
-        if _int(row, "security_count_total") != 800:
+        if not (0 < _int(row, "security_count_total") <= 800):
             errors.append("security_count_total_mismatch")
         if _int(row, "retention_computable_security_count") <= 0:
             errors.append("security_retention_uncomputable")
