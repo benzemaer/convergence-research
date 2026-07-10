@@ -51,6 +51,20 @@ def validate_r1_t14_01_layer_q_response_diagnostic(
         errors.append("state_profile_cardinality_not_136")
     if len(response) != 56:
         errors.append("layer_response_cardinality_not_56")
+    allowed_classifications = {
+        "dominant_bottleneck",
+        "material_constraint",
+        "low_material_impact",
+        "structural_dilution_risk",
+        "sample_collapse_risk",
+        "unstable_response",
+    }
+    if any(
+        not row.get("classifications")
+        or not set(row["classifications"].split("|")).issubset(allowed_classifications)
+        for row in response
+    ):
+        errors.append("layer_response_classification_invalid")
     if any(int(row["mismatch_count"]) != 0 for row in reconciliation):
         errors.append("baseline_reconciliation_mismatch")
     if anomaly.get("status") != "passed" or anomaly.get("blocking_findings"):
@@ -69,6 +83,16 @@ def validate_r1_t14_01_layer_q_response_diagnostic(
         registry = decision.get("frozen_registry", [])
         if not registry or decision.get("center_count", 0) < 1:
             errors.append("materialization_request_registry_empty")
+        required_registry_fields = {
+            "state_line_role",
+            "same_parameter_parent_id",
+            "diagnostic_metrics",
+            "material_advantage",
+            "warnings",
+            "rejected_alternatives",
+        }
+        if any(not required_registry_fields.issubset(row) for row in registry):
+            errors.append("materialization_request_registry_metadata_incomplete")
         if sum(row["request_role"] != "baseline_reference" for row in registry) > 10:
             errors.append("materialization_request_nonbaseline_limit_exceeded")
     if require_author_package:

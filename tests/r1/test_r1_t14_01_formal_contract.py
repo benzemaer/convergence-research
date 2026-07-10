@@ -51,6 +51,20 @@ class R1T1401FormalContractTests(unittest.TestCase):
         self.assertIn("phase=vector_complete", source)
         self.assertIn("flush=True", source)
 
+    def test_layer_classification_and_request_lineage_are_explicit(self) -> None:
+        source = (ROOT / "src/r1/r1_t14_01_layer_q_response_diagnostic.py").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            "dominant_bottleneck",
+            "low_material_impact",
+            "structural_dilution_risk",
+            '"state_line_role"',
+            '"diagnostic_metrics"',
+            '"rejected_alternatives"',
+        ):
+            self.assertIn(marker, source)
+
 
 if __name__ == "__main__":
     unittest.main()

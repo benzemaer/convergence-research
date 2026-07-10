@@ -163,6 +163,7 @@ def run_r1_t14_01_layer_q_response_diagnostic(
         con.close()
 
     response_rows = build_layer_response_profile(results, config)
+    classify_layer_responses(response_rows, results, config)
     envelope_rows = build_stability_envelopes(results, config)
     archetype_rows, audit_rows, decision = select_materialization_request(
         registry=registry,
@@ -1075,6 +1076,144 @@ def _isolated_spike(values: Sequence[float | None], tolerance: float) -> bool:
     return False
 
 
+def classify_layer_responses(
+    response_rows: list[dict[str, Any]],
+    results: Mapping[str, Sequence[Mapping[str, Any]]],
+    config: Mapping[str, Any],
+) -> None:
+    """Attach one preregistered impact classification to every layer × W curve."""
+    grouped: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in response_rows:
+        grouped[(int(row["W"]), str(row["changed_layer"]))].append(row)
+    baseline_attrition: dict[int, dict[str, float]] = defaultdict(dict)
+    for row in results["attrition"]:
+        if row["role"] == "baseline":
+            baseline_attrition[int(row["W"])][str(row["layer"])] = float(
+                row["attrition_share"]
+            )
+    coverage_spans = {
+        key: _curve_span(
+            next(row for row in rows if row["metric"] == "confirmed_coverage")
+        )
+        for key, rows in grouped.items()
+    }
+    floor = int(config["existence_floors"]["confirmed_state_days"])
+    audit_state = {
+        (int(row["W"]), str(row["changed_layer"])): []
+        for row in results["state"]
+        if row["role"] != "baseline"
+    }
+    for row in results["state"]:
+        key = (int(row["W"]), str(row["changed_layer"]))
+        if key in audit_state:
+            affected = config["candidate_rules"]["affected_state_by_layer"][key[1]]
+            if row["state_name"] == affected:
+                audit_state[key].append(row)
+    security_summary = {
+        (row["candidate_q_vector_id"], row["step_id"]): row
+        for row in results["interlayer"]
+        if row["profile_type"] == "security_summary"
+    }
+    pooled = [row for row in results["interlayer"] if row["profile_type"] == "pooled"]
+    for (window, layer), rows in grouped.items():
+        metric = {row["metric"]: row for row in rows}
+        rank = 1 + sum(
+            coverage_spans[(window, other)] > coverage_spans[(window, layer)] + EPSILON
+            for other in ("P", "C", "T", "V")
+        )
+        response_categories = (
+            "confirmed_coverage",
+            "confirmed_intervals",
+            "unique_securities",
+            "baseline_retention",
+        )
+        nonflat_categories = sum(
+            not bool(metric[name]["locally_flat"]) for name in response_categories
+        )
+        largest_attrition = max(baseline_attrition[window].values())
+        dominant = (
+            abs(baseline_attrition[window][layer] - largest_attrition) <= EPSILON
+            and rank <= 2
+            and nonflat_categories >= 3
+            and _availability_constant(results["common_funnel"])
+        )
+        low_impact = all(
+            _curve_span(metric[name]) <= _response_tolerance(name, config)
+            for name in (
+                "confirmed_coverage",
+                "baseline_retention",
+                "affected_delta",
+                "fragment_rate",
+            )
+        ) and _curve_span(metric["confirmed_intervals"]) <= float(
+            config["fallback_tolerances"]["confirmed_intervals"]
+        )
+        affected_step = config["candidate_rules"]["affected_step_by_layer"][layer]
+        relevant_pooled = [
+            row
+            for row in pooled
+            if int(row["W"]) == window
+            and row["changed_layer"] in {layer, "BASELINE"}
+            and row["step_id"] == affected_step
+        ]
+        sign_reversal = any(
+            security_summary[(row["candidate_q_vector_id"], affected_step)].get(
+                "security_median_delta"
+            )
+            is not None
+            and float(row["delta"])
+            * float(
+                security_summary[(row["candidate_q_vector_id"], affected_step)][
+                    "security_median_delta"
+                ]
+            )
+            < 0
+            for row in relevant_pooled
+        )
+        dilution = (
+            any(
+                row["delta"] is None
+                or row["lift"] is None
+                or float(row["delta"]) <= 0
+                or float(row["lift"]) <= 1
+                for row in relevant_pooled
+            )
+            or sign_reversal
+        )
+        sample_collapse = any(
+            int(row["confirmed_state_days"]) < floor
+            for row in audit_state[(window, layer)]
+        )
+        unstable = any(
+            bool(row["direction_reversal"]) or bool(row["isolated_spike_warning"])
+            for row in rows
+        )
+        labels: list[str] = []
+        if dominant:
+            labels.append("dominant_bottleneck")
+        if not low_impact:
+            labels.append("material_constraint")
+        if low_impact:
+            labels.append("low_material_impact")
+        if dilution:
+            labels.append("structural_dilution_risk")
+        if sample_collapse:
+            labels.append("sample_collapse_risk")
+        if unstable:
+            labels.append("unstable_response")
+        for row in rows:
+            row["classifications"] = "|".join(labels)
+            row["baseline_attrition_share"] = baseline_attrition[window][layer]
+            row["confirmed_coverage_response_rank"] = rank
+            row["nonflat_response_category_count"] = nonflat_categories
+
+
+def _curve_span(row: Mapping[str, Any]) -> float:
+    values = [_float(row[f"q{q:02d}"]) for q in (10, 15, 20, 25, 30)]
+    present = [value for value in values if value is not None]
+    return max(present) - min(present) if present else 0.0
+
+
 def build_stability_envelopes(
     results: Mapping[str, Sequence[Mapping[str, Any]]], config: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
@@ -1428,7 +1567,7 @@ def select_materialization_request(
                 "status": "selected" if winner else "no_eligible_center",
             }
         )
-    request_registry = _expand_request_registry(selected, registry, config)
+    request_registry = _expand_request_registry(selected, registry, audit, config)
     if selected:
         decision = {
             "task_id": TASK_ID,
@@ -1523,6 +1662,7 @@ def _selection_sort_key(item: Mapping[str, Any]) -> tuple[Any, ...]:
 def _expand_request_registry(
     selected: Sequence[Mapping[str, Any]],
     registry: Sequence[Mapping[str, Any]],
+    audit: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     lookup = {
@@ -1531,6 +1671,7 @@ def _expand_request_registry(
         if row["role"] != "baseline"
     }
     baseline = {row["W"]: row for row in registry if row["role"] == "baseline"}
+    audit_by_id = {row["candidate_q_vector_id"]: row for row in audit}
     expanded: dict[str, dict[str, Any]] = {}
     for center in selected:
         source = next(
@@ -1541,6 +1682,7 @@ def _expand_request_registry(
         expanded[source["candidate_q_vector_id"]] = {
             **_registry_prefix(source),
             "request_role": "center",
+            "state_line_role": center["affected_state"],
             "archetype": center["archetype"],
             "center_id": source["candidate_q_vector_id"],
             "same_parameter_parent_id": vector_id(
@@ -1549,6 +1691,16 @@ def _expand_request_registry(
             if source["changed_layer"] == "V"
             else source["candidate_q_vector_id"],
             "selection_reason": "passed_hard_gates_pareto_and_deterministic_tie_break",
+            "diagnostic_metrics": _request_metrics(center),
+            "material_advantage": True,
+            "warnings": [],
+            "rejected_alternatives": [
+                row["candidate_q_vector_id"]
+                for row in audit
+                if row["archetype"] == center["archetype"]
+                and row["candidate_q_vector_id"] != center["candidate_q_vector_id"]
+                and row["hard_gate_pass"]
+            ],
             "interaction_unobserved_in_t14_01": False,
         }
         for q in _immediate_q_neighbors(float(source["changed_q"])):
@@ -1567,6 +1719,11 @@ def _expand_request_registry(
                 {
                     **_registry_prefix(neighbor),
                     "request_role": role,
+                    "state_line_role": (
+                        "S_PCT|S_PCVT"
+                        if role == "baseline_reference"
+                        else center["affected_state"]
+                    ),
                     "archetype": center["archetype"],
                     "center_id": source["candidate_q_vector_id"],
                     "same_parameter_parent_id": vector_id(
@@ -1579,6 +1736,33 @@ def _expand_request_registry(
                     if source["changed_layer"] == "V"
                     else neighbor["candidate_q_vector_id"],
                     "selection_reason": "mandatory_coordinate_neighbor",
+                    "diagnostic_metrics": (
+                        _request_metrics(audit_by_id[neighbor["candidate_q_vector_id"]])
+                        if role != "baseline_reference"
+                        else {}
+                    ),
+                    "material_advantage": (
+                        bool(
+                            audit_by_id[neighbor["candidate_q_vector_id"]][
+                                "hard_gate_pass"
+                            ]
+                        )
+                        if role != "baseline_reference"
+                        else None
+                    ),
+                    "warnings": (
+                        [
+                            audit_by_id[neighbor["candidate_q_vector_id"]][
+                                "rejection_reasons"
+                            ]
+                        ]
+                        if role != "baseline_reference"
+                        and audit_by_id[neighbor["candidate_q_vector_id"]][
+                            "rejection_reasons"
+                        ]
+                        else []
+                    ),
+                    "rejected_alternatives": [],
                     "interaction_unobserved_in_t14_01": False,
                 },
             )
@@ -1587,12 +1771,17 @@ def _expand_request_registry(
             {
                 **_registry_prefix(baseline[source["W"]]),
                 "request_role": "baseline_reference",
+                "state_line_role": "S_PCT|S_PCVT",
                 "archetype": center["archetype"],
                 "center_id": source["candidate_q_vector_id"],
                 "same_parameter_parent_id": baseline[source["W"]][
                     "candidate_q_vector_id"
                 ],
                 "selection_reason": "shared_baseline_lineage_reference",
+                "diagnostic_metrics": {},
+                "material_advantage": None,
+                "warnings": [],
+                "rejected_alternatives": [],
                 "interaction_unobserved_in_t14_01": False,
             },
         )
@@ -1610,6 +1799,24 @@ def _expand_request_registry(
     if nonbaseline > config["candidate_rules"]["nonbaseline_vector_count_max"]:
         raise R1T1401Error("request_registry_nonbaseline_limit_exceeded")
     return rows
+
+
+def _request_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: row.get(key)
+        for key in (
+            "confirmed_coverage",
+            "confirmed_state_days",
+            "unique_securities",
+            "confirmed_intervals",
+            "max_year_share",
+            "fragment_rate",
+            "baseline_retention",
+            "affected_delta",
+            "affected_lift",
+            "selectivity_retained",
+        )
+    }
 
 
 def _immediate_q_neighbors(q: float) -> tuple[float, ...]:
