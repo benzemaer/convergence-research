@@ -3,8 +3,8 @@
 `task_id`: R1-T04
 `task_class`: formal_experiment
 `status`: author_analysis_complete
-`run_id`: R1-T04-20260710T0700Z
-`code_commit`: c443e05a603b35a5c3956d61532130cf5edbe41d
+`run_id`: R1-T04-20260710T0810Z
+`code_commit`: 3b72e127b7ffaaa82d22e4defc6da8cf9cd0e38c
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
@@ -13,17 +13,17 @@
 `anomaly_resolution_status`: passed
 `review_phase`: author_analysis_complete
 
-`experiment_summary_path`: data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_experiment_summary.json
-`experiment_summary_sha256`: cc6c7a62cde3b2fcbc79f3bb84f78484aa2cb9dce332c6a8d5b1eba4e9cafed9
+`experiment_summary_path`: data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_experiment_summary.json
+`experiment_summary_sha256`: 01f63db73e88ca851d934bbdc786930fe230b3456bad084b8c62e834f3503aab
 `primary_result_artifacts`: r1_t04_state_line_profile.csv (14 rows), r1_t04_duration_profile.csv (14 rows), r1_t04_reference_challenger_comparison.csv (10 rows), r1_t04_daily_overlap_profile.csv (10 rows), r1_t04_parent_child_profile.csv (8 rows), r1_t04_year_concentration_profile.csv (144 rows)
-`diagnostic_summary_path`: data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json
-`diagnostic_summary_sha256`: f619d4c84f091e06f0e0b18b951bbcd1b05c104183d3b8f87998c9583a8e7176
-`engineering_validation_result_path`: data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_engineering_validation_result.json
-`engineering_validation_result_sha256`: 02ed9274cd0ad1fef0adbab5b6db7c911158d34ad5fd389b374cf4a6fa2f1366
+`diagnostic_summary_path`: data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json
+`diagnostic_summary_sha256`: 7b60d6bf388d7fdaf01e3a4fea8bdc20f07470b49f85bd9fac520cfb148a2b22
+`engineering_validation_result_path`: data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_engineering_validation_result.json
+`engineering_validation_result_sha256`: 08626c2ff21b470d647d9be30d9ea97f90b2c0c0b8a3acd8ab617ed0dafa3c21
 `result_analysis_path`: docs/experiments/r1/R1-T04_state_line_profiles_result_analysis.md
-`result_analysis_sha256`: 1762c451f944e70212f9d85cec1d08f6307e637bae7585c69e31640bdb0b51ff
-`anomaly_scan_path`: data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_anomaly_scan.json
-`anomaly_scan_sha256`: 91784641118768dc084d370fc12ad7f1ea37bfde14d9a2bb9a521361e5a18b24
+`result_analysis_sha256`: 045d5af6f9625d969ceaa04b39cddd7380da69fdf30aa6b93e0e8a14781ea83f
+`anomaly_scan_path`: data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_anomaly_scan.json
+`anomaly_scan_sha256`: 01e3a2ebe49d29cb26b974a9bc7581c6fdf832e6ba4e7d9099bd5a7e90f12c31
 `formal_evidence_path`: docs/evidence/r1/R1-T04_state_line_profiles_evidence.md
 `formal_evidence_sha256`: computed after evidence finalization in result package
 `scientific_review_path`: null
@@ -45,6 +45,10 @@
 `k_raw_invariance`: passed
 `k_confirmed_monotonicity`: passed
 `w_availability_response`: passed
+`supersedes_run_id`: R1-T04-20260710T0700Z
+`supersedes_reason`: incomplete onset overlap and parent-child geometry materialization in prior author-draft run
+`supersession_record_path`: data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_supersession_record.json
+`supersession_record_sha256`: 7862b5f9fae414ac6dc66b0e028b405918f43f34b81fc3fdf717b380145b253d
 
 `superseded`: false
 `superseded_by`: null
