@@ -79,7 +79,7 @@ def validate_r1_t07_p_onset_fixed_lag_relations(
     state = _rows(outputs, root, "state_reconciliation_csv", errors)
     lag_alignment = _rows(outputs, root, "lag_alignment_reconciliation_csv", errors)
     _validate_primary(primary, errors)
-    _validate_baseline(baseline, errors)
+    _validate_baseline(baseline, primary, errors)
     _validate_survival(survival, errors)
     _validate_anchor_target(anchor_target, primary, errors)
     _validate_funnel(funnel, errors)
@@ -136,6 +136,8 @@ def _validate_primary(rows: list[dict[str, str]], errors: list[str]) -> None:
         errors.append("primary_grid_mismatch")
     if {row["K"] for row in rows} != {"not_applicable"}:
         errors.append("k_grid_violation")
+    degenerate_bootstrap_rows = 0
+    bootstrap_checked_rows = 0
     for row in rows:
         event_total = (
             _int(row, "target_true_event_count")
@@ -177,6 +179,49 @@ def _validate_primary(rows: list[dict[str, str]], errors: list[str]) -> None:
             errors.append("absolute_lift_alias_mismatch")
         if not _float_matches(_float_or_none(row, "relative_lift"), rel):
             errors.append("relative_lift_formula_mismatch")
+        diff_low = _float_or_none(row, "absolute_difference_ci_low")
+        diff_high = _float_or_none(row, "absolute_difference_ci_high")
+        obs_low = _float_or_none(row, "observed_probability_ci_low")
+        obs_high = _float_or_none(row, "observed_probability_ci_high")
+        base_low = _float_or_none(row, "baseline_probability_ci_low")
+        base_high = _float_or_none(row, "baseline_probability_ci_high")
+        if obs is not None and base is not None and diff is not None:
+            bootstrap_checked_rows += 1
+            if (
+                diff_low is None
+                or diff_high is None
+                or obs_low is None
+                or obs_high is None
+                or base_low is None
+                or base_high is None
+            ):
+                errors.append("bootstrap_interval_missing")
+            elif not (
+                obs_low <= obs <= obs_high
+                and base_low <= base <= base_high
+                and diff_low <= diff <= diff_high
+            ):
+                errors.append("bootstrap_interval_excludes_point_estimate")
+            elif (
+                _float_matches(diff_low, diff)
+                and _float_matches(diff_high, diff)
+                and _float_matches(obs_low, obs)
+                and _float_matches(obs_high, obs)
+                and _float_matches(base_low, base)
+                and _float_matches(base_high, base)
+            ):
+                degenerate_bootstrap_rows += 1
+            status = row.get("descriptive_status")
+            if diff_low is not None and diff_high is not None:
+                expected_status = (
+                    "positive_interval_separated"
+                    if diff_low > 0
+                    else "negative_interval_separated"
+                    if diff_high < 0
+                    else "interval_overlaps_zero"
+                )
+                if status != expected_status:
+                    errors.append("descriptive_status_ci_mismatch")
     for w in WS:
         for q in QS:
             counts = {
@@ -186,11 +231,23 @@ def _validate_primary(rows: list[dict[str, str]], errors: list[str]) -> None:
             }
             if len(counts) != 1:
                 errors.append("anchor_count_varies_by_path_or_lag")
+    if bootstrap_checked_rows and degenerate_bootstrap_rows == bootstrap_checked_rows:
+        errors.append("bootstrap_intervals_degenerate")
 
 
-def _validate_baseline(rows: list[dict[str, str]], errors: list[str]) -> None:
+def _validate_baseline(
+    rows: list[dict[str, str]],
+    primary: list[dict[str, str]],
+    errors: list[str],
+) -> None:
     if len(rows) != 225:
         return
+    primary_event_denominator = {
+        (row["transition_path"], row["W"], row["q"], row["lag_k"]): _int(
+            row, "target_valid_event_count"
+        )
+        for row in primary
+    }
     for row in rows:
         for key in (
             "primary_stay_out_baseline_probability",
@@ -201,9 +258,26 @@ def _validate_baseline(rows: list[dict[str, str]], errors: list[str]) -> None:
             value = _float_or_none(row, key)
             if value is not None and not (0 <= value <= 1):
                 errors.append(f"baseline_probability_out_of_range:{key}")
+        matched = _int(row, "security_year_matched_anchor_count")
+        event_denom = primary_event_denominator.get(
+            (row["transition_path"], row["W"], row["q"], row["lag_k"])
+        )
+        if event_denom is not None and matched > event_denom:
+            errors.append("security_year_standardization_denominator_mismatch")
+        coverage = _float_or_none(row, "security_year_coverage")
+        if coverage is not None and not (0 <= coverage <= 1):
+            errors.append("security_year_coverage_out_of_range")
 
 
 def _validate_survival(rows: list[dict[str, str]], errors: list[str]) -> None:
+    for row in rows:
+        for key in (
+            "PCT_target_valid_given_surviving_P_run_count",
+            "PCT_target_true_given_surviving_P_run_count",
+            "PCT_target_given_surviving_P_run_probability",
+        ):
+            if key not in row:
+                errors.append(f"survival_pct_target_field_missing:{key}")
     for w in WS:
         for q in QS:
             ordered = sorted(
@@ -258,8 +332,8 @@ def _validate_funnel(rows: list[dict[str, str]], errors: list[str]) -> None:
             + _int(row, "exit_count")
             + _int(row, "other_count")
         )
-        if category_sum < _int(row, "total_rows"):
-            errors.append("anchor_funnel_under_counts")
+        if category_sum != _int(row, "total_rows"):
+            errors.append("anchor_funnel_partition_mismatch")
         if _int(row, "onset_count") < 1 or _int(row, "stay_out_count") < 1:
             errors.append("anchor_funnel_missing_event_or_control")
 
@@ -270,6 +344,22 @@ def _validate_state_reconciliation(
     if len(rows) != 54:
         return
     for row in rows:
+        if _int(row, "r0_key_count") != _int(row, "derived_key_count"):
+            errors.append("state_key_count_mismatch")
+        if (
+            _int(row, "r0_true_count")
+            + _int(row, "r0_false_count")
+            + _int(row, "r0_null_count")
+            != _int(row, "r0_key_count")
+        ):
+            errors.append("state_r0_count_partition_mismatch")
+        if (
+            _int(row, "derived_true_count")
+            + _int(row, "derived_false_count")
+            + _int(row, "derived_null_count")
+            != _int(row, "derived_key_count")
+        ):
+            errors.append("state_derived_count_partition_mismatch")
         if _int(row, "missing_key_count") != 0:
             errors.append("state_missing_key")
         if _int(row, "row_mismatch_count") != 0:

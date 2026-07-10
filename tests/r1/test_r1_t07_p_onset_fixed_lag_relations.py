@@ -18,6 +18,8 @@ from src.r1.r1_t07_p_onset_fixed_lag_relations import (
     _create_registries,
     _projection_sql,
     _validate_config,
+    _write_anchor_funnel,
+    _write_state_reconciliation,
 )
 
 
@@ -111,6 +113,52 @@ class R1T07POnsetFixedLagRelationsTest(unittest.TestCase):
         self.assertFalse(k1)
         self.assertTrue(k3)
 
+    def test_anchor_funnel_is_exact_partition(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            con = _synthetic_sequence(root)
+            out = root / "funnel.csv"
+            _write_anchor_funnel(con, out)
+            con.close()
+            for row in _read_rows(out):
+                category_sum = sum(
+                    int(row[key])
+                    for key in (
+                        "previous_absent_count",
+                        "previous_invalid_count",
+                        "current_invalid_count",
+                        "onset_count",
+                        "stay_out_count",
+                        "continuing_P_count",
+                        "exit_count",
+                        "other_count",
+                    )
+                )
+                self.assertEqual(category_sum, int(row["total_rows"]))
+
+    def test_state_reconciliation_is_row_level_not_constructive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            con = _synthetic_sequence(root)
+            con.execute(
+                """
+                UPDATE dimension_wide
+                SET C_raw_from_dimension=true, T_raw_from_dimension=true
+                WHERE security_id='S1' AND trading_date='20200102'
+                """
+            )
+            out = root / "state_reconciliation.csv"
+            _write_state_reconciliation(con, out)
+            con.close()
+            rows = _read_rows(out)
+        self.assertTrue(
+            any(
+                row["state_name"] == "S_PCT"
+                and int(row["row_mismatch_count"]) > 0
+                for row in rows
+            )
+        )
+
 
 def _synthetic_sequence(root: Path) -> duckdb.DuckDBPyConnection:
     nested_db = root / "nested.duckdb"
@@ -175,7 +223,11 @@ def _synthetic_sequence(root: Path) -> duckdb.DuckDBPyConnection:
         """
         CREATE TEMP TABLE dimension_wide AS
         SELECT security_id, trading_date, percentile_window_W AS W, q,
-          P_raw IS NOT NULL AS P_valid, true AS C_valid, true AS T_valid, true AS V_valid
+          P_raw IS NOT NULL AS P_valid, true AS C_valid, true AS T_valid, true AS V_valid,
+          P_raw AS P_raw_from_dimension,
+          C_raw AS C_raw_from_dimension,
+          T_raw AS T_raw_from_dimension,
+          V_raw AS V_raw_from_dimension
         FROM nesteddb.r0_t06_nested_daily_state_results
         """
     )

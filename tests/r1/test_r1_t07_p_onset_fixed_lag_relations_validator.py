@@ -49,6 +49,68 @@ class R1T07ValidatorTest(unittest.TestCase):
                 )
             self.assertIn("absolute_lift_alias_mismatch", str(raised.exception))
 
+    def test_degenerate_bootstrap_intervals_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            primary = root / "r1_t07_fixed_lag_profile.csv"
+            rows = _read_rows(primary)
+            for row in rows:
+                row["observed_probability_ci_low"] = row["observed_probability"]
+                row["observed_probability_ci_high"] = row["observed_probability"]
+                row["baseline_probability_ci_low"] = row["baseline_probability"]
+                row["baseline_probability_ci_high"] = row["baseline_probability"]
+                row["absolute_difference_ci_low"] = row["absolute_difference"]
+                row["absolute_difference_ci_high"] = row["absolute_difference"]
+            _write_csv(primary, rows)
+            _refresh_summary_hash(root, summary, "fixed_lag_profile_csv")
+            with self.assertRaises(R1T07ValidationError) as raised:
+                validate_r1_t07_p_onset_fixed_lag_relations(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn("bootstrap_intervals_degenerate", str(raised.exception))
+
+    def test_anchor_funnel_overcount_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            funnel = root / "r1_t07_anchor_funnel.csv"
+            rows = _read_rows(funnel)
+            rows[0]["current_invalid_count"] = str(
+                int(rows[0]["current_invalid_count"]) + 1
+            )
+            _write_csv(funnel, rows)
+            _refresh_summary_hash(root, summary, "anchor_funnel_csv")
+            with self.assertRaises(R1T07ValidationError) as raised:
+                validate_r1_t07_p_onset_fixed_lag_relations(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn("anchor_funnel_partition_mismatch", str(raised.exception))
+
+    def test_security_year_denominator_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            baseline = root / "r1_t07_baseline_sensitivity.csv"
+            rows = _read_rows(baseline)
+            rows[0]["security_year_matched_anchor_count"] = "999"
+            _write_csv(baseline, rows)
+            _refresh_summary_hash(root, summary, "baseline_sensitivity_csv")
+            with self.assertRaises(R1T07ValidationError) as raised:
+                validate_r1_t07_p_onset_fixed_lag_relations(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn(
+                "security_year_standardization_denominator_mismatch",
+                str(raised.exception),
+            )
+
     def test_author_draft_scientific_review_must_remain_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -109,14 +171,14 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
                             "absolute_difference": str(diff),
                             "absolute_lift": str(diff),
                             "relative_lift": str(obs / base),
-                            "observed_probability_ci_low": str(obs),
-                            "observed_probability_ci_high": str(obs),
-                            "baseline_probability_ci_low": str(base),
-                            "baseline_probability_ci_high": str(base),
-                            "absolute_difference_ci_low": str(diff),
-                            "absolute_difference_ci_high": str(diff),
-                            "relative_lift_ci_low": str(obs / base),
-                            "relative_lift_ci_high": str(obs / base),
+                            "observed_probability_ci_low": str(obs - 0.01),
+                            "observed_probability_ci_high": str(obs + 0.01),
+                            "baseline_probability_ci_low": str(base - 0.01),
+                            "baseline_probability_ci_high": str(base + 0.01),
+                            "absolute_difference_ci_low": str(diff - 0.02),
+                            "absolute_difference_ci_high": str(diff + 0.02),
+                            "relative_lift_ci_low": str(obs / base - 0.1),
+                            "relative_lift_ci_high": str(obs / base + 0.1),
                             "empirical_p": "",
                             "descriptive_status": "positive_interval_separated",
                             "warnings": "",
@@ -242,7 +304,7 @@ def _baseline_rows(primary: list[dict[str, str]]) -> list[dict[str, str]]:
             "security_year_standardized_baseline_probability": row[
                 "baseline_probability"
             ],
-            "security_year_matched_anchor_count": row["anchor_event_count"],
+            "security_year_matched_anchor_count": row["target_valid_event_count"],
             "security_year_unmatched_stratum_count": "0",
             "security_year_coverage": "1",
             "observed_probability": row["observed_probability"],
@@ -278,7 +340,9 @@ def _survival_rows() -> list[dict[str, str]]:
                         "P_survival_probability": "0.5",
                         "P_active_at_k_probability": "0.6",
                         "reentered_after_exit_count": "1",
-                        "target_given_surviving_P_run_probability": "0.2",
+                        "PCT_target_valid_given_surviving_P_run_count": "50",
+                        "PCT_target_true_given_surviving_P_run_count": "10",
+                        "PCT_target_given_surviving_P_run_probability": "0.2",
                     }
                 )
                 prev = current

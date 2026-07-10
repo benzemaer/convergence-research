@@ -104,9 +104,19 @@ def run_r1_t07_p_onset_fixed_lag_relations(
             _write_security_summary(con, paths["security_lag_summary_csv"])
             _write_state_reconciliation(con, paths["state_reconciliation_csv"])
             _write_q_transition_profile(con, paths["q_onset_transition_profile_csv"])
+            bootstrap_diagnostic = _add_bootstrap_intervals(
+                con, paths["fixed_lag_profile_csv"], config
+            )
         finally:
             con.close()
-        _add_bootstrap_intervals(paths["fixed_lag_profile_csv"], config)
+    if errors:
+        bootstrap_diagnostic = {
+            "B_boot": config["bootstrap"]["B_boot"],
+            "seed": config["bootstrap"]["seed"],
+            "failed_replicates": 0,
+            "replicate_detail_written": False,
+            "interval_rows_written": 0,
+        }
 
     invariants = _evaluate_outputs(paths)
     errors.extend(invariants["errors"])
@@ -125,8 +135,8 @@ def run_r1_t07_p_onset_fixed_lag_relations(
         "bootstrap": {
             "B_boot": config["bootstrap"]["B_boot"],
             "seed": config["bootstrap"]["seed"],
-            "failed_replicates": 0,
             "replicate_detail_written": False,
+            **bootstrap_diagnostic,
         },
     }
     _write_json(paths["diagnostic_summary"], diagnostic)
@@ -565,16 +575,11 @@ def _write_baseline_sensitivity(con: Any, path: Path) -> None:
       FROM projected GROUP BY transition_path, W, q, lag_k
     ),
     anchor_mix AS (
-      SELECT transition_path, W, q,
-        avg(
-          CASE
-            WHEN P_ONSET AND target_anchor_valid AND target_anchor_raw IS TRUE THEN 1.0
-            WHEN P_ONSET AND target_anchor_valid AND target_anchor_raw IS FALSE THEN 0.0
-            ELSE NULL
-          END
-        ) AS onset_anchor_active_weight
+      SELECT transition_path, W, q, lag_k,
+        sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_anchor_valid AND target_anchor_raw IS TRUE)::DOUBLE
+        / nullif(sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_anchor_valid),0) AS onset_anchor_active_weight
       FROM projected
-      GROUP BY transition_path, W, q
+      GROUP BY transition_path, W, q, lag_k
     ),
     control_by_anchor AS (
       SELECT transition_path, W, q, lag_k, target_anchor_raw IS TRUE AS anchor_target_active,
@@ -587,12 +592,14 @@ def _write_baseline_sensitivity(con: Any, path: Path) -> None:
       SELECT c.transition_path, c.W, c.q, c.lag_k,
         sum(CASE WHEN c.anchor_target_active THEN coalesce(m.onset_anchor_active_weight,0) ELSE 1-coalesce(m.onset_anchor_active_weight,0) END * c.control_prob) AS target_status_standardized_baseline_probability
       FROM control_by_anchor c
-      JOIN anchor_mix m USING (transition_path, W, q)
+      JOIN anchor_mix m USING (transition_path, W, q, lag_k)
       GROUP BY c.transition_path, c.W, c.q, c.lag_k
     ),
     sy_event AS (
       SELECT transition_path, W, q, lag_k, security_id, anchor_year, count(*) AS onset_count
-      FROM projected WHERE P_ONSET GROUP BY transition_path, W, q, lag_k, security_id, anchor_year
+      FROM projected
+      WHERE P_ONSET AND target_rn IS NOT NULL AND target_valid
+      GROUP BY transition_path, W, q, lag_k, security_id, anchor_year
     ),
     sy_control AS (
       SELECT transition_path, W, q, lag_k, security_id, anchor_year,
@@ -645,8 +652,8 @@ def _write_p_survival_profile(con: Any, path: Path) -> None:
         sum(P_ONSET AND p_path_complete AND p_run_survived)::BIGINT AS p_run_survival_true_count,
         sum(P_ONSET AND p_path_complete AND P_active_at_k)::BIGINT AS p_active_at_k_true_count,
         sum(P_ONSET AND p_path_complete AND P_active_at_k AND p_run_survived IS NOT TRUE)::BIGINT AS reentered_after_exit_count,
-        sum(P_ONSET AND p_path_complete AND p_run_survived AND target_valid AND target_raw IS TRUE)::BIGINT AS target_true_given_surviving_P_run_count,
-        sum(P_ONSET AND p_path_complete AND p_run_survived AND target_valid)::BIGINT AS target_valid_given_surviving_P_run_count
+        sum(P_ONSET AND p_path_complete AND p_run_survived AND target_valid AND target_raw IS TRUE)::BIGINT AS PCT_target_true_given_surviving_P_run_count,
+        sum(P_ONSET AND p_path_complete AND p_run_survived AND target_valid)::BIGINT AS PCT_target_valid_given_surviving_P_run_count
       FROM projected
       WHERE transition_path='P_TO_PCT'
       GROUP BY W, q, lag_k
@@ -656,7 +663,9 @@ def _write_p_survival_profile(con: Any, path: Path) -> None:
       p_run_survival_true_count::DOUBLE/nullif(p_survival_eligible_count,0) AS P_survival_probability,
       p_active_at_k_true_count::DOUBLE/nullif(p_survival_eligible_count,0) AS P_active_at_k_probability,
       reentered_after_exit_count,
-      target_true_given_surviving_P_run_count::DOUBLE/nullif(target_valid_given_surviving_P_run_count,0) AS target_given_surviving_P_run_probability
+      PCT_target_valid_given_surviving_P_run_count,
+      PCT_target_true_given_surviving_P_run_count,
+      PCT_target_true_given_surviving_P_run_count::DOUBLE/nullif(PCT_target_valid_given_surviving_P_run_count,0) AS PCT_target_given_surviving_P_run_probability
     FROM p
     ORDER BY W, q, lag_k
     """
@@ -695,17 +704,31 @@ def _write_anchor_target_status(con: Any, path: Path) -> None:
 
 def _write_anchor_funnel(con: Any, path: Path) -> None:
     query = """
+    WITH classified AS (
+      SELECT W, q,
+        CASE
+          WHEN previous_absent THEN 'previous_absent'
+          WHEN previous_invalid THEN 'previous_invalid'
+          WHEN current_invalid THEN 'current_invalid'
+          WHEN P_ONSET THEN 'onset'
+          WHEN STAY_OUT THEN 'stay_out'
+          WHEN continuing_P THEN 'continuing_P'
+          WHEN exit_P THEN 'exit'
+          ELSE 'other'
+        END AS funnel_class
+      FROM full_sequence
+    )
     SELECT W, q, 'not_applicable' AS K,
       count(*)::BIGINT AS total_rows,
-      sum(previous_absent)::BIGINT AS previous_absent_count,
-      sum(previous_invalid)::BIGINT AS previous_invalid_count,
-      sum(current_invalid)::BIGINT AS current_invalid_count,
-      sum(P_ONSET)::BIGINT AS onset_count,
-      sum(STAY_OUT)::BIGINT AS stay_out_count,
-      sum(continuing_P)::BIGINT AS continuing_P_count,
-      sum(exit_P)::BIGINT AS exit_count,
-      sum(NOT previous_absent AND NOT previous_invalid AND NOT current_invalid AND NOT P_ONSET AND NOT STAY_OUT AND NOT continuing_P AND NOT exit_P)::BIGINT AS other_count
-    FROM full_sequence
+      sum(funnel_class='previous_absent')::BIGINT AS previous_absent_count,
+      sum(funnel_class='previous_invalid')::BIGINT AS previous_invalid_count,
+      sum(funnel_class='current_invalid')::BIGINT AS current_invalid_count,
+      sum(funnel_class='onset')::BIGINT AS onset_count,
+      sum(funnel_class='stay_out')::BIGINT AS stay_out_count,
+      sum(funnel_class='continuing_P')::BIGINT AS continuing_P_count,
+      sum(funnel_class='exit')::BIGINT AS exit_count,
+      sum(funnel_class='other')::BIGINT AS other_count
+    FROM classified
     GROUP BY W, q
     ORDER BY W, q
     """
@@ -784,33 +807,89 @@ def _write_security_summary(con: Any, path: Path) -> None:
 
 def _write_state_reconciliation(con: Any, path: Path) -> None:
     query = """
-    WITH dim AS (
-      SELECT W, q, 'P' AS state_name, count(*) AS key_count, sum(P_raw_from_dimension IS TRUE) AS dimension_true_count, sum(P_raw_from_dimension IS FALSE) AS dimension_false_count, sum(P_raw_from_dimension IS NULL) AS dimension_null_count FROM dimension_wide GROUP BY W,q
-      UNION ALL SELECT W, q, 'C', count(*), sum(C_raw_from_dimension IS TRUE), sum(C_raw_from_dimension IS FALSE), sum(C_raw_from_dimension IS NULL) FROM dimension_wide GROUP BY W,q
-      UNION ALL SELECT W, q, 'T', count(*), sum(T_raw_from_dimension IS TRUE), sum(T_raw_from_dimension IS FALSE), sum(T_raw_from_dimension IS NULL) FROM dimension_wide GROUP BY W,q
-      UNION ALL SELECT W, q, 'V', count(*), sum(V_raw_from_dimension IS TRUE), sum(V_raw_from_dimension IS FALSE), sum(V_raw_from_dimension IS NULL) FROM dimension_wide GROUP BY W,q
+    WITH derived_base AS (
+      SELECT security_id, trading_date, W, q,
+        P_raw_from_dimension AS P_raw,
+        C_raw_from_dimension AS C_raw,
+        T_raw_from_dimension AS T_raw,
+        V_raw_from_dimension AS V_raw,
+        CASE
+          WHEN (P_valid AND P_raw_from_dimension IS FALSE)
+            OR (C_valid AND C_raw_from_dimension IS FALSE)
+            OR (T_valid AND T_raw_from_dimension IS FALSE)
+          THEN false
+          WHEN P_valid AND C_valid AND T_valid
+            AND P_raw_from_dimension IS TRUE
+            AND C_raw_from_dimension IS TRUE
+            AND T_raw_from_dimension IS TRUE
+          THEN true
+          ELSE NULL
+        END AS S_PCT_raw,
+        CASE
+          WHEN (P_valid AND P_raw_from_dimension IS FALSE)
+            OR (C_valid AND C_raw_from_dimension IS FALSE)
+            OR (T_valid AND T_raw_from_dimension IS FALSE)
+            OR (V_valid AND V_raw_from_dimension IS FALSE)
+          THEN false
+          WHEN P_valid AND C_valid AND T_valid AND V_valid
+            AND P_raw_from_dimension IS TRUE
+            AND C_raw_from_dimension IS TRUE
+            AND T_raw_from_dimension IS TRUE
+            AND V_raw_from_dimension IS TRUE
+          THEN true
+          ELSE NULL
+        END AS S_PCVT_raw
+      FROM dimension_wide
     ),
-    nest AS (
-      SELECT percentile_window_W AS W, q, 'P' AS state_name, count(*) AS key_count, sum(P_raw IS TRUE) AS r0_true_count, sum(P_raw IS FALSE) AS r0_false_count, sum(P_raw IS NULL) AS r0_null_count FROM nesteddb.r0_t06_nested_daily_state_results GROUP BY W,q
-      UNION ALL SELECT percentile_window_W, q, 'C', count(*), sum(C_raw IS TRUE), sum(C_raw IS FALSE), sum(C_raw IS NULL) FROM nesteddb.r0_t06_nested_daily_state_results GROUP BY percentile_window_W,q
-      UNION ALL SELECT percentile_window_W, q, 'T', count(*), sum(T_raw IS TRUE), sum(T_raw IS FALSE), sum(T_raw IS NULL) FROM nesteddb.r0_t06_nested_daily_state_results GROUP BY percentile_window_W,q
-      UNION ALL SELECT percentile_window_W, q, 'V', count(*), sum(V_raw IS TRUE), sum(V_raw IS FALSE), sum(V_raw IS NULL) FROM nesteddb.r0_t06_nested_daily_state_results GROUP BY percentile_window_W,q
-      UNION ALL SELECT percentile_window_W, q, 'S_PCT', count(*), sum(S_PCT_raw IS TRUE), sum(S_PCT_raw IS FALSE), sum(S_PCT_raw IS NULL) FROM nesteddb.r0_t06_nested_daily_state_results GROUP BY percentile_window_W,q
-      UNION ALL SELECT percentile_window_W, q, 'S_PCVT', count(*), sum(S_PCVT_raw IS TRUE), sum(S_PCVT_raw IS FALSE), sum(S_PCVT_raw IS NULL) FROM nesteddb.r0_t06_nested_daily_state_results GROUP BY percentile_window_W,q
+    derived_long AS (
+      SELECT security_id, trading_date, W, q, 'P' AS state_name, P_raw AS derived_raw FROM derived_base
+      UNION ALL SELECT security_id, trading_date, W, q, 'C', C_raw FROM derived_base
+      UNION ALL SELECT security_id, trading_date, W, q, 'T', T_raw FROM derived_base
+      UNION ALL SELECT security_id, trading_date, W, q, 'V', V_raw FROM derived_base
+      UNION ALL SELECT security_id, trading_date, W, q, 'S_PCT', S_PCT_raw FROM derived_base
+      UNION ALL SELECT security_id, trading_date, W, q, 'S_PCVT', S_PCVT_raw FROM derived_base
+    ),
+    r0_long AS (
+      SELECT security_id, trading_date, percentile_window_W AS W, q, 'P' AS state_name, P_raw AS r0_raw FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL SELECT security_id, trading_date, percentile_window_W, q, 'C', C_raw FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL SELECT security_id, trading_date, percentile_window_W, q, 'T', T_raw FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL SELECT security_id, trading_date, percentile_window_W, q, 'V', V_raw FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL SELECT security_id, trading_date, percentile_window_W, q, 'S_PCT', S_PCT_raw FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL SELECT security_id, trading_date, percentile_window_W, q, 'S_PCVT', S_PCVT_raw FROM nesteddb.r0_t06_nested_daily_state_results
+    ),
+    joined AS (
+      SELECT
+        coalesce(r.security_id, d.security_id) AS security_id,
+        coalesce(r.trading_date, d.trading_date) AS trading_date,
+        coalesce(r.W, d.W) AS W,
+        coalesce(r.q, d.q) AS q,
+        coalesce(r.state_name, d.state_name) AS state_name,
+        r.r0_raw,
+        d.derived_raw,
+        r.security_id IS NOT NULL AS r0_present,
+        d.security_id IS NOT NULL AS derived_present
+      FROM r0_long r
+      FULL OUTER JOIN derived_long d
+        ON r.security_id=d.security_id
+       AND r.trading_date=d.trading_date
+       AND r.W=d.W
+       AND r.q=d.q
+       AND r.state_name=d.state_name
     )
-    SELECT n.W, n.q, n.state_name, n.key_count AS r0_key_count,
-      coalesce(d.key_count, n.key_count) AS derived_key_count,
-      n.r0_true_count, n.r0_false_count, n.r0_null_count,
-      coalesce(d.dimension_true_count, n.r0_true_count) AS derived_true_count,
-      coalesce(d.dimension_false_count, n.r0_false_count) AS derived_false_count,
-      coalesce(d.dimension_null_count, n.r0_null_count) AS derived_null_count,
-      0::BIGINT AS missing_key_count,
-      CASE WHEN n.state_name IN ('P','C','T','V') THEN
-        abs(n.r0_true_count-coalesce(d.dimension_true_count,0)) + abs(n.r0_false_count-coalesce(d.dimension_false_count,0)) + abs(n.r0_null_count-coalesce(d.dimension_null_count,0))
-      ELSE 0 END AS row_mismatch_count
-    FROM nest n
-    LEFT JOIN dim d USING (W,q,state_name)
-    ORDER BY n.state_name, n.W, n.q
+    SELECT W, q, state_name,
+      sum(r0_present)::BIGINT AS r0_key_count,
+      sum(derived_present)::BIGINT AS derived_key_count,
+      sum(r0_present AND r0_raw IS TRUE)::BIGINT AS r0_true_count,
+      sum(r0_present AND r0_raw IS FALSE)::BIGINT AS r0_false_count,
+      sum(r0_present AND r0_raw IS NULL)::BIGINT AS r0_null_count,
+      sum(derived_present AND derived_raw IS TRUE)::BIGINT AS derived_true_count,
+      sum(derived_present AND derived_raw IS FALSE)::BIGINT AS derived_false_count,
+      sum(derived_present AND derived_raw IS NULL)::BIGINT AS derived_null_count,
+      sum(NOT (r0_present AND derived_present))::BIGINT AS missing_key_count,
+      sum(r0_present AND derived_present AND NOT (r0_raw IS NOT DISTINCT FROM derived_raw))::BIGINT AS row_mismatch_count
+    FROM joined
+    GROUP BY W, q, state_name
+    ORDER BY state_name, W, q
     """
     _copy_query(con, query, path)
 
@@ -839,45 +918,167 @@ def _write_q_transition_profile(con: Any, path: Path) -> None:
     _copy_query(con, query, path)
 
 
-def _add_bootstrap_intervals(path: Path, config: dict[str, Any]) -> None:
-    import random
+def _add_bootstrap_intervals(
+    con: Any, path: Path, config: dict[str, Any]
+) -> dict[str, Any]:
+    import numpy as np
 
     rows = _csv_rows(path)
     if not rows:
-        return
+        return {
+            "B_boot": config["bootstrap"]["B_boot"],
+            "seed": config["bootstrap"]["seed"],
+            "failed_replicates": 0,
+            "replicate_detail_written": False,
+            "interval_rows_written": 0,
+        }
     seed = int(config["bootstrap"]["seed"])
-    rng = random.Random(seed)
-    for row in rows:
-        obs = _float_or_none(row, "observed_probability")
-        base = _float_or_none(row, "baseline_probability")
-        diff = _float_or_none(row, "absolute_difference")
-        rel = _float_or_none(row, "relative_lift")
-        # The full security-cluster resampling is represented in the formal
-        # contract by fixed seed/B metadata; intervals are conservative point
-        # intervals for deterministic engineering validation and do not produce
-        # p-values or replicate payloads.
-        for _ in range(3):
-            rng.random()
-        row["observed_probability_ci_low"] = _fmt(obs)
-        row["observed_probability_ci_high"] = _fmt(obs)
-        row["baseline_probability_ci_low"] = _fmt(base)
-        row["baseline_probability_ci_high"] = _fmt(base)
-        row["absolute_difference_ci_low"] = _fmt(diff)
-        row["absolute_difference_ci_high"] = _fmt(diff)
-        row["relative_lift_ci_low"] = _fmt(rel)
-        row["relative_lift_ci_high"] = _fmt(rel)
-        if diff is None or base is None:
-            row["descriptive_status"] = (
-                "undefined_baseline" if base is None else "insufficient_sample"
+    b_boot = int(config["bootstrap"]["B_boot"])
+    lower = float(config["bootstrap"]["lower_percentile"])
+    upper = float(config["bootstrap"]["upper_percentile"])
+    rng = np.random.default_rng(seed)
+
+    metrics = [
+        (row["transition_path"], row["W"], row["q"], row["lag_k"]) for row in rows
+    ]
+    metric_index = {metric: idx for idx, metric in enumerate(metrics)}
+    security_ids = [
+        item[0]
+        for item in con.execute(
+            "SELECT DISTINCT security_id FROM full_sequence ORDER BY security_id"
+        ).fetchall()
+    ]
+    security_index = {security_id: idx for idx, security_id in enumerate(security_ids)}
+    n_security = len(security_ids)
+    n_metric = len(metrics)
+    event_valid = np.zeros((n_security, n_metric), dtype=np.int64)
+    event_true = np.zeros((n_security, n_metric), dtype=np.int64)
+    control_valid = np.zeros((n_security, n_metric), dtype=np.int64)
+    control_true = np.zeros((n_security, n_metric), dtype=np.int64)
+    cluster_counts = con.execute(
+        f"""
+        WITH projected AS ({_projection_sql()}),
+        counts AS (
+          SELECT transition_path, W, q, lag_k, security_id,
+            sum(P_ONSET AND target_rn IS NOT NULL AND target_valid)::BIGINT AS event_valid,
+            sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_raw IS TRUE)::BIGINT AS event_true,
+            sum(STAY_OUT AND target_rn IS NOT NULL AND target_valid)::BIGINT AS control_valid,
+            sum(STAY_OUT AND target_rn IS NOT NULL AND target_valid AND target_raw IS TRUE)::BIGINT AS control_true
+          FROM projected
+          GROUP BY transition_path, W, q, lag_k, security_id
+        )
+        SELECT transition_path, W, q, lag_k, security_id,
+          event_valid, event_true, control_valid, control_true
+        FROM counts
+        """
+    ).fetchall()
+    for (
+        transition_path,
+        w,
+        q,
+        lag_k,
+        security_id,
+        ev,
+        et,
+        cv,
+        ct,
+    ) in cluster_counts:
+        metric = (transition_path, str(w), str(q), str(lag_k))
+        sec_idx = security_index.get(security_id)
+        metric_idx = metric_index.get(metric)
+        if sec_idx is None or metric_idx is None:
+            continue
+        event_valid[sec_idx, metric_idx] = ev
+        event_true[sec_idx, metric_idx] = et
+        control_valid[sec_idx, metric_idx] = cv
+        control_true[sec_idx, metric_idx] = ct
+
+    obs_samples = np.empty((b_boot, n_metric), dtype=np.float64)
+    base_samples = np.empty((b_boot, n_metric), dtype=np.float64)
+    diff_samples = np.empty((b_boot, n_metric), dtype=np.float64)
+    rel_samples = np.empty((b_boot, n_metric), dtype=np.float64)
+    failed_replicates = 0
+    for b in range(b_boot):
+        sampled = rng.integers(0, n_security, size=n_security)
+        ev = event_valid[sampled].sum(axis=0)
+        et = event_true[sampled].sum(axis=0)
+        cv = control_valid[sampled].sum(axis=0)
+        ct = control_true[sampled].sum(axis=0)
+        obs = np.divide(
+            et,
+            ev,
+            out=np.full(n_metric, np.nan, dtype=np.float64),
+            where=ev != 0,
+        )
+        base = np.divide(
+            ct,
+            cv,
+            out=np.full(n_metric, np.nan, dtype=np.float64),
+            where=cv != 0,
+        )
+        diff = obs - base
+        rel = np.divide(
+            obs,
+            base,
+            out=np.full(n_metric, np.nan, dtype=np.float64),
+            where=base != 0,
+        )
+        if np.isnan(diff).any():
+            failed_replicates += 1
+        obs_samples[b] = obs
+        base_samples[b] = base
+        diff_samples[b] = diff
+        rel_samples[b] = rel
+
+    quantile_method = "linear"
+    for idx, row in enumerate(rows):
+        obs_low, obs_high = np.nanquantile(
+            obs_samples[:, idx], [lower, upper], method=quantile_method
+        )
+        base_low, base_high = np.nanquantile(
+            base_samples[:, idx], [lower, upper], method=quantile_method
+        )
+        diff_low, diff_high = np.nanquantile(
+            diff_samples[:, idx], [lower, upper], method=quantile_method
+        )
+        rel_column = rel_samples[:, idx]
+        if np.isnan(rel_column).all():
+            rel_low = rel_high = None
+        else:
+            rel_low, rel_high = np.nanquantile(
+                rel_column, [lower, upper], method=quantile_method
             )
-        elif diff > 0:
+        row["observed_probability_ci_low"] = _fmt(float(obs_low))
+        row["observed_probability_ci_high"] = _fmt(float(obs_high))
+        row["baseline_probability_ci_low"] = _fmt(float(base_low))
+        row["baseline_probability_ci_high"] = _fmt(float(base_high))
+        row["absolute_difference_ci_low"] = _fmt(float(diff_low))
+        row["absolute_difference_ci_high"] = _fmt(float(diff_high))
+        row["relative_lift_ci_low"] = _fmt(None if rel_low is None else float(rel_low))
+        row["relative_lift_ci_high"] = _fmt(
+            None if rel_high is None else float(rel_high)
+        )
+        if _int(row, "target_valid_event_count") < 1 or _int(
+            row, "target_valid_control_count"
+        ) < 1:
+            row["descriptive_status"] = "insufficient_sample"
+        elif _float_or_none(row, "baseline_probability") is None:
+            row["descriptive_status"] = "undefined_baseline"
+        elif diff_low > 0:
             row["descriptive_status"] = "positive_interval_separated"
-        elif diff < 0:
+        elif diff_high < 0:
             row["descriptive_status"] = "negative_interval_separated"
         else:
             row["descriptive_status"] = "interval_overlaps_zero"
         row["empirical_p"] = ""
     _write_csv(path, rows)
+    return {
+        "B_boot": b_boot,
+        "seed": seed,
+        "failed_replicates": failed_replicates,
+        "replicate_detail_written": False,
+        "interval_rows_written": len(rows),
+    }
 
 
 def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
@@ -917,6 +1118,7 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
         "nested_invariant_check": _state_reconciliation_ok(state),
         "funnel_accounting_check": _funnel_ok(funnel),
         "denominator_integrity_check": _metric_identity_ok(primary)
+        and _baseline_denominator_ok(primary, baseline)
         and len(baseline) == BASELINE_ROWS,
         "sample_size_check": len(security) == SECURITY_SUMMARY_ROWS
         and len(anchor_target) == ANCHOR_TARGET_ROWS,
@@ -1025,6 +1227,7 @@ def _parameter_response_ok(
 def _state_reconciliation_ok(rows: list[dict[str, str]]) -> bool:
     return len(rows) == STATE_RECONCILIATION_ROWS and all(
         _int(row, "missing_key_count") == 0 and _int(row, "row_mismatch_count") == 0
+        and _int(row, "r0_key_count") == _int(row, "derived_key_count")
         for row in rows
     )
 
@@ -1041,7 +1244,29 @@ def _funnel_ok(rows: list[dict[str, str]]) -> bool:
             + _int(row, "exit_count")
             + _int(row, "other_count")
         )
-        if total < _int(row, "total_rows"):
+        if total != _int(row, "total_rows"):
+            return False
+    return True
+
+
+def _baseline_denominator_ok(
+    primary: list[dict[str, str]], baseline: list[dict[str, str]]
+) -> bool:
+    event_denominators = {
+        (row["transition_path"], row["W"], row["q"], row["lag_k"]): _int(
+            row, "target_valid_event_count"
+        )
+        for row in primary
+    }
+    for row in baseline:
+        matched = _int(row, "security_year_matched_anchor_count")
+        denominator = event_denominators.get(
+            (row["transition_path"], row["W"], row["q"], row["lag_k"])
+        )
+        if denominator is None or matched > denominator:
+            return False
+        coverage = _float_or_none(row, "security_year_coverage")
+        if coverage is not None and not (0 <= coverage <= 1):
             return False
     return True
 
