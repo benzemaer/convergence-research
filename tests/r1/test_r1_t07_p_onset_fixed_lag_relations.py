@@ -14,11 +14,13 @@ from jsonschema import Draft202012Validator
 from src.r1.r1_t07_p_onset_fixed_lag_relations import (
     CONFIG_PATH,
     SCHEMA_PATH,
+    _add_bootstrap_intervals,
     _create_full_sequence,
     _create_registries,
     _projection_sql,
     _validate_config,
     _write_anchor_funnel,
+    _write_fixed_lag_profile,
     _write_state_reconciliation,
 )
 
@@ -157,6 +159,23 @@ class R1T07POnsetFixedLagRelationsTest(unittest.TestCase):
                 for row in rows
             )
         )
+
+    def test_bootstrap_is_reproducible_for_fixed_seed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            con = _synthetic_sequence(root)
+            first = root / "first.csv"
+            second = root / "second.csv"
+            _write_fixed_lag_profile(con, first, "R1-T07-SYNTH", "a" * 40)
+            _write_fixed_lag_profile(con, second, "R1-T07-SYNTH", "a" * 40)
+            config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            first_diagnostic = _add_bootstrap_intervals(con, first, config)
+            second_diagnostic = _add_bootstrap_intervals(con, second, config)
+            con.close()
+            self.assertEqual(first_diagnostic, second_diagnostic)
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            self.assertEqual(first_diagnostic["B_boot"], 2000)
+            self.assertEqual(first_diagnostic["interval_rows_written"], 25)
 
 
 def _synthetic_sequence(root: Path) -> duckdb.DuckDBPyConnection:

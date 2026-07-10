@@ -55,7 +55,8 @@
     "lower_percentile": 0.025,
     "upper_percentile": 0.975,
     "empirical_p": null,
-    "result_role": "secondary_evidence"
+    "result_role": "secondary_evidence",
+    "max_failed_replicates": 0
   },
   "parallelism": {
     "parallelism_mode": "duckdb_native_single_process",

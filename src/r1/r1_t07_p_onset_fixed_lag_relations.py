@@ -119,6 +119,12 @@ def run_r1_t07_p_onset_fixed_lag_relations(
         }
 
     invariants = _evaluate_outputs(paths)
+    bootstrap_ok = _bootstrap_diagnostic_ok(bootstrap_diagnostic, config)
+    invariants["checks"]["bootstrap_execution_check"] = (
+        "passed" if bootstrap_ok else "blocked"
+    )
+    if not bootstrap_ok:
+        invariants["errors"].append("bootstrap_execution_check")
     errors.extend(invariants["errors"])
     status = "completed" if not errors else "blocked"
     diagnostic = {
@@ -576,6 +582,8 @@ def _write_baseline_sensitivity(con: Any, path: Path) -> None:
     ),
     anchor_mix AS (
       SELECT transition_path, W, q, lag_k,
+        sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_anchor_valid)::BIGINT AS target_status_matched_event_count,
+        sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_anchor_valid AND target_raw IS TRUE)::BIGINT AS target_status_matched_true_count,
         sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_anchor_valid AND target_anchor_raw IS TRUE)::DOUBLE
         / nullif(sum(P_ONSET AND target_rn IS NOT NULL AND target_valid AND target_anchor_valid),0) AS onset_anchor_active_weight
       FROM projected
@@ -620,22 +628,27 @@ def _write_baseline_sensitivity(con: Any, path: Path) -> None:
     SELECT p.transition_path, p.W, p.q, 'not_applicable' AS K, p.lag_k,
       p.baseline_probability AS primary_stay_out_baseline_probability,
       u.unconditional_true_count::DOUBLE / nullif(u.unconditional_valid_count,0) AS unconditional_lag_support_marginal_probability,
-      t.target_status_standardized_baseline_probability,
-      s.security_year_standardized_baseline_probability,
+       t.target_status_standardized_baseline_probability,
+       m.target_status_matched_event_count,
+       m.target_status_matched_true_count,
+       m.target_status_matched_true_count::DOUBLE / nullif(m.target_status_matched_event_count,0) AS target_status_matched_observed_probability,
+       m.target_status_matched_event_count::DOUBLE / nullif(p.target_valid_event_count,0) AS target_status_matched_event_coverage,
+       s.security_year_standardized_baseline_probability,
       s.security_year_matched_anchor_count,
       s.security_year_unmatched_stratum_count,
       s.security_year_coverage,
       p.observed_probability,
       p.absolute_difference AS primary_absolute_difference,
-      p.observed_probability - t.target_status_standardized_baseline_probability AS target_status_standardized_absolute_difference,
+       m.target_status_matched_true_count::DOUBLE / nullif(m.target_status_matched_event_count,0) - t.target_status_standardized_baseline_probability AS target_status_standardized_absolute_difference,
       p.observed_probability - s.security_year_standardized_baseline_probability AS security_year_standardized_absolute_difference,
       CASE
-        WHEN sign(p.absolute_difference) != sign(p.observed_probability - t.target_status_standardized_baseline_probability)
+        WHEN sign(p.absolute_difference) != sign(m.target_status_matched_true_count::DOUBLE / nullif(m.target_status_matched_event_count,0) - t.target_status_standardized_baseline_probability)
           OR sign(p.absolute_difference) != sign(p.observed_probability - s.security_year_standardized_baseline_probability)
         THEN 'baseline_sign_conflict' ELSE '' END AS warnings
     FROM primary_rows p
     JOIN uncond u USING (transition_path, W, q, lag_k)
     LEFT JOIN target_standardized t USING (transition_path, W, q, lag_k)
+    LEFT JOIN anchor_mix m USING (transition_path, W, q, lag_k)
     LEFT JOIN sy_std s USING (transition_path, W, q, lag_k)
     ORDER BY p.path_order, p.W, p.q, p.lag_k
     """
@@ -1072,6 +1085,18 @@ def _add_bootstrap_intervals(
     }
 
 
+def _bootstrap_diagnostic_ok(
+    diagnostic: dict[str, Any], config: dict[str, Any]
+) -> bool:
+    bootstrap = config["bootstrap"]
+    return (
+        diagnostic.get("B_boot") == bootstrap["B_boot"]
+        and diagnostic.get("seed") == bootstrap["seed"]
+        and diagnostic.get("interval_rows_written") == PRIMARY_ROWS
+        and diagnostic.get("failed_replicates") <= bootstrap["max_failed_replicates"]
+    )
+
+
 def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
     primary = _csv_rows(paths["fixed_lag_profile_csv"])
     baseline = _csv_rows(paths["baseline_sensitivity_csv"])
@@ -1251,11 +1276,37 @@ def _baseline_denominator_ok(
         for row in primary
     }
     for row in baseline:
+        target_matched = _int(row, "target_status_matched_event_count")
         matched = _int(row, "security_year_matched_anchor_count")
         denominator = event_denominators.get(
             (row["transition_path"], row["W"], row["q"], row["lag_k"])
         )
-        if denominator is None or matched > denominator:
+        if denominator is None or matched > denominator or target_matched > denominator:
+            return False
+        target_coverage = _float_or_none(row, "target_status_matched_event_coverage")
+        target_observed = _float_or_none(
+            row, "target_status_matched_observed_probability"
+        )
+        target_true = _int(row, "target_status_matched_true_count")
+        target_baseline = _float_or_none(
+            row, "target_status_standardized_baseline_probability"
+        )
+        target_difference = _float_or_none(
+            row, "target_status_standardized_absolute_difference"
+        )
+        if not _float_matches(target_coverage, target_matched / denominator):
+            return False
+        if not _float_matches(
+            target_observed,
+            None if target_matched == 0 else target_true / target_matched,
+        ):
+            return False
+        if not _float_matches(
+            target_difference,
+            None
+            if target_observed is None or target_baseline is None
+            else target_observed - target_baseline,
+        ):
             return False
         coverage = _float_or_none(row, "security_year_coverage")
         if coverage is not None and not (0 <= coverage <= 1):
@@ -1568,6 +1619,12 @@ def _int(row: dict[str, str], key: str) -> int:
 def _float_or_none(row: dict[str, str], key: str) -> float | None:
     value = row.get(key)
     return None if value in (None, "") else float(value)
+
+
+def _float_matches(actual: float | None, expected: float | None) -> bool:
+    if actual is None or expected is None:
+        return actual is None and expected is None
+    return abs(actual - expected) <= 1e-12
 
 
 def _fmt(value: float | None) -> str:

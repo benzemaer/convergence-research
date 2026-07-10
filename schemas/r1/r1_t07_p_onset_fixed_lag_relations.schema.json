@@ -87,7 +87,7 @@
     "bootstrap": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cluster_key", "B_boot", "seed", "interval_method", "lower_percentile", "upper_percentile", "empirical_p", "result_role"],
+      "required": ["cluster_key", "B_boot", "seed", "interval_method", "lower_percentile", "upper_percentile", "empirical_p", "result_role", "max_failed_replicates"],
       "properties": {
         "cluster_key": {"const": "security_id"},
         "B_boot": {"const": 2000},
@@ -96,7 +96,8 @@
         "lower_percentile": {"const": 0.025},
         "upper_percentile": {"const": 0.975},
         "empirical_p": {"type": "null"},
-        "result_role": {"const": "secondary_evidence"}
+        "result_role": {"const": "secondary_evidence"},
+        "max_failed_replicates": {"const": 0}
       }
     },
     "parallelism": {

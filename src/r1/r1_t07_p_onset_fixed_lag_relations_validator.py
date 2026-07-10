@@ -85,6 +85,7 @@ def validate_r1_t07_p_onset_fixed_lag_relations(
     _validate_funnel(funnel, errors)
     _validate_state_reconciliation(state, errors)
     _validate_lag_alignment(lag_alignment, errors)
+    _validate_bootstrap(summary, root, errors)
     _validate_summary_checks(summary, errors)
     if result_package_path is not None:
         package = _load(result_package_path, errors, "result_package")
@@ -259,11 +260,41 @@ def _validate_baseline(
             if value is not None and not (0 <= value <= 1):
                 errors.append(f"baseline_probability_out_of_range:{key}")
         matched = _int(row, "security_year_matched_anchor_count")
+        target_matched = _int(row, "target_status_matched_event_count")
+        target_true = _int(row, "target_status_matched_true_count")
         event_denom = primary_event_denominator.get(
             (row["transition_path"], row["W"], row["q"], row["lag_k"])
         )
-        if event_denom is not None and matched > event_denom:
+        if event_denom is not None and (
+            matched > event_denom or target_matched > event_denom
+        ):
             errors.append("security_year_standardization_denominator_mismatch")
+        target_coverage = _float_or_none(row, "target_status_matched_event_coverage")
+        target_observed = _float_or_none(
+            row, "target_status_matched_observed_probability"
+        )
+        target_baseline = _float_or_none(
+            row, "target_status_standardized_baseline_probability"
+        )
+        target_difference = _float_or_none(
+            row, "target_status_standardized_absolute_difference"
+        )
+        if event_denom is not None and not _float_matches(
+            target_coverage, target_matched / event_denom
+        ):
+            errors.append("target_status_matched_coverage_mismatch")
+        expected_observed = (
+            None if target_matched == 0 else target_true / target_matched
+        )
+        if not _float_matches(target_observed, expected_observed):
+            errors.append("target_status_matched_observed_probability_mismatch")
+        expected_difference = (
+            None
+            if target_observed is None or target_baseline is None
+            else target_observed - target_baseline
+        )
+        if not _float_matches(target_difference, expected_difference):
+            errors.append("target_status_standardized_estimand_mismatch")
         coverage = _float_or_none(row, "security_year_coverage")
         if coverage is not None and not (0 <= coverage <= 1):
             errors.append("security_year_coverage_out_of_range")
@@ -393,6 +424,35 @@ def _validate_summary_checks(summary: dict[str, Any], errors: list[str]) -> None
         errors.append("r2_gate_not_false")
     if gates.get("downstream_gate_allowed") is not False:
         errors.append("downstream_gate_not_false")
+
+
+def _validate_bootstrap(summary: dict[str, Any], root: Path, errors: list[str]) -> None:
+    configured = summary.get("bootstrap", {})
+    if configured.get("cluster_key") != "security_id":
+        errors.append("bootstrap_cluster_key_mismatch")
+    if configured.get("B_boot") != 2000:
+        errors.append("bootstrap_B_boot_mismatch")
+    if not isinstance(configured.get("seed"), int):
+        errors.append("bootstrap_seed_missing")
+    if configured.get("max_failed_replicates") != 0:
+        errors.append("bootstrap_failed_replicate_policy_mismatch")
+    diagnostic_item = summary.get("output_paths", {}).get("diagnostic_summary")
+    if not diagnostic_item:
+        errors.append("bootstrap_diagnostic_summary_missing")
+        return
+    diagnostic_path = root / diagnostic_item["path"]
+    diagnostic = _load(diagnostic_path, errors, "bootstrap_diagnostic_summary")
+    actual = diagnostic.get("bootstrap", {})
+    if actual.get("B_boot") != configured.get("B_boot"):
+        errors.append("bootstrap_actual_B_boot_mismatch")
+    if actual.get("seed") != configured.get("seed"):
+        errors.append("bootstrap_actual_seed_mismatch")
+    if actual.get("interval_rows_written") != len(PATHS) * len(WS) * len(QS) * len(
+        LAGS
+    ):
+        errors.append("bootstrap_interval_row_count_mismatch")
+    if actual.get("failed_replicates") != configured.get("max_failed_replicates"):
+        errors.append("bootstrap_failed_replicates_not_zero")
 
 
 def sha256_file(path: Path) -> str:

@@ -111,6 +111,45 @@ class R1T07ValidatorTest(unittest.TestCase):
                 str(raised.exception),
             )
 
+    def test_target_status_estimand_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            baseline = root / "r1_t07_baseline_sensitivity.csv"
+            rows = _read_rows(baseline)
+            rows[0]["target_status_standardized_absolute_difference"] = "999"
+            _write_csv(baseline, rows)
+            _refresh_summary_hash(root, summary, "baseline_sensitivity_csv")
+            with self.assertRaises(R1T07ValidationError) as raised:
+                validate_r1_t07_p_onset_fixed_lag_relations(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn(
+                "target_status_standardized_estimand_mismatch",
+                str(raised.exception),
+            )
+
+    def test_bootstrap_metadata_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            diagnostic = root / "r1_t07_diagnostic_summary.json"
+            payload = json.loads(diagnostic.read_text(encoding="utf-8"))
+            payload["bootstrap"]["interval_rows_written"] = 0
+            diagnostic.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+            _refresh_summary_hash(root, summary, "diagnostic_summary")
+            with self.assertRaises(R1T07ValidationError) as raised:
+                validate_r1_t07_p_onset_fixed_lag_relations(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn(
+                "bootstrap_interval_row_count_mismatch", str(raised.exception)
+            )
+
     def test_author_draft_scientific_review_must_remain_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -209,6 +248,20 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
         ],
     )
     _write_csv(root / "r1_t07_lag_alignment_reconciliation.csv", _lag_rows())
+    (root / "r1_t07_diagnostic_summary.json").write_text(
+        json.dumps(
+            {
+                "bootstrap": {
+                    "B_boot": 2000,
+                    "seed": 20260710,
+                    "interval_rows_written": 225,
+                    "failed_replicates": 0,
+                }
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
     summary_payload = {
         "task_id": "R1-T07",
         "status": "completed",
@@ -238,6 +291,12 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
             )
         },
         "blocked_reasons": [],
+        "bootstrap": {
+            "cluster_key": "security_id",
+            "B_boot": 2000,
+            "seed": 20260710,
+            "max_failed_replicates": 0,
+        },
         "downstream_gates": {
             "R1-T08_allowed_to_start": False,
             "R2_allowed_to_start": False,
@@ -256,6 +315,7 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
         "r1_t07_state_reconciliation.csv": "state_reconciliation_csv",
         "r1_t07_q_onset_transition_profile.csv": "q_onset_transition_profile_csv",
         "r1_t07_lag_alignment_reconciliation.csv": "lag_alignment_reconciliation_csv",
+        "r1_t07_diagnostic_summary.json": "diagnostic_summary",
     }
     for file_name, role in role_by_file.items():
         path = root / file_name
@@ -301,6 +361,10 @@ def _baseline_rows(primary: list[dict[str, str]]) -> list[dict[str, str]]:
             "target_status_standardized_baseline_probability": row[
                 "baseline_probability"
             ],
+            "target_status_matched_event_count": row["target_valid_event_count"],
+            "target_status_matched_true_count": row["target_true_event_count"],
+            "target_status_matched_observed_probability": row["observed_probability"],
+            "target_status_matched_event_coverage": "1",
             "security_year_standardized_baseline_probability": row[
                 "baseline_probability"
             ],
