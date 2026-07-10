@@ -48,6 +48,8 @@ def validate_formal_experiment_package(
     _check_common_package(ctx, package, config, errors)
     if mode == "author-draft":
         _check_author_draft(package, errors)
+    elif mode == "review-complete":
+        _check_review_complete(ctx, package, review_schema, errors)
     elif mode == "final-gate":
         _check_final_gate(ctx, package, review_schema, errors)
     else:
@@ -173,6 +175,40 @@ def _check_final_gate(
         errors.append("final_gate_readme_gate_not_consistent")
     _check_readme_gate(ctx.root, package, errors)
 
+    _check_scientific_review(ctx, package, review_schema, errors)
+
+
+def _check_review_complete(
+    ctx: ValidationContext,
+    package: dict[str, Any],
+    review_schema: dict[str, Any],
+    errors: list[str],
+) -> None:
+    gate = package.get("gate_status", {})
+    if package.get("status") != "author_analysis_complete":
+        errors.append("review_complete_status_must_be_author_analysis_complete")
+    if gate.get("scientific_review_status") != "passed":
+        errors.append("review_complete_scientific_review_not_passed")
+    if gate.get("anomaly_resolution_status") not in {"passed", "not_applicable"}:
+        errors.append("review_complete_anomaly_not_resolved")
+    if package.get("superseded") is not False:
+        errors.append("review_complete_superseded_not_false")
+    if package.get("downstream_gate_allowed") is not False:
+        errors.append("review_complete_downstream_gate_must_be_false")
+    if gate.get("review_phase") != "independent_review_complete":
+        errors.append("review_complete_review_phase_mismatch")
+    if gate.get("readme_gate_updated") is not False:
+        errors.append("review_complete_readme_must_not_advance")
+
+    _check_scientific_review(ctx, package, review_schema, errors)
+
+
+def _check_scientific_review(
+    ctx: ValidationContext,
+    package: dict[str, Any],
+    review_schema: dict[str, Any],
+    errors: list[str],
+) -> None:
     review_path = package.get("scientific_review_record_path")
     review_sha = package.get("scientific_review_record_sha256")
     review_md_path = package.get("scientific_review_md_path")

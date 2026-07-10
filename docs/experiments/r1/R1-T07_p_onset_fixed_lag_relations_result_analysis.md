@@ -58,4 +58,4 @@ research_judgment: 本结果不支持 P 导致 C/T/V/PCT/PCVT、target 在 P ons
 
 ## 15. 下游 gate 建议
 
-observed_fact: 当前 author-draft package 的 engineering validator 已通过，通用 governance author-draft validator 待本次 artifact package 生成后执行。research_judgment: 新 run 必须保持 `scientific_review_status=pending`，`downstream_gate_allowed=false`，`R1-T08_allowed_to_start=false`，`R2_allowed_to_start=false`，README 不推进，PR 保持 Draft；1800Z 应记录为 `scientific_review_status=needs_revision`、`anomaly_resolution_status=unresolved` 且 superseded。
+observed_fact: `R1-T07-20260710T1915Z` 已获得独立 scientific review 通过，reviewer 为 `benzemaer`，implementation actor 为 `codex`，blocking findings 为空，downstream gate recommendation 为 true。research_judgment: 该科学结论不等于 final gate；在 CI、result package、README 与 final-gate validator 同步完成前，仍必须保持 `downstream_gate_allowed=false`、`R1-T08_allowed_to_start=false`、`R2_allowed_to_start=false`、README 不推进且 PR 保持 Draft。1800Z 保持 `scientific_review_status=needs_revision`、`anomaly_resolution_status=unresolved` 且 superseded。

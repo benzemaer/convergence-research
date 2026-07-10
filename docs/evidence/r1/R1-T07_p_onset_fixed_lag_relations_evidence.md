@@ -9,9 +9,9 @@
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
 `author_result_analysis_status`: passed
-`scientific_review_status`: pending
+`scientific_review_status`: passed
 `anomaly_resolution_status`: passed
-`review_phase`: author_analysis_complete
+`review_phase`: independent_review_complete
 `downstream_gate_allowed`: false
 
 `experiment_summary_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_experiment_summary.json
@@ -22,15 +22,18 @@
 `engineering_validation_result_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_engineering_validation_result.json
 `engineering_validation_result_sha256`: 308cbeb7b4214f2e59586471e8ba03ad9aa1b3b16076da1982361b89ecc1d8c9
 `author_draft_package_validation_result_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_author_draft_package_validation_result.json
+`review_complete_package_validation_result_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_review_complete_package_validation_result.json
 `anomaly_scan_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_anomaly_scan.json
 `anomaly_scan_sha256`: 065c77172a0dfa79a29b996d74fe435e1f0b1f8b6f35f23643c86bbdc121da9d
 `result_analysis_path`: docs/experiments/r1/R1-T07_p_onset_fixed_lag_relations_result_analysis.md
-`result_analysis_sha256`: d0ce9b2498e44a13da4ef95331894cb2dd86fd249077f9fd670845c50004a8eb
+`result_analysis_sha256`: 0fbaea27431557e22d2510939d90d88e94a953ace353fb420f3aaff86bba8e84
 `formal_evidence_path`: docs/evidence/r1/R1-T07_p_onset_fixed_lag_relations_evidence.md
-`scientific_review_path`: null
-`scientific_review_sha256`: null
+`scientific_review_path`: data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_scientific_review.json
+`scientific_review_sha256`: 9f14bbfc118477c17823a6b1786f37922aa909e26b9ff26bdf4b1b6e89d89204
+`scientific_review_md_path`: docs/reviews/r1/R1-T07_p_onset_fixed_lag_relations_scientific_review.md
+`scientific_review_md_sha256`: cb740731c0a28aebbe4d89a752b7a27c3141ab46bd50e9345bee78a1492ae936
 `readme_path`: docs/tasks/README.md
 
 ## 说明
 
-1915Z supersedes `R1-T07-20260710T1800Z` after the target-status standardized difference was aligned to its anchor-valid matched event population and hard bootstrap execution gates were added. The older 1800Z package is retained as `needs_revision/unresolved/superseded`; it is not current evidence or a formal input. This author-draft leaves all downstream gates closed.
+1915Z supersedes `R1-T07-20260710T1800Z` after the target-status standardized difference was aligned to its anchor-valid matched event population and hard bootstrap execution gates were added. The older 1800Z package is retained as `needs_revision/unresolved/superseded`; it is not current evidence or a formal input. Independent scientific review for 1915Z is passed and recommends eventual downstream authorization, but final gate has not run: `downstream_gate_allowed=false`, README remains on R1-T07, and R1-T08/R2 remain blocked.

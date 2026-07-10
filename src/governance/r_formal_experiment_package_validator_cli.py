@@ -11,7 +11,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Validate an R1-R6 formal experiment result package."
     )
     parser.add_argument("--result-package", required=True)
-    parser.add_argument("--mode", choices=("author-draft", "final-gate"), required=True)
+    parser.add_argument(
+        "--mode",
+        choices=("author-draft", "review-complete", "final-gate"),
+        required=True,
+    )
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     validate_formal_experiment_package(
