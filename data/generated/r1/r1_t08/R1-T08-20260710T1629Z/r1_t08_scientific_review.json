@@ -1,0 +1,84 @@
+{
+  "alternative_explanations": [
+    "主 null 固定 P 并移动 C/T/V，具有预注册的 anchor asymmetry；结论只相对于该 null，不能外推到 P 也移动或 bundle shift。",
+    "layer payload 的 raw、validity 与 reason 一起移动，因此 global coverage separation 同时包含跨层 active-state 与 validity/availability alignment 被破坏后的效应。",
+    "security-year 独立 shift 破坏共同市场日历和 regime 对齐，不能排除共同市场环境、共享输入、定义重叠或非平稳性。",
+    "结果是 pooled panel，尚未完成 R1-T09 年份稳定性与状态集中度检查，不能解释为多数年份或证券均同向。",
+    "n_extreme=0 受 1/2001 经验 p 分辨率下限约束，不能解释为 p=0，也不能据此给 W120/W250 排名。"
+  ],
+  "anomaly_review": "已复核 committed anomaly scan、observed full-key reconciliation、20,000 行 replicate artifact、22 行 aggregate、block/offset diagnostics 与 validator 输出。未发现全零、全一、全 NULL、参数无响应、层级反转、denominator 错位、failed simulation、offset=0、跨块 shift、payload preservation 或 p formula mismatch；blocking anomalies 为空。",
+  "baseline_challenger_review": "已比较 W250 reference 与 W120 challenger 的 S_PCT/S_PCVT global coverage、duration、fragment 和 C/T/V nested retention。两个窗口的 coverage 与 nested retention 方向一致；W120 availability 更高且 lift 略高，但未按 p 下限或 JointLift 选择 winner。PCVT duration/fragment 分离较弱，保留为 material warning。",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "12480 / 1730769",
+      "metric": "W120 S_PCT confirmed coverage",
+      "value": 0.007210667628089017
+    },
+    {
+      "calculation": "0.007210667628089017 / 0.0018381912895366163",
+      "metric": "W120 S_PCT JointLift",
+      "value": 3.922697093133724
+    },
+    {
+      "calculation": "2941 / 1730769",
+      "metric": "W120 S_PCVT confirmed coverage",
+      "value": 0.0016992446710104006
+    },
+    {
+      "calculation": "10854 / 1730769",
+      "metric": "W250 S_PCT confirmed coverage",
+      "value": 0.006271200836160112
+    },
+    {
+      "calculation": "2143 / 1730769",
+      "metric": "W250 S_PCVT confirmed coverage",
+      "value": 0.00123817794286817
+    },
+    {
+      "calculation": "(0 + 1) / (2000 + 1)",
+      "metric": "minimum finite-sample empirical p",
+      "value": 0.0004997501249375312
+    },
+    {
+      "calculation": "145033 / (145033 + 175677)",
+      "metric": "W120 C_GIVEN_P observed retention",
+      "value": 0.45222475133297996
+    },
+    {
+      "calculation": "39800 / (39800 + 105233)",
+      "metric": "W120 T_GIVEN_PC observed retention",
+      "value": 0.27442030434452847
+    },
+    {
+      "calculation": "7860 / (7860 + 26450)",
+      "metric": "W250 V_GIVEN_PCT observed retention",
+      "value": 0.22908772952491985
+    },
+    {
+      "calculation": "raw/confirmed PCT and PCVT child counts compared within W120 and W250",
+      "metric": "PCVT subset PCT invariant violation count",
+      "value": 0
+    }
+  ],
+  "nonblocking_findings": [
+    "global_null_breaks_validity_alignment_together_with_active_alignment",
+    "P_fixed_anchor_asymmetry",
+    "common_market_regime_alignment_is_destroyed",
+    "pooled_panel_requires_R1_T09_year_stability",
+    "empirical_p_resolution_floor_1_over_2001",
+    "PCVT_duration_fragment_separation_weaker_than_coverage"
+  ],
+  "parameter_response_review": "已检查 W120/W250 observed、null mean、JointLift、JointExcess、duration、fragment、availability 和 nested retention。输出具有合理窗口响应，未执行 sidecar、27-grid 或 10,000 permutations；没有方向冲突或数量级跳变。",
+  "review_source": "https://github.com/benzemaer/convergence-research/pull/84#issuecomment-4937738056",
+  "reviewed_analysis_sha256": "66a23faefb5ed98ea4ca3da063bc7a774ca75377e15d83aceaac2aafd2b3a0b8",
+  "reviewed_code_commit": "59218fa714f3275f7bdc4995265f381aa1140fa5",
+  "reviewed_pr_head_commit": "b5d12918f434a7aea7f701468b199234d273eef2",
+  "reviewed_summary_sha256": "0d10c21bd05778bd770384624b3297a0156375d6046014235c026361805f400f",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}

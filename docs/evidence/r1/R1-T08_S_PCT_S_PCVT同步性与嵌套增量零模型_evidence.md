@@ -2,17 +2,17 @@
 
 `task_id`: R1-T08
 `task_class`: formal_experiment
-`status`: author_analysis_complete
+`status`: completed
 `run_id`: R1-T08-20260710T1629Z
 `code_commit`: 59218fa714f3275f7bdc4995265f381aa1140fa5
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
 `author_result_analysis_status`: passed
-`scientific_review_status`: pending
+`scientific_review_status`: passed
 `anomaly_resolution_status`: passed
-`review_phase`: author_analysis_complete
-`downstream_gate_allowed`: false
+`review_phase`: independent_review_complete
+`downstream_gate_allowed`: true
 
 `experiment_summary_path`: data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_experiment_summary.json
 `experiment_summary_sha256`: 0d10c21bd05778bd770384624b3297a0156375d6046014235c026361805f400f
@@ -40,10 +40,21 @@
 `anomaly_scan_sha256`: 4682848f713409dad61e321c82abf67068335e64eb1550f52de80028833263b5
 `result_analysis_path`: docs/experiments/r1/R1-T08_S_PCT_S_PCVT同步性与嵌套增量零模型_result_analysis.md
 `result_analysis_sha256`: 66a23faefb5ed98ea4ca3da063bc7a774ca75377e15d83aceaac2aafd2b3a0b8
+`scientific_review_path`: data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_scientific_review.json
+`scientific_review_sha256`: 07dffddd225cd3efc4d6e23460b8dd4898c437c1e73251b20f69e323686e62ca
+`scientific_review_md_path`: docs/reviews/r1/R1-T08_S_PCT_S_PCVT同步性与嵌套增量零模型_scientific_review.md
+`scientific_review_md_sha256`: 48f4bac2ffa86d41c57bba10395983d9bfb89c6e06801bb6dea42d74a454ac28
 `readme_path`: docs/tasks/README.md
+`readme_sha256`: af8419b5514d95b82b95aee346bdb275b769a83e2ce210e01607e0857187e4a4
+`expected_current_stage`: R1
+`expected_current_task`: R1-T09 年份稳定性与状态集中度检查
+`expected_next_planned_task`: R1-T10 R1 验收门禁与 R2 交接矩阵
+`expected_downstream_gate_marker`: R1-T10_allowed_to_start: false
+`author_draft_package_validation_result_path`: data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_author_draft_package_validation_result.json
+`final_gate_package_validation_result_path`: data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_final_gate_package_validation_result.json
 
 ## 结果与门禁说明
 
 正式 run 完成十个 test groups、20,000 个 replicate、22 行 aggregate，failed simulation 为 0。Observed full-key reconciliation、R1-T04/R1-T06 对账、block/offset/payload preservation 均为零 mismatch；engineering validator 从 replicate artifact 重算统计量，并从 root seed 重建全部 offset-plan hash，结果为 passed。
 
-四个 global confirmed coverage 和六个 nested retention 均位于相应 2,000-replicate upper tail 之外；duration 与 fragment 的 separation 不完全一致，已在 15 节 result analysis 中作为 material warning 分开陈述。当前仅为 author draft：scientific review pending，downstream false，README 不推进，R1-T09 与 R2 均不放行。
+四个 global confirmed coverage 和六个 nested retention 均位于相应 2,000-replicate upper tail 之外；duration 与 fragment 的 separation 不完全一致，已在 15 节 result analysis 和 independent scientific review 中作为 material warning 分开陈述。独立审阅 passed，final-gate 只推进至 R1-T09；R1-T10 与 R2 保持未授权。
