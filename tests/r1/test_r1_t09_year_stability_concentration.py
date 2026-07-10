@@ -5,6 +5,7 @@ import unittest
 
 from src.r1.r1_t09_year_stability_concentration import (
     CONFIG_PATH,
+    ROOT,
     R1T09Error,
     _build_anomaly_scan,
     _load_json,
@@ -222,14 +223,29 @@ class R1T09YearStabilityTest(unittest.TestCase):
         comparisons = [
             {"state_line": "S_PCT", "year": 2016, "availability_difference": 10}
         ]
-        reconciliation = [{"mismatch_count": 0}]
+        concentration = [
+            {
+                "summary_scope": "candidate_state",
+                "evaluable_year_count": 11,
+                "nonzero_year_count": 10,
+                "max_year_state_share": 0.2,
+                "warnings": "",
+            },
+            {
+                "summary_scope": "interlayer_step",
+                "max_year_child_share": 0.2,
+                "warnings": "",
+            },
+        ]
+        reconciliation = [{"scope_id": "other", "mismatch_count": 0}]
         anomaly = _build_anomaly_scan(
             "run",
             "commit",
+            ROOT / "data/interim/r1_t09_test",
             state,
             [],
             [],
-            [],
+            concentration,
             [],
             comparisons,
             reconciliation,
@@ -238,6 +254,27 @@ class R1T09YearStabilityTest(unittest.TestCase):
         self.assertIn("availability_difference_requires_caution", warning_ids)
         self.assertIn("partial_year_observation", warning_ids)
         self.assertIn("boundary_year_zero_valid_denominator", warning_ids)
+        required_checks = {
+            "primary_output_nonempty",
+            "all_zero_check",
+            "all_one_check",
+            "all_null_check",
+            "validity_rate_check",
+            "coverage_check",
+            "parameter_response_check",
+            "baseline_challenger_check",
+            "nested_invariant_check",
+            "funnel_accounting_check",
+            "denominator_integrity_check",
+            "sample_size_check",
+            "upstream_consistency_check",
+            "scale_shift_check",
+            "time_alignment_check",
+            "future_leakage_check",
+            "post_hoc_selection_check",
+            "conclusion_support_check",
+        }
+        self.assertEqual(set(anomaly["checks"]), required_checks)
 
 
 if __name__ == "__main__":
