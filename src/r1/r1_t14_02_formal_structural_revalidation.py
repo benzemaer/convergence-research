@@ -735,7 +735,9 @@ def _intralayer_rows_for_window(
           WHERE percentile_window_W=? AND indicator_id IN ('{indicator_a}','{indicator_b}')
           GROUP BY security_id,trading_date
         ), valid AS (
-          SELECT *,rank() OVER (ORDER BY a) AS rank_a,rank() OVER (ORDER BY b) AS rank_b
+          SELECT *,
+            rank() OVER (ORDER BY a)+(count(*) OVER (PARTITION BY a)-1)/2.0 AS rank_a,
+            rank() OVER (ORDER BY b)+(count(*) OVER (PARTITION BY b)-1)/2.0 AS rank_b
           FROM wide WHERE a_status='valid' AND b_status='valid' AND a IS NOT NULL AND b IS NOT NULL
         ), qs(q) AS (VALUES {values_sql})
         SELECT q,count(*) AS N,
