@@ -1,0 +1,162 @@
+{
+  "anomaly_scan_path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_anomaly_scan.json",
+  "anomaly_scan_sha256": "4682848f713409dad61e321c82abf67068335e64eb1550f52de80028833263b5",
+  "code_commit": "59218fa714f3275f7bdc4995265f381aa1140fa5",
+  "config_path": "configs/r1/r1_t08_global_nested_null_models.v1.json",
+  "config_sha256": "6535b2eb7262662ed70f4642f9aaf3b18cdbbd5d9c507cc936174ff90fd512aa",
+  "diagnostic_artifacts": [
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_candidate_registry.csv",
+      "record_count": 4,
+      "sha256": "371cbe9e1fd4a44a94c660f0894fdde0805ad4b23007c8452c813cc3b29bbd05"
+    },
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_test_registry.csv",
+      "record_count": 10,
+      "sha256": "c92327b82290cdebeb3d8b9c3553670dbf83b2b150d8f5ed46ce6e6cee8f5cd0"
+    },
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_block_diagnostics.csv",
+      "record_count": 2,
+      "sha256": "8146c1dc8021eeebdf1a749fec9724dc5bcb0dd3975ae562c9311e1fb440f241"
+    },
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_offset_plan_diagnostics.csv",
+      "record_count": 10,
+      "sha256": "9389b1931e63ddd5e6891ef0bffd6e667413e9cc6ba745b2566cdb98dec3417b"
+    },
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_execution_diagnostics.csv",
+      "record_count": 12,
+      "sha256": "a4bd5cd5016b29d9a9dc7366aa868068705353bda87c8b85afea0a2cab28ec35"
+    },
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_diagnostic_summary.json",
+      "record_count": 1,
+      "sha256": "c035b90dd52bf8a4a896cfcb48e08d074d3c6d34390ef065fcf60bc6910b1be6"
+    },
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_anomaly_scan.json",
+      "record_count": 1,
+      "sha256": "4682848f713409dad61e321c82abf67068335e64eb1550f52de80028833263b5"
+    }
+  ],
+  "downstream_gate_allowed": false,
+  "engineering_validation_result_path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "a62769e19b7b96445be67b51a1ed635998e5826951a0a0ad9e4bf7a047c5114c",
+  "expected_current_stage": "R1",
+  "expected_current_task": "R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型",
+  "expected_downstream_gate_marker": "R1-T09_allowed_to_start: false",
+  "expected_next_planned_task": "R1-T09 年份稳定性检查",
+  "experiment_summary_path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_experiment_summary.json",
+  "experiment_summary_sha256": "0d10c21bd05778bd770384624b3297a0156375d6046014235c026361805f400f",
+  "formal_evidence_path": "docs/evidence/r1/R1-T08_S_PCT_S_PCVT同步性与嵌套增量零模型_evidence.md",
+  "formal_evidence_sha256": "270bda2fc068f444094eb892895b819fa7ab88075715f88e2874d0842f3d3b04",
+  "gate_status": {
+    "anomaly_resolution_status": "passed",
+    "author_result_analysis_status": "passed",
+    "engineering_validator_status": "passed",
+    "readme_gate_updated": false,
+    "result_artifact_status": "passed",
+    "review_phase": "author_analysis_complete",
+    "scientific_review_status": "pending"
+  },
+  "implementation_actor": "codex",
+  "input_package": {
+    "artifacts": {
+      "confirmed_interval": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_confirmed_interval_results.duckdb",
+        "row_count": 1012396,
+        "security_count": 800,
+        "sha256": "583187e213edc7b9796d5db5ef0b5484ad4b3fb17624212796ea1b9a721208ad",
+        "table": "r0_t07_confirmed_interval_results",
+        "upstream_run_id": "R0-T10-04-20260708T1746Z"
+      },
+      "daily_confirmation": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_daily_confirmation_results.duckdb",
+        "row_count": 186923052,
+        "security_count": 800,
+        "sha256": "e9bcaafbd60229b6d9e01967cedb2739efb3407159a66d1ef47b3d779689b4e3",
+        "table": "r0_t07_daily_confirmation_results",
+        "upstream_run_id": "R0-T10-04-20260708T1746Z"
+      },
+      "dimension_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+        "row_count": 62307684,
+        "security_count": 800,
+        "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+        "table": "r0_t06_dimension_state_results",
+        "upstream_run_id": "R0-T10-03-20260708T1740Z"
+      },
+      "nested_daily_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+        "row_count": 15576921,
+        "security_count": 800,
+        "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+        "table": "r0_t06_nested_daily_state_results",
+        "upstream_run_id": "R0-T10-03-20260708T1740Z"
+      }
+    },
+    "authorized_input_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t10_05_authorized_input_manifest.json",
+    "authorized_input_manifest_sha256": "d18d4841476abb80da804635d15d9b9b853e5fb9e40545288c445be27af713f9"
+  },
+  "primary_result_artifacts": [
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv",
+      "record_count": 4,
+      "sha256": "aea7f8b276bf6d7c6b44d1fab6f5fc077fb09c848eef239e8397ecb19518616e"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv",
+      "record_count": 20000,
+      "sha256": "771fd24bbf0fc7337e954d2c6a43c665fd6c25e1dd871febae69f9783390c403"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv",
+      "record_count": 22,
+      "sha256": "080a8a531e333ca68cf01b354a0f177489da949be81b55b5810d668502adb4db"
+    }
+  ],
+  "readme_path": "docs/tasks/README.md",
+  "readme_sha256": "80c0832f6ab00a9d20acb0208229f7e57db7638f8d81dddbab0327e9f2a8a47a",
+  "result_analysis_path": "docs/experiments/r1/R1-T08_S_PCT_S_PCVT同步性与嵌套增量零模型_result_analysis.md",
+  "result_analysis_sha256": "66a23faefb5ed98ea4ca3da063bc7a774ca75377e15d83aceaac2aafd2b3a0b8",
+  "run_id": "R1-T08-20260710T1629Z",
+  "scientific_review_md_path": null,
+  "scientific_review_md_sha256": null,
+  "scientific_review_record_path": null,
+  "scientific_review_record_sha256": null,
+  "status": "author_analysis_complete",
+  "superseded": false,
+  "superseded_by": null,
+  "task_class": "formal_experiment",
+  "task_id": "R1-T08"
+}

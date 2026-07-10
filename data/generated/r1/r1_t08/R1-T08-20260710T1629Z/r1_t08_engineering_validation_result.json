@@ -1,0 +1,15 @@
+{
+  "N_perm": 2000,
+  "candidate_registry_exact": true,
+  "code_commit": "59218fa714f3275f7bdc4995265f381aa1140fa5",
+  "errors": [],
+  "failed_simulation_count": 0,
+  "offset_plan_reproducibility_checked": true,
+  "replicate_row_count": 20000,
+  "result_row_count": 22,
+  "run_id": "R1-T08-20260710T1629Z",
+  "task_id": "R1-T08",
+  "test_group_count": 10,
+  "validator": "r1_t08_global_nested_null_models_validator",
+  "validator_status": "passed"
+}

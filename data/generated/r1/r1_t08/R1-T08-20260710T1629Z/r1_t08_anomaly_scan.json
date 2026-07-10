@@ -1,0 +1,202 @@
+{
+  "blocking_anomalies": [],
+  "checks": {
+    "all_null_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv"
+      ],
+      "metrics": {
+        "required_null_count": 0
+      },
+      "rationale": "Required primary replicate statistics contain no NULL values.",
+      "status": "passed"
+    },
+    "all_one_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv",
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv"
+      ],
+      "metrics": {
+        "nonone_count": 20022
+      },
+      "rationale": "Observed and null statistics are not uniformly one.",
+      "status": "passed"
+    },
+    "all_zero_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv",
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv"
+      ],
+      "metrics": {
+        "nonzero_count": 20022
+      },
+      "rationale": "Observed and null statistics are not uniformly zero.",
+      "status": "passed"
+    },
+    "baseline_challenger_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv"
+      ],
+      "metrics": {
+        "W_values": [
+          120,
+          250
+        ]
+      },
+      "rationale": "Reference and challenger windows are both present without winner selection.",
+      "status": "passed"
+    },
+    "conclusion_support_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv",
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv",
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv",
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_offset_plan_diagnostics.csv"
+      ],
+      "metrics": {
+        "blocking_contract_count": 0,
+        "failed_simulation_count": 0
+      },
+      "rationale": "Engineering evidence supports descriptive null separation only; scientific review remains pending.",
+      "status": "passed"
+    },
+    "coverage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv"
+      ],
+      "metrics": {
+        "window_count": 2
+      },
+      "rationale": "Both preregistered windows have nonzero observed and null coverage.",
+      "status": "passed"
+    },
+    "denominator_integrity_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv",
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv"
+      ],
+      "metrics": {
+        "candidate_row_count": 1730769
+      },
+      "rationale": "Global coverage uses full candidate keys and nested retention uses target-valid parent-active risk sets.",
+      "status": "passed"
+    },
+    "funnel_accounting_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv"
+      ],
+      "metrics": {
+        "mismatch_count": 0
+      },
+      "rationale": "True/false/null and explicit validity counts derive from full aligned keys.",
+      "status": "passed"
+    },
+    "future_leakage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv"
+      ],
+      "metrics": {
+        "future_field_count": 0
+      },
+      "rationale": "The runner reads only authorized contemporaneous R0 state and confirmation artifacts.",
+      "status": "passed"
+    },
+    "nested_invariant_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv"
+      ],
+      "metrics": {
+        "violation_count": 0
+      },
+      "rationale": "Observed PCVT remains a subset of observed PCT.",
+      "status": "passed"
+    },
+    "parameter_response_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv"
+      ],
+      "metrics": {
+        "distinct_global_observed_coverage_count": 4
+      },
+      "rationale": "W120 and W250 observed global coverage are not identical across all state lines.",
+      "status": "passed"
+    },
+    "post_hoc_selection_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv"
+      ],
+      "metrics": {
+        "formal_candidate_count": 4,
+        "test_group_count": 10
+      },
+      "rationale": "Exactly four candidates and ten preregistered test groups were executed; sidecars were excluded.",
+      "status": "passed"
+    },
+    "primary_output_nonempty": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv"
+      ],
+      "metrics": {
+        "row_count": 22
+      },
+      "rationale": "Null result rows were read from the actual aggregate artifact.",
+      "status": "passed"
+    },
+    "sample_size_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_replicate_metrics.csv"
+      ],
+      "metrics": {
+        "replicate_row_count": 20000
+      },
+      "rationale": "All ten groups contain the preregistered 2,000 replicates.",
+      "status": "passed"
+    },
+    "scale_shift_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv"
+      ],
+      "metrics": {
+        "nonfinite_ratio_count": 0
+      },
+      "rationale": "Finite observed/null ratios and differences were computed without infinite substitution.",
+      "status": "passed"
+    },
+    "time_alignment_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_offset_plan_diagnostics.csv"
+      ],
+      "metrics": {
+        "block_rows": 2,
+        "offset_or_preservation_violation_count": 0
+      },
+      "rationale": "Offsets stay inside security/year/continuous-segment blocks and exclude zero on shiftable blocks.",
+      "status": "passed"
+    },
+    "upstream_consistency_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv"
+      ],
+      "metrics": {
+        "mismatch_count": 0
+      },
+      "rationale": "Observed daily, confirmation, interval, R1-T04 and R1-T06 values reconcile before permutation.",
+      "status": "passed"
+    },
+    "validity_rate_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_observed_reconciliation.csv"
+      ],
+      "metrics": {
+        "reconciliation_mismatch_count": 0
+      },
+      "rationale": "Unknown and blocked states remain explicit and reconcile to upstream.",
+      "status": "passed"
+    }
+  },
+  "code_commit": "59218fa714f3275f7bdc4995265f381aa1140fa5",
+  "run_id": "R1-T08-20260710T1629Z",
+  "scan_status": "passed",
+  "task_id": "R1-T08",
+  "unresolved_questions": []
+}
