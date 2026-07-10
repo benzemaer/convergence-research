@@ -1,0 +1,130 @@
+{
+  "checks": {
+    "all_null_check": "passed",
+    "all_one_check": "passed",
+    "all_zero_check": "passed",
+    "baseline_challenger_check": "passed",
+    "conclusion_support_check": "passed",
+    "coverage_check": "passed",
+    "denominator_integrity_check": "passed",
+    "funnel_accounting_check": "passed",
+    "future_leakage_check": "passed",
+    "nested_invariant_check": "passed",
+    "parameter_response_check": "passed",
+    "post_hoc_selection_check": "passed",
+    "primary_output_nonempty": "passed",
+    "sample_size_check": "passed",
+    "scale_shift_check": "passed",
+    "time_alignment_check": "passed",
+    "upstream_consistency_check": "passed",
+    "validity_rate_check": "passed"
+  },
+  "code_commit": "e98a529e1c828ed4b7ce9fdad24f4120717ef533",
+  "errors": [],
+  "gate": {
+    "errors": [],
+    "lineage": {
+      "r1_t05_evidence_path": "docs/evidence/r1/R1-T05_indicator_intralayer_diagnostics_evidence.md",
+      "r1_t05_result_package_path": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_result_package.json",
+      "r1_t05_result_package_sha256": "9c54e2dea2d1ddd5248aa6a0dcc1d7e26eef954d9ac14de19f7dae2750a25b2f",
+      "r1_t05_scientific_review_md_path": "docs/reviews/r1/R1-T05_indicator_intralayer_diagnostics_scientific_review.md",
+      "r1_t05_scientific_review_path": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_scientific_review.json",
+      "r1_t05_scientific_review_sha256": "3cb54ff8fe7892b9686f7f7a0c487d9fd2d4ad40470c2e36d0265c149a4aa0e6"
+    }
+  },
+  "input_checks": {
+    "errors": [],
+    "lineage": {
+      "dimension_score": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+        "row_count": 20769228,
+        "security_count": 800,
+        "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+        "table": "r0_t05_dimension_score_results"
+      },
+      "dimension_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+        "row_count": 62307684,
+        "security_count": 800,
+        "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+        "table": "r0_t06_dimension_state_results"
+      },
+      "nested_daily_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+        "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+        "row_count": 15576921,
+        "security_count": 800,
+        "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+        "table": "r0_t06_nested_daily_state_results"
+      }
+    }
+  },
+  "material_warnings": [
+    {
+      "name": "inherits_r1_t05_C_layer_near_redundancy",
+      "rationale": "R1-T06 uses R0 weak dimension states and inherits R1-T05's C-layer near-redundancy warning as a possible same-time association amplifier.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_V_layer_W_dependent_identity",
+      "rationale": "R1-T06 reports W response without selecting W; V_given_PCT must be read against the inherited V window-dependence warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_T_q10_joint_high_fragmentation",
+      "rationale": "T_given_PC q10 results may be affected by high single-day fragmentation inherited from R1-T05 diagnostics.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_T2_extreme_right_tail",
+      "rationale": "R1-T06 does not modify T2 raw-scale tail behavior; it only describes contemporaneous weak dimension states.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_strict_past_percentile_nonuniformity",
+      "rationale": "Strict-past percentile buckets are nonuniform; nominal q remains a threshold rather than exact target coverage.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_nominal_q_actual_hit_rate_divergence",
+      "rationale": "Observed active rates can diverge from nominal q under ties, availability, and rolling history.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "delta_median": "-0.03844414292175486"
+      },
+      "name": "V_GIVEN_PCT_W250_Q10_pooled_security_sign_reversal",
+      "rationale": "Pooled association sign differs from the security-level median sign.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "delta_median": "-0.022245762711864406"
+      },
+      "name": "V_GIVEN_PCT_W500_Q10_pooled_security_sign_reversal",
+      "rationale": "Pooled association sign differs from the security-level median sign.",
+      "status": "material_warning"
+    }
+  ],
+  "row_counts": {
+    "denominator_sensitivity_csv": 27,
+    "dimension_state_reconciliation_csv": 36,
+    "layer_step_profile_csv": 27,
+    "q_nesting_reconciliation_csv": 78,
+    "r0_nested_reconciliation_csv": 36,
+    "security_step_summary_csv": 27,
+    "year_step_profile_csv": 270
+  },
+  "run_id": "R1-T06-20260710T1155Z",
+  "status": "completed",
+  "task_id": "R1-T06"
+}

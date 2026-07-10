@@ -1,0 +1,141 @@
+{
+  "anomaly_scan_path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_anomaly_scan.json",
+  "anomaly_scan_sha256": "00a5062f6de8adab7bc50fc10bb7a7665f77f0143ac8f597cf93c368c2e082c2",
+  "code_commit": "e98a529e1c828ed4b7ce9fdad24f4120717ef533",
+  "config_path": "configs/r1/r1_t06_contemporaneous_retention_lift.v1.json",
+  "config_sha256": "f423e2f57ec60bbb4667ebe7380701f3948776e8933121aec91fe99e38957cab",
+  "diagnostic_artifacts": [
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_diagnostic_summary.json",
+      "record_count": 1,
+      "sha256": "8737987d94182b31968de172a5eb987a50c67f91652336d805dff7e18ddb4e63"
+    },
+    {
+      "artifact_role": "anomaly_scan",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_anomaly_scan.json",
+      "record_count": 1,
+      "sha256": "00a5062f6de8adab7bc50fc10bb7a7665f77f0143ac8f597cf93c368c2e082c2"
+    }
+  ],
+  "downstream_gate_allowed": false,
+  "engineering_validation_result_path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "1f63676c00efd166481141c6b615eb46a95fca4c2a1d7bdc90fd3e429cd7babf",
+  "expected_current_stage": "R1",
+  "expected_current_task": "R1-T06 层间同期留存、关联 Lift 与嵌套增量",
+  "expected_downstream_gate_marker": "R1-T07_allowed_to_start: false",
+  "expected_next_planned_task": "R1-T07 P 首入锚定的固定滞后结构关系",
+  "experiment_summary_path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_experiment_summary.json",
+  "experiment_summary_sha256": "de94d6d59086875c1236c61ec0d47c24c817abc773bed6bf9387697da5e85bf7",
+  "formal_evidence_path": "docs/evidence/r1/R1-T06_contemporaneous_retention_lift_nested_increment_evidence.md",
+  "formal_evidence_sha256": "61439e7aa681e94b20859d91a4c7db0494104dcb03d8eb2e2bc095b0e94b11c9",
+  "gate_status": {
+    "anomaly_resolution_status": "passed",
+    "author_result_analysis_status": "passed",
+    "engineering_validator_status": "passed",
+    "readme_gate_updated": false,
+    "result_artifact_status": "passed",
+    "review_phase": "author_analysis_complete",
+    "scientific_review_status": "pending"
+  },
+  "implementation_actor": "codex",
+  "input_package": {
+    "dimension_score": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "row_count": 20769228,
+      "security_count": 800,
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "table": "r0_t05_dimension_score_results"
+    },
+    "dimension_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "row_count": 62307684,
+      "security_count": 800,
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "table": "r0_t06_dimension_state_results"
+    },
+    "nested_daily_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+      "row_count": 15576921,
+      "security_count": 800,
+      "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+      "table": "r0_t06_nested_daily_state_results"
+    }
+  },
+  "primary_result_artifacts": [
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_layer_step_profile.csv",
+      "record_count": 27,
+      "sha256": "0c9f42ef9a0e872b57ae6351d1a2d42b2c1e793f5cd284bb5a333b862d71cd24"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_denominator_sensitivity.csv",
+      "record_count": 27,
+      "sha256": "3829c9e07ab1df05204c8d9306e82ec9fbcde38bb47265128bf7863a4f389655"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_year_step_profile.csv",
+      "record_count": 270,
+      "sha256": "f1f90060a56cb1f492a018e7e179388831e54c1fcbb9bde2e111947e507b8d03"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_security_step_summary.csv",
+      "record_count": 27,
+      "sha256": "f8a6aedb9267b37d214c7b70981812c8a2efd493071e0884fcaf6786e21c76f6"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_r0_nested_reconciliation.csv",
+      "record_count": 36,
+      "sha256": "b756a27caa3094c365d7e7c0b44a7d7f53699d30752c6ea634f35f5073fd323f"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_dimension_state_reconciliation.csv",
+      "record_count": 36,
+      "sha256": "0b1e32e2146b45eb664326c24df8c426b2e917ff756bbe45434e8357cb496460"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1155Z/r1_t06_q_nesting_reconciliation.csv",
+      "record_count": 78,
+      "sha256": "18c89a3776c91a9b747b4ca566d83fdfe0caa897b9a793dce52d003afaf74240"
+    }
+  ],
+  "readme_path": "docs/tasks/README.md",
+  "readme_sha256": "f5635353b5ecc54da8cc02668c97f1a297d0ba700d9940b10e820ad645797bd6",
+  "result_analysis_path": "docs/experiments/r1/R1-T06_contemporaneous_retention_lift_nested_increment_result_analysis.md",
+  "result_analysis_sha256": "d75199f44bb2e07adb2eabfd023b4d60c4b23903d210a9a55ea5fb061d442c3e",
+  "run_id": "R1-T06-20260710T1155Z",
+  "scientific_review_md_path": null,
+  "scientific_review_md_sha256": null,
+  "scientific_review_record_path": null,
+  "scientific_review_record_sha256": null,
+  "status": "author_analysis_complete",
+  "superseded": true,
+  "superseded_by": "R1-T06-20260710T1216Z",
+  "task_class": "formal_experiment",
+  "task_id": "R1-T06"
+}

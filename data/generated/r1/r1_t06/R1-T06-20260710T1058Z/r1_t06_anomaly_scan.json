@@ -1,0 +1,248 @@
+{
+  "blocking_anomalies": [],
+  "checks": {
+    "all_null_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: all_null_check",
+      "status": "passed"
+    },
+    "all_one_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: all_one_check",
+      "status": "passed"
+    },
+    "all_zero_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: all_zero_check",
+      "status": "passed"
+    },
+    "baseline_challenger_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: baseline_challenger_check",
+      "status": "passed"
+    },
+    "conclusion_support_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: conclusion_support_check",
+      "status": "passed"
+    },
+    "coverage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: coverage_check",
+      "status": "passed"
+    },
+    "denominator_integrity_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: denominator_integrity_check",
+      "status": "passed"
+    },
+    "funnel_accounting_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: funnel_accounting_check",
+      "status": "passed"
+    },
+    "future_leakage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: future_leakage_check",
+      "status": "passed"
+    },
+    "nested_invariant_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: nested_invariant_check",
+      "status": "passed"
+    },
+    "parameter_response_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: parameter_response_check",
+      "status": "passed"
+    },
+    "post_hoc_selection_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: post_hoc_selection_check",
+      "status": "passed"
+    },
+    "primary_output_nonempty": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: primary_output_nonempty",
+      "status": "passed"
+    },
+    "sample_size_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: sample_size_check",
+      "status": "passed"
+    },
+    "scale_shift_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: scale_shift_check",
+      "status": "passed"
+    },
+    "time_alignment_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: time_alignment_check",
+      "status": "passed"
+    },
+    "upstream_consistency_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: upstream_consistency_check",
+      "status": "passed"
+    },
+    "validity_rate_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t06/R1-T06-20260710T1058Z/r1_t06_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "task_specific_check": "passed"
+      },
+      "rationale": "R1-T06 task-specific machine-readable check: validity_rate_check",
+      "status": "passed"
+    }
+  },
+  "code_commit": "7622d7741f88cf22fb9328466556bd927629c1ab",
+  "investigations": [
+    {
+      "name": "inherits_r1_t05_C_layer_near_redundancy",
+      "rationale": "R1-T06 uses R0 weak dimension states and inherits R1-T05's C-layer near-redundancy warning as a possible same-time association amplifier.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_V_layer_W_dependent_identity",
+      "rationale": "R1-T06 reports W response without selecting W; V_given_PCT must be read against the inherited V window-dependence warning.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_T_q10_joint_high_fragmentation",
+      "rationale": "T_given_PC q10 results may be affected by high single-day fragmentation inherited from R1-T05 diagnostics.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_T2_extreme_right_tail",
+      "rationale": "R1-T06 does not modify T2 raw-scale tail behavior; it only describes contemporaneous weak dimension states.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_strict_past_percentile_nonuniformity",
+      "rationale": "Strict-past percentile buckets are nonuniform; nominal q remains a threshold rather than exact target coverage.",
+      "status": "material_warning"
+    },
+    {
+      "name": "inherits_r1_t05_nominal_q_actual_hit_rate_divergence",
+      "rationale": "Observed active rates can diverge from nominal q under ties, availability, and rolling history.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "delta_median": "-0.03844414292175486"
+      },
+      "name": "V_GIVEN_PCT_W250_Q10_pooled_security_sign_reversal",
+      "rationale": "Pooled association sign differs from the security-level median sign.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": {
+        "delta_median": "-0.022245762711864406"
+      },
+      "name": "V_GIVEN_PCT_W500_Q10_pooled_security_sign_reversal",
+      "rationale": "Pooled association sign differs from the security-level median sign.",
+      "status": "material_warning"
+    }
+  ],
+  "nonblocking_anomalies": [
+    "inherits_r1_t05_C_layer_near_redundancy",
+    "inherits_r1_t05_V_layer_W_dependent_identity",
+    "inherits_r1_t05_T_q10_joint_high_fragmentation",
+    "inherits_r1_t05_T2_extreme_right_tail",
+    "inherits_r1_t05_strict_past_percentile_nonuniformity",
+    "inherits_r1_t05_nominal_q_actual_hit_rate_divergence",
+    "V_GIVEN_PCT_W250_Q10_pooled_security_sign_reversal",
+    "V_GIVEN_PCT_W500_Q10_pooled_security_sign_reversal"
+  ],
+  "run_id": "R1-T06-20260710T1058Z",
+  "scan_status": "passed",
+  "task_id": "R1-T06",
+  "unresolved_questions": []
+}

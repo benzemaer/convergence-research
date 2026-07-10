@@ -19,6 +19,9 @@
         "tests/r1/test_r1_t05_indicator_intralayer_diagnostics.py",
         "tests/r1/test_r1_t05_indicator_intralayer_validator.py",
         "tests/r1/test_r1_t05_formal_experiment_contract.py",
+        "tests/r1/test_r1_t06_contemporaneous_retention_lift.py",
+        "tests/r1/test_r1_t06_contemporaneous_retention_lift_validator.py",
+        "tests/r1/test_r1_t06_formal_experiment_contract.py",
         "tests/governance/test_r_formal_experiment_governance_contract.py",
         "tests/governance/test_r_formal_experiment_package_validator.py"
       ]
