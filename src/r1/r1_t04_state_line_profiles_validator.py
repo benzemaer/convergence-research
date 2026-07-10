@@ -187,12 +187,13 @@ def _check_required_profile_metrics(
             )
             if _float(row, "child_onset_count") != _float(row, "child_interval_count"):
                 errors.append("confirmed_parent_child_onset_accounting")
+        else:
+            errors.append("parent_child_analysis_level")
+            continue
         if _float(row, "child_onset_parent_active_count") > _float(
             row, "child_onset_count"
         ):
             errors.append("parent_child_onset_parent_active_exceeds_onset")
-        else:
-            errors.append("parent_child_analysis_level")
     comparisons = _csv_rows(
         outputs, root, "reference_challenger_comparison_csv", errors
     )
