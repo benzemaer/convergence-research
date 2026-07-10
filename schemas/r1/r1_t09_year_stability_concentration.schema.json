@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["task_id", "protocol_version", "authorized_input_manifest_path", "upstream_final_packages", "upstream_artifacts", "input_artifacts", "candidate_registry", "years", "status_rules", "parallelism", "forbidden_tokens"],
+  "properties": {
+    "task_id": {"const": "R1-T09"},
+    "stage": {"const": "R1"},
+    "task_class": {"const": "formal_experiment"},
+    "candidate_registry": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["candidate_config_id", "state_line", "W", "q", "K", "primary_role", "same_parameter_parent_config_id", "formal_or_sidecar", "upstream_t08_test_group_ids"],
+        "properties": {
+          "state_line": {"enum": ["S_PCT", "S_PCVT"]},
+          "W": {"enum": [120, 250]},
+          "q": {"const": 0.2},
+          "K": {"const": 3},
+          "formal_or_sidecar": {"const": "formal"},
+          "upstream_t08_test_group_ids": {"type": "array", "minItems": 2, "items": {"type": "string"}}
+        },
+        "additionalProperties": true
+      }
+    },
+    "years": {
+      "type": "object",
+      "required": ["definition", "date_min", "date_max", "partial_years", "interval_assignment"],
+      "properties": {
+        "definition": {"const": "YEAR(trading_date)"},
+        "date_min": {"const": "20160104"},
+        "date_max": {"const": "20260630"},
+        "partial_years": {"const": [2026]},
+        "interval_assignment": {"const": "YEAR(confirmation_date)"}
+      }
+    },
+    "status_rules": {
+      "type": "object",
+      "required": ["single_year_majority_threshold", "small_denominator_N", "small_anchor_count", "sign_zero_tolerance", "minimum_evaluable_years", "minimum_nonzero_years"],
+      "properties": {"single_year_majority_threshold": {"const": 0.5}}
+    },
+    "parallelism": {
+      "type": "object",
+      "required": ["parallelism_mode", "duckdb_threads", "duckdb_memory_limit"],
+      "properties": {"duckdb_memory_limit": {"const": "12GB"}}
+    },
+    "upstream_final_packages": {"type": "object", "required": ["R1-T04", "R1-T06", "R1-T08"]},
+    "upstream_artifacts": {"type": "object"},
+    "input_artifacts": {"type": "object", "required": ["dimension_state", "nested_daily_state", "daily_confirmation", "confirmed_interval"]},
+    "forbidden_tokens": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}
