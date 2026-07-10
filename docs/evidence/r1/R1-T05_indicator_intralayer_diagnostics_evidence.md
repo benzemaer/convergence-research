@@ -2,16 +2,16 @@
 
 `task_id`: R1-T05
 `task_class`: formal_experiment
-`status`: author_analysis_complete
+`status`: completed
 `run_id`: R1-T05-20260710T0959Z
 `code_commit`: 5a9de4d94f294e849fd9be87238917558d55ce54
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
 `author_result_analysis_status`: passed
-`scientific_review_status`: pending
+`scientific_review_status`: passed
 `anomaly_resolution_status`: passed
-`review_phase`: author_analysis_complete
+`review_phase`: independent_review_complete
 
 `supersedes_run_id`: R1-T05-20260710T0918Z
 `supersession_reason`: scientific review found incorrect individual hit denominator, joint segment gap handling, missing percentile bucket artifact, and ambiguous validity reason denominator. The superseded run package is marked `superseded=true`.
@@ -38,20 +38,20 @@
 `anomaly_scan_sha256`: 1561e287d0d813c17b1acf5efde3abf980cac0acc815e9b1e72b4bfe3d1ab80b
 `formal_evidence_path`: docs/evidence/r1/R1-T05_indicator_intralayer_diagnostics_evidence.md
 `formal_evidence_sha256`: computed in result package
-`scientific_review_path`: null
-`scientific_review_sha256`: null
-`scientific_review_md_path`: null
-`scientific_review_md_sha256`: null
+`scientific_review_path`: data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_scientific_review.json
+`scientific_review_sha256`: 3cb54ff8fe7892b9686f7f7a0c487d9fd2d4ad40470c2e36d0265c149a4aa0e6
+`scientific_review_md_path`: docs/reviews/r1/R1-T05_indicator_intralayer_diagnostics_scientific_review.md
+`scientific_review_md_sha256`: c1faddb78311c53615f39fd754e74d39971f756c13cb7cb2081348acb4a93d46
 `readme_path`: docs/tasks/README.md
-`readme_sha256`: cbf15eefd58bd28223db83a4fbd0a657056afd8dd30b3dc98c4c5826b7786104
+`readme_sha256`: 03288e409b594e7474fbb3a44740ec4b0e909423eb0c3df5e4075ae6d69d4371
 `expected_current_stage`: R1
-`expected_current_task`: R1-T05 单指标诊断与层内互补性分析
-`expected_next_planned_task`: R1-T06 层间同期留存、关联 Lift 与嵌套增量
-`expected_downstream_gate_marker`: R1-T06_allowed_to_start: false
+`expected_current_task`: R1-T06 层间同期留存、关联 Lift 与嵌套增量
+`expected_next_planned_task`: R1-T07 S_PCT/S_PCVT 预注册配置的同步性零模型
+`expected_downstream_gate_marker`: R1-T06_allowed_to_start: true
 
 `superseded`: false
 `superseded_by`: null
-`downstream_gate_allowed`: false
+`downstream_gate_allowed`: true
 
 ## Formal Run
 
@@ -69,6 +69,6 @@ python -m src.r1.r1_t05_indicator_intralayer_diagnostics_validator_cli --summary
 
 ## Gate Notes
 
-R1-T04 final gate passed before this run. Repaired R0-T10-01/T10-02/T10-03 input hashes, row counts, security counts and date ranges matched the locked config. Author-draft stops with `scientific_review_status=pending`, `downstream_gate_allowed=false`, and README still on R1-T05.
+R1-T04 final gate passed before this run. Repaired R0-T10-01/T10-02/T10-03 input hashes, row counts, security counts and date ranges matched the locked config. Independent scientific review passed, downstream gate is allowed, and README has advanced to R1-T06.
 
 The previous run `R1-T05-20260710T0918Z` is superseded and must not be used as current R1-T05 evidence.

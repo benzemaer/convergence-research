@@ -15,11 +15,12 @@ class R1T05FormalExperimentContractTest(unittest.TestCase):
         self.assertIn("R1-T06_allowed_to_start=false", task)
         self.assertNotIn("freeze_candidate = true", task)
 
-    def test_readme_stays_on_r1_t05_and_blocks_r1_t06(self) -> None:
+    def test_readme_advances_to_r1_t06_after_final_gate(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
-        self.assertIn("current_task: R1-T05 单指标诊断与层内互补性分析", readme)
+        self.assertIn("current_task: R1-T06 层间同期留存、关联 Lift 与嵌套增量", readme)
         self.assertIn("R1-T05_allowed_to_start: true", readme)
-        self.assertIn("R1-T06_allowed_to_start: false", readme)
+        self.assertIn("R1-T06_allowed_to_start: true", readme)
+        self.assertIn("R1-T07_allowed_to_start: false", readme)
 
     def test_required_implementation_files_exist(self) -> None:
         for path in (

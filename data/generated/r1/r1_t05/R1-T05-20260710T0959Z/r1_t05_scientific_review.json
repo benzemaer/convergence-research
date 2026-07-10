@@ -1,0 +1,63 @@
+{
+  "alternative_explanations": [
+    "Strict-past percentile nonuniformity can arise from time-series autocorrelation, regime drift, ties, and finite rolling windows; this affects nominal-q coverage but does not invalidate the fixed threshold definition.",
+    "C layer near-redundancy reflects two related reference-price spread constructions; it remains below the preregistered redundancy boundary and retains nonzero A-only and B-only samples.",
+    "V layer W-dependent identity and T q10 joint fragmentation are material structure warnings for downstream interpretation, not evidence for changing W, q, or indicator membership inside R1-T05."
+  ],
+  "anomaly_review": "All mandatory anomaly checks were read from the committed scan. The revised run records no blocking anomalies. Nonblocking material warnings are explicit in the anomaly scan and result analysis, including C_layer_near_redundancy, V_layer_W_dependent_identity, T_layer_q10_joint_high_fragmentation, T2_AbsTrendT20_extreme_right_tail, nonuniform strict-past percentile buckets, and nominal-q coverage divergence.",
+  "baseline_challenger_review": "Reviewed the fixed W={120,250,500} and q={0.10,0.20,0.30} grid without selecting a winner. At W250/q20, C, P, T, and V all retain nonzero both-hit, A-only, and B-only cells, and all 12 layer-window classifications remain complementary_structure.",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "264651 + 62284 + 56610 + 1076878 = 1460423",
+      "metric": "C W250/q20 2x2 denominator",
+      "value": 1460423
+    },
+    {
+      "calculation": "264651 / (264651 + 62284 + 56610)",
+      "metric": "C W250/q20 Jaccard",
+      "value": 0.6900129059171675
+    },
+    {
+      "calculation": "330271 / 1484607",
+      "metric": "C1 W250/q20 eligible hit_rate",
+      "value": 0.22246358800679236
+    },
+    {
+      "calculation": "330271 / 1730769",
+      "metric": "C1 W250/q20 total-row coverage",
+      "value": 0.1908232698875471
+    },
+    {
+      "calculation": "sum(C1 W250 percentile bucket_count) = 1484607",
+      "metric": "C1 W250 percentile bucket conservation",
+      "value": 1484607
+    },
+    {
+      "calculation": "23446 / 30631",
+      "metric": "T W250/q10 joint single-day fragment ratio",
+      "value": 0.7654337109464269
+    }
+  ],
+  "nonblocking_findings": [
+    "inherits_r1_t04_window_dependent_state_identity",
+    "inherits_r1_t04_confirmation_population_k_sensitivity",
+    "inherits_r1_t04_pcvt_confirmed_high_fragmentation",
+    "C_layer_near_redundancy",
+    "V_layer_W_dependent_identity",
+    "T_layer_q10_joint_high_fragmentation",
+    "T2_AbsTrendT20_extreme_right_tail",
+    "nonuniform_strict_past_percentile_distribution",
+    "boundary_mass_and_nominal_q_coverage_divergence"
+  ],
+  "parameter_response_review": "Reviewed W availability monotonicity, q hit nesting, percentile bucket conservation, hit denominator integrity, joint segment interruption across pair-ineligible gaps, validity reason denominator semantics, score=1-percentile reconciliation, and R0-T06 active-state reconciliation. The revised implementation and committed artifacts address the previous blocking findings.",
+  "reviewed_analysis_sha256": "5c9b930359e35724b55c9cb49f465065844da85ca3caa9fb5c923b2b2f220ab6",
+  "reviewed_code_commit": "5a9de4d94f294e849fd9be87238917558d55ce54",
+  "reviewed_summary_sha256": "70276a55f7409674994bba9ddb3061c38b0c3f2dfc7834e42b1490de9c000028",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}
