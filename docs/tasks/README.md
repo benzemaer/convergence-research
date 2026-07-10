@@ -263,7 +263,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R1-T03` 27 组 W/q/K 全量轻量结构扫描：completed via this PR against the repaired R0-T10-05 package; draft PR #77 is superseded by the repaired nonzero package evidence
 - `R1-T04` S_PCT 与 S_PCVT 分线状态画像：completed via PR #80
 - `R1-T05` 单指标诊断与层内互补性分析：completed via PR #81
-- `R1-T06` 层间条件 Lift 与固定滞后结构关系：in_progress
+- `R1-T06` 层间同期留存、关联 Lift 与嵌套增量：in_progress
 - `R1-T07` S_PCT/S_PCVT 预注册配置的同步性零模型：planned
 - `R1-T08` 年份稳定性与状态集中度检查：planned
 - `R1-T09` R1 验收门禁与 R2 交接矩阵：planned

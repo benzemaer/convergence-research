@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/r1/r1_t06_contemporaneous_retention_lift.schema.json",
+  "title": "R1-T06 contemporaneous retention lift nested increment contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "stage",
+    "protocol_version",
+    "task_class",
+    "depends_on_task",
+    "r1_t05_evidence_path",
+    "r1_t05_result_package_path",
+    "r1_t05_scientific_review_path",
+    "r1_t05_scientific_review_md_path",
+    "r0_t11_handoff_evidence_path",
+    "r0_t11_handoff_report_path",
+    "r0_repair_evidence_path",
+    "input_artifacts",
+    "W",
+    "q",
+    "K",
+    "weak_delta",
+    "dimension_rule",
+    "primary_baseline",
+    "challengers",
+    "parallelism",
+    "steps",
+    "forbidden_tokens"
+  ],
+  "properties": {
+    "task_id": {"const": "R1-T06"},
+    "stage": {"const": "R1"},
+    "protocol_version": {"const": "R1.v0.3.R1-T06.v1"},
+    "task_class": {"const": "formal_experiment"},
+    "depends_on_task": {"const": "R1-T05"},
+    "r1_t05_evidence_path": {"type": "string"},
+    "r1_t05_result_package_path": {"type": "string"},
+    "r1_t05_scientific_review_path": {"type": "string"},
+    "r1_t05_scientific_review_md_path": {"type": "string"},
+    "r0_t11_handoff_evidence_path": {"type": "string"},
+    "r0_t11_handoff_report_path": {"type": "string"},
+    "r0_repair_evidence_path": {"type": "string"},
+    "input_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension_score", "dimension_state", "nested_daily_state"],
+      "properties": {
+        "dimension_score": {"$ref": "#/$defs/input_artifact"},
+        "dimension_state": {"$ref": "#/$defs/input_artifact"},
+        "nested_daily_state": {"$ref": "#/$defs/input_artifact"}
+      }
+    },
+    "W": {"type": "array", "prefixItems": [{"const": 120}, {"const": 250}, {"const": 500}], "minItems": 3, "maxItems": 3},
+    "q": {"type": "array", "prefixItems": [{"const": 0.1}, {"const": 0.2}, {"const": 0.3}], "minItems": 3, "maxItems": 3},
+    "K": {"const": "not_applicable"},
+    "weak_delta": {"const": 0.1},
+    "dimension_rule": {"const": "weak"},
+    "primary_baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["W", "q"],
+      "properties": {"W": {"const": 250}, "q": {"const": 0.2}}
+    },
+    "challengers": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "W", "q"],
+        "properties": {
+          "id": {"enum": ["short_window", "long_window", "strict_threshold", "loose_threshold"]},
+          "W": {"enum": [120, 250, 500]},
+          "q": {"enum": [0.1, 0.2, 0.3]}
+        }
+      }
+    },
+    "parallelism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parallelism_mode", "duckdb_threads", "duckdb_memory_limit"],
+      "properties": {
+        "parallelism_mode": {"const": "duckdb_native_single_process"},
+        "duckdb_threads": {"const": 4},
+        "duckdb_memory_limit": {"const": "4GB"}
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "required_dimensions", "anchor_state", "target_dimension", "child_state"],
+        "properties": {
+          "step_id": {"enum": ["C_GIVEN_P", "T_GIVEN_PC", "V_GIVEN_PCT"]},
+          "required_dimensions": {"type": "array", "minItems": 2, "maxItems": 4, "items": {"enum": ["P", "C", "T", "V"]}},
+          "anchor_state": {"enum": ["P", "S_PC", "S_PCT"]},
+          "target_dimension": {"enum": ["C", "T", "V"]},
+          "child_state": {"enum": ["S_PC", "S_PCT", "S_PCVT"]}
+        }
+      }
+    },
+    "forbidden_tokens": {"type": "array", "minItems": 15, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "input_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_path", "path", "table", "sha256", "row_count", "security_count", "date_min", "date_max"],
+      "properties": {
+        "evidence_path": {"type": "string"},
+        "path": {"type": "string", "pattern": "R0-T10-(02|03)-20260708T17"},
+        "table": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "row_count": {"type": "integer", "minimum": 1},
+        "security_count": {"const": 800},
+        "date_min": {"const": "20160104"},
+        "date_max": {"const": "20260630"}
+      }
+    }
+  }
+}

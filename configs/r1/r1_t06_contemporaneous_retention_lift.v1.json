@@ -1,0 +1,105 @@
+{
+  "task_id": "R1-T06",
+  "stage": "R1",
+  "protocol_version": "R1.v0.3.R1-T06.v1",
+  "task_class": "formal_experiment",
+  "depends_on_task": "R1-T05",
+  "r1_t05_evidence_path": "docs/evidence/r1/R1-T05_indicator_intralayer_diagnostics_evidence.md",
+  "r1_t05_result_package_path": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_result_package.json",
+  "r1_t05_scientific_review_path": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_scientific_review.json",
+  "r1_t05_scientific_review_md_path": "docs/reviews/r1/R1-T05_indicator_intralayer_diagnostics_scientific_review.md",
+  "r0_t11_handoff_evidence_path": "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+  "r0_t11_handoff_report_path": "docs/reports/r0/R0_r1_handoff.md",
+  "r0_repair_evidence_path": "docs/evidence/r0/R0_blocker_C2_readiness_state_validity_fullgrid_repair_evidence.md",
+  "input_artifacts": {
+    "dimension_score": {
+      "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "table": "r0_t05_dimension_score_results",
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "row_count": 20769228,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "dimension_state": {
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "table": "r0_t06_dimension_state_results",
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "row_count": 62307684,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "nested_daily_state": {
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+      "table": "r0_t06_nested_daily_state_results",
+      "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+      "row_count": 15576921,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    }
+  },
+  "W": [120, 250, 500],
+  "q": [0.1, 0.2, 0.3],
+  "K": "not_applicable",
+  "weak_delta": 0.1,
+  "dimension_rule": "weak",
+  "primary_baseline": {"W": 250, "q": 0.2},
+  "challengers": [
+    {"id": "short_window", "W": 120, "q": 0.2},
+    {"id": "long_window", "W": 500, "q": 0.2},
+    {"id": "strict_threshold", "W": 250, "q": 0.1},
+    {"id": "loose_threshold", "W": 250, "q": 0.3}
+  ],
+  "parallelism": {
+    "parallelism_mode": "duckdb_native_single_process",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "4GB"
+  },
+  "steps": [
+    {
+      "step_id": "C_GIVEN_P",
+      "required_dimensions": ["P", "C"],
+      "anchor_state": "P",
+      "target_dimension": "C",
+      "child_state": "S_PC"
+    },
+    {
+      "step_id": "T_GIVEN_PC",
+      "required_dimensions": ["P", "C", "T"],
+      "anchor_state": "S_PC",
+      "target_dimension": "T",
+      "child_state": "S_PCT"
+    },
+    {
+      "step_id": "V_GIVEN_PCT",
+      "required_dimensions": ["P", "C", "T", "V"],
+      "anchor_state": "S_PCT",
+      "target_dimension": "V",
+      "child_state": "S_PCVT"
+    }
+  ],
+  "forbidden_tokens": [
+    "future_return",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "causal_increment",
+    "predictive_increment",
+    "statistically_significant",
+    "best_step",
+    "best_dimension",
+    "best_W",
+    "best_q",
+    "freeze_candidate",
+    "R2_candidate",
+    "p_value",
+    "z_score",
+    "permutation",
+    "lag"
+  ]
+}

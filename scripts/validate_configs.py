@@ -258,6 +258,10 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t05_indicator_intralayer_diagnostics.v1.json",
     ),
     (
+        ROOT / "schemas/r1/r1_t06_contemporaneous_retention_lift.schema.json",
+        ROOT / "configs/r1/r1_t06_contemporaneous_retention_lift.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
