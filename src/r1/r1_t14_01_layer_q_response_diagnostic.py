@@ -241,7 +241,8 @@ def _attach_inputs(con: Any, inputs: Mapping[str, Mapping[str, Any]]) -> None:
         ("dailydb", "baseline_daily_confirmation"),
         ("intervaldb", "baseline_confirmed_interval"),
     ):
-        con.execute(f"ATTACH ? AS {alias} (READ_ONLY)", [inputs[name]["absolute_path"]])
+        path = str(inputs[name]["absolute_path"]).replace("'", "''")
+        con.execute(f"ATTACH '{path}' AS {alias} (READ_ONLY)")
 
 
 def _create_base_scores(con: Any) -> None:

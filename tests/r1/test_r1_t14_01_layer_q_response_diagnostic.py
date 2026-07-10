@@ -9,6 +9,7 @@ import duckdb
 
 from src.r1.r1_t14_01_layer_q_response_diagnostic import (
     CONFIG_PATH,
+    _attach_inputs,
     _create_vector_daily,
     _create_vector_intervals,
     _dominates,
@@ -175,6 +176,28 @@ class R1T1401LayerQResponseDiagnosticTests(unittest.TestCase):
             )
         self.assertEqual(result["status"], "failed")
         self.assertIn("exactly_one_decision_artifact_required", result["errors"])
+
+    def test_attach_inputs_accepts_read_only_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {}
+            for name in (
+                "dimension_score",
+                "baseline_daily_confirmation",
+                "baseline_confirmed_interval",
+            ):
+                path = root / f"{name}.duckdb"
+                connection = duckdb.connect(str(path))
+                connection.execute("CREATE TABLE marker(value INTEGER)")
+                connection.close()
+                paths[name] = {"absolute_path": str(path)}
+            con = duckdb.connect()
+            try:
+                _attach_inputs(con, paths)
+                names = {row[0] for row in con.execute("SHOW DATABASES").fetchall()}
+                self.assertTrue({"scoredb", "dailydb", "intervaldb"}.issubset(names))
+            finally:
+                con.close()
 
 
 if __name__ == "__main__":
