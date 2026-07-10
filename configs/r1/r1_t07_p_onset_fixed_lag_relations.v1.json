@@ -1,0 +1,108 @@
+{
+  "task_id": "R1-T07",
+  "stage": "R1",
+  "protocol_version": "R1.v0.3.R1-T07.v1",
+  "task_class": "formal_experiment",
+  "depends_on_task": "R1-T06",
+  "r1_t06_evidence_path": "docs/evidence/r1/R1-T06_contemporaneous_retention_lift_nested_increment_evidence.md",
+  "r1_t06_result_package_path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_result_package.json",
+  "r1_t06_final_gate_validation_path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_final_gate_package_validation_result.json",
+  "r1_t06_scientific_review_path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_scientific_review.json",
+  "r0_t11_handoff_evidence_path": "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+  "r0_t11_handoff_report_path": "docs/reports/r0/R0_r1_handoff.md",
+  "r0_repair_evidence_path": "docs/evidence/r0/R0_blocker_C2_readiness_state_validity_fullgrid_repair_evidence.md",
+  "validation_protocol_manifest_lock_path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+  "input_artifacts": {
+    "dimension_state": {
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "table": "r0_t06_dimension_state_results",
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "row_count": 62307684,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "nested_daily_state": {
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+      "table": "r0_t06_nested_daily_state_results",
+      "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+      "row_count": 15576921,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    }
+  },
+  "W": [120, 250, 500],
+  "q": [0.1, 0.2, 0.3],
+  "K": "not_applicable",
+  "lag_set": [1, 3, 5, 10, 20],
+  "weak_delta": 0.1,
+  "dimension_rule": "weak",
+  "primary_baseline": {"W": 250, "q": 0.2},
+  "challengers": [
+    {"id": "short_window", "W": 120, "q": 0.2},
+    {"id": "long_window", "W": 500, "q": 0.2},
+    {"id": "strict_threshold", "W": 250, "q": 0.1},
+    {"id": "loose_threshold", "W": 250, "q": 0.3}
+  ],
+  "bootstrap": {
+    "cluster_key": "security_id",
+    "B_boot": 2000,
+    "seed": 20260710,
+    "interval_method": "percentile",
+    "lower_percentile": 0.025,
+    "upper_percentile": 0.975,
+    "empirical_p": null,
+    "result_role": "secondary_evidence"
+  },
+  "parallelism": {
+    "parallelism_mode": "duckdb_native_single_process",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "4GB"
+  },
+  "transition_paths": [
+    {"transition_path": "P_TO_C", "target_flag": "C_raw", "target_validity": "C_valid"},
+    {"transition_path": "P_TO_T", "target_flag": "T_raw", "target_validity": "T_valid"},
+    {"transition_path": "P_TO_V", "target_flag": "V_raw", "target_validity": "V_valid"},
+    {"transition_path": "P_TO_PCT", "target_flag": "S_PCT_raw", "target_validity": "S_PCT_valid"},
+    {"transition_path": "P_TO_PCVT", "target_flag": "S_PCVT_raw", "target_validity": "S_PCVT_valid"}
+  ],
+  "baselines": [
+    "stay_out_primary",
+    "unconditional_lag_support_marginal",
+    "anchor_target_status_standardized_control",
+    "security_year_standardized_control"
+  ],
+  "expected_parameter_response": [
+    "anchor_event_count_same_across_paths_and_lags_within_W_q",
+    "lag_available_anchor_count_nonincreasing_with_lag",
+    "p_run_survival_true_count_nonincreasing_with_lag",
+    "W_valid_availability_principally_nonincreasing",
+    "q_active_set_expands_but_onset_set_not_required_nested",
+    "observed_probability_not_required_monotone"
+  ],
+  "forbidden_tokens": [
+    "future_return",
+    "future_volatility",
+    "breakout_direction",
+    "backtest",
+    "portfolio",
+    "trade_signal",
+    "causal_increment",
+    "predictive_increment",
+    "statistically_significant",
+    "reject_null",
+    "best_lag",
+    "optimal_lag",
+    "best_W",
+    "best_q",
+    "winner",
+    "freeze_candidate",
+    "R2_candidate",
+    "p_value",
+    "permutation",
+    "circular_shift"
+  ]
+}
