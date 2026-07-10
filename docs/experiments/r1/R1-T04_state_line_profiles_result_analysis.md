@@ -34,7 +34,7 @@ observed_fact：PCT W120 K2 与 K3 raw profile 完全相同；K3 保留 K2 confi
 
 ## 9. 层级、漏斗、守恒关系与不变量
 
-observed_fact：四个 PCVT config 在 raw 与 confirmed 两层均满足 child_outside_parent_day_count=0。raw 行使用 raw segment geometry，confirmed 行使用 confirmed interval geometry；两种 geometry 的 containment mismatch 均为 0，onset、parent-active、start-delay 和 duration-share 字段均已计算。confirmed interval total days 与 daily confirmed true count 完全一致，duration quantile 顺序、raw segment/onset 对账和 raw/confirmed 包含关系均通过。T04 与 R1-T03 的共享计数逐项对账通过。
+observed_fact：四个 PCVT config 在 raw 与 confirmed 两层均满足 child_outside_parent_day_count=0。raw 行使用 raw segment geometry，confirmed 行使用 confirmed interval geometry；两种 geometry 的 containment mismatch 均为 0。raw `child_onset_count` 只计 strict onset，`child_left_censored_start_count` 单列 previous unknown/blocked/absent 的 start，二者之和与 `child_segment_count` 对账；strict child onset、parent-active 和 onset delay 使用同一 strict 集合。confirmed interval total days 与 daily confirmed true count 完全一致，duration quantile 顺序、raw segment/onset 对账和 raw/confirmed 包含关系均通过。T04 与 R1-T03 的共享计数逐项对账通过。
 
 ## 10. 异常结果及根因调查
 

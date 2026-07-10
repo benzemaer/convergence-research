@@ -1,0 +1,10 @@
+{
+  "code_commit": "936188f9ee865def9f4238a54490ed0b0a487ae3",
+  "errors": [],
+  "result_package_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_result_package.json",
+  "run_id": "R1-T04-20260710T0835Z",
+  "summary_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_experiment_summary.json",
+  "summary_sha256": "dfa621228f867aa0ce4657150558226a5bc4185b884b69fd4493f26fc8f97de5",
+  "task_id": "R1-T04",
+  "validator_status": "passed"
+}

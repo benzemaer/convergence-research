@@ -1,0 +1,36 @@
+{
+  "code_commit": "936188f9ee865def9f4238a54490ed0b0a487ae3",
+  "comparison_row_count": 10,
+  "duration_row_count": 14,
+  "errors": [],
+  "invariants": {
+    "checks": {
+      "comparison_pair_completeness": "passed",
+      "comparison_year_concentration_completeness": "passed",
+      "duration_quantiles": "passed",
+      "funnel_accounting": "passed",
+      "interval_daily_reconciliation": "passed",
+      "k_confirmed_monotonicity": "passed",
+      "k_raw_invariance": "passed",
+      "nested_invariant": "passed",
+      "onset_overlap_completeness": "passed",
+      "parent_child_completeness": "passed",
+      "parent_child_confirmed_onset_accounting": "passed",
+      "parent_child_geometry_completeness": "passed",
+      "parent_child_raw_onset_accounting": "passed",
+      "primary_output_nonempty": "passed",
+      "profile_registry": "passed",
+      "r1_t03_reconciliation": "passed",
+      "raw_confirmed_response": "passed",
+      "w_availability_response": "passed"
+    },
+    "errors": []
+  },
+  "overlap_row_count": 10,
+  "parent_child_row_count": 8,
+  "profile_row_count": 14,
+  "run_id": "R1-T04-20260710T0835Z",
+  "status": "completed",
+  "task_id": "R1-T04",
+  "year_row_count": 144
+}
