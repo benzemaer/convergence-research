@@ -566,7 +566,13 @@ def _write_baseline_sensitivity(con: Any, path: Path) -> None:
     ),
     anchor_mix AS (
       SELECT transition_path, W, q,
-        avg(CASE WHEN P_ONSET THEN target_anchor_raw IS TRUE ELSE NULL END) FILTER (WHERE P_ONSET AND target_anchor_valid) AS onset_anchor_active_weight
+        avg(
+          CASE
+            WHEN P_ONSET AND target_anchor_valid AND target_anchor_raw IS TRUE THEN 1.0
+            WHEN P_ONSET AND target_anchor_valid AND target_anchor_raw IS FALSE THEN 0.0
+            ELSE NULL
+          END
+        ) AS onset_anchor_active_weight
       FROM projected
       GROUP BY transition_path, W, q
     ),
