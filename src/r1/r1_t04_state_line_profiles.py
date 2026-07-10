@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# ruff: noqa: E501
+
 import csv
 import json
 from datetime import UTC, datetime
@@ -1026,7 +1028,6 @@ def _anomaly_scan(
         "post_hoc_selection_check",
         "conclusion_support_check",
     )
-    failed = " ".join(errors).lower()
     checks = {
         name: {
             "status": "blocked"

@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.r1.r1_t04_state_line_profiles_cli import main  # noqa: E402
+from src.r1.r1_t04_state_line_profiles_cli import main  # noqa: E402, I001
 
 
 if __name__ == "__main__":

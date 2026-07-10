@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import subprocess
 import unittest
 from pathlib import Path
-import subprocess
 
 
 class R1T04FormalExperimentContractTest(unittest.TestCase):
