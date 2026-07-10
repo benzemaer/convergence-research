@@ -1,0 +1,30 @@
+{
+  "N_perm": 2000,
+  "block_count_by_W": {
+    "120": 8677,
+    "250": 8677
+  },
+  "code_commit": "59218fa714f3275f7bdc4995265f381aa1140fa5",
+  "failed_simulation_count": 0,
+  "interval_rows_written": 22,
+  "observed_reconciliation_mismatch_count": 0,
+  "preservation_violation_count": 0,
+  "replicate_rows_expected": 20000,
+  "result_row_count": 22,
+  "root_seed": 2026071008,
+  "run_id": "R1-T08-20260710T1629Z",
+  "runtime_dependency_versions": {
+    "duckdb_version": "1.5.4",
+    "numpy_version": "2.5.0",
+    "python_version": "3.12.10"
+  },
+  "seed_derivation_version": "sha256_identity_splitmix64_counter_v1",
+  "shiftable_offset_zero_count": 0,
+  "singleton_unshiftable_block_count_by_W": {
+    "120": 8,
+    "250": 8
+  },
+  "status": "passed",
+  "task_id": "R1-T08",
+  "test_group_count": 10
+}

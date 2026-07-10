@@ -11,11 +11,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         text = README.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型",
+            "current_task: R1-T09 年份稳定性与状态集中度检查",
             text,
         )
         self.assertIn(
-            "next_planned_task: R1-T09 年份稳定性检查",
+            "next_planned_task: R1-T10 R1 验收门禁与 R2 交接矩阵",
             text,
         )
         self.assertIn(
@@ -38,6 +38,12 @@ class TaskIndexCurrentTest(unittest.TestCase):
             "`R1-T07` P 首入锚定的固定滞后结构关系：completed via PR #83",
             text,
         )
+        self.assertIn(
+            "`R1-T08` S_PCT/S_PCVT 同步性与嵌套增量零模型：completed via PR #84",
+            text,
+        )
+        self.assertIn("R1-T09_allowed_to_start: true", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn("状态：blocked until R1", text)
 

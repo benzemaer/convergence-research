@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/r1/r1_t08_global_nested_null_models.schema.json",
+  "title": "R1-T08 global and nested null model contract",
+  "type": "object",
+  "required": ["task_id", "stage", "protocol_version", "task_class", "depends_on_task", "validation_protocol_manifest_lock_path", "authorized_input_manifest_path", "upstream_final_packages", "input_artifacts", "candidate_registry", "sidecars_not_executed", "segment_contract", "permutation", "parallelism", "forbidden_tokens"],
+  "properties": {
+    "task_id": {"const": "R1-T08"},
+    "stage": {"const": "R1"},
+    "protocol_version": {"const": "R1.v0.3.R1-T08.v1"},
+    "task_class": {"const": "formal_experiment"},
+    "depends_on_task": {"const": "R1-T07"},
+    "validation_protocol_manifest_lock_path": {"type": "string"},
+    "authorized_input_manifest_path": {"type": "string"},
+    "r0_t11_handoff_evidence_path": {"type": "string"},
+    "r0_t11_handoff_report_path": {"type": "string"},
+    "upstream_final_packages": {"type": "object", "required": ["R1-T04", "R1-T06", "R1-T07"], "additionalProperties": {"type": "string"}},
+    "input_artifacts": {"type": "object", "required": ["dimension_state", "nested_daily_state", "daily_confirmation", "confirmed_interval"], "additionalProperties": {"$ref": "#/$defs/input_artifact"}},
+    "candidate_registry": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/candidate"}},
+    "sidecars_not_executed": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string"}},
+    "segment_contract": {"type": "object", "required": ["version", "partition_keys", "master_calendar", "new_segment_when", "state_validity_filter_before_segmentation"], "properties": {"version": {"const": "authorized_master_calendar_gap_v1"}, "partition_keys": {"type": "array", "minItems": 3, "maxItems": 3}, "master_calendar": {"type": "string"}, "new_segment_when": {"type": "string"}, "state_validity_filter_before_segmentation": {"const": false}}},
+    "permutation": {"type": "object", "required": ["N_perm", "supported_N_perm", "root_seed", "seed_derivation_version", "offset_direction", "nonzero_offset_for_shiftable_blocks", "singleton_offset", "interval_method", "lower_percentile", "upper_percentile", "empirical_p_formula", "max_failed_simulations", "ten_thousand_trigger"], "properties": {"N_perm": {"const": 2000}, "supported_N_perm": {"type": "array", "contains": {"const": 10000}}, "root_seed": {"type": "integer"}, "seed_derivation_version": {"const": "sha256_identity_splitmix64_counter_v1"}, "nonzero_offset_for_shiftable_blocks": {"const": true}, "singleton_offset": {"const": 0}, "interval_method": {"const": "percentile"}, "lower_percentile": {"const": 0.025}, "upper_percentile": {"const": 0.975}, "empirical_p_formula": {"const": "(n_extreme+1)/(N_perm+1)"}, "max_failed_simulations": {"const": 0}, "ten_thousand_trigger": {"type": "null"}}},
+    "parallelism": {"type": "object", "required": ["parallelism_mode", "duckdb_threads", "duckdb_memory_limit"], "properties": {"duckdb_threads": {"const": 4}, "duckdb_memory_limit": {"const": "12GB"}}},
+    "forbidden_tokens": {"type": "array", "minItems": 10, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "input_artifact": {"type": "object", "required": ["path", "table", "sha256", "row_count", "security_count", "date_min", "date_max", "upstream_run_id"], "properties": {"path": {"type": "string"}, "table": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "row_count": {"type": "integer", "minimum": 1}, "security_count": {"const": 800}, "date_min": {"const": "20160104"}, "date_max": {"const": "20260630"}, "upstream_run_id": {"type": "string"}}},
+    "candidate": {"type": "object", "required": ["candidate_config_id", "state_line", "W", "q", "K", "primary_role", "same_parameter_parent_config_id", "formal_or_sidecar"], "properties": {"candidate_config_id": {"enum": ["R0_W120_Q20_K3_WEAK_D010", "R0_W250_Q20_K3_WEAK_D010"]}, "state_line": {"enum": ["S_PCT", "S_PCVT"]}, "W": {"enum": [120, 250]}, "q": {"const": 0.2}, "K": {"const": 3}, "primary_role": {"type": "string"}, "same_parameter_parent_config_id": {"type": "string"}, "formal_or_sidecar": {"const": "formal"}}}
+  }
+}

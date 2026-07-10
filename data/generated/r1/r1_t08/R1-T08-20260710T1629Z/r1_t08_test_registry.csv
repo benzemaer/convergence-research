@@ -1,0 +1,11 @@
+test_group_id,candidate_config_id,state_line,W,q,K,null_model_id,null_model_role,transition_path,fixed_layers,shifted_layers,primary_statistic,primary_tail
+W120_GLOBAL_PCT_SYNC,R0_W120_Q20_K3_WEAK_D010,S_PCT,120,0.2,3,GLOBAL_PCT_SYNC,global_synchronization,P_C_T,P,"C,T",confirmed_coverage,upper
+W120_GLOBAL_PCVT_SYNC,R0_W120_Q20_K3_WEAK_D010,S_PCVT,120,0.2,3,GLOBAL_PCVT_SYNC,global_synchronization,P_C_T_V,P,"C,T,V",confirmed_coverage,upper
+W120_C_GIVEN_P,R0_W120_Q20_K3_WEAK_D010,S_PCT,120,0.2,3,C_GIVEN_P,nested_increment,P_TO_PC,P,C,nested_retention,upper
+W120_T_GIVEN_PC,R0_W120_Q20_K3_WEAK_D010,S_PCT,120,0.2,3,T_GIVEN_PC,nested_increment,PC_TO_PCT,"P,C",T,nested_retention,upper
+W120_V_GIVEN_PCT,R0_W120_Q20_K3_WEAK_D010,S_PCVT,120,0.2,3,V_GIVEN_PCT,nested_increment,PCT_TO_PCVT,"P,C,T",V,nested_retention,upper
+W250_GLOBAL_PCT_SYNC,R0_W250_Q20_K3_WEAK_D010,S_PCT,250,0.2,3,GLOBAL_PCT_SYNC,global_synchronization,P_C_T,P,"C,T",confirmed_coverage,upper
+W250_GLOBAL_PCVT_SYNC,R0_W250_Q20_K3_WEAK_D010,S_PCVT,250,0.2,3,GLOBAL_PCVT_SYNC,global_synchronization,P_C_T_V,P,"C,T,V",confirmed_coverage,upper
+W250_C_GIVEN_P,R0_W250_Q20_K3_WEAK_D010,S_PCT,250,0.2,3,C_GIVEN_P,nested_increment,P_TO_PC,P,C,nested_retention,upper
+W250_T_GIVEN_PC,R0_W250_Q20_K3_WEAK_D010,S_PCT,250,0.2,3,T_GIVEN_PC,nested_increment,PC_TO_PCT,"P,C",T,nested_retention,upper
+W250_V_GIVEN_PCT,R0_W250_Q20_K3_WEAK_D010,S_PCVT,250,0.2,3,V_GIVEN_PCT,nested_increment,PCT_TO_PCVT,"P,C,T",V,nested_retention,upper

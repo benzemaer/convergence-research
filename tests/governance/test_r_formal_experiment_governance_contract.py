@@ -55,26 +55,28 @@ class FormalExperimentGovernanceContractTest(unittest.TestCase):
         self.assertNotIn("json.load", wrapper)
         self.assertNotIn("Draft202012Validator", wrapper)
 
-    def test_current_task_pointer_advances_after_r1_t07_final_gate(self) -> None:
+    def test_current_task_pointer_advances_after_r1_t08_final_gate(self) -> None:
         text = README.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型",
+            "current_task: R1-T09 年份稳定性与状态集中度检查",
             text,
         )
         self.assertIn(
-            "next_planned_task: R1-T09 年份稳定性检查",
+            "next_planned_task: R1-T10 R1 验收门禁与 R2 交接矩阵",
             text,
         )
         self.assertIn("R1-T04 completed via PR #80", text)
         self.assertIn("R1-T05 completed via PR #81", text)
         self.assertIn("R1-T06 completed via PR #82", text)
         self.assertIn("R1-T07 completed via PR #83", text)
+        self.assertIn("R1-T08 completed via PR #84", text)
         self.assertIn("R1-T05_allowed_to_start: true", text)
         self.assertIn("R1-T06_allowed_to_start: true", text)
         self.assertIn("R1-T07_allowed_to_start: true", text)
         self.assertIn("R1-T08_allowed_to_start: true", text)
-        self.assertIn("R1-T09_allowed_to_start: false", text)
+        self.assertIn("R1-T09_allowed_to_start: true", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
         self.assertIn("R2_allowed_to_start: false", text)
 
     def test_readme_records_cross_stage_governance_without_advancing_task(self) -> None:
