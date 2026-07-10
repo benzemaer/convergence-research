@@ -1,0 +1,101 @@
+{
+  "task_id": "R1-T08",
+  "stage": "R1",
+  "protocol_version": "R1.v0.3.R1-T08.v1",
+  "task_class": "formal_experiment",
+  "depends_on_task": "R1-T07",
+  "validation_protocol_manifest_lock_path": "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
+  "authorized_input_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t10_05_authorized_input_manifest.json",
+  "r0_t11_handoff_evidence_path": "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+  "r0_t11_handoff_report_path": "docs/reports/r0/R0_r1_handoff.md",
+  "upstream_final_packages": {
+    "R1-T04": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_result_package.json",
+    "R1-T06": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_result_package.json",
+    "R1-T07": "data/generated/r1/r1_t07/R1-T07-20260710T1915Z/r1_t07_result_package.json"
+  },
+  "input_artifacts": {
+    "dimension_state": {
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "table": "r0_t06_dimension_state_results",
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "row_count": 62307684,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630",
+      "upstream_run_id": "R0-T10-03-20260708T1740Z"
+    },
+    "nested_daily_state": {
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_nested_daily_state_results.duckdb",
+      "table": "r0_t06_nested_daily_state_results",
+      "sha256": "0c07f4897d76c0a729963118c2e75581bd71521a25245d6d3b650b4f32e68995",
+      "row_count": 15576921,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630",
+      "upstream_run_id": "R0-T10-03-20260708T1740Z"
+    },
+    "daily_confirmation": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_daily_confirmation_results.duckdb",
+      "table": "r0_t07_daily_confirmation_results",
+      "sha256": "e9bcaafbd60229b6d9e01967cedb2739efb3407159a66d1ef47b3d779689b4e3",
+      "row_count": 186923052,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630",
+      "upstream_run_id": "R0-T10-04-20260708T1746Z"
+    },
+    "confirmed_interval": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_confirmed_interval_results.duckdb",
+      "table": "r0_t07_confirmed_interval_results",
+      "sha256": "583187e213edc7b9796d5db5ef0b5484ad4b3fb17624212796ea1b9a721208ad",
+      "row_count": 1012396,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630",
+      "upstream_run_id": "R0-T10-04-20260708T1746Z"
+    }
+  },
+  "candidate_registry": [
+    {"candidate_config_id": "R0_W250_Q20_K3_WEAK_D010", "state_line": "S_PCT", "W": 250, "q": 0.2, "K": 3, "primary_role": "reference_baseline", "same_parameter_parent_config_id": "R0_W250_Q20_K3_WEAK_D010", "formal_or_sidecar": "formal"},
+    {"candidate_config_id": "R0_W120_Q20_K3_WEAK_D010", "state_line": "S_PCT", "W": 120, "q": 0.2, "K": 3, "primary_role": "fast_state_challenger", "same_parameter_parent_config_id": "R0_W120_Q20_K3_WEAK_D010", "formal_or_sidecar": "formal"},
+    {"candidate_config_id": "R0_W250_Q20_K3_WEAK_D010", "state_line": "S_PCVT", "W": 250, "q": 0.2, "K": 3, "primary_role": "depletion_reference", "same_parameter_parent_config_id": "R0_W250_Q20_K3_WEAK_D010", "formal_or_sidecar": "formal"},
+    {"candidate_config_id": "R0_W120_Q20_K3_WEAK_D010", "state_line": "S_PCVT", "W": 120, "q": 0.2, "K": 3, "primary_role": "short_window_challenger", "same_parameter_parent_config_id": "R0_W120_Q20_K3_WEAK_D010", "formal_or_sidecar": "formal"}
+  ],
+  "sidecars_not_executed": [
+    "S_PCT@W120_Q20_K2",
+    "S_PCVT@W500_Q20_K3",
+    "S_PCVT@W250_Q20_K5"
+  ],
+  "segment_contract": {
+    "version": "authorized_master_calendar_gap_v1",
+    "partition_keys": ["security_id", "year", "continuous_trading_segment"],
+    "master_calendar": "distinct trading_date ordered from authorized nested_daily_state input",
+    "new_segment_when": "security_or_year_changes_or_master_calendar_ordinal_gap_is_not_one",
+    "state_validity_filter_before_segmentation": false
+  },
+  "permutation": {
+    "N_perm": 2000,
+    "supported_N_perm": [2000, 10000],
+    "root_seed": 2026071008,
+    "seed_derivation_version": "sha256_identity_splitmix64_counter_v1",
+    "offset_direction": "target_receives_source_at_within_minus_offset_mod_block_length",
+    "nonzero_offset_for_shiftable_blocks": true,
+    "singleton_offset": 0,
+    "interval_method": "percentile",
+    "lower_percentile": 0.025,
+    "upper_percentile": 0.975,
+    "empirical_p_formula": "(n_extreme+1)/(N_perm+1)",
+    "max_failed_simulations": 0,
+    "ten_thousand_trigger": null
+  },
+  "parallelism": {
+    "parallelism_mode": "duckdb_native_single_process_numpy_sparse",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "12GB"
+  },
+  "forbidden_tokens": [
+    "future_return", "future_volatility", "breakout_direction", "backtest",
+    "portfolio", "trade_signal", "freeze_candidate", "best_candidate",
+    "winner", "causal", "predictive_edge", "R2_allowed_to_start=true"
+  ]
+}
