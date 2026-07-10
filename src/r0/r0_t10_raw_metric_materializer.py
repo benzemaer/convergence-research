@@ -639,8 +639,9 @@ def _build_source_plan(d3_duckdb: Path, source_table: str) -> SourcePlan:
             "adjusted_high",
             "adjusted_low",
             "adjusted_close",
-            "daily_vwap",
             "volume_shares",
+            "raw_high",
+            "raw_low",
             "turnover_float",
             "amount_yuan",
             "float_share_shares",
@@ -812,11 +813,26 @@ def _normalise_observation_row(row: Mapping[str, Any]) -> dict[str, Any]:
     close = _pick(row, "adjusted_close", "adj_close", "close")
     high = _pick(row, "adjusted_high", "adj_high", "high")
     low = _pick(row, "adjusted_low", "adj_low", "low")
+    raw_high = _pick(row, "raw_high", "high")
+    raw_low = _pick(row, "raw_low", "low")
     volume = _pick(row, "volume_shares", "vol", "volume")
     amount = _pick(row, "amount_yuan", "amount")
     daily_vwap = _pick(row, "daily_vwap")
     if daily_vwap is None and _positive(volume) and _positive(amount):
         daily_vwap = float(amount) / float(volume)
+    corporate_action_flag = row.get("corporate_action_flag", False)
+    adjusted_vwap_policy = _policy_value(
+        row,
+        primary="adjusted_vwap_policy",
+        fallback="common_corporate_action_basis_policy",
+        corporate_action_flag=corporate_action_flag,
+    )
+    common_corporate_action_basis_policy = _policy_value(
+        row,
+        primary="common_corporate_action_basis_policy",
+        fallback="adjusted_vwap_policy",
+        corporate_action_flag=corporate_action_flag,
+    )
     normalized = dict(row)
     normalized.update(
         {
@@ -828,9 +844,14 @@ def _normalise_observation_row(row: Mapping[str, Any]) -> dict[str, Any]:
             "adjusted_close": close,
             "daily_vwap": daily_vwap,
             "volume_shares": volume,
+            "volume": volume,
             "amount_yuan": amount,
+            "amount": amount,
             "amount_unit": row.get("amount_unit", "yuan"),
+            "volume_unit": row.get("volume_unit", "share"),
             "amount_volume_unit_status": row.get("amount_volume_unit_status", "valid"),
+            "raw_high": raw_high,
+            "raw_low": raw_low,
             "daily_vwap_range_status": row.get("daily_vwap_range_status", "valid"),
             "turnover_float": _pick(row, "turnover_float"),
             "turnover_field_status": row.get("turnover_field_status", "valid"),
@@ -840,7 +861,11 @@ def _normalise_observation_row(row: Mapping[str, Any]) -> dict[str, Any]:
             ),
             "float_share_shares": _pick(row, "float_share_shares"),
             "trading_status": row.get("trading_status", "normal"),
-            "corporate_action_flag": row.get("corporate_action_flag", False),
+            "corporate_action_flag": corporate_action_flag,
+            "adjusted_vwap_policy": adjusted_vwap_policy,
+            "common_corporate_action_basis_policy": (
+                common_corporate_action_basis_policy
+            ),
             "suspension_flag": row.get(
                 "suspension_flag", row.get("is_listing_pause", False)
             ),
@@ -932,7 +957,14 @@ def _alias_available(columns: Sequence[str]) -> set[str]:
         "adjusted_low": ("adj_low", "low"),
         "adjusted_close": ("adj_close", "close"),
         "volume_shares": ("vol", "volume"),
+        "volume": ("volume_shares", "vol"),
         "amount_yuan": ("amount",),
+        "amount": ("amount_yuan",),
+        "raw_high": ("high",),
+        "raw_low": ("low",),
+        "volume_unit": ("vol_unit",),
+        "adjusted_vwap_policy": ("common_corporate_action_basis_policy",),
+        "common_corporate_action_basis_policy": ("adjusted_vwap_policy",),
     }
     for canonical, alias_names in aliases.items():
         if canonical in available or any(alias in available for alias in alias_names):
@@ -952,6 +984,22 @@ def _positive(value: Any) -> bool:
         return float(value) > 0
     except (TypeError, ValueError):
         return False
+
+
+def _policy_value(
+    row: Mapping[str, Any],
+    *,
+    primary: str,
+    fallback: str,
+    corporate_action_flag: Any,
+) -> Any:
+    if primary in row:
+        return row.get(primary)
+    if fallback in row:
+        return row.get(fallback)
+    if str(corporate_action_flag).lower() in {"true", "1", "yes", "y"}:
+        return None
+    return "not_required_no_corporate_action"
 
 
 def _utc_now() -> str:

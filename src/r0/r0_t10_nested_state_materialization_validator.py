@@ -63,6 +63,14 @@ NESTED_FIELDS = {
     "S_PC_raw",
     "S_PCT_raw",
     "S_PCVT_raw",
+    "S_P_validity_status",
+    "S_PC_validity_status",
+    "S_PCT_validity_status",
+    "S_PCVT_validity_status",
+    "S_P_reason_codes",
+    "S_PC_reason_codes",
+    "S_PCT_reason_codes",
+    "S_PCVT_reason_codes",
     "exclusive_state_layer",
 }
 
@@ -167,6 +175,9 @@ def validate_materialization(
         else "blocked",
         "exclusive_layer_uniqueness_check": "passed"
         if not stats["nested_daily_state"].get("duplicate_key_hit_count")
+        else "blocked",
+        "state_specific_validity_schema_check": "passed"
+        if NESTED_FIELDS.issubset(set(stats["nested_daily_state"].get("columns", ())))
         else "blocked",
         "forbidden_field_check": "passed"
         if not any(item.get("forbidden_field_hit_count") for item in stats.values())

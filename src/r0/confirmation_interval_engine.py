@@ -19,6 +19,18 @@ STATE_FIELD_BY_NAME = {
     "S_PCT": "S_PCT_raw",
     "S_PCVT": "S_PCVT_raw",
 }
+STATE_VALIDITY_FIELD_BY_NAME = {
+    "S_P": "S_P_validity_status",
+    "S_PC": "S_PC_validity_status",
+    "S_PCT": "S_PCT_validity_status",
+    "S_PCVT": "S_PCVT_validity_status",
+}
+STATE_REASON_FIELD_BY_NAME = {
+    "S_P": "S_P_reason_codes",
+    "S_PC": "S_PC_reason_codes",
+    "S_PCT": "S_PCT_reason_codes",
+    "S_PCVT": "S_PCVT_reason_codes",
+}
 STATE_ORDER = {
     state_name: index for index, state_name in enumerate(STATE_FIELD_BY_NAME)
 }
@@ -156,9 +168,10 @@ def compute_daily_confirmations(
         sorted_rows = sorted(rows, key=_row_sort_key)
         current_streak_dates: list[str] = []
         for row in sorted_rows:
+            state_name = key[-1]
             invariant_ok = _nested_raw_invariant_ok(row)
-            raw_state = _raw_state(row, key[-1]) if invariant_ok else None
-            non_ready = _non_ready_status(row, raw_state, invariant_ok)
+            raw_state = _raw_state(row, state_name) if invariant_ok else None
+            non_ready = _non_ready_status(row, state_name, raw_state, invariant_ok)
             if raw_state is True and non_ready is None:
                 current_streak_dates.append(str(row["trading_date"]))
             elif raw_state is False and non_ready is None:
@@ -170,7 +183,7 @@ def compute_daily_confirmations(
                 results.append(
                     _daily_confirmation_for_row(
                         row=row,
-                        state_name=key[-1],
+                        state_name=state_name,
                         raw_state=raw_state,
                         current_streak_dates=current_streak_dates,
                         confirmation_k=k,
@@ -233,7 +246,7 @@ def _daily_confirmation_for_row(
     invariant_ok: bool,
 ) -> DailyConfirmationResult:
     if non_ready is not None:
-        reasons = tuple(row.get("reason_codes", ()))
+        reasons = _state_reasons(row, state_name)
         if not invariant_ok:
             reasons = ("nested_raw_state_invariant_violation", *reasons)
         return _daily_result(
@@ -465,12 +478,16 @@ def _raw_state(row: Mapping[str, Any], state_name: str) -> bool | None:
 
 
 def _non_ready_status(
-    row: Mapping[str, Any], raw_state: bool | None, invariant_ok: bool
+    row: Mapping[str, Any],
+    state_name: str,
+    raw_state: bool | None,
+    invariant_ok: bool,
 ) -> str | None:
     if not invariant_ok:
         return BLOCKED
-    if row.get("validity_status") != VALID:
-        return _propagated_status(row)
+    status = _state_validity_status(row, state_name)
+    if status != VALID:
+        return _propagated_status(status)
     if raw_state is None:
         return UNKNOWN
     return None
@@ -591,8 +608,23 @@ def _interval_sort_key(
     )
 
 
-def _propagated_status(row: Mapping[str, Any]) -> str:
-    status = str(row.get("validity_status", UNKNOWN))
+def _state_validity_status(row: Mapping[str, Any], state_name: str) -> str:
+    field = STATE_VALIDITY_FIELD_BY_NAME[state_name]
+    status = row.get(field)
+    if status is None:
+        status = row.get("validity_status", UNKNOWN)
+    return str(status)
+
+
+def _state_reasons(row: Mapping[str, Any], state_name: str) -> tuple[str, ...]:
+    field = STATE_REASON_FIELD_BY_NAME[state_name]
+    reasons = row.get(field)
+    if reasons is None:
+        reasons = row.get("reason_codes", ())
+    return tuple(reasons or ())
+
+
+def _propagated_status(status: str) -> str:
     if status in {UNKNOWN, DIAGNOSTIC_REQUIRED, BLOCKED}:
         return status
     return UNKNOWN

@@ -95,6 +95,10 @@ def evaluate_c2_readiness(row_or_context: Mapping[str, Any]) -> ReadinessResult:
     crosses_corporate_action = _truthy(context.get("corporate_action_window"))
     has_adjusted_vwap_policy = _has_policy(context.get("adjusted_vwap_policy"))
     has_common_basis = _has_policy(context.get("common_corporate_action_basis_policy"))
+    if "adjusted_vwap_policy" in context and _is_missing_policy(
+        context.get("adjusted_vwap_policy")
+    ):
+        reasons.append("adjusted_vwap_policy_missing")
     if crosses_corporate_action and not (has_adjusted_vwap_policy or has_common_basis):
         reasons.append("adjusted_vwap_policy_missing")
         reasons.append("corporate_action_window_without_common_basis")
@@ -367,6 +371,14 @@ def _is_suspended(value: Any) -> bool:
 
 def _has_policy(value: Any) -> bool:
     return value not in {None, False, "", "unknown", "missing", "none"}
+
+
+def _is_missing_policy(value: Any) -> bool:
+    return value in {None, False, ""} or str(value).lower() in {
+        "unknown",
+        "missing",
+        "none",
+    }
 
 
 def _has_share_comparability_event(context: Mapping[str, Any]) -> bool:

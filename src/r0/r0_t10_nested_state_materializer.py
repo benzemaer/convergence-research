@@ -585,6 +585,62 @@ def _nested_state_sql() -> str:
       CAST(S_PCT_raw AS BOOLEAN) AS S_PCT_raw,
       CAST(S_PCVT_raw AS BOOLEAN) AS S_PCVT_raw,
       CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_status, 'unknown')
+        ELSE 'valid'
+      END AS S_P_validity_status,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_reasons, ['missing_dimension_state'])
+        ELSE ['valid_no_blocker']
+      END AS S_P_reason_codes,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_status, 'unknown')
+        WHEN P_raw = false THEN 'valid'
+        WHEN C_raw IS NULL THEN COALESCE(C_status, 'unknown')
+        ELSE 'valid'
+      END AS S_PC_validity_status,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_reasons, ['missing_dimension_state'])
+        WHEN P_raw = false THEN ['valid_no_blocker']
+        WHEN C_raw IS NULL THEN COALESCE(C_reasons, ['missing_dimension_state'])
+        ELSE ['valid_no_blocker']
+      END AS S_PC_reason_codes,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_status, 'unknown')
+        WHEN P_raw = false THEN 'valid'
+        WHEN C_raw IS NULL THEN COALESCE(C_status, 'unknown')
+        WHEN C_raw = false THEN 'valid'
+        WHEN T_raw IS NULL THEN COALESCE(T_status, 'unknown')
+        ELSE 'valid'
+      END AS S_PCT_validity_status,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_reasons, ['missing_dimension_state'])
+        WHEN P_raw = false THEN ['valid_no_blocker']
+        WHEN C_raw IS NULL THEN COALESCE(C_reasons, ['missing_dimension_state'])
+        WHEN C_raw = false THEN ['valid_no_blocker']
+        WHEN T_raw IS NULL THEN COALESCE(T_reasons, ['missing_dimension_state'])
+        ELSE ['valid_no_blocker']
+      END AS S_PCT_reason_codes,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_status, 'unknown')
+        WHEN P_raw = false THEN 'valid'
+        WHEN C_raw IS NULL THEN COALESCE(C_status, 'unknown')
+        WHEN C_raw = false THEN 'valid'
+        WHEN T_raw IS NULL THEN COALESCE(T_status, 'unknown')
+        WHEN T_raw = false THEN 'valid'
+        WHEN V_raw IS NULL THEN COALESCE(V_status, 'unknown')
+        ELSE 'valid'
+      END AS S_PCVT_validity_status,
+      CASE
+        WHEN P_raw IS NULL THEN COALESCE(P_reasons, ['missing_dimension_state'])
+        WHEN P_raw = false THEN ['valid_no_blocker']
+        WHEN C_raw IS NULL THEN COALESCE(C_reasons, ['missing_dimension_state'])
+        WHEN C_raw = false THEN ['valid_no_blocker']
+        WHEN T_raw IS NULL THEN COALESCE(T_reasons, ['missing_dimension_state'])
+        WHEN T_raw = false THEN ['valid_no_blocker']
+        WHEN V_raw IS NULL THEN COALESCE(V_reasons, ['missing_dimension_state'])
+        ELSE ['valid_no_blocker']
+      END AS S_PCVT_reason_codes,
+      CASE
         WHEN P_raw IS NULL THEN upper(COALESCE(P_status, 'unknown'))
         WHEN P_raw = false THEN 'NONE'
         WHEN C_raw IS NULL THEN upper(COALESCE(C_status, 'unknown'))

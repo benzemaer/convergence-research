@@ -18,7 +18,7 @@ class R0T11AuditEvidenceTest(unittest.TestCase):
             "`R0_status`: completed",
             "`R1_allowed_to_start`: true",
             "`R1_starting_task`: R1-T01",
-            "`zero_interval_acknowledged`: true",
+            "`confirmed_interval_package_acknowledged`: true",
             "`r_stage_formal_run_standard_updated`: true",
             "`r_stage_formal_run_standard_check`: passed",
             "`r1_formal_run_standard_gate`: passed",

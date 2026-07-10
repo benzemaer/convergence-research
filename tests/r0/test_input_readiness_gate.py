@@ -79,6 +79,13 @@ class InputReadinessGateTest(unittest.TestCase):
         self.assertIn(result.status, {UNKNOWN, BLOCKED})
         self.assertIn("missing_required_field", result.reason_codes)
 
+    def test_c2_unknown_adjusted_vwap_policy_is_not_ready(self) -> None:
+        context = c2_ready_context()
+        context["adjusted_vwap_policy"] = "unknown"
+        result = evaluate_c2_readiness(context)
+        self.assertIn(result.status, {UNKNOWN, BLOCKED})
+        self.assertIn("adjusted_vwap_policy_missing", result.reason_codes)
+
     def test_c2_corporate_action_window_missing_adjusted_policy(self) -> None:
         context = c2_ready_context()
         context["corporate_action_window"] = True

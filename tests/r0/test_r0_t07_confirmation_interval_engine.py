@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Mapping
 
 from src.r0.confirmation_interval_engine import (
     BLOCKED,
@@ -27,8 +28,10 @@ def daily_state(
     q: float = 0.20,
     status: str = VALID,
     reasons: tuple[str, ...] = ("valid_no_blocker",),
+    state_validity: Mapping[str, str] | None = None,
+    state_reasons: Mapping[str, tuple[str, ...]] | None = None,
 ) -> dict[str, object]:
-    return {
+    row: dict[str, object] = {
         "security_id": security_id,
         "trading_date": trading_date or f"2026-{day:04d}",
         "percentile_window_W": window,
@@ -48,6 +51,12 @@ def daily_state(
         "reason_codes": list(reasons),
         "state_engine_version": "r0_t06_weak_dimension_nested_state.v1",
     }
+    state_validity = state_validity or {}
+    state_reasons = state_reasons or {}
+    for state_name in ("S_P", "S_PC", "S_PCT", "S_PCVT"):
+        row[f"{state_name}_validity_status"] = state_validity.get(state_name, status)
+        row[f"{state_name}_reason_codes"] = list(state_reasons.get(state_name, reasons))
+    return row
 
 
 def result_for(
@@ -243,6 +252,46 @@ class R0T07ConfirmationIntervalEngineTest(unittest.TestCase):
             self.assertEqual(item.validity_status, BLOCKED)
             self.assertIsNone(item.confirmed_state)
             self.assertIn("nested_raw_state_invariant_violation", item.reason_codes)
+
+    def test_state_specific_validity_keeps_s_p_from_c_unknown_blocker(self) -> None:
+        rows = [
+            daily_state(
+                day,
+                s_p=True,
+                s_pc=None,
+                s_pct=None,
+                s_pcvt=None,
+                status=UNKNOWN,
+                reasons=("c_unknown",),
+                state_validity={
+                    "S_P": VALID,
+                    "S_PC": UNKNOWN,
+                    "S_PCT": UNKNOWN,
+                    "S_PCVT": UNKNOWN,
+                },
+                state_reasons={
+                    "S_P": ("valid_no_blocker",),
+                    "S_PC": ("c_unknown",),
+                    "S_PCT": ("c_unknown",),
+                    "S_PCVT": ("c_unknown",),
+                },
+            )
+            for day in range(1, 4)
+        ]
+
+        results = compute_daily_confirmations(rows, confirmation_k_values=(2,))
+
+        s_p_day2 = result_for(results, 2, "S_P", 2)
+        self.assertTrue(s_p_day2.confirmed_state)
+        self.assertEqual(s_p_day2.raw_streak, 2)
+        self.assertEqual(s_p_day2.confirmation_date, "2026-0002")
+        self.assertEqual(s_p_day2.validity_status, VALID)
+
+        s_pc_day2 = result_for(results, 2, "S_PC", 2)
+        self.assertIsNone(s_pc_day2.confirmed_state)
+        self.assertIsNone(s_pc_day2.raw_streak)
+        self.assertEqual(s_pc_day2.validity_status, UNKNOWN)
+        self.assertIn("c_unknown", s_pc_day2.reason_codes)
 
     def test_invalid_k_values_are_rejected(self) -> None:
         for invalid_k in (0, 1, 4, 6):

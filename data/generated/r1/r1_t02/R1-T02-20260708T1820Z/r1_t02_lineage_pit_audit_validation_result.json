@@ -1,0 +1,8 @@
+{
+  "errors": [],
+  "evidence_path": "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md",
+  "summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1820Z/r1_t02_lineage_pit_audit_summary.json",
+  "summary_sha256": "345c15a6e0b646229c2334c70ea6bad6065564af9ecffdbf77f755964fba9cb6",
+  "task_id": "R1-T02",
+  "validator_status": "passed"
+}

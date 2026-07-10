@@ -18,6 +18,7 @@ from src.r0.r0_t10_nested_state_materializer import (
     INDICATOR_STATE_DUCKDB_NAME,
     MANIFEST_NAME,
     NESTED_DAILY_DUCKDB_NAME,
+    NESTED_DAILY_TABLE_NAME,
     R0T10NestedStateMaterializationError,
     materialize_r0_t06_nested_states,
 )
@@ -204,7 +205,7 @@ def _write_evidence(path: Path, source_dir: Path) -> Path:
     finally:
         conn.close()
 
-    path.parent.mkdir(parents=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
             [
@@ -264,6 +265,87 @@ class R0T10NestedStateMaterializerTest(unittest.TestCase):
             self.assertEqual(set(manifest["dimension_coverage"]), {"P", "C", "T", "V"})
             self.assertEqual(manifest["R0-T07_allowed_to_start"], True)
             self.assertFalse(_has_key(manifest, "rows"))
+
+            conn = duckdb.connect(
+                str(output_dir / NESTED_DAILY_DUCKDB_NAME), read_only=True
+            )
+            try:
+                columns = {
+                    row[1]
+                    for row in conn.execute(
+                        f"PRAGMA table_info('{NESTED_DAILY_TABLE_NAME}')"
+                    ).fetchall()
+                }
+            finally:
+                conn.close()
+            self.assertIn("S_P_validity_status", columns)
+            self.assertIn("S_PC_reason_codes", columns)
+
+    def test_state_specific_validity_preserves_s_p_when_c_is_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            evidence, indicator, dimension, common = write_r0_t05_fixture(root)
+            conn = duckdb.connect(str(dimension))
+            try:
+                conn.execute(
+                    f"""
+                    UPDATE {quote_ident(DIMENSION_TABLE_NAME)}
+                    SET score_dimension = NULL,
+                        score_dimension_min = NULL,
+                        validity_status = 'unknown',
+                        reason_codes = ['c2_missing']
+                    WHERE security_id = '000001.SZ' AND dimension = 'C'
+                    """
+                )
+            finally:
+                conn.close()
+            evidence = _write_evidence(
+                root / "docs/evidence/r0/r0_t05.md", root / "r0_t05"
+            )
+            output_dir = root / "out"
+
+            materialize_r0_t06_nested_states(
+                r0_t05_evidence=evidence,
+                indicator_score_duckdb=indicator,
+                dimension_score_duckdb=dimension,
+                common_eligible_duckdb=common,
+                output_dir=output_dir,
+                run_id="R0-T10-03-TEST",
+                code_commit="abcdef",
+                max_workers=1,
+                chunk_size_securities=2,
+            )
+
+            conn = duckdb.connect(
+                str(output_dir / NESTED_DAILY_DUCKDB_NAME), read_only=True
+            )
+            try:
+                row = conn.execute(
+                    f"""
+                    SELECT S_P_raw,
+                           S_PC_raw,
+                           validity_status,
+                           S_P_validity_status,
+                           S_PC_validity_status,
+                           S_P_reason_codes,
+                           S_PC_reason_codes
+                    FROM {quote_ident("r0_t06_nested_daily_state_results")}
+                    WHERE security_id = '000001.SZ'
+                      AND percentile_window_W = 120
+                      AND abs(q - 0.10) < 1e-12
+                    """
+                ).fetchone()
+            finally:
+                conn.close()
+
+            self.assertEqual(row[0], True)
+            self.assertIsNone(row[1])
+            self.assertEqual(row[2], "unknown")
+            self.assertEqual(row[3], "valid")
+            self.assertEqual(row[4], "unknown")
+            self.assertEqual(row[5], ["valid_no_blocker"])
+            self.assertIn("c2_missing", row[6])
+            self.assertIn("score_dimension_missing", row[6])
 
     def test_max_workers_17_is_rejected(self) -> None:
         with self.assertRaisesRegex(

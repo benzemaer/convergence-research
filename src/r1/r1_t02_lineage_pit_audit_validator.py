@@ -129,20 +129,38 @@ def _check_summary(
         "selected_config_count": 27,
         "completed_config_count": 27,
         "failed_config_count": 0,
-        "confirmed_interval_row_count_total": 0,
-        "daily_confirmed_true_count_total": 0,
-        "confirmed_interval_zero_config_count": 27,
     }
     for key, expected in expected_counts.items():
         if counts.get(key) != expected:
             errors.append(f"summary_count_mismatch:{key}")
-    if counts.get("zero_interval_reason") != "no_confirmed_segments_in_r0_t07_input":
-        errors.append("summary_zero_interval_reason_mismatch")
+    interval_total = counts.get("confirmed_interval_row_count_total")
+    daily_true_total = counts.get("daily_confirmed_true_count_total")
+    zero_config_count = counts.get("confirmed_interval_zero_config_count")
+    zero_reason = counts.get("zero_interval_reason")
+    if interval_total == 0:
+        if daily_true_total != 0:
+            errors.append("summary_count_mismatch:daily_confirmed_true_count_total")
+        if zero_config_count != 27:
+            errors.append("summary_count_mismatch:confirmed_interval_zero_config_count")
+        if zero_reason != "no_confirmed_segments_in_r0_t07_input":
+            errors.append("summary_zero_interval_reason_mismatch")
+    else:
+        if not isinstance(interval_total, int) or interval_total <= 0:
+            errors.append("summary_count_mismatch:confirmed_interval_row_count_total")
+        if not isinstance(daily_true_total, int) or daily_true_total <= 0:
+            errors.append("summary_count_mismatch:daily_confirmed_true_count_total")
+        if zero_config_count != 0:
+            errors.append("summary_count_mismatch:confirmed_interval_zero_config_count")
+        if zero_reason not in {None, "null"}:
+            errors.append("summary_zero_interval_reason_mismatch")
     if summary.get("strict_past_artifact_field_check") != "evidence_chain_only":
         errors.append("summary_strict_past_artifact_field_check_overclaimed")
-    if summary.get("confirmation_time_backfill_check") != (
+    expected_backfill_check = (
         "skipped_zero_interval_input_fact"
-    ):
+        if counts.get("confirmed_interval_row_count_total") == 0
+        else "passed"
+    )
+    if summary.get("confirmation_time_backfill_check") != expected_backfill_check:
         errors.append("summary_confirmation_time_backfill_check_mismatch")
     _check_commit(summary.get("code_commit"), errors, "summary_code_commit")
 
@@ -174,7 +192,11 @@ def _check_evidence(
         "strict_past_evidence_chain_check": "passed",
         "strict_past_artifact_field_check": "evidence_chain_only",
         "unknown_blocked_semantics_check": "passed",
-        "confirmation_time_backfill_check": "skipped_zero_interval_input_fact",
+        "confirmation_time_backfill_check": (
+            "skipped_zero_interval_input_fact"
+            if summary.get("counts", {}).get("confirmed_interval_row_count_total") == 0
+            else "passed"
+        ),
         "forbidden_column_absence_check": "passed",
         "row_payload_absence_check": "passed",
     }

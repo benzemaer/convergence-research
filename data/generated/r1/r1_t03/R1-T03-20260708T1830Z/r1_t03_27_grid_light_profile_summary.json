@@ -1,0 +1,65 @@
+{
+  "blocked_config_count": 0,
+  "blocked_configs": [],
+  "blocked_reasons": [],
+  "candidate_config_count": 27,
+  "checks": {
+    "config_contract": "passed",
+    "config_json": "passed",
+    "full_grid_manifest_contract": "passed",
+    "full_grid_manifest_json": "passed",
+    "parallelism_contract": "passed",
+    "per_config_profile": "passed",
+    "r1_t02_gate": "passed",
+    "r1_t02_summary_json": "passed",
+    "r1_t02_validation_result_json": "passed"
+  },
+  "code_commit": "234fea0f04486dacf684515db62ddb5670259d96",
+  "config_path": "configs/r1/r1_t03_27_grid_light_profile.v1.json",
+  "config_sha256": "19955c7331e9ff910f574993add97d1f17344d11786dab70d454e61c56f28109",
+  "confirmed_interval_input_status": "nonzero_confirmed_input_fact",
+  "confirmed_interval_row_count_total": 1012396,
+  "created_at": "2026-07-08T18:34:51+00:00",
+  "downstream_gates": {
+    "R1-T04_allowed_to_start": true,
+    "R1-T07_allowed_to_start": false,
+    "R2_allowed_to_start": false
+  },
+  "duckdb_threads_per_worker": 1,
+  "input_full_grid_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+  "input_full_grid_manifest_sha256": "b031ae22a3cf396961bcefcf6479c18870b8206a348372cf87d4b9f73c1fd96b",
+  "input_r1_t02_evidence_path": "docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md",
+  "input_r1_t02_evidence_sha256": "b701619c165f53480d7971055d5902a10448302d7e5a54b0f77cda9fdeb7a3f0",
+  "input_r1_t02_summary_path": "data/generated/r1/r1_t02/R1-T02-20260708T1820Z/r1_t02_lineage_pit_audit_summary.json",
+  "input_r1_t02_summary_sha256": "345c15a6e0b646229c2334c70ea6bad6065564af9ecffdbf77f755964fba9cb6",
+  "input_r1_t02_validation_result_path": "data/generated/r1/r1_t02/R1-T02-20260708T1820Z/r1_t02_lineage_pit_audit_validation_result.json",
+  "input_r1_t02_validation_result_sha256": "7d1496f0c95ccead297e04eb8559496d0e2f2d3334acd9c68e1ceee6a928d94b",
+  "max_workers": 3,
+  "output_paths": {
+    "profile_by_config_state_csv": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_light_profile_by_config_state.csv",
+      "sha256": "28f05ad70a08bf8136f91ea929fe5c04a1a92eb2fccca5a17470739000bddfa3"
+    },
+    "profile_by_config_state_json": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_light_profile_by_config_state.json",
+      "sha256": "70bf96c4cdb9a8430c0e528fe3ec828df2a1451e5417a77d3b68fa2edb40446a"
+    },
+    "relative_to_baseline_profile": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_relative_to_baseline_profile.json",
+      "sha256": "2d67a945af8c4177d3e9965e80890e15c87e4af66abcd42067b78ad8c09c1707"
+    },
+    "retention_profile": {
+      "path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_retention_profile_by_config.json",
+      "sha256": "5de926b5769d033a1919a2aa1f12eadc1b1908fcd35479943e345848056f5c14"
+    }
+  },
+  "profile_row_count": 108,
+  "row_payload_embedded": false,
+  "run_id": "R1-T03-20260708T1830Z",
+  "state_name_count": 4,
+  "status": "completed",
+  "summary_path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_summary.json",
+  "task_id": "R1-T03",
+  "warnings": [],
+  "zero_confirmed_interval_acknowledged": false
+}

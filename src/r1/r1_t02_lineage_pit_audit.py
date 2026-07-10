@@ -45,9 +45,10 @@ FORBIDDEN_FIELD_TOKENS = (
     "freeze_candidate",
     "review_candidate",
 )
-R0_STRICT_PAST_EVIDENCE = (
-    ROOT
-    / "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence.md"
+R0_STRICT_PAST_EVIDENCE = ROOT / (
+    "docs/evidence/r0/"
+    "R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_"
+    "20260708T1730Z.md"
 )
 REQUIRED_FORBIDDEN_GUARDS = (
     "no_future_fields",
@@ -467,7 +468,18 @@ def _audit_full_grid_manifest(
         else:
             ctx.pass_check("zero_interval_consistency")
     else:
-        ctx.pass_check("zero_interval_consistency")
+        if manifest.get("daily_confirmed_true_count_total", 0) <= 0:
+            ctx.fail_check(
+                "zero_interval_consistency", "daily_confirmed_true_not_positive"
+            )
+        elif manifest.get("confirmed_interval_zero_config_count") != 0:
+            ctx.fail_check("zero_interval_consistency", "zero_config_count_not_zero")
+        elif manifest.get("zero_interval_reason") is not None:
+            ctx.fail_check(
+                "zero_interval_consistency", "unexpected_zero_interval_reason"
+            )
+        else:
+            ctx.pass_check("zero_interval_consistency")
     return counts
 
 
