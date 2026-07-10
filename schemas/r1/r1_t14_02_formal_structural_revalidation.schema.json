@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "task_id", "stage", "task_class", "protocol_version",
+    "selection_path_not_independently_confirmed", "upstream_binding",
+    "input_artifacts", "null_model", "formal_thresholds",
+    "baseline_stability_envelope", "years", "parallelism", "governance",
+    "forbidden_inputs"
+  ],
+  "properties": {
+    "task_id": {"const": "R1-T14-02"},
+    "stage": {"const": "R1"},
+    "task_class": {"const": "same_sample_formal_structural_revalidation"},
+    "selection_path_not_independently_confirmed": {"const": true},
+    "upstream_binding": {
+      "type": "object",
+      "required": [
+        "task_id", "draft_pr_number", "exact_head_commit", "result_package_path",
+        "result_package_sha256", "result_analysis_path", "result_analysis_sha256",
+        "artifact_manifest_path", "artifact_manifest_sha256", "candidate_registry_path",
+        "candidate_registry_sha256", "goal_internal_continuation_gate_status",
+        "goal_internal_t14_02_authorized", "repository_t14_02_gate_passed",
+        "stale_dependency"
+      ],
+      "properties": {
+        "task_id": {"const": "R0-T15"},
+        "exact_head_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "goal_internal_continuation_gate_status": {"const": "passed"},
+        "goal_internal_t14_02_authorized": {"const": true},
+        "repository_t14_02_gate_passed": {"const": false},
+        "stale_dependency": {"const": false}
+      }
+    },
+    "input_artifacts": {
+      "type": "object",
+      "minProperties": 8,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path", "table", "sha256"],
+        "properties": {
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "null_model": {
+      "type": "object",
+      "required": ["N_perm", "p_floor", "root_seed", "seed_derivation_version", "confirmation_k", "families", "null_sd_zero_policy"],
+      "properties": {
+        "N_perm": {"const": 10000},
+        "p_floor": {"const": 0.00009999000099990001},
+        "confirmation_k": {"const": 3},
+        "families": {"type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true},
+        "null_sd_zero_policy": {"const": "blocking_anomaly"}
+      }
+    },
+    "governance": {
+      "type": "object",
+      "required": ["scientific_review_status", "review_phase", "independent_review_status", "downstream_gate_allowed", "R1-T10_allowed_to_start", "R2_allowed_to_start", "formal_task_completed", "selection_path_not_independently_confirmed"],
+      "properties": {
+        "scientific_review_status": {"const": "pending"},
+        "review_phase": {"const": "author_analysis_complete"},
+        "independent_review_status": {"const": "not_started"},
+        "downstream_gate_allowed": {"const": false},
+        "R1-T10_allowed_to_start": {"const": false},
+        "R2_allowed_to_start": {"const": false},
+        "formal_task_completed": {"const": false},
+        "selection_path_not_independently_confirmed": {"const": true}
+      }
+    }
+  }
+}

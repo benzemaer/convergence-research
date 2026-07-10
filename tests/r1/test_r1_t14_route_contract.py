@@ -188,14 +188,14 @@ class R1T14RouteContractTest(unittest.TestCase):
         )
         for pattern in required_patterns:
             self.assertTrue(list(ROOT.glob(pattern)), pattern)
-        forbidden_patterns = (
+        required_t14_02_patterns = (
             "src/r1/r1_t14_02*",
             "scripts/r1/*r1_t14_02*",
             "configs/r1/r1_t14_02*",
             "schemas/r1/r1_t14_02*",
         )
-        for pattern in forbidden_patterns:
-            self.assertEqual(list(ROOT.glob(pattern)), [], pattern)
+        for pattern in required_t14_02_patterns:
+            self.assertTrue(list(ROOT.glob(pattern)), pattern)
 
     def test_r1_t09_final_artifacts_and_reviews_are_immutable(self) -> None:
         tree_hash = sha256()
