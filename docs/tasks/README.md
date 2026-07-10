@@ -18,8 +18,12 @@
 
 ```text
 current_stage: R1
-current_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像
-next_planned_task: R1-T05 单指标诊断与层内互补性分析
+current_task: R1-T05 单指标诊断与层内互补性分析
+next_planned_task: R1-T06 层间同期留存、关联 Lift 与嵌套增量
+R1-T04 completed via PR #80
+R1-T05_allowed_to_start: true
+R1-T08_allowed_to_start: false
+R2_allowed_to_start: false
 ```
 
 ## 命名与路径规则
@@ -254,8 +258,8 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via PR #75; relocked to repaired R0 package via this PR
 - `R1-T02` R0 产物接收、lineage 与无前视复检：completed via this PR
 - `R1-T03` 27 组 W/q/K 全量轻量结构扫描：completed via this PR against the repaired R0-T10-05 package; draft PR #77 is superseded by the repaired nonzero package evidence
-- `R1-T04` S_PCT 与 S_PCVT 分线状态画像：planned
-- `R1-T05` 单指标诊断与层内互补性分析：planned
+- `R1-T04` S_PCT 与 S_PCVT 分线状态画像：completed via PR #80
+- `R1-T05` 单指标诊断与层内互补性分析：in_progress
 - `R1-T06` 层间条件 Lift 与固定滞后结构关系：planned
 - `R1-T07` S_PCT/S_PCVT 预注册配置的同步性零模型：planned
 - `R1-T08` 年份稳定性与状态集中度检查：planned

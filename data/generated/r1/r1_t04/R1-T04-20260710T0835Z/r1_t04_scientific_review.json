@@ -1,0 +1,47 @@
+{
+  "alternative_explanations": [
+    "W-specific eligibility and unknown exposure explain part, but not all, of the observed coverage difference.",
+    "K changes confirmation dates and mechanically filters confirmed populations without changing raw episodes.",
+    "Low cross-window overlap reflects window-dependent state identity rather than a causal ordering claim."
+  ],
+  "anomaly_review": "All mandatory anomaly checks were read from the committed scan. The three material warnings remain documented as nonblocking and do not conflict with the stated conclusion boundary.",
+  "baseline_challenger_review": "Reviewed PCT W250K3/W120K3 and PCVT W250K3/W120K3 exact-day coverage and onset overlap. The reported low overlaps are consistent with the committed comparison artifact.",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "34615 / 1730769",
+      "metric": "PCT W250K3 raw coverage",
+      "value": 0.01999978044441517
+    },
+    {
+      "calculation": "7009 / (7009 + 8104 + 10544)",
+      "metric": "PCT W250K3 vs W120K3 raw onset Jaccard",
+      "value": 0.27318080835639397
+    },
+    {
+      "calculation": "5166 + 4 = 5170",
+      "metric": "PCVT W120K3 raw strict onset plus left-censored starts",
+      "value": 5170
+    },
+    {
+      "calculation": "2143 = committed PCVT W250K3 confirmed true days",
+      "metric": "PCVT W250K3 confirmed count reconciliation",
+      "value": 2143
+    }
+  ],
+  "nonblocking_findings": [
+    "window_dependent_state_identity",
+    "confirmation_population_k_sensitivity",
+    "pcvt_confirmed_high_fragmentation"
+  ],
+  "parameter_response_review": "K raw invariance and confirmed monotonic filtering pass. W availability response passes; the result analysis appropriately distinguishes availability from within-valid differences.",
+  "reviewed_analysis_sha256": "0b8327a5c7bf007b64b9f3685522cb1c461ed8f2c28378e4f0bec84b9c3fe8f5",
+  "reviewed_code_commit": "936188f9ee865def9f4238a54490ed0b0a487ae3",
+  "reviewed_summary_sha256": "dfa621228f867aa0ce4657150558226a5bc4185b884b69fd4493f26fc8f97de5",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}

@@ -1,0 +1,106 @@
+{
+  "anomaly_scan_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_anomaly_scan.json",
+  "anomaly_scan_sha256": "68a4a86a62258160226b9cc073d27ef4044be5863105371ff70883148b56fd79",
+  "code_commit": "936188f9ee865def9f4238a54490ed0b0a487ae3",
+  "config_path": "configs/r1/r1_t04_state_line_profiles.v1.json",
+  "config_sha256": "99f9b13c1bb7b40d941da714774ace77e40dc9f3553c55720009edfa737454b4",
+  "diagnostic_artifacts": [
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_diagnostic_summary.json",
+      "record_count": 1,
+      "sha256": "c78d114607cbff908a0b4fd967f930c93a00d4f5e394267a2d9f0c8c64849317"
+    },
+    {
+      "artifact_role": "anomaly_scan",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_anomaly_scan.json",
+      "record_count": 1,
+      "sha256": "68a4a86a62258160226b9cc073d27ef4044be5863105371ff70883148b56fd79"
+    }
+  ],
+  "downstream_gate_allowed": true,
+  "engineering_validation_result_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "abf80cbbe73bdf6f4cc9e87f6601021db6b302663f9466bc6a1c8ef0858e8f02",
+  "expected_current_stage": "R1",
+  "expected_current_task": "R1-T05 单指标诊断与层内互补性分析",
+  "expected_downstream_gate_marker": "R1-T05_allowed_to_start: true",
+  "expected_next_planned_task": "R1-T06 层间同期留存、关联 Lift 与嵌套增量",
+  "experiment_summary_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_experiment_summary.json",
+  "experiment_summary_sha256": "dfa621228f867aa0ce4657150558226a5bc4185b884b69fd4493f26fc8f97de5",
+  "formal_evidence_path": "docs/evidence/r1/R1-T04_state_line_profiles_evidence.md",
+  "formal_evidence_sha256": "71c526f6a63a2deadef0efc38a5c8923a45cc9c80f73861ce2ab0305fd13a24a",
+  "gate_status": {
+    "anomaly_resolution_status": "passed",
+    "author_result_analysis_status": "passed",
+    "engineering_validator_status": "passed",
+    "readme_gate_updated": true,
+    "result_artifact_status": "passed",
+    "review_phase": "independent_review_complete",
+    "scientific_review_status": "passed"
+  },
+  "implementation_actor": "codex",
+  "input_package": {
+    "path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+    "sha256": "b031ae22a3cf396961bcefcf6479c18870b8206a348372cf87d4b9f73c1fd96b"
+  },
+  "primary_result_artifacts": [
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_state_line_profile.csv",
+      "record_count": 14,
+      "sha256": "970484274d043338fa85666ad1e70f2ecec78bfdd6ac150c108e3adc1d90d301"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_duration_profile.csv",
+      "record_count": 14,
+      "sha256": "31fb0eab6732cbcd3d7887010b6395bf73ee7934ca98995d1fe2e940fd8010b5"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_reference_challenger_comparison.csv",
+      "record_count": 10,
+      "sha256": "2a0d81bc9f4f9b4e84ca2bac1f9b9d836834f87b6c54b7518e36445fecd247d2"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_daily_overlap_profile.csv",
+      "record_count": 10,
+      "sha256": "9d19759295ee88548b885f6885df2dd4fe6bb12a34e46ed6bab7e1e68819e28f"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_parent_child_profile.csv",
+      "record_count": 8,
+      "sha256": "886c5cd73f326c574f99dba37a1e4a172211cb0a3ea26048eb839c5ae8c92077"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_year_concentration_profile.csv",
+      "record_count": 144,
+      "sha256": "670ec0feb1ef5330cda5b8f0c193a6e867517fb4990b95c476e8e9dcec7b9725"
+    }
+  ],
+  "readme_path": "docs/tasks/README.md",
+  "readme_sha256": "e27a0d75c0f93cc4f977240be4e3e70b4ba6f5c904b6e4dcaebb9a827793c021",
+  "result_analysis_path": "docs/experiments/r1/R1-T04_state_line_profiles_result_analysis.md",
+  "result_analysis_sha256": "0b8327a5c7bf007b64b9f3685522cb1c461ed8f2c28378e4f0bec84b9c3fe8f5",
+  "run_id": "R1-T04-20260710T0835Z",
+  "scientific_review_md_path": "docs/reviews/r1/R1-T04_state_line_profiles_scientific_review.md",
+  "scientific_review_md_sha256": "f8ac284c9b881ccd7cb276d00d3ed2d81941b7806f69e1c8ba544f2ab8b21939",
+  "scientific_review_record_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_scientific_review.json",
+  "scientific_review_record_sha256": "1e25f676fcd48a0d7fd73069b9ffedc2c990a6d6615d23ec2acb1ed9790ff789",
+  "status": "completed",
+  "superseded": false,
+  "superseded_by": null,
+  "task_class": "formal_experiment",
+  "task_id": "R1-T04"
+}

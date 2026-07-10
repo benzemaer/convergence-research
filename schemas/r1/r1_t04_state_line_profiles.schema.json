@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/r1/r1_t04_state_line_profiles.schema.json",
+  "title": "R1-T04 state-line profile contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "stage", "protocol_version", "task_class", "depends_on_task", "r1_t01_manifest_lock_path", "r1_t01_evidence_path", "r1_t02_summary_path", "r1_t02_evidence_path", "r1_t03_summary_path", "r1_t03_validation_result_path", "r1_t03_evidence_path", "q", "parallelism", "profiles", "forbidden_tokens"],
+  "properties": {
+    "task_id": {"const": "R1-T04"},
+    "stage": {"const": "R1"},
+    "protocol_version": {"const": "R1.v0.3.R1-T04.v1"},
+    "task_class": {"const": "formal_experiment"},
+    "depends_on_task": {"const": "R1-T03"},
+    "r1_t01_manifest_lock_path": {"type": "string"},
+    "r1_t01_evidence_path": {"type": "string"},
+    "r1_t02_summary_path": {"type": "string"},
+    "r1_t02_evidence_path": {"type": "string"},
+    "r1_t03_summary_path": {"type": "string"},
+    "r1_t03_validation_result_path": {"type": "string"},
+    "r1_t03_evidence_path": {"type": "string"},
+    "q": {"const": 0.2},
+    "parallelism": {"type": "object", "additionalProperties": false, "required": ["max_workers", "duckdb_threads_per_worker", "parallelism_level"], "properties": {"max_workers": {"type": "integer", "minimum": 1, "maximum": 3}, "duckdb_threads_per_worker": {"const": 1}, "parallelism_level": {"const": "config-level only"}}},
+    "profiles": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "object", "additionalProperties": false, "required": ["profile_id", "state_line", "candidate_config_id", "role"], "properties": {"profile_id": {"enum": ["PCT_REFERENCE", "PCT_FAST_CHALLENGER", "PCVT_REFERENCE", "PCVT_SHORT_WINDOW", "PCT_K2_SIDECAR", "PCVT_LONG_WINDOW_SIDECAR", "PCVT_K5_SIDECAR"]}, "state_line": {"enum": ["S_PCT", "S_PCVT"]}, "candidate_config_id": {"pattern": "^R0_W(120|250|500)_Q20_K(2|3|5)_WEAK_D010$"}, "role": {"type": "string"}}}},
+    "forbidden_tokens": {"type": "array", "minItems": 10, "items": {"type": "string"}}
+  }
+}

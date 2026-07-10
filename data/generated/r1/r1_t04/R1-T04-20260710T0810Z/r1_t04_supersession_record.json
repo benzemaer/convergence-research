@@ -1,0 +1,6 @@
+{
+  "current_run_id": "R1-T04-20260710T0810Z",
+  "reason": "The prior author-draft run omitted required onset overlap and parent-child geometry fields; its result package must not be used as current evidence.",
+  "superseded_run_id": "R1-T04-20260710T0700Z",
+  "task_id": "R1-T04"
+}

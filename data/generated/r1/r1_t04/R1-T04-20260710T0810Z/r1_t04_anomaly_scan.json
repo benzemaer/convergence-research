@@ -1,0 +1,272 @@
+{
+  "blocking_anomalies": [],
+  "checks": {
+    "all_null_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_year_concentration_completeness": "passed",
+        "onset_overlap_completeness": "passed",
+        "parent_child_geometry_completeness": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: onset_overlap_completeness, parent_child_geometry_completeness, comparison_year_concentration_completeness",
+      "status": "passed"
+    },
+    "all_one_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "funnel_accounting": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: funnel_accounting",
+      "status": "passed"
+    },
+    "all_zero_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "primary_output_nonempty": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: primary_output_nonempty",
+      "status": "passed"
+    },
+    "baseline_challenger_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "onset_overlap_completeness": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: comparison_pair_completeness, onset_overlap_completeness",
+      "status": "passed"
+    },
+    "conclusion_support_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_year_concentration_completeness": "passed",
+        "onset_overlap_completeness": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: onset_overlap_completeness, comparison_year_concentration_completeness",
+      "status": "passed"
+    },
+    "coverage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "primary_output_nonempty": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: primary_output_nonempty",
+      "status": "passed"
+    },
+    "denominator_integrity_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "onset_overlap_completeness": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: onset_overlap_completeness",
+      "status": "passed"
+    },
+    "funnel_accounting_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: funnel_accounting, interval_daily_reconciliation",
+      "status": "passed"
+    },
+    "future_leakage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "profile_registry": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: profile_registry",
+      "status": "passed"
+    },
+    "nested_invariant_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "nested_invariant": "passed",
+        "parent_child_geometry_completeness": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: nested_invariant, parent_child_geometry_completeness",
+      "status": "passed"
+    },
+    "parameter_response_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: k_raw_invariance, k_confirmed_monotonicity, w_availability_response",
+      "status": "passed"
+    },
+    "post_hoc_selection_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "profile_registry": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: profile_registry",
+      "status": "passed"
+    },
+    "primary_output_nonempty": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "primary_output_nonempty": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: primary_output_nonempty",
+      "status": "passed"
+    },
+    "sample_size_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "primary_output_nonempty": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: primary_output_nonempty",
+      "status": "passed"
+    },
+    "scale_shift_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "r1_t03_reconciliation": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: r1_t03_reconciliation",
+      "status": "passed"
+    },
+    "time_alignment_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "interval_daily_reconciliation": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: interval_daily_reconciliation",
+      "status": "passed"
+    },
+    "upstream_consistency_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "r1_t03_reconciliation": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: r1_t03_reconciliation",
+      "status": "passed"
+    },
+    "validity_rate_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0810Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 task-specific machine-readable check: w_availability_response",
+      "status": "passed"
+    }
+  },
+  "code_commit": "3b72e127b7ffaaa82d22e4defc6da8cf9cd0e38c",
+  "investigations": [
+    {
+      "metrics": [
+        {
+          "analysis_level": "raw",
+          "comparison_id": "PCT_W250K3_vs_W120K3"
+        },
+        {
+          "analysis_level": "confirmed",
+          "comparison_id": "PCT_W250K3_vs_W120K3"
+        },
+        {
+          "analysis_level": "raw",
+          "comparison_id": "PCVT_W250K3_vs_W120K3"
+        },
+        {
+          "analysis_level": "confirmed",
+          "comparison_id": "PCVT_W250K3_vs_W120K3"
+        }
+      ],
+      "name": "window_dependent_state_identity",
+      "rationale": "Cross-window exact-day overlap is reported as a state-identity warning, not a parameter-selection result.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": [
+        {
+          "comparison_id": "PCT_W120K3_vs_W120K2",
+          "coverage_ratio": 1.7789262820512821,
+          "unique_security_ratio": 1.0115830115830116
+        },
+        {
+          "comparison_id": "PCVT_W250K3_vs_W250K5",
+          "coverage_ratio": 0.2739150723285115,
+          "unique_security_ratio": 0.4346153846153846
+        }
+      ],
+      "name": "confirmation_population_k_sensitivity",
+      "rationale": "K changes follow the required mechanical direction but materially change the confirmed population.",
+      "status": "material_warning"
+    },
+    {
+      "metrics": [
+        {
+          "candidate_config_id": "R0_W250_Q20_K3_WEAK_D010",
+          "fragment_rate": 0.48046875,
+          "median_duration": 2
+        },
+        {
+          "candidate_config_id": "R0_W120_Q20_K3_WEAK_D010",
+          "fragment_rate": 0.49719495091164095,
+          "median_duration": 2
+        },
+        {
+          "candidate_config_id": "R0_W500_Q20_K3_WEAK_D010",
+          "fragment_rate": 0.5150812064965197,
+          "median_duration": 1
+        },
+        {
+          "candidate_config_id": "R0_W250_Q20_K5_WEAK_D010",
+          "fragment_rate": 0.4727272727272727,
+          "median_duration": 2
+        }
+      ],
+      "name": "pcvt_confirmed_high_fragmentation",
+      "rationale": "A substantial share of confirmed PCVT intervals contain one observation.",
+      "status": "material_warning"
+    }
+  ],
+  "nonblocking_anomalies": [
+    "window_dependent_state_identity",
+    "confirmation_population_k_sensitivity",
+    "pcvt_confirmed_high_fragmentation"
+  ],
+  "run_id": "R1-T04-20260710T0810Z",
+  "scan_status": "passed",
+  "task_id": "R1-T04",
+  "unresolved_questions": []
+}

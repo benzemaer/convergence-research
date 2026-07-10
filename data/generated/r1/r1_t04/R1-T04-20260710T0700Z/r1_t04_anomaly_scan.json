@@ -1,0 +1,408 @@
+{
+  "blocking_anomalies": [],
+  "checks": {
+    "all_null_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "all_one_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "all_zero_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "baseline_challenger_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "conclusion_support_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "coverage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "denominator_integrity_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "funnel_accounting_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "future_leakage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "nested_invariant_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "parameter_response_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "post_hoc_selection_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "primary_output_nonempty": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "sample_size_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "scale_shift_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "time_alignment_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "upstream_consistency_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    },
+    "validity_rate_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t04/R1-T04-20260710T0700Z/r1_t04_diagnostic_summary.json"
+      ],
+      "metrics": {
+        "comparison_pair_completeness": "passed",
+        "duration_quantiles": "passed",
+        "funnel_accounting": "passed",
+        "interval_daily_reconciliation": "passed",
+        "k_confirmed_monotonicity": "passed",
+        "k_raw_invariance": "passed",
+        "nested_invariant": "passed",
+        "parent_child_completeness": "passed",
+        "primary_output_nonempty": "passed",
+        "profile_registry": "passed",
+        "r1_t03_reconciliation": "passed",
+        "raw_confirmed_response": "passed",
+        "w_availability_response": "passed"
+      },
+      "rationale": "R1-T04 machine-readable aggregate and invariant check.",
+      "status": "passed"
+    }
+  },
+  "code_commit": "c443e05a603b35a5c3956d61532130cf5edbe41d",
+  "investigations": [],
+  "nonblocking_anomalies": [],
+  "run_id": "R1-T04-20260710T0700Z",
+  "scan_status": "passed",
+  "task_id": "R1-T04",
+  "unresolved_questions": []
+}

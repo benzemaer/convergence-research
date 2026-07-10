@@ -1,0 +1,6 @@
+{
+  "current_run_id": "R1-T04-20260710T0835Z",
+  "reason": "The prior author-draft run mixed strict raw child onsets with left-censored starts in parent-child geometry.",
+  "superseded_run_id": "R1-T04-20260710T0810Z",
+  "task_id": "R1-T04"
+}
