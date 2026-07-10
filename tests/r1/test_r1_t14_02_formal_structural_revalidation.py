@@ -6,6 +6,7 @@ import numpy as np
 
 from src.r1.r1_t14_02_formal_structural_revalidation import (
     _confirmed_coverage_fast,
+    _security_hash,
     _sign,
     _step_metrics,
 )
@@ -35,6 +36,12 @@ class R1T1402FormalStructuralRevalidationTests(unittest.TestCase):
         self.assertEqual(_sign(0.2), "positive")
         self.assertEqual(_sign(-0.2), "negative")
         self.assertEqual(_sign(1e-14), "zero")
+
+    def test_security_group_ids_are_deterministically_pseudonymized(self) -> None:
+        first = _security_hash("000001.SZ")
+        self.assertEqual(first, _security_hash("000001.SZ"))
+        self.assertNotIn("000001", first)
+        self.assertTrue(first.startswith("security_sha256_"))
 
 
 if __name__ == "__main__":

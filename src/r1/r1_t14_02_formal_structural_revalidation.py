@@ -841,7 +841,9 @@ def _interlayer_profiles(
                 **_vector_fields(spec),
                 "step_id": step_id,
                 "analysis_level": "security",
-                "group_id": str(data.security_id[np.flatnonzero(mask)[0]]),
+                "group_id": _security_hash(
+                    str(data.security_id[np.flatnonzero(mask)[0]])
+                ),
                 **_step_metrics(*values),
                 "selection_path_not_independently_confirmed": True,
             }
@@ -1664,6 +1666,13 @@ def _sign(value: float, tolerance: float = 1e-12) -> str:
     if value < -tolerance:
         return "negative"
     return "zero"
+
+
+def _security_hash(security_id: str) -> str:
+    return (
+        "security_sha256_"
+        + hashlib.sha256(security_id.encode("utf-8")).hexdigest()[:20]
+    )
 
 
 def _as_bool(value: Any) -> bool:
