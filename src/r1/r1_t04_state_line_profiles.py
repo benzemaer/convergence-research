@@ -145,7 +145,12 @@ def run_r1_t04_state_line_profiles(
         _comparison_rows(state_rows, run_id, code_commit) if not errors else []
     )
     invariants = _check_invariants(
-        state_rows, duration_rows, overlap_rows, parent_rows, t03_rows
+        state_rows,
+        duration_rows,
+        comparison_rows,
+        overlap_rows,
+        parent_rows,
+        t03_rows,
     )
     errors.extend(invariants["errors"])
     status = "completed" if not errors else "blocked"
@@ -676,6 +681,8 @@ def _overlap_rows(
     for comparison_id, state, reference, challenger, role in COMPARISONS:
         reference_source = sources[reference][0]
         challenger_source = sources[challenger][0]
+        reference_interval = sources[reference][1]
+        challenger_interval = sources[challenger][1]
         for level, column in (("raw", "raw_state"), ("confirmed", "confirmed_state")):
             values = con.execute(
                 f"""
@@ -689,6 +696,15 @@ def _overlap_rows(
                 int(value or 0) for value in values
             ]
             union = both + ref_only + challenger_only
+            onset = _onset_overlap(
+                con,
+                state=state,
+                analysis_level=level,
+                reference_daily=reference_source,
+                challenger_daily=challenger_source,
+                reference_interval=reference_interval,
+                challenger_interval=challenger_interval,
+            )
             rows.append(
                 {
                     "task_id": TASK_ID,
@@ -712,10 +728,7 @@ def _overlap_rows(
                     "jaccard": _safe_div(both, union),
                     "reference_containment": _safe_div(both, both + ref_only),
                     "challenger_containment": _safe_div(both, both + challenger_only),
-                    "both_onset": None,
-                    "reference_only_onset": None,
-                    "challenger_only_onset": None,
-                    "onset_jaccard": None,
+                    **onset,
                 }
             )
     con.close()
@@ -764,7 +777,9 @@ def _comparison_rows(
                     ),
                     "nonzero_year_delta": ch["nonzero_year_count"]
                     - ref["nonzero_year_count"],
-                    "max_year_share_delta": None,
+                    "max_year_share_delta": _sub(
+                        ch["max_year_share"], ref["max_year_share"]
+                    ),
                     "comparison_status": status,
                     "warnings": "descriptive_only",
                 }
@@ -787,12 +802,7 @@ def _parent_child_rows(
           WHERE p.state_name='S_PCT' AND c.state_name='S_PCVT' AND p.validity_status='valid' AND c.validity_status='valid'
         """).fetchone()
         parent, child, parent_only, outside = [int(value or 0) for value in values]
-        interval_values = con.execute(f"""
-          WITH child AS (SELECT * FROM {interval} WHERE state_level='S_PCVT'), parent AS (SELECT * FROM {interval} WHERE state_level='S_PCT')
-          SELECT count(*), sum(CASE WHEN EXISTS (SELECT 1 FROM parent p WHERE p.security_id=c.security_id AND p.confirmed_start_date<=c.confirmed_start_date AND p.interval_end_date>=c.interval_end_date) THEN 1 ELSE 0 END)
-          FROM child c
-        """).fetchone()
-        child_intervals, contained = [int(value or 0) for value in interval_values]
+        geometry = _parent_child_geometry(con, daily, interval, level)
         rows.append(
             {
                 "task_id": TASK_ID,
@@ -805,23 +815,204 @@ def _parent_child_rows(
                 "parent_only_days": parent_only,
                 "child_share_of_parent_descriptive": _safe_div(child, parent),
                 "child_outside_parent_day_count": outside,
-                "child_onset_count": None,
-                "child_onset_parent_active_count": None,
-                "child_interval_count": child_intervals,
-                "child_interval_contained_in_parent_count": contained,
-                "child_interval_containment_mismatch_count": child_intervals
-                - contained,
-                "child_start_delay_from_parent_observations": None,
-                "child_duration_share_of_parent_interval": None,
+                **geometry,
             }
         )
     con.close()
     return rows
 
 
+def _onset_overlap(
+    con: Any,
+    *,
+    state: str,
+    analysis_level: str,
+    reference_daily: str,
+    challenger_daily: str,
+    reference_interval: str,
+    challenger_interval: str,
+) -> dict[str, int | float | None]:
+    if analysis_level == "confirmed":
+        values = con.execute(
+            f"""
+            WITH reference_onsets AS (
+              SELECT security_id, confirmation_time AS trading_date
+              FROM {reference_interval} WHERE state_level=?
+            ), challenger_onsets AS (
+              SELECT security_id, confirmation_time AS trading_date
+              FROM {challenger_interval} WHERE state_level=?
+            )
+            SELECT
+              sum(r.security_id IS NOT NULL AND c.security_id IS NOT NULL),
+              sum(r.security_id IS NOT NULL AND c.security_id IS NULL),
+              sum(r.security_id IS NULL AND c.security_id IS NOT NULL)
+            FROM reference_onsets r FULL OUTER JOIN challenger_onsets c
+              USING(security_id, trading_date)
+            """,
+            [state, state],
+        ).fetchone()
+    else:
+        values = con.execute(
+            f"""
+            WITH reference_ordered AS (
+              SELECT security_id, trading_date, raw_state,
+                lower(coalesce(validity_status,'')) AS validity_status,
+                lag(raw_state) OVER w AS prior_raw,
+                lag(lower(coalesce(validity_status,''))) OVER w AS prior_validity
+              FROM {reference_daily} WHERE state_name=?
+              WINDOW w AS (PARTITION BY security_id ORDER BY trading_date)
+            ), reference_onsets AS (
+              SELECT security_id, trading_date
+              FROM reference_ordered
+              WHERE validity_status='valid' AND raw_state IS TRUE
+                AND prior_validity='valid' AND prior_raw IS FALSE
+            ), challenger_ordered AS (
+              SELECT security_id, trading_date, raw_state,
+                lower(coalesce(validity_status,'')) AS validity_status,
+                lag(raw_state) OVER w AS prior_raw,
+                lag(lower(coalesce(validity_status,''))) OVER w AS prior_validity
+              FROM {challenger_daily} WHERE state_name=?
+              WINDOW w AS (PARTITION BY security_id ORDER BY trading_date)
+            ), challenger_onsets AS (
+              SELECT security_id, trading_date
+              FROM challenger_ordered
+              WHERE validity_status='valid' AND raw_state IS TRUE
+                AND prior_validity='valid' AND prior_raw IS FALSE
+            )
+            SELECT
+              sum(r.security_id IS NOT NULL AND c.security_id IS NOT NULL),
+              sum(r.security_id IS NOT NULL AND c.security_id IS NULL),
+              sum(r.security_id IS NULL AND c.security_id IS NOT NULL)
+            FROM reference_onsets r FULL OUTER JOIN challenger_onsets c
+              USING(security_id, trading_date)
+            """,
+            [state, state],
+        ).fetchone()
+    both, reference_only, challenger_only = [int(value or 0) for value in values]
+    return {
+        "both_onset": both,
+        "reference_only_onset": reference_only,
+        "challenger_only_onset": challenger_only,
+        "onset_jaccard": _safe_div(both, both + reference_only + challenger_only),
+    }
+
+
+def _parent_child_geometry(
+    con: Any, daily: str, interval: str, analysis_level: str
+) -> dict[str, Any]:
+    if analysis_level == "confirmed":
+        values = con.execute(
+            f"""
+            WITH child AS (
+              SELECT * FROM {interval} WHERE state_level='S_PCVT'
+            ), parent AS (
+              SELECT * FROM {interval} WHERE state_level='S_PCT'
+            ), matched AS (
+              SELECT c.*, p.confirmed_start_date AS parent_start,
+                p.confirmed_length AS parent_length
+              FROM child c LEFT JOIN LATERAL (
+                SELECT * FROM parent p
+                WHERE p.security_id=c.security_id
+                  AND p.confirmed_start_date<=c.confirmed_start_date
+                  AND p.interval_end_date>=c.interval_end_date
+                ORDER BY p.confirmed_start_date DESC LIMIT 1
+              ) p ON true
+            )
+            SELECT count(*), sum(parent_start IS NOT NULL),
+              avg(CASE WHEN parent_start IS NOT NULL THEN (
+                SELECT count(*) - 1 FROM {daily} d
+                WHERE d.state_name='S_PCT' AND d.security_id=matched.security_id
+                  AND d.validity_status='valid' AND d.confirmed_state IS TRUE
+                  AND d.trading_date BETWEEN parent_start AND matched.confirmed_start_date
+              ) END),
+              avg(CASE WHEN parent_length IS NOT NULL THEN confirmed_length * 1.0 / parent_length END)
+            FROM matched
+            """
+        ).fetchone()
+        child_count, contained, delay, duration_share = values
+        child_count = int(child_count or 0)
+        contained = int(contained or 0)
+        return {
+            "geometry_unit": "confirmed_interval",
+            "child_onset_count": child_count,
+            "child_onset_parent_active_count": contained,
+            "child_segment_count": None,
+            "child_segment_contained_in_parent_count": None,
+            "child_segment_containment_mismatch_count": None,
+            "child_interval_count": child_count,
+            "child_interval_contained_in_parent_count": contained,
+            "child_interval_containment_mismatch_count": child_count - contained,
+            "child_start_delay_from_parent_observations": _number(delay),
+            "child_duration_share_of_parent_interval": _number(duration_share),
+        }
+    values = con.execute(
+        f"""
+        WITH ordered AS (
+          SELECT state_name, security_id, trading_date, raw_state,
+            lower(coalesce(validity_status,'')) AS validity_status,
+            lag(raw_state) OVER w AS prior_raw,
+            lag(lower(coalesce(validity_status,''))) OVER w AS prior_validity
+          FROM {daily} WHERE state_name IN ('S_PCT','S_PCVT')
+          WINDOW w AS (PARTITION BY state_name, security_id ORDER BY trading_date)
+        ), marked AS (
+          SELECT *, CASE WHEN validity_status='valid' AND raw_state IS TRUE
+            AND NOT (prior_validity='valid' AND prior_raw IS TRUE)
+            THEN 1 ELSE 0 END AS start_flag
+          FROM ordered
+        ), numbered AS (
+          SELECT *, sum(start_flag) OVER (
+            PARTITION BY state_name, security_id ORDER BY trading_date
+            ROWS UNBOUNDED PRECEDING
+          ) AS segment_id FROM marked
+        ), segments AS (
+          SELECT state_name, security_id, segment_id, min(trading_date) AS start_date,
+            max(trading_date) AS end_date, count(*) AS duration
+          FROM numbered WHERE validity_status='valid' AND raw_state IS TRUE
+          GROUP BY state_name, security_id, segment_id
+        ), child AS (SELECT * FROM segments WHERE state_name='S_PCVT'),
+        parent AS (SELECT * FROM segments WHERE state_name='S_PCT'),
+        matched AS (
+          SELECT c.*, p.start_date AS parent_start, p.duration AS parent_duration
+          FROM child c LEFT JOIN LATERAL (
+            SELECT * FROM parent p
+            WHERE p.security_id=c.security_id
+              AND p.start_date<=c.start_date AND p.end_date>=c.end_date
+            ORDER BY p.start_date DESC LIMIT 1
+          ) p ON true
+        )
+        SELECT count(*), sum(parent_start IS NOT NULL),
+          avg(CASE WHEN parent_start IS NOT NULL THEN (
+            SELECT count(*) - 1 FROM {daily} d
+            WHERE d.state_name='S_PCT' AND d.security_id=matched.security_id
+              AND d.validity_status='valid' AND d.raw_state IS TRUE
+              AND d.trading_date BETWEEN parent_start AND matched.start_date
+          ) END),
+          avg(CASE WHEN parent_duration IS NOT NULL THEN duration * 1.0 / parent_duration END)
+        FROM matched
+        """
+    ).fetchone()
+    child_count, contained, delay, duration_share = values
+    child_count = int(child_count or 0)
+    contained = int(contained or 0)
+    return {
+        "geometry_unit": "raw_segment",
+        "child_onset_count": child_count,
+        "child_onset_parent_active_count": contained,
+        "child_segment_count": child_count,
+        "child_segment_contained_in_parent_count": contained,
+        "child_segment_containment_mismatch_count": child_count - contained,
+        "child_interval_count": None,
+        "child_interval_contained_in_parent_count": None,
+        "child_interval_containment_mismatch_count": None,
+        "child_start_delay_from_parent_observations": _number(delay),
+        "child_duration_share_of_parent_interval": _number(duration_share),
+    }
+
+
 def _check_invariants(
     state_rows: list[dict[str, Any]],
     duration_rows: list[dict[str, Any]],
+    comparison_rows: list[dict[str, Any]],
     overlap_rows: list[dict[str, Any]],
     parent_rows: list[dict[str, Any]],
     t03_rows: list[dict[str, Any]],
@@ -909,10 +1100,47 @@ def _check_invariants(
         "nested_invariant",
         all(
             row["child_outside_parent_day_count"] == 0
-            and row["child_interval_containment_mismatch_count"] == 0
+            and (
+                row["child_segment_containment_mismatch_count"] == 0
+                if row["analysis_level"] == "raw"
+                else row["child_interval_containment_mismatch_count"] == 0
+            )
             for row in parent_rows
         ),
         "pcvt_outside_pct",
+    )
+    check(
+        "onset_overlap_completeness",
+        all(
+            row[field] is not None
+            for row in overlap_rows
+            for field in (
+                "both_onset",
+                "reference_only_onset",
+                "challenger_only_onset",
+                "onset_jaccard",
+            )
+        ),
+        "required_onset_overlap_null",
+    )
+    check(
+        "parent_child_geometry_completeness",
+        all(
+            row[field] is not None
+            for row in parent_rows
+            for field in (
+                "child_onset_count",
+                "child_onset_parent_active_count",
+                "child_start_delay_from_parent_observations",
+                "child_duration_share_of_parent_interval",
+            )
+        ),
+        "required_parent_child_geometry_null",
+    )
+    check(
+        "comparison_year_concentration_completeness",
+        all(row["max_year_share_delta"] is not None for row in comparison_rows),
+        "required_max_year_share_delta_null",
     )
     raw_index = {
         (r["state_line"], r["candidate_config_id"]): r
@@ -1028,25 +1256,60 @@ def _anomaly_scan(
         "post_hoc_selection_check",
         "conclusion_support_check",
     )
-    checks = {
-        name: {
-            "status": "blocked"
-            if status == "blocked"
-            and name
-            in (
-                "parameter_response_check",
-                "nested_invariant_check",
-                "funnel_accounting_check",
-                "upstream_consistency_check",
-                "scale_shift_check",
-            )
-            else "passed",
-            "rationale": "R1-T04 machine-readable aggregate and invariant check.",
-            "metrics": invariants["checks"],
+    source_checks = invariants["checks"]
+    mappings = {
+        "primary_output_nonempty": ("primary_output_nonempty",),
+        "all_zero_check": ("primary_output_nonempty",),
+        "all_one_check": ("funnel_accounting",),
+        "all_null_check": (
+            "onset_overlap_completeness",
+            "parent_child_geometry_completeness",
+            "comparison_year_concentration_completeness",
+        ),
+        "validity_rate_check": ("w_availability_response",),
+        "coverage_check": ("primary_output_nonempty",),
+        "parameter_response_check": (
+            "k_raw_invariance",
+            "k_confirmed_monotonicity",
+            "w_availability_response",
+        ),
+        "baseline_challenger_check": (
+            "comparison_pair_completeness",
+            "onset_overlap_completeness",
+        ),
+        "nested_invariant_check": (
+            "nested_invariant",
+            "parent_child_geometry_completeness",
+        ),
+        "funnel_accounting_check": (
+            "funnel_accounting",
+            "interval_daily_reconciliation",
+        ),
+        "denominator_integrity_check": ("onset_overlap_completeness",),
+        "sample_size_check": ("primary_output_nonempty",),
+        "upstream_consistency_check": ("r1_t03_reconciliation",),
+        "scale_shift_check": ("r1_t03_reconciliation",),
+        "time_alignment_check": ("interval_daily_reconciliation",),
+        "future_leakage_check": ("profile_registry",),
+        "post_hoc_selection_check": ("profile_registry",),
+        "conclusion_support_check": (
+            "onset_overlap_completeness",
+            "comparison_year_concentration_completeness",
+        ),
+    }
+    checks = {}
+    for name in names:
+        required = mappings[name]
+        passed = status == "completed" and all(
+            source_checks.get(check) == "passed" for check in required
+        )
+        checks[name] = {
+            "status": "passed" if passed else "blocked",
+            "rationale": "R1-T04 task-specific machine-readable check: "
+            + ", ".join(required),
+            "metrics": {check: source_checks.get(check) for check in required},
             "artifact_references": [_rel(paths["diagnostic_summary"], ROOT)],
         }
-        for name in names
-    }
     return {
         "task_id": TASK_ID,
         "run_id": run_id,

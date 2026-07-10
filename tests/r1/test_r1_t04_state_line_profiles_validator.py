@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.r1.r1_t04_state_line_profiles_validator import (
     R1T04ValidationError,
+    _require_numeric,
     validate_r1_t04_state_line_profiles,
 )
 
@@ -30,6 +31,16 @@ class R1T04ValidatorTest(unittest.TestCase):
             )
             with self.assertRaises(R1T04ValidationError):
                 validate_r1_t04_state_line_profiles(summary_path=summary, root=root)
+
+    def test_required_profile_metric_null_is_rejected(self) -> None:
+        errors: list[str] = []
+        _require_numeric(
+            {"both_onset": "", "onset_jaccard": "0.5"},
+            ("both_onset", "onset_jaccard"),
+            "onset_overlap",
+            errors,
+        )
+        self.assertEqual(errors, ["onset_overlap_missing:both_onset"])
 
 
 if __name__ == "__main__":

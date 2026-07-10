@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from hashlib import sha256
 from pathlib import Path
@@ -50,6 +51,7 @@ def validate_r1_t04_state_line_profiles(
             errors.append(f"hash_mismatch:{name}")
         if path.suffix == ".csv" and _csv_count(path) < minimum:
             errors.append(f"row_count:{name}")
+    _check_required_profile_metrics(outputs, root, errors)
     checks = summary.get("checks", {})
     if any(value != "passed" for value in checks.values()):
         errors.append("summary_check_failed")
@@ -101,6 +103,125 @@ def _load(path: Path, errors: list[str], name: str) -> dict[str, Any]:
 
 def _csv_count(path: Path) -> int:
     return max(0, len(path.read_text(encoding="utf-8").splitlines()) - 1)
+
+
+def _check_required_profile_metrics(
+    outputs: dict[str, Any], root: Path, errors: list[str]
+) -> None:
+    overlap = _csv_rows(outputs, root, "daily_overlap_profile_csv", errors)
+    for row in overlap:
+        _require_numeric(
+            row,
+            (
+                "both_onset",
+                "reference_only_onset",
+                "challenger_only_onset",
+                "onset_jaccard",
+            ),
+            "onset_overlap",
+            errors,
+        )
+        union = (
+            _float(row, "both_onset")
+            + _float(row, "reference_only_onset")
+            + _float(row, "challenger_only_onset")
+        )
+        if (
+            union <= 0
+            or abs(_float(row, "onset_jaccard") - _float(row, "both_onset") / union)
+            > 1e-12
+        ):
+            errors.append("onset_overlap_recomputation")
+    parent = _csv_rows(outputs, root, "parent_child_profile_csv", errors)
+    for row in parent:
+        _require_numeric(
+            row,
+            (
+                "child_onset_count",
+                "child_onset_parent_active_count",
+                "child_start_delay_from_parent_observations",
+                "child_duration_share_of_parent_interval",
+            ),
+            "parent_child_geometry",
+            errors,
+        )
+        if row.get("analysis_level") == "raw":
+            if row.get("geometry_unit") != "raw_segment":
+                errors.append("raw_parent_child_geometry_unit")
+            _require_numeric(
+                row,
+                ("child_segment_count", "child_segment_contained_in_parent_count"),
+                "raw_parent_child_segment",
+                errors,
+            )
+        elif row.get("analysis_level") == "confirmed":
+            if row.get("geometry_unit") != "confirmed_interval":
+                errors.append("confirmed_parent_child_geometry_unit")
+            _require_numeric(
+                row,
+                ("child_interval_count", "child_interval_contained_in_parent_count"),
+                "confirmed_parent_child_interval",
+                errors,
+            )
+        else:
+            errors.append("parent_child_analysis_level")
+    comparisons = _csv_rows(
+        outputs, root, "reference_challenger_comparison_csv", errors
+    )
+    for row in comparisons:
+        _require_numeric(
+            row, ("max_year_share_delta",), "comparison_year_delta", errors
+        )
+    scan_path = _output_path(outputs, root, "anomaly_scan", errors)
+    if scan_path and scan_path.exists():
+        scan = _load(scan_path, errors, "anomaly_scan")
+        for name in (
+            "all_null_check",
+            "baseline_challenger_check",
+            "nested_invariant_check",
+        ):
+            if scan.get("checks", {}).get(name, {}).get("status") != "passed":
+                errors.append(f"anomaly_check:{name}")
+
+
+def _csv_rows(
+    outputs: dict[str, Any], root: Path, name: str, errors: list[str]
+) -> list[dict[str, str]]:
+    path = _output_path(outputs, root, name, errors)
+    if path is None or not path.exists():
+        return []
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _output_path(
+    outputs: dict[str, Any], root: Path, name: str, errors: list[str]
+) -> Path | None:
+    item = outputs.get(name)
+    if not item:
+        return None
+    path = root / item["path"]
+    if not path.exists():
+        errors.append(f"missing_file:{name}")
+        return None
+    return path
+
+
+def _require_numeric(
+    row: dict[str, str], fields: tuple[str, ...], label: str, errors: list[str]
+) -> None:
+    for field in fields:
+        try:
+            _float(row, field)
+        except (TypeError, ValueError):
+            errors.append(f"{label}_missing:{field}")
+
+
+def _float(row: dict[str, str], field: str) -> float:
+    value = row.get(field)
+    if value in (None, ""):
+        raise ValueError(field)
+    return float(value)
 
 
 def _rel(path: Path, root: Path) -> str:
