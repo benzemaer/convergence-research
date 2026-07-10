@@ -1,0 +1,77 @@
+{
+  "alternative_explanations": [
+    "C_GIVEN_P has the largest absolute same-time Delta, but this may partly reflect inherited C-layer near-redundancy and same-day structure rather than a causal layer-forming mechanism.",
+    "V_GIVEN_PCT has higher Lift than T_GIVEN_PC at W250/q20 while having lower Delta; this is a base-rate effect because V's target marginal rate is lower.",
+    "V q10 pooled positive Delta differs from the security-level median sign, so pooled results can be driven by higher-weight or higher-anchor-count securities rather than a majority-security effect.",
+    "Strict-past percentile nonuniformity, availability differences, and rolling-window dependence can affect nominal q hit rates; the q nesting artifact verifies set nesting but does not replace later null models."
+  ],
+  "anomaly_review": "Reviewed the committed anomaly scan and revised q nesting artifact. Mandatory checks are passed, blocking anomalies are empty, and nonblocking material warnings are retained for inherited R1-T05 issues plus V q10 pooled/security sign reversals. These warnings limit interpretation but do not block final-gate.",
+  "baseline_challenger_review": "Reviewed the fixed 27-row grid without selecting a winner. At W250/q20, C_GIVEN_P, T_GIVEN_PC, and V_GIVEN_PCT all have nonzero denominators, anchors, targets, and child counts. Baseline Lift ranking is C > V > T, while Delta ranking is C > T > V, so the analysis correctly avoids ranking by Lift alone.",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "132775 / (132775 + 155269)",
+      "metric": "C_GIVEN_P W250/q20 retention",
+      "value": 0.46095388204579857
+    },
+    {
+      "calculation": "(132775 + 176618) / 1460423",
+      "metric": "C_GIVEN_P W250/q20 target marginal rate",
+      "value": 0.21185163476609173
+    },
+    {
+      "calculation": "0.46095388204579857 / 0.21185163476609173",
+      "metric": "C_GIVEN_P W250/q20 Lift",
+      "value": 2.1758334909935626
+    },
+    {
+      "calculation": "0.46095388204579857 - 0.21185163476609173",
+      "metric": "C_GIVEN_P W250/q20 Delta",
+      "value": 0.24910224727970684
+    },
+    {
+      "calculation": "34615 / (34615 + 98160)",
+      "metric": "T_GIVEN_PC W250/q20 retention",
+      "value": 0.26070419883261153
+    },
+    {
+      "calculation": "7860 / (7860 + 26450)",
+      "metric": "V_GIVEN_PCT W250/q20 retention",
+      "value": 0.22908772952491985
+    },
+    {
+      "calculation": "S_PC derived/R0 W250/q20 true=false=null counts match: 132775, 1370896, 227098",
+      "metric": "nested three-valued reconciliation",
+      "value": 0
+    },
+    {
+      "calculation": "C_GIVEN_P W120 anchor q10-to-q20: symmetric_difference = 0 + 135712",
+      "metric": "q nesting legal expansion",
+      "value": 135712
+    },
+    {
+      "calculation": "denominator key-set lower_not_in_higher + higher_not_in_lower across all q pairs",
+      "metric": "q denominator key-set equality",
+      "value": 0
+    }
+  ],
+  "nonblocking_findings": [
+    "inherits_r1_t05_C_layer_near_redundancy",
+    "inherits_r1_t05_V_layer_W_dependent_identity",
+    "inherits_r1_t05_T_q10_joint_high_fragmentation",
+    "inherits_r1_t05_T2_extreme_right_tail",
+    "inherits_r1_t05_strict_past_percentile_nonuniformity",
+    "inherits_r1_t05_nominal_q_actual_hit_rate_divergence",
+    "V_GIVEN_PCT_q10_pooled_security_sign_reversal"
+  ],
+  "parameter_response_review": "Reviewed step-specific denominators, all-four denominator sensitivity, q count monotonicity, row-level q nesting, denominator key-set equality, W availability monotonicity, nested three-valued reconciliation, and metric identities. The revised R1-T06-20260710T1216Z artifacts correctly distinguish legal high-q active-set expansion from denominator equality.",
+  "reviewed_analysis_sha256": "7ae2872ab5b36e962420caf3007d297ae3e7dda8509986277a3f5e2bc517bd98",
+  "reviewed_code_commit": "be1ee9946855f0b4b3eb25de23bcc14a999041da",
+  "reviewed_summary_sha256": "71f95c5bb9c414ab4deb0c50afc641f1d2a7dfa95681b508ffce15541a01f5f6",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}

@@ -2,16 +2,16 @@
 
 `task_id`: R1-T06
 `task_class`: formal_experiment
-`status`: author_analysis_complete
+`status`: completed
 `run_id`: R1-T06-20260710T1216Z
 `code_commit`: be1ee9946855f0b4b3eb25de23bcc14a999041da
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
 `author_result_analysis_status`: passed
-`scientific_review_status`: pending
+`scientific_review_status`: passed
 `anomaly_resolution_status`: passed
-`review_phase`: author_analysis_complete
+`review_phase`: independent_review_complete
 
 `experiment_summary_path`: data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_experiment_summary.json
 `experiment_summary_sha256`: 71f95c5bb9c414ab4deb0c50afc641f1d2a7dfa95681b508ffce15541a01f5f6
@@ -26,26 +26,27 @@
 `anomaly_scan_sha256`: aa62818298ab578499901c418bf64ce5f82d25879b580b730faf165e1662de98
 `formal_evidence_path`: docs/evidence/r1/R1-T06_contemporaneous_retention_lift_nested_increment_evidence.md
 `formal_evidence_sha256`: computed_by_result_package
-`scientific_review_path`: null
-`scientific_review_sha256`: null
-`scientific_review_md_path`: null
-`scientific_review_md_sha256`: null
+`scientific_review_path`: data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_scientific_review.json
+`scientific_review_sha256`: a211cd824ba6fafe0b09c4f40ca0e7a397e686de31deace3bd24ac543d2a0823
+`scientific_review_md_path`: docs/reviews/r1/R1-T06_contemporaneous_retention_lift_nested_increment_scientific_review.md
+`scientific_review_md_sha256`: 9c9d313ce7ff0feee9742ca2f6e3718ec2a47bacc8e78ced49824d6b8d27d5a6
 `readme_path`: docs/tasks/README.md
-`readme_sha256`: f5635353b5ecc54da8cc02668c97f1a297d0ba700d9940b10e820ad645797bd6
+`readme_sha256`: afbaf724f5c07cc658f057bb41e2593a99f5501d8d883f9167a6ae611ce5d9e8
 `expected_current_stage`: R1
-`expected_current_task`: R1-T06 层间同期留存、关联 Lift 与嵌套增量
-`expected_next_planned_task`: R1-T07 P 首入锚定的固定滞后结构关系
-`expected_downstream_gate_marker`: R1-T07_allowed_to_start: false
+`expected_current_task`: R1-T07 P 首入锚定的固定滞后结构关系
+`expected_next_planned_task`: R1-T08 S_PCT/S_PCVT 同步性与嵌套增量零模型
+`expected_downstream_gate_marker`: R1-T08_allowed_to_start: false
 
 `superseded`: false
 `superseded_by`: null
 `supersedes`: R1-T06-20260710T1155Z
-`downstream_gate_allowed`: false
+`downstream_gate_allowed`: true
 
 ## 说明
 
-R1-T06 author-draft formal rerun 已完成，task-specific engineering validator passed。旧 run `R1-T06-20260710T1155Z` 的 primary metrics 未退化，但 q nesting artifact 的 symmetric-difference 字段语义由本 run 修复并 supersede。更早的 `R1-T06-20260710T1058Z` 已由 1155Z supersede。
+R1-T06 final-gate 已完成，task-specific engineering validator passed，independent scientific review passed。旧 run `R1-T06-20260710T1155Z` 的 primary metrics 未退化，但 q nesting artifact 的 symmetric-difference 字段语义由本 run 修复并 supersede。更早的 `R1-T06-20260710T1058Z` 已由 1155Z supersede。
 
 `author_draft_package_validation_result_path`: data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_author_draft_package_validation_result.json
+`final_gate_package_validation_result_path`: data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_final_gate_package_validation_result.json
 
-当前阶段不得生成 passed scientific review，不得推进 README 到 R1-T07。
+当前阶段已推进到 R1-T07；R1-T08 与 R2 仍未授权。
