@@ -106,7 +106,7 @@
       "properties": {
         "parallelism_mode": {"const": "duckdb_native_single_process"},
         "duckdb_threads": {"const": 4},
-        "duckdb_memory_limit": {"const": "4GB"}
+        "duckdb_memory_limit": {"const": "12GB"}
       }
     },
     "transition_paths": {

@@ -60,7 +60,7 @@
   "parallelism": {
     "parallelism_mode": "duckdb_native_single_process",
     "duckdb_threads": 4,
-    "duckdb_memory_limit": "4GB"
+    "duckdb_memory_limit": "12GB"
   },
   "transition_paths": [
     {"transition_path": "P_TO_C", "target_flag": "C_raw", "target_validity": "C_valid"},
