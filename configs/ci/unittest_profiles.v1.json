@@ -3,6 +3,7 @@
     "pr-fast": {
       "files": [
         "tests/test_task_index_current.py",
+        "tests/r0/test_r_stage_entrypoint_layering.py",
         "tests/r0/test_input_readiness_gate.py",
         "tests/r0/test_raw_metric_engine.py",
         "tests/r0/test_r0_t10_raw_metric_materializer.py",
