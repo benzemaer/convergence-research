@@ -63,6 +63,42 @@ class R1T06ValidatorTest(unittest.TestCase):
                 )
             self.assertIn("dimension_active_mismatch", str(raised.exception))
 
+    def test_nested_false_count_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            recon = root / "r1_t06_r0_nested_reconciliation.csv"
+            rows = _read_rows(recon)
+            rows[0]["derived_false_count"] = "79"
+            rows[0]["false_count_mismatch"] = "true"
+            _write_csv(recon, rows)
+            _refresh_summary_hash(root, summary, "r0_nested_reconciliation_csv")
+            with self.assertRaises(R1T06ValidationError) as raised:
+                validate_r1_t06_contemporaneous_retention_lift(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn("nested_false_count_mismatch", str(raised.exception))
+
+    def test_q_nesting_reversal_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            recon = root / "r1_t06_q_nesting_reconciliation.csv"
+            rows = _read_rows(recon)
+            rows[0]["missing_from_higher_q_count"] = "1"
+            rows[0]["symmetric_difference_count"] = "1"
+            _write_csv(recon, rows)
+            _refresh_summary_hash(root, summary, "q_nesting_reconciliation_csv")
+            with self.assertRaises(R1T06ValidationError) as raised:
+                validate_r1_t06_contemporaneous_retention_lift(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn("q_nesting_missing_from_higher", str(raised.exception))
+
     def test_author_draft_scientific_review_must_remain_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -118,6 +154,7 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
     _write_csv(root / "r1_t06_security_step_summary.csv", _security_rows(primary_rows))
     _write_csv(root / "r1_t06_r0_nested_reconciliation.csv", _nested_rows())
     _write_csv(root / "r1_t06_dimension_state_reconciliation.csv", _dimension_rows())
+    _write_csv(root / "r1_t06_q_nesting_reconciliation.csv", _q_nesting_rows())
     summary_payload = {
         "task_id": "R1-T06",
         "status": "completed",
@@ -162,6 +199,7 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
         "r1_t06_dimension_state_reconciliation.csv": (
             "dimension_state_reconciliation_csv"
         ),
+        "r1_t06_q_nesting_reconciliation.csv": "q_nesting_reconciliation_csv",
     }
     for path in root.glob("r1_t06_*.csv"):
         summary_payload["output_paths"][role_by_name[path.name]] = {
@@ -341,11 +379,45 @@ def _nested_rows() -> list[dict[str, str]]:
                         "r0_false_count": "80",
                         "derived_null_count": "0",
                         "r0_null_count": "0",
+                        "missing_key_count": "0",
                         "row_mismatch_count": "0",
                         "true_count_mismatch": "false",
+                        "false_count_mismatch": "false",
+                        "null_count_mismatch": "false",
                     }
                 )
     return rows
+
+
+def _q_nesting_rows() -> list[dict[str, str]]:
+    rows = []
+    for scope_id in ("P", "C", "T", "V"):
+        for w in WS:
+            for q_low, q_high in (("0.1", "0.2"), ("0.2", "0.3")):
+                rows.append(_q_nesting_row("dimension_active", scope_id, w, q_low, q_high))
+    for scope_type in ("anchor_active", "child_active", "denominator_keys"):
+        for step in STEPS:
+            for w in WS:
+                for q_low, q_high in (("0.1", "0.2"), ("0.2", "0.3")):
+                    rows.append(_q_nesting_row(scope_type, step, w, q_low, q_high))
+    return rows
+
+
+def _q_nesting_row(
+    scope_type: str, scope_id: str, w: int, q_low: str, q_high: str
+) -> dict[str, str]:
+    return {
+        "scope_type": scope_type,
+        "scope_id": scope_id,
+        "W": str(w),
+        "q_low": q_low,
+        "q_high": q_high,
+        "lower_set_count": "10",
+        "higher_set_count": "12",
+        "missing_from_higher_q_count": "0",
+        "missing_from_lower_q_count": "0",
+        "symmetric_difference_count": "0",
+    }
 
 
 def _dimension_rows() -> list[dict[str, str]]:

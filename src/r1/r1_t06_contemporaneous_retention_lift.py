@@ -21,6 +21,7 @@ DENOMINATOR_SENSITIVITY_ROWS = 27
 SECURITY_SUMMARY_ROWS = 27
 DIMENSION_RECONCILIATION_ROWS = 36
 NESTED_RECONCILIATION_ROWS = 36
+Q_NESTING_RECONCILIATION_ROWS = 78
 
 
 class R1T06RetentionLiftError(RuntimeError):
@@ -61,6 +62,8 @@ def run_r1_t06_contemporaneous_retention_lift(
         / "r1_t06_r0_nested_reconciliation.csv",
         "dimension_state_reconciliation_csv": output_dir
         / "r1_t06_dimension_state_reconciliation.csv",
+        "q_nesting_reconciliation_csv": output_dir
+        / "r1_t06_q_nesting_reconciliation.csv",
         "diagnostic_summary": output_dir / "r1_t06_diagnostic_summary.json",
         "anomaly_scan": output_dir / "r1_t06_anomaly_scan.json",
         "summary": output_dir / "r1_t06_experiment_summary.json",
@@ -89,6 +92,9 @@ def run_r1_t06_contemporaneous_retention_lift(
                 con, paths["dimension_state_reconciliation_csv"]
             )
             _write_nested_reconciliation(con, paths["r0_nested_reconciliation_csv"])
+            _write_q_nesting_reconciliation(
+                con, paths["q_nesting_reconciliation_csv"]
+            )
         finally:
             con.close()
 
@@ -188,6 +194,7 @@ def build_author_draft_package(
         "security_step_summary_csv",
         "r0_nested_reconciliation_csv",
         "dimension_state_reconciliation_csv",
+        "q_nesting_reconciliation_csv",
     )
     primary = [
         {
@@ -251,7 +258,7 @@ def build_author_draft_package(
         "readme_sha256": sha256_file(readme_path),
         "expected_current_stage": "R1",
         "expected_current_task": "R1-T06 层间同期留存、关联 Lift 与嵌套增量",
-        "expected_next_planned_task": "R1-T07 S_PCT/S_PCVT 预注册配置的同步性零模型",
+        "expected_next_planned_task": "R1-T07 P 首入锚定的固定滞后结构关系",
         "expected_downstream_gate_marker": "R1-T07_allowed_to_start: false",
         "superseded": False,
         "superseded_by": None,
@@ -305,7 +312,27 @@ def _create_dimension_wide(con: Any) -> None:
           bool_or(dimension='P' AND dimension_active_weak IS TRUE) AS P_active,
           bool_or(dimension='C' AND dimension_active_weak IS TRUE) AS C_active,
           bool_or(dimension='T' AND dimension_active_weak IS TRUE) AS T_active,
-          bool_or(dimension='V' AND dimension_active_weak IS TRUE) AS V_active
+          bool_or(dimension='V' AND dimension_active_weak IS TRUE) AS V_active,
+          CASE
+            WHEN sum(CASE WHEN dimension='P' AND dimension_active_weak IS TRUE THEN 1 ELSE 0 END) > 0 THEN true
+            WHEN sum(CASE WHEN dimension='P' AND dimension_active_weak IS FALSE THEN 1 ELSE 0 END) > 0 THEN false
+            ELSE NULL
+          END AS P_raw,
+          CASE
+            WHEN sum(CASE WHEN dimension='C' AND dimension_active_weak IS TRUE THEN 1 ELSE 0 END) > 0 THEN true
+            WHEN sum(CASE WHEN dimension='C' AND dimension_active_weak IS FALSE THEN 1 ELSE 0 END) > 0 THEN false
+            ELSE NULL
+          END AS C_raw,
+          CASE
+            WHEN sum(CASE WHEN dimension='T' AND dimension_active_weak IS TRUE THEN 1 ELSE 0 END) > 0 THEN true
+            WHEN sum(CASE WHEN dimension='T' AND dimension_active_weak IS FALSE THEN 1 ELSE 0 END) > 0 THEN false
+            ELSE NULL
+          END AS T_raw,
+          CASE
+            WHEN sum(CASE WHEN dimension='V' AND dimension_active_weak IS TRUE THEN 1 ELSE 0 END) > 0 THEN true
+            WHEN sum(CASE WHEN dimension='V' AND dimension_active_weak IS FALSE THEN 1 ELSE 0 END) > 0 THEN false
+            ELSE NULL
+          END AS V_raw
         FROM statedb.r0_t06_dimension_state_results
         GROUP BY security_id, trading_date, percentile_window_W, q
         """
@@ -590,40 +617,104 @@ def _write_dimension_reconciliation(con: Any, path: Path) -> None:
 
 def _write_nested_reconciliation(con: Any, path: Path) -> None:
     query = """
-    WITH derived AS (
+    WITH base AS (
       SELECT security_id, trading_date, W, q,
         P_valid AS S_P_valid,
         P_valid AND C_valid AS S_PC_valid,
         P_valid AND C_valid AND T_valid AS S_PCT_valid,
         P_valid AND C_valid AND T_valid AND V_valid AS S_PCVT_valid,
-        CASE WHEN P_valid THEN P_active ELSE NULL END AS derived_S_P,
-        CASE WHEN P_valid AND C_valid THEN P_active AND C_active ELSE NULL END AS derived_S_PC,
-        CASE WHEN P_valid AND C_valid AND T_valid THEN P_active AND C_active AND T_active ELSE NULL END AS derived_S_PCT,
-        CASE WHEN P_valid AND C_valid AND T_valid AND V_valid THEN P_active AND C_active AND T_active AND V_active ELSE NULL END AS derived_S_PCVT
+        P_raw, C_raw, T_raw, V_raw
       FROM dimension_wide
     ),
-    long AS (
-      SELECT n.percentile_window_W AS W, n.q, 'S_P' AS state_name, 1 AS required_dimension_count,
-        d.S_P_valid AS common_valid, d.derived_S_P AS derived_value, n.S_P_raw AS r0_value
-      FROM nesteddb.r0_t06_nested_daily_state_results n JOIN derived d USING(security_id, trading_date, q)
-      WHERE n.percentile_window_W=d.W
+    s_p AS (
+      SELECT *, P_raw AS derived_S_P FROM base
+    ),
+    s_pc AS (
+      SELECT *,
+        CASE
+          WHEN derived_S_P IS FALSE THEN false
+          WHEN derived_S_P IS NULL THEN NULL
+          ELSE C_raw
+        END AS derived_S_PC
+      FROM s_p
+    ),
+    s_pct AS (
+      SELECT *,
+        CASE
+          WHEN derived_S_PC IS FALSE THEN false
+          WHEN derived_S_PC IS NULL THEN NULL
+          ELSE T_raw
+        END AS derived_S_PCT
+      FROM s_pc
+    ),
+    chained AS (
+      SELECT *,
+        CASE
+          WHEN derived_S_PCT IS FALSE THEN false
+          WHEN derived_S_PCT IS NULL THEN NULL
+          ELSE V_raw
+        END AS derived_S_PCVT
+      FROM s_pct
+    ),
+    derived_long AS (
+      SELECT security_id, trading_date, W, q, 'S_P' AS state_name,
+        1 AS required_dimension_count, S_P_valid AS common_valid,
+        derived_S_P AS derived_value
+      FROM chained
       UNION ALL
-      SELECT n.percentile_window_W AS W, n.q, 'S_PC' AS state_name, 2 AS required_dimension_count,
-        d.S_PC_valid AS common_valid, d.derived_S_PC AS derived_value, n.S_PC_raw AS r0_value
-      FROM nesteddb.r0_t06_nested_daily_state_results n JOIN derived d USING(security_id, trading_date, q)
-      WHERE n.percentile_window_W=d.W
+      SELECT security_id, trading_date, W, q, 'S_PC' AS state_name,
+        2 AS required_dimension_count, S_PC_valid AS common_valid,
+        derived_S_PC AS derived_value
+      FROM chained
       UNION ALL
-      SELECT n.percentile_window_W AS W, n.q, 'S_PCT' AS state_name, 3 AS required_dimension_count,
-        d.S_PCT_valid AS common_valid, d.derived_S_PCT AS derived_value, n.S_PCT_raw AS r0_value
-      FROM nesteddb.r0_t06_nested_daily_state_results n JOIN derived d USING(security_id, trading_date, q)
-      WHERE n.percentile_window_W=d.W
+      SELECT security_id, trading_date, W, q, 'S_PCT' AS state_name,
+        3 AS required_dimension_count, S_PCT_valid AS common_valid,
+        derived_S_PCT AS derived_value
+      FROM chained
       UNION ALL
-      SELECT n.percentile_window_W AS W, n.q, 'S_PCVT' AS state_name, 4 AS required_dimension_count,
-        d.S_PCVT_valid AS common_valid, d.derived_S_PCVT AS derived_value, n.S_PCVT_raw AS r0_value
-      FROM nesteddb.r0_t06_nested_daily_state_results n JOIN derived d USING(security_id, trading_date, q)
-      WHERE n.percentile_window_W=d.W
+      SELECT security_id, trading_date, W, q, 'S_PCVT' AS state_name,
+        4 AS required_dimension_count, S_PCVT_valid AS common_valid,
+        derived_S_PCVT AS derived_value
+      FROM chained
+    ),
+    r0_long AS (
+      SELECT security_id, trading_date, percentile_window_W AS W, q,
+        'S_P' AS state_name, 1 AS required_dimension_count, S_P_raw AS r0_value
+      FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL
+      SELECT security_id, trading_date, percentile_window_W AS W, q,
+        'S_PC' AS state_name, 2 AS required_dimension_count, S_PC_raw AS r0_value
+      FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL
+      SELECT security_id, trading_date, percentile_window_W AS W, q,
+        'S_PCT' AS state_name, 3 AS required_dimension_count, S_PCT_raw AS r0_value
+      FROM nesteddb.r0_t06_nested_daily_state_results
+      UNION ALL
+      SELECT security_id, trading_date, percentile_window_W AS W, q,
+        'S_PCVT' AS state_name, 4 AS required_dimension_count, S_PCVT_raw AS r0_value
+      FROM nesteddb.r0_t06_nested_daily_state_results
+    ),
+    joined AS (
+      SELECT
+        coalesce(d.W, r.W) AS W,
+        coalesce(d.q, r.q) AS q,
+        coalesce(d.state_name, r.state_name) AS state_name,
+        coalesce(d.required_dimension_count, r.required_dimension_count) AS required_dimension_count,
+        d.security_id AS derived_security_id,
+        r.security_id AS r0_security_id,
+        d.common_valid,
+        d.derived_value,
+        r.r0_value
+      FROM derived_long d
+      FULL OUTER JOIN r0_long r
+        ON d.security_id=r.security_id
+       AND d.trading_date=r.trading_date
+       AND d.W=r.W
+       AND d.q=r.q
+       AND d.state_name=r.state_name
     )
     SELECT W, q, state_name, required_dimension_count,
+      count(*)::BIGINT AS joined_row_count,
       sum(common_valid IS TRUE)::BIGINT AS common_valid_row_count,
       sum(derived_value IS TRUE)::BIGINT AS derived_true_count,
       sum(r0_value IS TRUE)::BIGINT AS r0_true_count,
@@ -631,12 +722,184 @@ def _write_nested_reconciliation(con: Any, path: Path) -> None:
       sum(r0_value IS FALSE)::BIGINT AS r0_false_count,
       sum(derived_value IS NULL)::BIGINT AS derived_null_count,
       sum(r0_value IS NULL)::BIGINT AS r0_null_count,
-      sum(common_valid IS TRUE AND derived_value IS DISTINCT FROM r0_value)::BIGINT
+      sum(derived_security_id IS NULL OR r0_security_id IS NULL)::BIGINT
+        AS missing_key_count,
+      sum(
+        derived_security_id IS NOT NULL
+        AND r0_security_id IS NOT NULL
+        AND derived_value IS DISTINCT FROM r0_value
+      )::BIGINT
         AS row_mismatch_count,
-      (sum(derived_value IS TRUE) != sum(r0_value IS TRUE)) AS true_count_mismatch
-    FROM long
+      (sum(derived_value IS TRUE) != sum(r0_value IS TRUE)) AS true_count_mismatch,
+      (sum(derived_value IS FALSE) != sum(r0_value IS FALSE)) AS false_count_mismatch,
+      (sum(derived_value IS NULL) != sum(r0_value IS NULL)) AS null_count_mismatch
+    FROM joined
     GROUP BY W, q, state_name, required_dimension_count
     ORDER BY W, q, state_name
+    """
+    _copy_query(con, query, path)
+
+
+def _write_q_nesting_reconciliation(con: Any, path: Path) -> None:
+    projected = _step_projection_sql("dimension_wide", "primary_denominator")
+    query = f"""
+    WITH q_pairs AS (
+      SELECT * FROM (VALUES (0.1, 0.2), (0.2, 0.3)) AS t(q_low, q_high)
+    ),
+    dimensions AS (
+      SELECT * FROM (VALUES
+        ('P'), ('C'), ('T'), ('V')
+      ) AS t(scope_id)
+    ),
+    dimension_sets AS (
+      SELECT security_id, trading_date, W, q, 'P' AS scope_id
+      FROM dimension_wide WHERE P_active IS TRUE
+      UNION ALL
+      SELECT security_id, trading_date, W, q, 'C' AS scope_id
+      FROM dimension_wide WHERE C_active IS TRUE
+      UNION ALL
+      SELECT security_id, trading_date, W, q, 'T' AS scope_id
+      FROM dimension_wide WHERE T_active IS TRUE
+      UNION ALL
+      SELECT security_id, trading_date, W, q, 'V' AS scope_id
+      FROM dimension_wide WHERE V_active IS TRUE
+    ),
+    projected AS ({projected}),
+    anchor_sets AS (
+      SELECT step_id, security_id, trading_date, W, q
+      FROM projected
+      WHERE primary_denominator AND anchor_active IS TRUE
+    ),
+    child_sets AS (
+      SELECT step_id, security_id, trading_date, W, q
+      FROM projected
+      WHERE primary_denominator AND anchor_active IS TRUE AND target_active IS TRUE
+    ),
+    denominator_sets AS (
+      SELECT step_id, security_id, trading_date, W, q
+      FROM projected
+      WHERE primary_denominator
+    ),
+    dimension_grid AS (
+      SELECT 'dimension_active' AS scope_type, d.scope_id, w.W, qp.q_low, qp.q_high
+      FROM dimensions d
+      CROSS JOIN (SELECT DISTINCT W FROM dimension_wide) w
+      CROSS JOIN q_pairs qp
+    ),
+    step_grid AS (
+      SELECT s.step_id AS scope_id, w.W, qp.q_low, qp.q_high
+      FROM step_registry s
+      CROSS JOIN (SELECT DISTINCT W FROM dimension_wide) w
+      CROSS JOIN q_pairs qp
+    ),
+    dimension_checks AS (
+      SELECT scope_type, scope_id, W, q_low, q_high,
+        (SELECT count(*) FROM dimension_sets ds WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low)::BIGINT AS lower_set_count,
+        (SELECT count(*) FROM dimension_sets ds WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high)::BIGINT AS higher_set_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM dimension_sets ds
+          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM dimension_sets ds
+          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
+        ))::BIGINT AS missing_from_higher_q_count,
+        0::BIGINT AS missing_from_lower_q_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM dimension_sets ds
+          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM dimension_sets ds
+          WHERE ds.scope_id=g.scope_id AND ds.W=g.W AND ds.q=g.q_high
+        ))::BIGINT AS symmetric_difference_count
+      FROM dimension_grid g
+    ),
+    anchor_checks AS (
+      SELECT 'anchor_active' AS scope_type, scope_id, W, q_low, q_high,
+        (SELECT count(*) FROM anchor_sets s WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low)::BIGINT AS lower_set_count,
+        (SELECT count(*) FROM anchor_sets s WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high)::BIGINT AS higher_set_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM anchor_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM anchor_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+        ))::BIGINT AS missing_from_higher_q_count,
+        0::BIGINT AS missing_from_lower_q_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM anchor_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM anchor_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+        ))::BIGINT AS symmetric_difference_count
+      FROM step_grid g
+    ),
+    child_checks AS (
+      SELECT 'child_active' AS scope_type, scope_id, W, q_low, q_high,
+        (SELECT count(*) FROM child_sets s WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low)::BIGINT AS lower_set_count,
+        (SELECT count(*) FROM child_sets s WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high)::BIGINT AS higher_set_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM child_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM child_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+        ))::BIGINT AS missing_from_higher_q_count,
+        0::BIGINT AS missing_from_lower_q_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM child_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM child_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+        ))::BIGINT AS symmetric_difference_count
+      FROM step_grid g
+    ),
+    denominator_checks AS (
+      SELECT 'denominator_keys' AS scope_type, scope_id, W, q_low, q_high,
+        (SELECT count(*) FROM denominator_sets s WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low)::BIGINT AS lower_set_count,
+        (SELECT count(*) FROM denominator_sets s WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high)::BIGINT AS higher_set_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM denominator_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          EXCEPT
+          SELECT security_id, trading_date FROM denominator_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+        ))::BIGINT AS missing_from_higher_q_count,
+        (SELECT count(*) FROM (
+          SELECT security_id, trading_date FROM denominator_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+          EXCEPT
+          SELECT security_id, trading_date FROM denominator_sets s
+          WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+        ))::BIGINT AS missing_from_lower_q_count,
+        (
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM denominator_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+            EXCEPT
+            SELECT security_id, trading_date FROM denominator_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+          ))
+          +
+          (SELECT count(*) FROM (
+            SELECT security_id, trading_date FROM denominator_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_high
+            EXCEPT
+            SELECT security_id, trading_date FROM denominator_sets s
+            WHERE s.step_id=g.scope_id AND s.W=g.W AND s.q=g.q_low
+          ))
+        )::BIGINT AS symmetric_difference_count
+      FROM step_grid g
+    )
+    SELECT * FROM dimension_checks
+    UNION ALL
+    SELECT * FROM anchor_checks
+    UNION ALL
+    SELECT * FROM child_checks
+    UNION ALL
+    SELECT * FROM denominator_checks
+    ORDER BY scope_type, scope_id, W, q_low
     """
     _copy_query(con, query, path)
 
@@ -661,6 +924,7 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
     sec = _csv_rows(paths["security_step_summary_csv"])
     nested = _csv_rows(paths["r0_nested_reconciliation_csv"])
     dim = _csv_rows(paths["dimension_state_reconciliation_csv"])
+    q_nesting = _csv_rows(paths["q_nesting_reconciliation_csv"])
     check(
         "primary_output_nonempty",
         len(primary) == PRIMARY_ROWS
@@ -668,6 +932,7 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
         and len(sec) == SECURITY_SUMMARY_ROWS
         and len(nested) == NESTED_RECONCILIATION_ROWS
         and len(dim) == DIMENSION_RECONCILIATION_ROWS
+        and len(q_nesting) == Q_NESTING_RECONCILIATION_ROWS
         and len(year) > 0,
         "primary_output_row_count_mismatch",
     )
@@ -690,7 +955,7 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
     check("coverage_check", _coverage_ok(primary), "coverage_invalid")
     check(
         "parameter_response_check",
-        _parameter_response_ok(primary),
+        _parameter_response_ok(primary) and _q_nesting_reconciliation_ok(q_nesting),
         "parameter_response_violation",
     )
     check(
@@ -718,7 +983,9 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
     )
     check(
         "upstream_consistency_check",
-        _dimension_reconciliation_ok(dim) and _nested_reconciliation_ok(nested),
+        _dimension_reconciliation_ok(dim)
+        and _nested_reconciliation_ok(nested)
+        and _q_nesting_reconciliation_ok(q_nesting),
         "upstream_consistency_mismatch",
     )
     check(
@@ -726,7 +993,8 @@ def _evaluate_outputs(paths: dict[str, Path]) -> dict[str, Any]:
     )
     check(
         "time_alignment_check",
-        _q_independent_denominator_ok(primary),
+        _q_independent_denominator_ok(primary)
+        and _q_denominator_keyset_ok(q_nesting),
         "time_alignment_q_denominator_mismatch",
     )
     check(
@@ -976,9 +1244,37 @@ def _baseline_challenger_ok(rows: list[dict[str, str]]) -> bool:
 
 def _nested_reconciliation_ok(rows: list[dict[str, str]]) -> bool:
     return len(rows) == NESTED_RECONCILIATION_ROWS and all(
-        _int(row, "row_mismatch_count") == 0
+        _int(row, "missing_key_count") == 0
+        and _int(row, "row_mismatch_count") == 0
         and row["true_count_mismatch"].lower() == "false"
+        and row["false_count_mismatch"].lower() == "false"
+        and row["null_count_mismatch"].lower() == "false"
+        and _int(row, "derived_true_count") == _int(row, "r0_true_count")
+        and _int(row, "derived_false_count") == _int(row, "r0_false_count")
+        and _int(row, "derived_null_count") == _int(row, "r0_null_count")
         for row in rows
+    )
+
+
+def _q_nesting_reconciliation_ok(rows: list[dict[str, str]]) -> bool:
+    return len(rows) == Q_NESTING_RECONCILIATION_ROWS and all(
+        _int(row, "missing_from_higher_q_count") == 0
+        and _int(row, "symmetric_difference_count") == 0
+        and (
+            row["scope_type"] != "denominator_keys"
+            or _int(row, "missing_from_lower_q_count") == 0
+        )
+        for row in rows
+    )
+
+
+def _q_denominator_keyset_ok(rows: list[dict[str, str]]) -> bool:
+    denominator_rows = [row for row in rows if row.get("scope_type") == "denominator_keys"]
+    return len(denominator_rows) == 18 and all(
+        _int(row, "symmetric_difference_count") == 0
+        and _int(row, "missing_from_higher_q_count") == 0
+        and _int(row, "missing_from_lower_q_count") == 0
+        for row in denominator_rows
     )
 
 

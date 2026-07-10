@@ -9,8 +9,10 @@ class R1T06FormalExperimentContractTest(unittest.TestCase):
     def test_readme_is_author_draft_position_for_r1_t06(self) -> None:
         readme = Path("docs/tasks/README.md").read_text(encoding="utf-8")
         self.assertIn("current_task: R1-T06 层间同期留存、关联 Lift 与嵌套增量", readme)
+        self.assertIn("next_planned_task: R1-T07 P 首入锚定的固定滞后结构关系", readme)
         self.assertIn("R1-T06_allowed_to_start: true", readme)
         self.assertIn("R1-T07_allowed_to_start: false", readme)
+        self.assertIn("R1-T08_allowed_to_start: false", readme)
         self.assertIn("R2_allowed_to_start: false", readme)
 
     def test_required_implementation_files_exist(self) -> None:

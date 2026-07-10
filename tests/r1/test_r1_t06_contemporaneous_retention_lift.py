@@ -16,6 +16,7 @@ from src.r1.r1_t06_contemporaneous_retention_lift import (
     _validate_config,
     _write_layer_step_profile,
     _write_nested_reconciliation,
+    _write_q_nesting_reconciliation,
 )
 
 
@@ -163,7 +164,8 @@ class R1T06ContemporaneousRetentionLiftTest(unittest.TestCase):
                 "(?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     ("S1", "20200101", 120, 0.1, True, None, None, None),
-                    ("S2", "20200101", 120, 0.1, None, None, None, None),
+                    ("S2", "20200101", 120, 0.1, False, False, False, False),
+                    ("S3", "20200101", 120, 0.1, True, False, False, False),
                 ],
             )
             nested_con.close()
@@ -173,12 +175,14 @@ class R1T06ContemporaneousRetentionLiftTest(unittest.TestCase):
                 """
                 CREATE TEMP TABLE dimension_wide AS
                 SELECT * FROM (VALUES
-                  ('S1','20200101',120,0.1,true,false,false,false,true,false,false,false),
-                  ('S2','20200101',120,0.1,false,false,false,false,false,false,false,false)
+                  ('S1','20200101',120,0.1,true,false,false,false,true,false,false,false,true,NULL,NULL,NULL),
+                  ('S2','20200101',120,0.1,true,false,false,false,false,false,false,false,false,NULL,NULL,NULL),
+                  ('S3','20200101',120,0.1,true,true,false,false,true,false,false,false,true,false,NULL,NULL)
                 ) AS t(
                   security_id,trading_date,W,q,
                   P_valid,C_valid,T_valid,V_valid,
-                  P_active,C_active,T_active,V_active
+                  P_active,C_active,T_active,V_active,
+                  P_raw,C_raw,T_raw,V_raw
                 )
                 """
             )
@@ -188,8 +192,52 @@ class R1T06ContemporaneousRetentionLiftTest(unittest.TestCase):
             rows = _read_rows(output)
             s_pc = next(row for row in rows if row["state_name"] == "S_PC")
             self.assertEqual(s_pc["row_mismatch_count"], "0")
-            self.assertEqual(s_pc["derived_null_count"], "2")
-            self.assertEqual(s_pc["r0_null_count"], "2")
+            self.assertEqual(s_pc["missing_key_count"], "0")
+            self.assertEqual(s_pc["derived_false_count"], "2")
+            self.assertEqual(s_pc["r0_false_count"], "2")
+            self.assertEqual(s_pc["derived_null_count"], "1")
+            self.assertEqual(s_pc["r0_null_count"], "1")
+            s_pct = next(row for row in rows if row["state_name"] == "S_PCT")
+            self.assertEqual(s_pct["derived_false_count"], "2")
+            self.assertEqual(s_pct["r0_false_count"], "2")
+            s_pcvt = next(row for row in rows if row["state_name"] == "S_PCVT")
+            self.assertEqual(s_pcvt["derived_false_count"], "2")
+            self.assertEqual(s_pcvt["r0_false_count"], "2")
+
+    def test_q_nesting_reconciliation_detects_row_level_reversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output = root / "q_nesting.csv"
+            con = duckdb.connect()
+            _create_step_registry(con)
+            con.execute(
+                """
+                CREATE TEMP TABLE dimension_wide AS
+                SELECT * FROM (VALUES
+                  ('S1','20200101',120,0.1,true,true,true,true,true,true,true,true,true,true,true,true),
+                  ('S2','20200101',120,0.2,true,true,true,true,true,true,true,true,true,true,true,true),
+                  ('S1','20200101',120,0.2,true,true,true,true,false,true,true,true,false,true,true,true),
+                  ('S1','20200101',120,0.3,true,true,true,true,true,true,true,true,true,true,true,true)
+                ) AS t(
+                  security_id,trading_date,W,q,
+                  P_valid,C_valid,T_valid,V_valid,
+                  P_active,C_active,T_active,V_active,
+                  P_raw,C_raw,T_raw,V_raw
+                )
+                """
+            )
+            _write_q_nesting_reconciliation(con, output)
+            con.close()
+            rows = _read_rows(output)
+            p_check = next(
+                row
+                for row in rows
+                if row["scope_type"] == "dimension_active"
+                and row["scope_id"] == "P"
+                and row["q_low"] == "0.1"
+                and row["q_high"] == "0.2"
+            )
+            self.assertEqual(p_check["missing_from_higher_q_count"], "1")
 
 
 def _read_rows(path: Path) -> list[dict[str, str]]:

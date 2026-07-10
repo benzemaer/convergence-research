@@ -33,6 +33,7 @@ def validate_r1_t06_contemporaneous_retention_lift(
         "security_step_summary_csv": 27,
         "r0_nested_reconciliation_csv": 36,
         "dimension_state_reconciliation_csv": 36,
+        "q_nesting_reconciliation_csv": 78,
     }
     for name, expected in required_rows.items():
         item = outputs.get(name)
@@ -56,10 +57,12 @@ def validate_r1_t06_contemporaneous_retention_lift(
     security = _rows(outputs, root, "security_step_summary_csv", errors)
     nested = _rows(outputs, root, "r0_nested_reconciliation_csv", errors)
     dimension = _rows(outputs, root, "dimension_state_reconciliation_csv", errors)
+    q_nesting = _rows(outputs, root, "q_nesting_reconciliation_csv", errors)
     _validate_primary(primary, errors)
     _validate_denominator_sensitivity(denom, errors)
     _validate_security_summary(security, errors)
     _validate_reconciliation(nested, dimension, errors)
+    _validate_q_nesting_reconciliation(q_nesting, errors)
     _validate_summary_checks(summary, errors)
     if result_package_path is not None:
         package = _load(result_package_path, errors, "result_package")
@@ -262,13 +265,53 @@ def _validate_reconciliation(
     errors: list[str],
 ) -> None:
     for row in nested:
+        if _int(row, "missing_key_count") != 0:
+            errors.append("nested_missing_key")
         if _int(row, "row_mismatch_count") != 0:
             errors.append("nested_row_mismatch")
         if row.get("true_count_mismatch", "").lower() != "false":
             errors.append("nested_true_count_mismatch")
+        if row.get("false_count_mismatch", "").lower() != "false":
+            errors.append("nested_false_count_mismatch")
+        if row.get("null_count_mismatch", "").lower() != "false":
+            errors.append("nested_null_count_mismatch")
+        if _int(row, "derived_true_count") != _int(row, "r0_true_count"):
+            errors.append("nested_true_count_mismatch")
+        if _int(row, "derived_false_count") != _int(row, "r0_false_count"):
+            errors.append("nested_false_count_mismatch")
+        if _int(row, "derived_null_count") != _int(row, "r0_null_count"):
+            errors.append("nested_null_count_mismatch")
     for row in dimension:
         if _int(row, "active_mismatch_count") != 0:
             errors.append("dimension_active_mismatch")
+
+
+def _validate_q_nesting_reconciliation(
+    rows: list[dict[str, str]], errors: list[str]
+) -> None:
+    if len(rows) != 78:
+        errors.append("q_nesting_row_count_mismatch")
+        return
+    expected_scopes = {
+        "dimension_active",
+        "anchor_active",
+        "child_active",
+        "denominator_keys",
+    }
+    if {row.get("scope_type") for row in rows} != expected_scopes:
+        errors.append("q_nesting_scope_mismatch")
+    denominator_rows = 0
+    for row in rows:
+        if _int(row, "missing_from_higher_q_count") != 0:
+            errors.append("q_nesting_missing_from_higher")
+        if _int(row, "symmetric_difference_count") != 0:
+            errors.append("q_nesting_symmetric_difference")
+        if row.get("scope_type") == "denominator_keys":
+            denominator_rows += 1
+            if _int(row, "missing_from_lower_q_count") != 0:
+                errors.append("q_denominator_missing_from_lower")
+    if denominator_rows != 18:
+        errors.append("q_denominator_row_count_mismatch")
 
 
 def _validate_summary_checks(summary: dict[str, Any], errors: list[str]) -> None:

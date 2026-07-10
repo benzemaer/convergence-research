@@ -15,7 +15,7 @@ class TaskIndexCurrentTest(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "next_planned_task: R1-T07 S_PCT/S_PCVT 预注册配置的同步性零模型",
+            "next_planned_task: R1-T07 P 首入锚定的固定滞后结构关系",
             text,
         )
         self.assertIn(
