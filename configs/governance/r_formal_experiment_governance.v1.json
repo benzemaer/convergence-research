@@ -95,8 +95,9 @@
     "anomaly_scan",
     "engineering_validation_result",
     "result_analysis",
-    "scientific_review",
-    "formal_evidence"
+    "formal_evidence",
+    "scientific_review_json",
+    "scientific_review_md"
   ],
   "required_result_analysis_headings": [
     "## 1. 研究目标与预注册问题",

@@ -34,7 +34,7 @@
 
 ## 结果包清单
 
-列出 experiment_summary、primary_results、diagnostic_summary、anomaly_scan、engineering_validation_result、result_analysis、scientific_review、formal evidence 的路径和提交策略。
+列出 experiment_summary、primary_results、diagnostic_summary、anomaly_scan、engineering_validation_result、result_analysis、formal evidence、scientific review JSON、scientific review Markdown、README gate marker 的路径和提交策略。提交到仓库的小型 artifact 必须是 repo-relative、Git-tracked、hash 可复核；大型 DuckDB/Parquet 只能作为 evidence-bound large artifact reference，不得冒充 clean-checkout committed result artifact。
 
 ## 作者分析要求
 

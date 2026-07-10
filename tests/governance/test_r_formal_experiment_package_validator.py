@@ -225,6 +225,163 @@ class FormalExperimentPackageValidatorTest(unittest.TestCase):
 
         self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
 
+    def test_stale_reviewed_summary_hash_fails(self) -> None:
+        self.assert_review_mutation_fails(
+            "reviewed_summary_sha256",
+            "0" * 64,
+        )
+
+    def test_stale_reviewed_analysis_hash_fails(self) -> None:
+        self.assert_review_mutation_fails(
+            "reviewed_analysis_sha256",
+            "0" * 64,
+        )
+
+    def test_reviewed_code_commit_mismatch_fails(self) -> None:
+        self.assert_review_mutation_fails("reviewed_code_commit", "b" * 40)
+
+    def test_review_implementation_actor_mismatch_fails(self) -> None:
+        self.assert_review_mutation_fails("implementation_actor", "someone-else")
+
+    def test_failed_engineering_validation_file_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            path = root / package["engineering_validation_result_path"]
+            write_json(path, {"validator_status": "failed", "errors": ["critical"]})
+            package["engineering_validation_result_sha256"] = sha256_path(path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
+    def test_engineering_validation_task_mismatch_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            path = root / package["engineering_validation_result_path"]
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["task_id"] = "R1-OTHER"
+            write_json(path, payload)
+            package["engineering_validation_result_sha256"] = sha256_path(path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
+    def test_engineering_validation_commit_mismatch_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            path = root / package["engineering_validation_result_path"]
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["code_commit"] = "b" * 40
+            write_json(path, payload)
+            package["engineering_validation_result_sha256"] = sha256_path(path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
+    def test_missing_experiment_summary_fails(self) -> None:
+        self.assert_fixture_fails(
+            final=False,
+            mode="author-draft",
+            mutate=lambda package, _root: package.update(
+                {"experiment_summary_path": None}
+            ),
+        )
+
+    def test_missing_formal_evidence_fails(self) -> None:
+        self.assert_fixture_fails(
+            final=False,
+            mode="author-draft",
+            mutate=lambda package, _root: package.update(
+                {"formal_evidence_path": None}
+            ),
+        )
+
+    def test_missing_scientific_review_markdown_final_gate_fails(self) -> None:
+        self.assert_fixture_fails(
+            final=True,
+            mode="final-gate",
+            mutate=lambda package, _root: package.update(
+                {"scientific_review_md_path": None}
+            ),
+        )
+
+    def test_blocked_check_without_blocking_anomaly_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            scan_path = root / package["anomaly_scan_path"]
+            scan = json.loads(scan_path.read_text(encoding="utf-8"))
+            scan["checks"]["all_zero_check"]["status"] = "blocked"
+            scan_path.write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
+            package["anomaly_scan_sha256"] = sha256_path(scan_path)
+
+        self.assert_fixture_fails(final=True, mode="final-gate", mutate=mutate)
+
+    def test_blocking_anomaly_references_passed_check_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            scan_path = root / package["anomaly_scan_path"]
+            scan = json.loads(scan_path.read_text(encoding="utf-8"))
+            scan["blocking_anomalies"] = ["all_zero_check"]
+            scan_path.write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
+            package["anomaly_scan_sha256"] = sha256_path(scan_path)
+
+        self.assert_fixture_fails(final=True, mode="final-gate", mutate=mutate)
+
+    def test_anomaly_task_id_mismatch_fails(self) -> None:
+        self.assert_scan_mutation_fails("task_id", "R1-OTHER")
+
+    def test_anomaly_run_id_mismatch_fails(self) -> None:
+        self.assert_scan_mutation_fails("run_id", "OTHER-RUN")
+
+    def test_anomaly_code_commit_mismatch_fails(self) -> None:
+        self.assert_scan_mutation_fails("code_commit", "b" * 40)
+
+    def test_empty_artifact_references_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            scan_path = root / package["anomaly_scan_path"]
+            scan = json.loads(scan_path.read_text(encoding="utf-8"))
+            scan["checks"]["coverage_check"]["artifact_references"] = []
+            scan_path.write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
+            package["anomaly_scan_sha256"] = sha256_path(scan_path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
+    def test_scan_status_inconsistent_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            scan_path = root / package["anomaly_scan_path"]
+            scan = json.loads(scan_path.read_text(encoding="utf-8"))
+            scan["scan_status"] = "blocked"
+            scan_path.write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
+            package["anomaly_scan_sha256"] = sha256_path(scan_path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
+    def test_formal_evidence_gate_mismatch_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            path = root / package["formal_evidence_path"]
+            text = path.read_text(encoding="utf-8").replace(
+                "`downstream_gate_allowed`: false",
+                "`downstream_gate_allowed`: true",
+            )
+            path.write_text(text, encoding="utf-8")
+            package["formal_evidence_sha256"] = sha256_path(path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
+    def test_readme_pointer_mismatch_final_gate_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            readme = root / package["readme_path"]
+            readme.write_text("current_stage: R2\n", encoding="utf-8")
+            package["readme_sha256"] = sha256_path(readme)
+
+        self.assert_fixture_fails(final=True, mode="final-gate", mutate=mutate)
+
+    def test_author_draft_completed_status_fails(self) -> None:
+        self.assert_fixture_fails(
+            final=False,
+            mode="author-draft",
+            mutate=lambda package, _root: package.update({"status": "completed"}),
+        )
+
+    def test_absolute_artifact_path_fails(self) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            package["primary_result_artifacts"][0]["path"] = str(
+                (root / "primary.json").resolve()
+            )
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
     def assert_fixture_fails(self, *, final: bool, mode: str, mutate) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -237,17 +394,56 @@ class FormalExperimentPackageValidatorTest(unittest.TestCase):
                     root=root,
                 )
 
+    def assert_review_mutation_fails(self, key: str, value: object) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            review_path = root / package["scientific_review_record_path"]
+            review = json.loads(review_path.read_text(encoding="utf-8"))
+            review[key] = value
+            rewrite_review(package, review_path, review)
+
+        self.assert_fixture_fails(final=True, mode="final-gate", mutate=mutate)
+
+    def assert_scan_mutation_fails(self, key: str, value: object) -> None:
+        def mutate(package: dict, root: Path) -> None:
+            scan_path = root / package["anomaly_scan_path"]
+            scan = json.loads(scan_path.read_text(encoding="utf-8"))
+            scan[key] = value
+            write_json(scan_path, scan)
+            package["anomaly_scan_sha256"] = sha256_path(scan_path)
+
+        self.assert_fixture_fails(final=False, mode="author-draft", mutate=mutate)
+
 
 def build_fixture(root: Path, *, final: bool, mutate=None) -> Path:
     write_text(root / "config.json", "{}\n")
+    write_json(root / "experiment_summary.json", {"summary": "ok"})
     write_text(root / "primary.json", json.dumps([{"config": "baseline"}]) + "\n")
     write_text(root / "diagnostic.json", '{"records": 1}\n')
-    write_text(root / "engineering_validation.json", '{"validator_status":"passed"}\n')
+    write_json(
+        root / "engineering_validation.json",
+        {
+            "task_id": "R1-TXX",
+            "run_id": "R1-TXX-20260710T0000Z",
+            "code_commit": "a" * 40,
+            "validator_status": "passed",
+            "errors": [],
+        },
+    )
     write_text(root / "analysis.md", analysis_text())
     write_json(root / "anomaly_scan.json", anomaly_scan())
+    write_text(root / "README.md", readme_text())
     review_path = root / "scientific_review.json"
+    review_md_path = root / "scientific_review.md"
     if final:
-        write_json(review_path, scientific_review())
+        write_json(
+            review_path,
+            scientific_review(
+                summary_sha=sha256_path(root / "experiment_summary.json"),
+                analysis_sha=sha256_path(root / "analysis.md"),
+            ),
+        )
+        write_text(review_md_path, "scientific review passed\n")
+    write_text(root / "formal_evidence.md", "")
 
     gate = {
         "engineering_validator_status": "passed",
@@ -266,10 +462,12 @@ def build_fixture(root: Path, *, final: bool, mutate=None) -> Path:
         "run_id": "R1-TXX-20260710T0000Z",
         "code_commit": "a" * 40,
         "implementation_actor": "codex",
-        "status": "completed",
+        "status": "completed" if final else "author_analysis_complete",
         "input_package": {"path": "input_manifest.json", "sha256": "b" * 64},
         "config_path": "config.json",
         "config_sha256": sha256_path(root / "config.json"),
+        "experiment_summary_path": "experiment_summary.json",
+        "experiment_summary_sha256": sha256_path(root / "experiment_summary.json"),
         "primary_result_artifacts": [
             {
                 "artifact_role": "primary_results",
@@ -296,13 +494,25 @@ def build_fixture(root: Path, *, final: bool, mutate=None) -> Path:
         "engineering_validation_result_sha256": sha256_path(
             root / "engineering_validation.json"
         ),
+        "formal_evidence_path": "formal_evidence.md",
+        "formal_evidence_sha256": "",
         "scientific_review_record_path": "scientific_review.json" if final else None,
         "scientific_review_record_sha256": sha256_path(review_path) if final else None,
+        "scientific_review_md_path": "scientific_review.md" if final else None,
+        "scientific_review_md_sha256": sha256_path(review_md_path) if final else None,
+        "readme_path": "README.md",
+        "readme_sha256": sha256_path(root / "README.md"),
+        "expected_current_stage": "R1",
+        "expected_current_task": "R1-TNEXT next task",
+        "expected_next_planned_task": "R1-TNEXT2 planned task",
+        "expected_downstream_gate_marker": "R1-TNEXT_allowed_to_start: true",
         "superseded": False,
         "superseded_by": None,
         "gate_status": gate,
         "downstream_gate_allowed": final,
     }
+    write_evidence(root / "formal_evidence.md", package)
+    package["formal_evidence_sha256"] = sha256_path(root / "formal_evidence.md")
     if mutate is not None:
         mutate(package, root)
     package_path = root / "result_package.json"
@@ -333,15 +543,15 @@ def anomaly_scan() -> dict:
     }
 
 
-def scientific_review() -> dict:
+def scientific_review(*, summary_sha: str, analysis_sha: str) -> dict:
     return {
         "reviewer_identity": "independent-reviewer",
         "reviewer_role": "scientific_reviewer",
         "implementation_actor": "codex",
         "independence_attestation": True,
         "reviewed_code_commit": "a" * 40,
-        "reviewed_summary_sha256": "b" * 64,
-        "reviewed_analysis_sha256": "c" * 64,
+        "reviewed_summary_sha256": summary_sha,
+        "reviewed_analysis_sha256": analysis_sha,
         "independent_recomputations": [{"metric": "record_count", "value": 1}],
         "baseline_challenger_review": "baseline and challengers checked",
         "parameter_response_review": "parameter response checked",
@@ -352,6 +562,36 @@ def scientific_review() -> dict:
         "scientific_review_status": "passed",
         "downstream_gate_recommendation": True,
     }
+
+
+def readme_text() -> str:
+    return (
+        "current_stage: R1\n"
+        "current_task: R1-TNEXT next task\n"
+        "next_planned_task: R1-TNEXT2 planned task\n"
+        "R1-TNEXT_allowed_to_start: true\n"
+    )
+
+
+def write_evidence(path: Path, package: dict) -> None:
+    gate = package["gate_status"]
+    lines = [
+        f"`engineering_validator_status`: {gate['engineering_validator_status']}",
+        f"`result_artifact_status`: {gate['result_artifact_status']}",
+        f"`author_result_analysis_status`: {gate['author_result_analysis_status']}",
+        f"`scientific_review_status`: {gate['scientific_review_status']}",
+        f"`anomaly_resolution_status`: {gate['anomaly_resolution_status']}",
+        f"`downstream_gate_allowed`: {str(package['downstream_gate_allowed']).lower()}",
+        f"`result_analysis_sha256`: {package['result_analysis_sha256']}",
+        f"`anomaly_scan_sha256`: {package['anomaly_scan_sha256']}",
+        "`engineering_validation_result_sha256`: "
+        f"{package['engineering_validation_result_sha256']}",
+    ]
+    if package.get("scientific_review_record_sha256"):
+        lines.append(
+            f"`scientific_review_sha256`: {package['scientific_review_record_sha256']}"
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def analysis_text() -> str:

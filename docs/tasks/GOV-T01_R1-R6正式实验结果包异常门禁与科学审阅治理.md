@@ -18,7 +18,7 @@ formal experiment PR 先进入 author analysis 阶段：执行代理提交代码
 
 ## 结果包目录
 
-每个 formal experiment 需要 clean-checkout 可审核的结果包，包括 experiment summary、primary results、diagnostic summary、anomaly scan、engineering validation result、author result analysis、scientific review record 和 formal evidence。大型行级 DuckDB/Parquet 不提交，但必须在结果包中记录 path、sha256、schema、row_count、security_count、date_min/date_max 和 input manifest。
+每个 formal experiment 需要 clean-checkout 可审核的结果包，包括 experiment summary、primary results、diagnostic summary、anomaly scan、engineering validation result、author result analysis、formal evidence、scientific review JSON、scientific review Markdown 和 README gate marker。小型 committed artifact 必须是 repo-relative、Git-tracked、hash 可复核；大型行级 DuckDB/Parquet 不提交，但必须在结果包中记录 path、sha256、schema、row_count、security_count、date_min/date_max 和 input manifest。
 
 ## 异常检查
 

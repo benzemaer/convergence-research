@@ -83,6 +83,20 @@
       "pattern": "^[0-9a-f]{64}$",
       "type": "string"
     },
+    "experiment_summary_path": {
+      "type": "string"
+    },
+    "experiment_summary_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "formal_evidence_path": {
+      "type": "string"
+    },
+    "formal_evidence_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
     "gate_status": {
       "additionalProperties": true,
       "properties": {
@@ -148,6 +162,25 @@
     "input_package": {
       "type": "object"
     },
+    "readme_path": {
+      "type": "string"
+    },
+    "readme_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "expected_current_stage": {
+      "type": "string"
+    },
+    "expected_current_task": {
+      "type": "string"
+    },
+    "expected_next_planned_task": {
+      "type": "string"
+    },
+    "expected_downstream_gate_marker": {
+      "type": "string"
+    },
     "primary_result_artifacts": {
       "items": {
         "$ref": "#/$defs/artifact"
@@ -178,8 +211,24 @@
         "null"
       ]
     },
+    "scientific_review_md_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scientific_review_md_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "status": {
-      "type": "string"
+      "enum": [
+        "author_analysis_complete",
+        "completed"
+      ]
     },
     "superseded": {
       "type": "boolean"
@@ -207,6 +256,8 @@
     "input_package",
     "config_path",
     "config_sha256",
+    "experiment_summary_path",
+    "experiment_summary_sha256",
     "primary_result_artifacts",
     "diagnostic_artifacts",
     "anomaly_scan_path",
@@ -215,8 +266,18 @@
     "result_analysis_sha256",
     "engineering_validation_result_path",
     "engineering_validation_result_sha256",
+    "formal_evidence_path",
+    "formal_evidence_sha256",
     "scientific_review_record_path",
     "scientific_review_record_sha256",
+    "scientific_review_md_path",
+    "scientific_review_md_sha256",
+    "readme_path",
+    "readme_sha256",
+    "expected_current_stage",
+    "expected_current_task",
+    "expected_next_planned_task",
+    "expected_downstream_gate_marker",
     "superseded",
     "superseded_by",
     "gate_status",

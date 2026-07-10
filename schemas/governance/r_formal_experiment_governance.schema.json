@@ -14,7 +14,7 @@
       "items": {
         "type": "string"
       },
-      "minItems": 8,
+      "minItems": 9,
       "type": "array",
       "uniqueItems": true
     },
