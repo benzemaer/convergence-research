@@ -61,6 +61,63 @@ class R1T05ValidatorTest(unittest.TestCase):
                 )
             self.assertIn("threshold_2x2_sum_mismatch", str(raised.exception))
 
+    def test_hit_denominator_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            hit_path = root / "r1_t05_indicator_hit_duration.csv"
+            rows = _read_rows(hit_path)
+            rows[0]["eligible_day_count"] = rows[0]["total_row_count"]
+            rows[0]["ineligible_day_count"] = "0"
+            rows[0]["hit_rate"] = rows[0]["coverage"]
+            _write_csv(hit_path, rows)
+            _refresh_summary_hash(root, summary, "indicator_hit_duration_csv")
+            with self.assertRaises(R1T05ValidationError) as raised:
+                validate_r1_t05_indicator_intralayer_diagnostics(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn("indicator_hit_denominator_mismatch", str(raised.exception))
+
+    def test_percentile_bucket_sum_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            bucket_path = root / "r1_t05_indicator_percentile_bucket_distribution.csv"
+            rows = _read_rows(bucket_path)
+            rows[0]["bucket_count"] = str(int(rows[0]["bucket_count"]) + 1)
+            _write_csv(bucket_path, rows)
+            _refresh_summary_hash(
+                root, summary, "indicator_percentile_bucket_distribution_csv"
+            )
+            with self.assertRaises(R1T05ValidationError) as raised:
+                validate_r1_t05_indicator_intralayer_diagnostics(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn("percentile_bucket_count_sum_mismatch", str(raised.exception))
+
+    def test_reason_occurrence_share_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary, package = _write_fixture(root)
+            reason_path = root / "r1_t05_validity_reason_profile.csv"
+            rows = _read_rows(reason_path)
+            rows[0]["reason_occurrence_share"] = "0.25"
+            _write_csv(reason_path, rows)
+            _refresh_summary_hash(root, summary, "validity_reason_profile_csv")
+            with self.assertRaises(R1T05ValidationError) as raised:
+                validate_r1_t05_indicator_intralayer_diagnostics(
+                    summary_path=summary,
+                    result_package_path=package,
+                    root=root,
+                )
+            self.assertIn(
+                "validity_reason_occurrence_share_mismatch", str(raised.exception)
+            )
+
     def test_scientific_review_must_remain_pending_in_author_draft(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -173,6 +230,44 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
                 }
             )
     _write_csv(root / "r1_t05_indicator_score_distribution.csv", score_rows)
+    bucket_rows = []
+    buckets = [
+        ("B00_00_01", "0", "0.01", "true", "true", 1),
+        ("B01_01_05", "0.01", "0.05", "false", "true", 4),
+        ("B02_05_10", "0.05", "0.10", "false", "true", 5),
+        ("B03_10_20", "0.10", "0.20", "false", "true", 10),
+        ("B04_20_30", "0.20", "0.30", "false", "true", 10),
+        ("B05_30_50", "0.30", "0.50", "false", "true", 20),
+        ("B06_50_90", "0.50", "0.90", "false", "true", 40),
+        ("B07_90_95", "0.90", "0.95", "false", "true", 5),
+        ("B08_95_99", "0.95", "0.99", "false", "true", 4),
+        ("B09_99_100", "0.99", "1", "false", "true", 1),
+    ]
+    for layer, role, indicator, _ in INDICATORS:
+        for w, eligible in zip(WS, (100, 80, 60), strict=True):
+            for bucket_id, lower, upper, lower_inc, upper_inc, count in buckets:
+                scaled_count = round(count * eligible / 100)
+                bucket_rows.append(
+                    {
+                        "layer": layer,
+                        "role": role,
+                        "indicator_id": indicator,
+                        "W": str(w),
+                        "bucket_id": bucket_id,
+                        "lower_bound": lower,
+                        "upper_bound": upper,
+                        "lower_inclusive": lower_inc,
+                        "upper_inclusive": upper_inc,
+                        "eligible_count": str(eligible),
+                        "bucket_count": str(scaled_count),
+                        "bucket_ratio_of_eligible": str(scaled_count / eligible),
+                        "nominal_bucket_width": str(float(upper) - float(lower)),
+                        "bucket_ratio_minus_nominal_width": "0",
+                    }
+                )
+    _write_csv(
+        root / "r1_t05_indicator_percentile_bucket_distribution.csv", bucket_rows
+    )
     hit_rows = []
     for layer, role, indicator, _ in INDICATORS:
         for w in WS:
@@ -184,11 +279,14 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
                         "indicator_id": indicator,
                         "W": str(w),
                         "q": str(q),
-                        "eligible_day_count": "100",
+                        "total_row_count": "100",
+                        "eligible_day_count": "80",
+                        "ineligible_day_count": "20",
                         "hit_true_day_count": str(hits),
-                        "hit_false_day_count": str(100 - hits),
-                        "hit_null_day_count": "0",
-                        "hit_rate": str(hits / 100),
+                        "hit_false_day_count": str(80 - hits),
+                        "hit_null_day_count": "20",
+                        "hit_rate": str(hits / 80),
+                        "coverage": str(hits / 100),
                         "unique_security_count_hit": "10",
                         "nonzero_year_count": "2",
                         "segment_count": str(hits),
@@ -331,8 +429,11 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
                 "W": "",
                 "validity_status": "unknown",
                 "reason_code": "window_insufficient",
+                "total_row_count": "100",
+                "reason_occurrence_count": "10",
                 "row_count": "10",
-                "ratio_within_indicator_W": "1",
+                "row_prevalence": "0.1",
+                "reason_occurrence_share": "1",
             }
         ],
     )
@@ -343,10 +444,12 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
         "score_formula": "passed",
         "w_availability_response": "passed",
         "indicator_hit_accounting": "passed",
+        "percentile_bucket_distribution": "passed",
         "q_hit_nesting": "passed",
         "spearman_reconciliation": "passed",
         "threshold_accounting": "passed",
         "r0_t06_reconciliation": "passed",
+        "validity_reason_denominator": "passed",
         "diagnostic_status_complete": "passed",
         "forbidden_output_tokens": "passed",
     }
@@ -370,6 +473,9 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
             "r1_t05_indicator_raw_distribution.csv": "indicator_raw_distribution_csv",
             "r1_t05_indicator_score_distribution.csv": (
                 "indicator_score_distribution_csv"
+            ),
+            "r1_t05_indicator_percentile_bucket_distribution.csv": (
+                "indicator_percentile_bucket_distribution_csv"
             ),
             "r1_t05_indicator_hit_duration.csv": "indicator_hit_duration_csv",
             "r1_t05_intralayer_correlation.csv": "intralayer_correlation_csv",

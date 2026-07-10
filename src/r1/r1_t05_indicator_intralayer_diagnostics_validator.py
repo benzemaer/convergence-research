@@ -30,6 +30,7 @@ def validate_r1_t05_indicator_intralayer_diagnostics(
     required_rows = {
         "indicator_raw_distribution_csv": 8,
         "indicator_score_distribution_csv": 24,
+        "indicator_percentile_bucket_distribution_csv": 240,
         "indicator_hit_duration_csv": 72,
         "intralayer_correlation_csv": 12,
         "intralayer_threshold_structure_csv": 36,
@@ -58,10 +59,12 @@ def validate_r1_t05_indicator_intralayer_diagnostics(
         errors.append("validity_reason_profile_empty")
     _validate_raw_distribution(outputs, root, errors)
     _validate_score_distribution(outputs, root, errors)
+    _validate_percentile_buckets(outputs, root, errors)
     _validate_hit_duration(outputs, root, errors)
     _validate_correlation(outputs, root, errors)
     _validate_threshold(outputs, root, errors)
     _validate_reconciliation(outputs, root, errors)
+    _validate_reason_profile(outputs, root, errors)
     _validate_summary_checks(summary, errors)
     if result_package_path is not None:
         package = _load(result_package_path, errors, "result_package")
@@ -172,12 +175,56 @@ def _validate_hit_duration(
             errors.append("indicator_segment_onset_mismatch")
         if _int(row, "total_hit_duration") != _int(row, "hit_true_day_count"):
             errors.append("indicator_duration_total_mismatch")
+        if not _hit_denominator_integrity(row):
+            errors.append("indicator_hit_denominator_mismatch")
         by_indicator.setdefault((row["indicator_id"], row["W"]), []).append(row)
     for rows_for_key in by_indicator.values():
         rows_for_key.sort(key=lambda row: float(row["q"]))
         hits = [_int(row, "hit_true_day_count") for row in rows_for_key]
         if not (hits[0] <= hits[1] <= hits[2]):
             errors.append("q_hit_count_not_nested")
+
+
+def _validate_percentile_buckets(
+    outputs: dict[str, Any], root: Path, errors: list[str]
+) -> None:
+    bucket_rows = _rows(
+        outputs, root, "indicator_percentile_bucket_distribution_csv", errors
+    )
+    score_rows = _rows(outputs, root, "indicator_score_distribution_csv", errors)
+    score_eligible = {
+        (row["indicator_id"], row["W"]): _int(row, "eligible_count")
+        for row in score_rows
+    }
+    grouped: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in bucket_rows:
+        grouped.setdefault((row["indicator_id"], row["W"]), []).append(row)
+    expected_buckets = {
+        "B00_00_01",
+        "B01_01_05",
+        "B02_05_10",
+        "B03_10_20",
+        "B04_20_30",
+        "B05_30_50",
+        "B06_50_90",
+        "B07_90_95",
+        "B08_95_99",
+        "B09_99_100",
+    }
+    if set(grouped) != set(score_eligible):
+        errors.append("percentile_bucket_indicator_w_mismatch")
+        return
+    for key, rows in grouped.items():
+        eligible = score_eligible[key]
+        if {row["bucket_id"] for row in rows} != expected_buckets:
+            errors.append("percentile_bucket_grid_mismatch")
+        if any(_int(row, "eligible_count") != eligible for row in rows):
+            errors.append("percentile_bucket_eligible_count_mismatch")
+        if sum(_int(row, "bucket_count") for row in rows) != eligible:
+            errors.append("percentile_bucket_count_sum_mismatch")
+        ratio_sum = sum(_float(row, "bucket_ratio_of_eligible") for row in rows)
+        if eligible > 0 and abs(ratio_sum - 1.0) > 1e-9:
+            errors.append("percentile_bucket_ratio_sum_mismatch")
 
 
 def _validate_correlation(
@@ -231,6 +278,54 @@ def _validate_reconciliation(
     for row in rows:
         if _int(row, "active_mismatch_count") != 0:
             errors.append("r0_t06_active_mismatch")
+
+
+def _validate_reason_profile(
+    outputs: dict[str, Any], root: Path, errors: list[str]
+) -> None:
+    rows = _rows(outputs, root, "validity_reason_profile_csv", errors)
+    grouped: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+    for row in rows:
+        required = {
+            "total_row_count",
+            "reason_occurrence_count",
+            "row_prevalence",
+            "reason_occurrence_share",
+        }
+        if not required.issubset(row):
+            errors.append("validity_reason_denominator_columns_missing")
+            return
+        total = _int(row, "total_row_count")
+        occurrences = _int(row, "reason_occurrence_count")
+        row_count = _int(row, "row_count")
+        if total <= 0 or occurrences <= 0:
+            errors.append("validity_reason_denominator_nonpositive")
+        if not _float_matches(_float(row, "row_prevalence"), row_count / total):
+            errors.append("validity_reason_row_prevalence_mismatch")
+        if not _float_matches(
+            _float(row, "reason_occurrence_share"),
+            row_count / occurrences,
+        ):
+            errors.append("validity_reason_occurrence_share_mismatch")
+        grouped.setdefault(
+            (
+                row["source_level"],
+                row["indicator_id"],
+                row.get("raw_source_indicator_id", ""),
+                row.get("W", ""),
+            ),
+            [],
+        ).append(row)
+    for group_rows in grouped.values():
+        if sum(_int(row, "row_count") for row in group_rows) != _int(
+            group_rows[0], "reason_occurrence_count"
+        ):
+            errors.append("validity_reason_occurrence_total_mismatch")
+        if (
+            abs(sum(_float(row, "reason_occurrence_share") for row in group_rows) - 1.0)
+            > 1e-9
+        ):
+            errors.append("validity_reason_occurrence_share_sum_mismatch")
 
 
 def _validate_summary_checks(summary: dict[str, Any], errors: list[str]) -> None:
@@ -297,6 +392,28 @@ def _float(row: dict[str, str], key: str) -> float:
     if value in (None, ""):
         raise ValueError(key)
     return float(value)
+
+
+def _hit_denominator_integrity(row: dict[str, str]) -> bool:
+    total = _int(row, "total_row_count")
+    eligible = _int(row, "eligible_day_count")
+    ineligible = _int(row, "ineligible_day_count")
+    true_count = _int(row, "hit_true_day_count")
+    false_count = _int(row, "hit_false_day_count")
+    null_count = _int(row, "hit_null_day_count")
+    if total != eligible + ineligible:
+        return False
+    if eligible != true_count + false_count:
+        return False
+    if total != true_count + false_count + null_count:
+        return False
+    return _float_matches(
+        _float(row, "hit_rate"), true_count / eligible
+    ) and _float_matches(_float(row, "coverage"), true_count / total)
+
+
+def _float_matches(actual: float, expected: float) -> bool:
+    return abs(actual - expected) <= 1e-12
 
 
 def _rel(path: Path | None, root: Path) -> str | None:

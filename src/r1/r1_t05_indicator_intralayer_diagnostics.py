@@ -19,6 +19,7 @@ SCHEMA_PATH = ROOT / "schemas/r1/r1_t05_indicator_intralayer_diagnostics.schema.
 RAW_ROWS = 8
 SCORE_ROWS = 24
 HIT_ROWS = 72
+PERCENTILE_BUCKET_ROWS = 240
 CORRELATION_ROWS = 12
 THRESHOLD_ROWS = 36
 DIAGNOSTIC_ROWS = 12
@@ -58,6 +59,8 @@ def run_r1_t05_indicator_intralayer_diagnostics(
         / "r1_t05_indicator_raw_distribution.csv",
         "indicator_score_distribution_csv": output_dir
         / "r1_t05_indicator_score_distribution.csv",
+        "indicator_percentile_bucket_distribution_csv": output_dir
+        / "r1_t05_indicator_percentile_bucket_distribution.csv",
         "indicator_hit_duration_csv": output_dir / "r1_t05_indicator_hit_duration.csv",
         "intralayer_correlation_csv": output_dir / "r1_t05_intralayer_correlation.csv",
         "intralayer_threshold_structure_csv": output_dir
@@ -82,6 +85,9 @@ def run_r1_t05_indicator_intralayer_diagnostics(
             _create_registry_tables(con, config)
             _write_raw_distribution(con, paths["indicator_raw_distribution_csv"])
             _write_score_distribution(con, paths["indicator_score_distribution_csv"])
+            _write_percentile_bucket_distribution(
+                con, paths["indicator_percentile_bucket_distribution_csv"]
+            )
             _write_hit_duration(con, paths["indicator_hit_duration_csv"])
             _write_intralayer_correlation(con, paths["intralayer_correlation_csv"])
             _write_threshold_structure(con, paths["intralayer_threshold_structure_csv"])
@@ -181,6 +187,7 @@ def build_author_draft_package(
     primary_roles = (
         "indicator_raw_distribution_csv",
         "indicator_score_distribution_csv",
+        "indicator_percentile_bucket_distribution_csv",
         "indicator_hit_duration_csv",
         "intralayer_correlation_csv",
         "intralayer_threshold_structure_csv",
@@ -467,6 +474,73 @@ def _write_score_distribution(con: Any, path: Path) -> None:
     _copy_query(con, query, path)
 
 
+def _write_percentile_bucket_distribution(con: Any, path: Path) -> None:
+    query = """
+    WITH buckets AS (
+      SELECT * FROM (VALUES
+        ('B00_00_01', 0.00::DOUBLE, 0.01::DOUBLE, true, true),
+        ('B01_01_05', 0.01::DOUBLE, 0.05::DOUBLE, false, true),
+        ('B02_05_10', 0.05::DOUBLE, 0.10::DOUBLE, false, true),
+        ('B03_10_20', 0.10::DOUBLE, 0.20::DOUBLE, false, true),
+        ('B04_20_30', 0.20::DOUBLE, 0.30::DOUBLE, false, true),
+        ('B05_30_50', 0.30::DOUBLE, 0.50::DOUBLE, false, true),
+        ('B06_50_90', 0.50::DOUBLE, 0.90::DOUBLE, false, true),
+        ('B07_90_95', 0.90::DOUBLE, 0.95::DOUBLE, false, true),
+        ('B08_95_99', 0.95::DOUBLE, 0.99::DOUBLE, false, true),
+        ('B09_99_100', 0.99::DOUBLE, 1.00::DOUBLE, false, true)
+      ) AS t(bucket_id, lower_bound, upper_bound, lower_inclusive, upper_inclusive)
+    ), eligible AS (
+      SELECT r.layer, r.role, s.indicator_id, s.percentile_window_W AS W,
+        s.percentile
+      FROM scoredb.r0_t05_indicator_score_results s
+      JOIN indicator_registry r USING(indicator_id)
+      WHERE s.eligible AND s.validity_status='valid' AND s.percentile IS NOT NULL
+    ), totals AS (
+      SELECT layer, role, indicator_id, W, count(*) AS eligible_count
+      FROM eligible
+      GROUP BY layer, role, indicator_id, W
+    ), counted AS (
+      SELECT e.layer, e.role, e.indicator_id, e.W,
+        b.bucket_id, b.lower_bound, b.upper_bound,
+        b.lower_inclusive, b.upper_inclusive,
+        count(*) AS bucket_count
+      FROM eligible e
+      JOIN buckets b
+        ON (
+          CASE
+            WHEN b.lower_inclusive THEN e.percentile >= b.lower_bound
+            ELSE e.percentile > b.lower_bound
+          END
+        )
+       AND (
+          CASE
+            WHEN b.upper_inclusive THEN e.percentile <= b.upper_bound
+            ELSE e.percentile < b.upper_bound
+          END
+        )
+      GROUP BY e.layer, e.role, e.indicator_id, e.W,
+        b.bucket_id, b.lower_bound, b.upper_bound,
+        b.lower_inclusive, b.upper_inclusive
+    )
+    SELECT t.layer, t.role, t.indicator_id, t.W,
+      b.bucket_id, b.lower_bound, b.upper_bound,
+      b.lower_inclusive, b.upper_inclusive,
+      t.eligible_count,
+      coalesce(c.bucket_count,0) AS bucket_count,
+      coalesce(c.bucket_count,0)::DOUBLE / NULLIF(t.eligible_count,0) AS bucket_ratio_of_eligible,
+      b.upper_bound - b.lower_bound AS nominal_bucket_width,
+      coalesce(c.bucket_count,0)::DOUBLE / NULLIF(t.eligible_count,0)
+        - (b.upper_bound - b.lower_bound) AS bucket_ratio_minus_nominal_width
+    FROM totals t
+    CROSS JOIN buckets b
+    LEFT JOIN counted c
+      ON t.layer=c.layer AND t.role=c.role AND t.indicator_id=c.indicator_id
+     AND t.W=c.W AND b.bucket_id=c.bucket_id
+    ORDER BY t.layer, t.role, t.indicator_id, t.W, b.bucket_id
+    """
+    _copy_query(con, query, path)
+
+
 def _write_hit_duration(con: Any, path: Path) -> None:
     query = """
     WITH ordered AS (
@@ -484,9 +558,13 @@ def _write_hit_duration(con: Any, path: Path) -> None:
       )
     ), flags AS (
       SELECT *,
+        eligible AND validity_status='valid' AND indicator_active IS NOT NULL AS active_eligible,
         eligible AND validity_status='valid' AND indicator_active IS TRUE AS active_true,
+        eligible AND validity_status='valid' AND indicator_active IS FALSE AS active_false,
         eligible AND validity_status='valid' AND indicator_active IS TRUE
-          AND NOT (prior_eligible AND prior_validity_status='valid' AND prior_active IS TRUE) AS start_flag,
+          AND NOT coalesce(
+            prior_eligible AND prior_validity_status='valid' AND prior_active IS TRUE
+          , false) AS start_flag,
         eligible AND validity_status='valid' AND indicator_active IS TRUE
           AND prior_eligible AND prior_validity_status='valid' AND prior_active IS FALSE AS strict_flag
       FROM ordered
@@ -504,10 +582,12 @@ def _write_hit_duration(con: Any, path: Path) -> None:
       GROUP BY layer, role, indicator_id, W, q, security_id, segment_id
     ), base AS (
       SELECT layer, role, indicator_id, W, q,
-        count(*) AS eligible_day_count,
-        sum(indicator_active IS TRUE) AS hit_true_day_count,
-        sum(indicator_active IS FALSE) AS hit_false_day_count,
-        sum(indicator_active IS NULL) AS hit_null_day_count,
+        count(*) AS total_row_count,
+        sum(active_eligible) AS eligible_day_count,
+        count(*) - sum(active_eligible) AS ineligible_day_count,
+        sum(active_true) AS hit_true_day_count,
+        sum(active_false) AS hit_false_day_count,
+        count(*) - sum(active_true) - sum(active_false) AS hit_null_day_count,
         count(DISTINCT CASE WHEN indicator_active IS TRUE THEN security_id END) AS unique_security_count_hit,
         count(DISTINCT CASE WHEN indicator_active IS TRUE THEN substr(trading_date,1,4) END) AS nonzero_year_count,
         sum(start_flag) AS segment_count,
@@ -535,9 +615,10 @@ def _write_hit_duration(con: Any, path: Path) -> None:
       GROUP BY layer, role, indicator_id, W, q
     )
     SELECT b.layer, b.role, b.indicator_id, b.W, b.q,
-      b.eligible_day_count, b.hit_true_day_count, b.hit_false_day_count,
-      b.hit_null_day_count,
+      b.total_row_count, b.eligible_day_count, b.ineligible_day_count,
+      b.hit_true_day_count, b.hit_false_day_count, b.hit_null_day_count,
       b.hit_true_day_count::DOUBLE / NULLIF(b.eligible_day_count,0) AS hit_rate,
+      b.hit_true_day_count::DOUBLE / NULLIF(b.total_row_count,0) AS coverage,
       b.unique_security_count_hit, b.nonzero_year_count,
       b.segment_count, b.strict_onset_count, b.left_censored_start_count,
       coalesce(s.total_hit_duration,0) AS total_hit_duration,
@@ -639,9 +720,19 @@ def _write_threshold_structure(con: Any, path: Path) -> None:
         CREATE OR REPLACE TEMP TABLE pair_hits AS
         SELECT p.layer, p.indicator_a, p.indicator_b, a.percentile_window_W AS W, a.q,
           a.security_id, a.trading_date,
-          a.indicator_active IS TRUE AS a_hit,
-          b.indicator_active IS TRUE AS b_hit,
-          (a.indicator_active IS TRUE AND b.indicator_active IS TRUE) AS both_hit
+          a.eligible AND b.eligible
+            AND a.validity_status='valid' AND b.validity_status='valid'
+            AND a.indicator_active IS NOT NULL AND b.indicator_active IS NOT NULL
+            AS pair_eligible,
+          a.eligible AND b.eligible
+            AND a.validity_status='valid' AND b.validity_status='valid'
+            AND a.indicator_active IS TRUE AS a_hit,
+          a.eligible AND b.eligible
+            AND a.validity_status='valid' AND b.validity_status='valid'
+            AND b.indicator_active IS TRUE AS b_hit,
+          a.eligible AND b.eligible
+            AND a.validity_status='valid' AND b.validity_status='valid'
+            AND a.indicator_active IS TRUE AND b.indicator_active IS TRUE AS both_hit
         FROM layer_pairs p
         JOIN statedb.r0_t06_indicator_state_results a
           ON a.indicator_id=p.indicator_a
@@ -651,13 +742,12 @@ def _write_threshold_structure(con: Any, path: Path) -> None:
          AND a.trading_date=b.trading_date
          AND a.percentile_window_W=b.percentile_window_W
          AND a.q=b.q
-        WHERE a.eligible AND b.eligible
-          AND a.validity_status='valid' AND b.validity_status='valid'
         """
     )
     query = """
     WITH ordered AS (
       SELECT *,
+        lag(pair_eligible) OVER w AS prior_pair_eligible,
         lag(both_hit) OVER w AS prior_both
       FROM pair_hits
       WINDOW w AS (
@@ -665,8 +755,8 @@ def _write_threshold_structure(con: Any, path: Path) -> None:
       )
     ), flags AS (
       SELECT *,
-        both_hit AND NOT coalesce(prior_both,false) AS joint_start,
-        both_hit AND prior_both IS FALSE AS joint_strict
+        both_hit AND NOT coalesce(prior_pair_eligible AND prior_both, false) AS joint_start,
+        both_hit AND coalesce(prior_pair_eligible, false) AND prior_both IS FALSE AS joint_strict
       FROM ordered
     ), numbered AS (
       SELECT *,
@@ -683,11 +773,11 @@ def _write_threshold_structure(con: Any, path: Path) -> None:
     ), base AS (
       SELECT layer, any_value(indicator_a) AS indicator_a,
         any_value(indicator_b) AS indicator_b, W, q,
-        count(*) AS common_eligible_rows,
+        sum(pair_eligible) AS common_eligible_rows,
         sum(both_hit) AS both_hit,
-        sum(a_hit AND NOT b_hit) AS indicator_a_only,
-        sum(b_hit AND NOT a_hit) AS indicator_b_only,
-        sum(NOT a_hit AND NOT b_hit) AS neither,
+        sum(pair_eligible AND a_hit AND NOT b_hit) AS indicator_a_only,
+        sum(pair_eligible AND b_hit AND NOT a_hit) AS indicator_b_only,
+        sum(pair_eligible AND NOT a_hit AND NOT b_hit) AS neither,
         sum(a_hit) AS A_hit_count,
         sum(b_hit) AS B_hit_count,
         sum(joint_start) AS joint_segment_count,
@@ -789,6 +879,16 @@ def _write_reason_profile(con: Any, path: Path) -> None:
         "SELECT layer, role, indicator_id, raw_source_indicator_id FROM indicator_registry ORDER BY layer, role"
     ).fetchall()
     for layer, _role, indicator_id, raw_source in registry:
+        raw_total = int(
+            con.execute(
+                """
+                SELECT count(*)
+                FROM rawdb.r0_t04_raw_metric_results raw
+                WHERE raw.indicator_id = ?
+                """,
+                [raw_source],
+            ).fetchone()[0]
+        )
         raw_rows = con.execute(
             """
             SELECT validity_status, reason.reason_code, count(*) AS row_count
@@ -800,7 +900,9 @@ def _write_reason_profile(con: Any, path: Path) -> None:
             """,
             [raw_source],
         ).fetchall()
-        total = sum(int(row_count) for _status, _reason, row_count in raw_rows)
+        raw_occurrence_total = sum(
+            int(row_count) for _status, _reason, row_count in raw_rows
+        )
         for validity_status, reason_code, row_count in raw_rows:
             rows.append(
                 {
@@ -811,11 +913,26 @@ def _write_reason_profile(con: Any, path: Path) -> None:
                     "W": None,
                     "validity_status": validity_status,
                     "reason_code": reason_code,
+                    "total_row_count": raw_total,
+                    "reason_occurrence_count": raw_occurrence_total,
                     "row_count": int(row_count),
-                    "ratio_within_indicator_W": _safe_div(row_count, total),
+                    "row_prevalence": _safe_div(row_count, raw_total),
+                    "reason_occurrence_share": _safe_div(
+                        row_count, raw_occurrence_total
+                    ),
                 }
             )
         for w in (120, 250, 500):
+            score_total = int(
+                con.execute(
+                    """
+                    SELECT count(*)
+                    FROM scoredb.r0_t05_indicator_score_results s
+                    WHERE s.indicator_id = ? AND s.percentile_window_W = ?
+                    """,
+                    [indicator_id, w],
+                ).fetchone()[0]
+            )
             score_rows = con.execute(
                 """
                 SELECT validity_status, reason.reason_code, count(*) AS row_count
@@ -827,7 +944,9 @@ def _write_reason_profile(con: Any, path: Path) -> None:
                 """,
                 [indicator_id, w],
             ).fetchall()
-            total = sum(int(row_count) for _status, _reason, row_count in score_rows)
+            score_occurrence_total = sum(
+                int(row_count) for _status, _reason, row_count in score_rows
+            )
             for validity_status, reason_code, row_count in score_rows:
                 rows.append(
                     {
@@ -838,8 +957,13 @@ def _write_reason_profile(con: Any, path: Path) -> None:
                         "W": w,
                         "validity_status": validity_status,
                         "reason_code": reason_code,
+                        "total_row_count": score_total,
+                        "reason_occurrence_count": score_occurrence_total,
                         "row_count": int(row_count),
-                        "ratio_within_indicator_W": _safe_div(row_count, total),
+                        "row_prevalence": _safe_div(row_count, score_total),
+                        "reason_occurrence_share": _safe_div(
+                            row_count, score_occurrence_total
+                        ),
                     }
                 )
     rows.sort(
@@ -903,6 +1027,7 @@ def _evaluate_outputs(paths: dict[str, Path], root: Path) -> dict[str, Any]:
 
     raw = _csv_rows(paths["indicator_raw_distribution_csv"])
     score = _csv_rows(paths["indicator_score_distribution_csv"])
+    bucket = _csv_rows(paths["indicator_percentile_bucket_distribution_csv"])
     hit = _csv_rows(paths["indicator_hit_duration_csv"])
     corr = _csv_rows(paths["intralayer_correlation_csv"])
     threshold = _csv_rows(paths["intralayer_threshold_structure_csv"])
@@ -913,6 +1038,7 @@ def _evaluate_outputs(paths: dict[str, Path], root: Path) -> dict[str, Any]:
         "primary_output_nonempty",
         len(raw) == RAW_ROWS
         and len(score) == SCORE_ROWS
+        and len(bucket) == PERCENTILE_BUCKET_ROWS
         and len(hit) == HIT_ROWS
         and len(corr) == CORRELATION_ROWS
         and len(threshold) == THRESHOLD_ROWS
@@ -959,9 +1085,15 @@ def _evaluate_outputs(paths: dict[str, Path], root: Path) -> dict[str, Any]:
             _int(row, "segment_count")
             == _int(row, "strict_onset_count") + _int(row, "left_censored_start_count")
             and _int(row, "total_hit_duration") == _int(row, "hit_true_day_count")
+            and _hit_denominator_integrity(row)
             for row in hit
         ),
         "indicator_duration_accounting",
+    )
+    check(
+        "percentile_bucket_distribution",
+        _percentile_bucket_integrity(bucket, score),
+        "percentile_bucket_distribution_mismatch",
     )
     check(
         "q_hit_nesting",
@@ -1003,6 +1135,11 @@ def _evaluate_outputs(paths: dict[str, Path], root: Path) -> dict[str, Any]:
         "r0_t06_reconciliation_mismatch",
     )
     check(
+        "validity_reason_denominator",
+        _reason_profile_integrity(reason),
+        "validity_reason_denominator_mismatch",
+    )
+    check(
         "diagnostic_status_complete",
         len(diag) == DIAGNOSTIC_ROWS
         and all(
@@ -1022,7 +1159,7 @@ def _evaluate_outputs(paths: dict[str, Path], root: Path) -> dict[str, Any]:
         not _contains_forbidden_tokens(paths, root),
         "forbidden_output_token_present",
     )
-    material_warnings = _material_warnings(diag, hit, threshold)
+    material_warnings = _material_warnings(raw, corr, hit, threshold, bucket)
     return {
         "checks": checks,
         "errors": errors,
@@ -1072,7 +1209,12 @@ def _build_anomaly_scan(
             "indicator_hit_accounting",
             "threshold_accounting",
         ),
-        "denominator_integrity_check": ("threshold_accounting",),
+        "denominator_integrity_check": (
+            "indicator_hit_accounting",
+            "threshold_accounting",
+            "percentile_bucket_distribution",
+            "validity_reason_denominator",
+        ),
         "sample_size_check": ("primary_output_nonempty",),
         "upstream_consistency_check": ("r0_t06_reconciliation",),
         "scale_shift_check": ("score_formula", "raw_domain"),
@@ -1229,9 +1371,11 @@ def _write_empty_outputs(paths: dict[str, Path]) -> None:
 
 
 def _material_warnings(
-    diagnostic_rows: list[dict[str, str]],
+    raw_rows: list[dict[str, str]],
+    correlation_rows: list[dict[str, str]],
     hit_rows: list[dict[str, str]],
     threshold_rows: list[dict[str, str]],
+    bucket_rows: list[dict[str, str]],
 ) -> list[dict[str, Any]]:
     warnings: list[dict[str, Any]] = [
         {
@@ -1250,25 +1394,46 @@ def _material_warnings(
             "rationale": "R1-T05 reports indicator and joint-hit duration fragments but does not alter PCVT confirmation semantics.",
         },
     ]
-    for row in diagnostic_rows:
-        if row.get("diagnostic_status") in {
-            "redundancy_warning",
-            "construct_conflict_warning",
-            "insufficient_eligible_sample",
-        }:
+    c_rows = [row for row in correlation_rows if row["layer"] == "C"]
+    if c_rows and max(_float(row, "pooled_spearman_score") for row in c_rows) >= 0.90:
+        warnings.append(
+            {
+                "name": "C_layer_near_redundancy",
+                "status": "material_warning",
+                "metrics": {
+                    "max_pooled_spearman_score": _fmt_float(
+                        max(_float(row, "pooled_spearman_score") for row in c_rows)
+                    ),
+                    "max_security_spearman_median": _fmt_float(
+                        max(_float(row, "security_spearman_median") for row in c_rows)
+                    ),
+                },
+                "rationale": "C layer remains below the frozen redundancy threshold, but its two indicators are materially closer than P/T/V.",
+            }
+        )
+    v_rows = sorted(
+        [row for row in correlation_rows if row["layer"] == "V"],
+        key=lambda row: int(row["W"]),
+    )
+    if len(v_rows) == 3:
+        drop = _float(v_rows[0], "pooled_spearman_score") - _float(
+            v_rows[-1], "pooled_spearman_score"
+        )
+        if drop >= 0.10:
             warnings.append(
                 {
-                    "name": f"{row['layer']}_W{row['W']}_{row['diagnostic_status']}",
+                    "name": "V_layer_W_dependent_identity",
                     "status": "material_warning",
                     "metrics": {
-                        "layer": row["layer"],
-                        "W": row["W"],
-                        "pooled_spearman_score": row.get("pooled_spearman_score"),
-                        "q20_both_hit": row.get("q20_both_hit"),
-                        "q20_indicator_a_only": row.get("q20_indicator_a_only"),
-                        "q20_indicator_b_only": row.get("q20_indicator_b_only"),
+                        "W120_pooled_spearman_score": v_rows[0][
+                            "pooled_spearman_score"
+                        ],
+                        "W500_pooled_spearman_score": v_rows[-1][
+                            "pooled_spearman_score"
+                        ],
+                        "drop": _fmt_float(drop),
                     },
-                    "rationale": "Diagnostic status is a structural warning, not an indicator selection decision.",
+                    "rationale": "V layer intralayer relationship weakens materially as W increases; this is a diagnostic input for the inherited R1-T04 window-dependent warning.",
                 }
             )
     for row in hit_rows:
@@ -1286,6 +1451,25 @@ def _material_warnings(
                 }
             )
     for row in threshold_rows:
+        if (
+            row["layer"] == "T"
+            and abs(_float(row, "q") - 0.10) <= 1e-12
+            and _float_or_none(row, "joint_single_day_fragment_ratio") is not None
+            and _float(row, "joint_single_day_fragment_ratio") >= 0.5
+        ):
+            warnings.append(
+                {
+                    "name": f"T_layer_W{row['W']}_Q10_joint_high_fragmentation",
+                    "status": "material_warning",
+                    "metrics": {
+                        "joint_single_day_fragment_ratio": row[
+                            "joint_single_day_fragment_ratio"
+                        ],
+                        "joint_segment_count": row["joint_segment_count"],
+                    },
+                    "rationale": "T layer q10 joint both-hit events are directionally consistent but concentrated in short fragments.",
+                }
+            )
         if _int(row, "both_hit") == 0 and (
             _int(row, "A_hit_count") > 0 or _int(row, "B_hit_count") > 0
         ):
@@ -1300,7 +1484,173 @@ def _material_warnings(
                     "rationale": "Zero joint both-hit is a scientific finding unless the frozen diagnostic rules classify it as a blocker.",
                 }
             )
+    t2 = next(
+        (row for row in raw_rows if row["indicator_id"] == "T2_AbsTrendT20"), None
+    )
+    if t2 is not None and _float(row=t2, key="q99") > 0:
+        max_to_q99 = _float(t2, "maximum") / _float(t2, "q99")
+        if max_to_q99 >= 100:
+            warnings.append(
+                {
+                    "name": "T2_AbsTrendT20_extreme_right_tail",
+                    "status": "material_warning",
+                    "metrics": {
+                        "q99": t2["q99"],
+                        "maximum": t2["maximum"],
+                        "max_to_q99_ratio": _fmt_float(max_to_q99),
+                    },
+                    "rationale": "Extreme right tail is a raw-scale numerical warning; it does not by itself invalidate the low-tail trend-neutrality definition.",
+                }
+            )
+    grouped_buckets: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in bucket_rows:
+        grouped_buckets.setdefault((row["indicator_id"], row["W"]), []).append(row)
+    for (indicator_id, w), rows in grouped_buckets.items():
+        max_abs_delta = max(
+            abs(_float(row, "bucket_ratio_minus_nominal_width")) for row in rows
+        )
+        if max_abs_delta >= 0.05:
+            warnings.append(
+                {
+                    "name": f"{indicator_id}_W{w}_nonuniform_strict_past_percentile_distribution",
+                    "status": "material_warning",
+                    "metrics": {
+                        "max_abs_bucket_ratio_minus_nominal_width": _fmt_float(
+                            max_abs_delta
+                        )
+                    },
+                    "rationale": "Strict-past percentile buckets are materially nonuniform; nominal q is a threshold, not a guaranteed target coverage.",
+                }
+            )
+    for row in hit_rows:
+        q = _float(row, "q")
+        hit_rate = _float_or_none(row, "hit_rate")
+        if hit_rate is not None and abs(hit_rate - q) >= 0.025:
+            warnings.append(
+                {
+                    "name": f"{row['indicator_id']}_W{row['W']}_Q{_q_label(row['q'])}_boundary_mass_and_nominal_q_coverage_divergence",
+                    "status": "material_warning",
+                    "metrics": {
+                        "q": row["q"],
+                        "eligible_hit_rate": row["hit_rate"],
+                        "coverage": row["coverage"],
+                    },
+                    "rationale": "Observed eligible hit rate diverges from nominal q under strict-past percentiles, ties, and time-varying distributions.",
+                }
+            )
     return warnings
+
+
+def _hit_denominator_integrity(row: dict[str, str]) -> bool:
+    total = _int(row, "total_row_count")
+    eligible = _int(row, "eligible_day_count")
+    ineligible = _int(row, "ineligible_day_count")
+    true_count = _int(row, "hit_true_day_count")
+    false_count = _int(row, "hit_false_day_count")
+    null_count = _int(row, "hit_null_day_count")
+    if total != eligible + ineligible:
+        return False
+    if eligible != true_count + false_count:
+        return False
+    if total != true_count + false_count + null_count:
+        return False
+    hit_rate = _float_or_none(row, "hit_rate")
+    coverage = _float_or_none(row, "coverage")
+    expected_hit_rate = _safe_div(true_count, eligible)
+    expected_coverage = _safe_div(true_count, total)
+    if not _float_matches(hit_rate, expected_hit_rate):
+        return False
+    return _float_matches(coverage, expected_coverage)
+
+
+def _percentile_bucket_integrity(
+    bucket_rows: list[dict[str, str]], score_rows: list[dict[str, str]]
+) -> bool:
+    if len(bucket_rows) != PERCENTILE_BUCKET_ROWS:
+        return False
+    score_eligible = {
+        (row["indicator_id"], row["W"]): _int(row, "eligible_count")
+        for row in score_rows
+    }
+    grouped: dict[tuple[str, str], list[dict[str, str]]] = {}
+    for row in bucket_rows:
+        grouped.setdefault((row["indicator_id"], row["W"]), []).append(row)
+    if set(grouped) != set(score_eligible):
+        return False
+    expected_buckets = {
+        "B00_00_01",
+        "B01_01_05",
+        "B02_05_10",
+        "B03_10_20",
+        "B04_20_30",
+        "B05_30_50",
+        "B06_50_90",
+        "B07_90_95",
+        "B08_95_99",
+        "B09_99_100",
+    }
+    for key, rows in grouped.items():
+        if {row["bucket_id"] for row in rows} != expected_buckets:
+            return False
+        eligible = score_eligible[key]
+        if any(_int(row, "eligible_count") != eligible for row in rows):
+            return False
+        if sum(_int(row, "bucket_count") for row in rows) != eligible:
+            return False
+        ratio_sum = sum(_float(row, "bucket_ratio_of_eligible") for row in rows)
+        if eligible > 0 and abs(ratio_sum - 1.0) > 1e-9:
+            return False
+    return True
+
+
+def _reason_profile_integrity(rows: list[dict[str, str]]) -> bool:
+    if not rows:
+        return False
+    grouped: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+    for row in rows:
+        required = {
+            "total_row_count",
+            "reason_occurrence_count",
+            "row_prevalence",
+            "reason_occurrence_share",
+        }
+        if not required.issubset(row):
+            return False
+        total = _int(row, "total_row_count")
+        occurrences = _int(row, "reason_occurrence_count")
+        row_count = _int(row, "row_count")
+        if total <= 0 or occurrences <= 0:
+            return False
+        if not _float_matches(_float_or_none(row, "row_prevalence"), row_count / total):
+            return False
+        if not _float_matches(
+            _float_or_none(row, "reason_occurrence_share"),
+            row_count / occurrences,
+        ):
+            return False
+        grouped.setdefault(
+            (
+                row["source_level"],
+                row["indicator_id"],
+                row.get("raw_source_indicator_id", ""),
+                row.get("W", ""),
+            ),
+            [],
+        ).append(row)
+    for group_rows in grouped.values():
+        occurrence_total = _int(group_rows[0], "reason_occurrence_count")
+        if sum(_int(row, "row_count") for row in group_rows) != occurrence_total:
+            return False
+        share_sum = sum(_float(row, "reason_occurrence_share") for row in group_rows)
+        if abs(share_sum - 1.0) > 1e-9:
+            return False
+    return True
+
+
+def _float_matches(actual: float | None, expected: float | None) -> bool:
+    if actual is None or expected is None:
+        return actual is None and expected is None
+    return abs(actual - expected) <= 1e-12
 
 
 def _w_monotone(score_rows: list[dict[str, str]]) -> bool:
