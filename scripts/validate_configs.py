@@ -238,6 +238,10 @@ CONFIGS = (
         ROOT / "configs/r0/r0_t09_main_grid_materialization_contract.v1.json",
     ),
     (
+        ROOT / "schemas/r0/r0_t15_layer_q_vector_materialization.schema.json",
+        ROOT / "configs/r0/r0_t15_layer_q_vector_materialization.v1.json",
+    ),
+    (
         ROOT / "schemas/r1/r1_t01_validation_protocol_manifest_lock.schema.json",
         ROOT / "configs/r1/r1_t01_validation_protocol_manifest_lock.v1.json",
     ),
