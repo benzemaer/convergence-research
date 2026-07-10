@@ -1,0 +1,8 @@
+{
+  "errors": [],
+  "evidence_path": "docs/evidence/r1/R1-T03_27_grid_light_profile_evidence.md",
+  "summary_path": "data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_summary.json",
+  "summary_sha256": "b813599f823ec4ba97e039fed53d10a182ffbc4797ab3db2dd7d6ebad8a22db8",
+  "task_id": "R1-T03",
+  "validator_status": "passed"
+}

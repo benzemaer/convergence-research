@@ -7,16 +7,16 @@
 `code_commit`: 234fea0f04486dacf684515db62ddb5670259d96
 
 `profile_summary_path`: data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_summary.json
-`profile_summary_sha256`: d581dd758eac019a8d5dd99c39ae20516baf9d894101745a2c8a9e31231b982c
+`profile_summary_sha256`: b813599f823ec4ba97e039fed53d10a182ffbc4797ab3db2dd7d6ebad8a22db8
 `validation_result_path`: data/generated/r1/r1_t03/R1-T03-20260708T1830Z/r1_t03_27_grid_light_profile_validation_result.json
-`validation_result_sha256`: 6bc3901062cc576a1b6bc8e16db07c004196adea2a1df969ac961c0e48dd9075
+`validation_result_sha256`: dbf4cdb1412b49f7ed587cbc157f550cb939be473dd42db806447a5d2cefb279
 
 `config_path`: configs/r1/r1_t03_27_grid_light_profile.v1.json
 `config_sha256`: 19955c7331e9ff910f574993add97d1f17344d11786dab70d454e61c56f28109
 `r1_t02_evidence_path`: docs/evidence/r1/R1-T02_r0_lineage_pit_audit_evidence.md
-`r1_t02_evidence_sha256`: c64094685cad891ad7cc3f3c086257b91416cba62ddaa5e29a5e77dfc53ac8af
+`r1_t02_evidence_sha256`: b701619c165f53480d7971055d5902a10448302d7e5a54b0f77cda9fdeb7a3f0
 `r1_t02_summary_path`: data/generated/r1/r1_t02/R1-T02-20260708T1820Z/r1_t02_lineage_pit_audit_summary.json
-`r1_t02_summary_sha256`: e5e1b7fef464363e662397e10eee97c2b04b9eb0435406f8446e13718aeb9d6f
+`r1_t02_summary_sha256`: 345c15a6e0b646229c2334c70ea6bad6065564af9ecffdbf77f755964fba9cb6
 `full_grid_manifest_path`: data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json
 `full_grid_manifest_sha256`: b031ae22a3cf396961bcefcf6479c18870b8206a348372cf87d4b9f73c1fd96b
 
