@@ -631,7 +631,8 @@ def _write_nested_reconciliation(con: Any, path: Path) -> None:
       sum(r0_value IS FALSE)::BIGINT AS r0_false_count,
       sum(derived_value IS NULL)::BIGINT AS derived_null_count,
       sum(r0_value IS NULL)::BIGINT AS r0_null_count,
-      sum(derived_value IS DISTINCT FROM r0_value)::BIGINT AS row_mismatch_count,
+      sum(common_valid IS TRUE AND derived_value IS DISTINCT FROM r0_value)::BIGINT
+        AS row_mismatch_count,
       (sum(derived_value IS TRUE) != sum(r0_value IS TRUE)) AS true_count_mismatch
     FROM long
     GROUP BY W, q, state_name, required_dimension_count
