@@ -1048,9 +1048,10 @@ def _add_bootstrap_intervals(
         row["relative_lift_ci_high"] = _fmt(
             None if rel_high is None else float(rel_high)
         )
-        if _int(row, "target_valid_event_count") < 1 or _int(
-            row, "target_valid_control_count"
-        ) < 1:
+        if (
+            _int(row, "target_valid_event_count") < 1
+            or _int(row, "target_valid_control_count") < 1
+        ):
             row["descriptive_status"] = "insufficient_sample"
         elif _float_or_none(row, "baseline_probability") is None:
             row["descriptive_status"] = "undefined_baseline"
@@ -1216,7 +1217,8 @@ def _parameter_response_ok(
 
 def _state_reconciliation_ok(rows: list[dict[str, str]]) -> bool:
     return len(rows) == STATE_RECONCILIATION_ROWS and all(
-        _int(row, "missing_key_count") == 0 and _int(row, "row_mismatch_count") == 0
+        _int(row, "missing_key_count") == 0
+        and _int(row, "row_mismatch_count") == 0
         and _int(row, "r0_key_count") == _int(row, "derived_key_count")
         for row in rows
     )

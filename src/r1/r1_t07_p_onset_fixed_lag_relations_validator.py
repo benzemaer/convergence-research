@@ -346,19 +346,13 @@ def _validate_state_reconciliation(
     for row in rows:
         if _int(row, "r0_key_count") != _int(row, "derived_key_count"):
             errors.append("state_key_count_mismatch")
-        if (
-            _int(row, "r0_true_count")
-            + _int(row, "r0_false_count")
-            + _int(row, "r0_null_count")
-            != _int(row, "r0_key_count")
-        ):
+        if _int(row, "r0_true_count") + _int(row, "r0_false_count") + _int(
+            row, "r0_null_count"
+        ) != _int(row, "r0_key_count"):
             errors.append("state_r0_count_partition_mismatch")
-        if (
-            _int(row, "derived_true_count")
-            + _int(row, "derived_false_count")
-            + _int(row, "derived_null_count")
-            != _int(row, "derived_key_count")
-        ):
+        if _int(row, "derived_true_count") + _int(row, "derived_false_count") + _int(
+            row, "derived_null_count"
+        ) != _int(row, "derived_key_count"):
             errors.append("state_derived_count_partition_mismatch")
         if _int(row, "missing_key_count") != 0:
             errors.append("state_missing_key")

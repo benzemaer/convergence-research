@@ -153,8 +153,7 @@ class R1T07POnsetFixedLagRelationsTest(unittest.TestCase):
             rows = _read_rows(out)
         self.assertTrue(
             any(
-                row["state_name"] == "S_PCT"
-                and int(row["row_mismatch_count"]) > 0
+                row["state_name"] == "S_PCT" and int(row["row_mismatch_count"]) > 0
                 for row in rows
             )
         )
