@@ -1510,6 +1510,15 @@ def select_materialization_request(
             )
             if not passed
         ]
+        warnings: list[str] = []
+        if float(c_step["lift"]) < float(b_step["lift"]):
+            warnings.append("affected_lift_deterioration_vs_baseline")
+        if (
+            layer == "V"
+            and selectivity_retained is not None
+            and selectivity_retained < 1
+        ):
+            warnings.append("V_selectivity_reduced_but_guard_passed")
         item = {
             **_registry_prefix(candidate),
             "archetype": archetype,
@@ -1528,6 +1537,7 @@ def select_materialization_request(
             "selectivity_retained": selectivity_retained,
             "hard_gate_pass": hard_gate,
             "rejection_reasons": "|".join(reasons),
+            "warnings": warnings,
             "pareto_frontier": False,
             "selected_center": False,
         }
@@ -1567,7 +1577,9 @@ def select_materialization_request(
                 "status": "selected" if winner else "no_eligible_center",
             }
         )
-    request_registry = _expand_request_registry(selected, registry, audit, config)
+    request_registry = _expand_request_registry(
+        selected, registry, audit, results, config
+    )
     if selected:
         decision = {
             "task_id": TASK_ID,
@@ -1663,6 +1675,7 @@ def _expand_request_registry(
     selected: Sequence[Mapping[str, Any]],
     registry: Sequence[Mapping[str, Any]],
     audit: Sequence[Mapping[str, Any]],
+    results: Mapping[str, Sequence[Mapping[str, Any]]],
     config: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     lookup = {
@@ -1693,7 +1706,7 @@ def _expand_request_registry(
             "selection_reason": "passed_hard_gates_pareto_and_deterministic_tie_break",
             "diagnostic_metrics": _request_metrics(center),
             "material_advantage": True,
-            "warnings": [],
+            "warnings": center["warnings"],
             "rejected_alternatives": [
                 row["candidate_q_vector_id"]
                 for row in audit
@@ -1739,7 +1752,9 @@ def _expand_request_registry(
                     "diagnostic_metrics": (
                         _request_metrics(audit_by_id[neighbor["candidate_q_vector_id"]])
                         if role != "baseline_reference"
-                        else {}
+                        else _baseline_request_metrics(
+                            results, neighbor["candidate_q_vector_id"]
+                        )
                     ),
                     "material_advantage": (
                         bool(
@@ -1752,7 +1767,8 @@ def _expand_request_registry(
                     ),
                     "warnings": (
                         [
-                            audit_by_id[neighbor["candidate_q_vector_id"]][
+                            "failed_hard_gate:"
+                            + audit_by_id[neighbor["candidate_q_vector_id"]][
                                 "rejection_reasons"
                             ]
                         ]
@@ -1778,7 +1794,9 @@ def _expand_request_registry(
                     "candidate_q_vector_id"
                 ],
                 "selection_reason": "shared_baseline_lineage_reference",
-                "diagnostic_metrics": {},
+                "diagnostic_metrics": _baseline_request_metrics(
+                    results, baseline[source["W"]]["candidate_q_vector_id"]
+                ),
                 "material_advantage": None,
                 "warnings": [],
                 "rejected_alternatives": [],
@@ -1817,6 +1835,33 @@ def _request_metrics(row: Mapping[str, Any]) -> dict[str, Any]:
             "selectivity_retained",
         )
     }
+
+
+def _baseline_request_metrics(
+    results: Mapping[str, Sequence[Mapping[str, Any]]], vector: str
+) -> dict[str, Any]:
+    states = {
+        row["state_name"]: {
+            key: row.get(key)
+            for key in (
+                "confirmed_coverage",
+                "confirmed_state_days",
+                "unique_securities",
+                "confirmed_intervals",
+                "max_year_share",
+                "fragment_rate",
+            )
+        }
+        for row in results["state"]
+        if row["candidate_q_vector_id"] == vector
+        and row["state_name"] in {"S_PCT", "S_PCVT"}
+    }
+    steps = {
+        row["step_id"]: {"delta": row.get("delta"), "lift": row.get("lift")}
+        for row in results["interlayer"]
+        if row["candidate_q_vector_id"] == vector and row["profile_type"] == "pooled"
+    }
+    return {"state_profiles": states, "interlayer_profiles": steps}
 
 
 def _immediate_q_neighbors(q: float) -> tuple[float, ...]:

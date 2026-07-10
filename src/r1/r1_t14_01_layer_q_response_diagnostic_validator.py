@@ -93,6 +93,8 @@ def validate_r1_t14_01_layer_q_response_diagnostic(
         }
         if any(not required_registry_fields.issubset(row) for row in registry):
             errors.append("materialization_request_registry_metadata_incomplete")
+        if any(not row.get("diagnostic_metrics") for row in registry):
+            errors.append("materialization_request_diagnostic_metrics_empty")
         if sum(row["request_role"] != "baseline_reference" for row in registry) > 10:
             errors.append("materialization_request_nonbaseline_limit_exceeded")
     if require_author_package:
