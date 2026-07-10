@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
+from src.r1.r1_t08_global_nested_null_models import _write_csv
 from src.r1.r1_t08_null_engine import (
     BLOCKED,
     RAW_FALSE,
@@ -91,6 +94,14 @@ class R1T08NullEngineTest(unittest.TestCase):
         self.assertEqual(metrics["child_unknown_count"], 1)
         self.assertEqual(metrics["child_blocked_count"], 1)
         self.assertAlmostEqual(metrics["nested_retention"], 2 / 3)
+
+    def test_csv_writer_uses_union_schema_for_global_and_nested_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "replicates.csv"
+            _write_csv(path, [{"global": 1}, {"global": 2, "nested": 3}])
+            text = path.read_text(encoding="utf-8")
+        self.assertEqual(text.splitlines()[0], "global,nested")
+        self.assertEqual(text.splitlines()[2], "2,3")
 
 
 if __name__ == "__main__":

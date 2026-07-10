@@ -1238,7 +1238,11 @@ def _csv_index(
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
     if not rows:
         raise R1T08Error(f"refusing to write empty CSV: {path}")
-    fieldnames = list(rows[0].keys())
+    first_fields = list(rows[0].keys())
+    additional_fields = sorted(
+        set().union(*(row.keys() for row in rows)) - set(first_fields)
+    )
+    fieldnames = [*first_fields, *additional_fields]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
