@@ -1,0 +1,73 @@
+{
+  "task_id": "R1-T05",
+  "stage": "R1",
+  "protocol_version": "R1.v0.3.R1-T05.v1",
+  "task_class": "formal_experiment",
+  "depends_on_task": "R1-T04",
+  "r1_t04_evidence_path": "docs/evidence/r1/R1-T04_state_line_profiles_evidence.md",
+  "r1_t04_result_package_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_result_package.json",
+  "r1_t04_scientific_review_path": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_scientific_review.json",
+  "r1_t04_scientific_review_md_path": "docs/reviews/r1/R1-T04_state_line_profiles_scientific_review.md",
+  "r0_t11_handoff_evidence_path": "docs/evidence/r0/R0-T11_r0_audit_report_r1_handoff_evidence.md",
+  "r0_t11_handoff_report_path": "docs/reports/r0/R0_r1_handoff.md",
+  "r0_repair_evidence_path": "docs/evidence/r0/R0_blocker_C2_readiness_state_validity_fullgrid_repair_evidence.md",
+  "input_artifacts": {
+    "raw_metric": {
+      "evidence_path": "docs/evidence/r0/R0-T10-01_r0_t04_raw_metrics_materialization_evidence_repair_20260708T1715Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-01-20260708T1715Z/r0_t04/r0_t04_raw_metric_results.duckdb",
+      "table": "r0_t04_raw_metric_results",
+      "sha256": "89ff2979f8e151c1611c0c61b1b547783f76a4ad94953c9252b0ecef98ed56a0",
+      "row_count": 13846152,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "indicator_score": {
+      "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+      "table": "r0_t05_indicator_score_results",
+      "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+      "row_count": 41538456,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "indicator_state": {
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_indicator_state_results.duckdb",
+      "table": "r0_t06_indicator_state_results",
+      "sha256": "c82fda0c89265ed9b8d5fbbb4f4fec9ca64acfd8b0d2954b856841a72ef7cc2e",
+      "row_count": 124615368,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    }
+  },
+  "W": [120, 250, 500],
+  "q": [0.1, 0.2, 0.3],
+  "K": "not_applicable",
+  "parallelism": {
+    "max_workers": 4,
+    "duckdb_threads_per_worker": 1,
+    "duckdb_memory_limit_per_worker": "2GB",
+    "parallelism_level": "indicator-or-layer aggregate only"
+  },
+  "indicators": [
+    {"layer": "P", "role": "A", "indicator_id": "P1_NATR14", "raw_source_indicator_id": "P1_NATR14", "raw_metric_name": "NATR14", "domain_rule": "raw_value >= 0"},
+    {"layer": "P", "role": "B", "indicator_id": "P2_LogRange20", "raw_source_indicator_id": "P2_LogRange20", "raw_metric_name": "LogRange20", "domain_rule": "raw_value >= 0"},
+    {"layer": "C", "role": "A", "indicator_id": "C1_LogMASpread_5_60", "raw_source_indicator_id": "C1_LogMASpread_5_60", "raw_metric_name": "LogMASpread_5_60", "domain_rule": "raw_value >= 0"},
+    {"layer": "C", "role": "B", "indicator_id": "C2_AdjVWAPSpread_5_60", "raw_source_indicator_id": "C2_AdjVWAPSpread_5_60", "raw_metric_name": "AdjVWAPSpread_5_60", "domain_rule": "raw_value >= 0"},
+    {"layer": "T", "role": "A", "indicator_id": "T1_ER20", "raw_source_indicator_id": "T1_ER20", "raw_metric_name": "ER20", "domain_rule": "0 <= raw_value <= 1"},
+    {"layer": "T", "role": "B", "indicator_id": "T2_AbsTrendT20", "raw_source_indicator_id": "T2_AbsTrendT20", "raw_metric_name": "AbsTrendT20", "domain_rule": "raw_value >= 0"},
+    {"layer": "V", "role": "A", "indicator_id": "V1_TurnoverShrink20_60", "raw_source_indicator_id": "V1_TurnoverShrink20_60", "raw_metric_name": "TurnoverShrink20_60", "domain_rule": "raw_value >= 0"},
+    {"layer": "V", "role": "B", "indicator_id": "V2_AmountLevel20Pct", "raw_source_indicator_id": "V2_LogAmount20_base", "raw_metric_name": "LogAmount20", "domain_rule": "raw_value finite"}
+  ],
+  "layer_pairs": [
+    {"layer": "P", "indicator_a": "P1_NATR14", "indicator_b": "P2_LogRange20"},
+    {"layer": "C", "indicator_a": "C1_LogMASpread_5_60", "indicator_b": "C2_AdjVWAPSpread_5_60"},
+    {"layer": "T", "indicator_a": "T1_ER20", "indicator_b": "T2_AbsTrendT20"},
+    {"layer": "V", "indicator_a": "V1_TurnoverShrink20_60", "indicator_b": "V2_AmountLevel20Pct"}
+  ],
+  "diagnostic_status_primary_q": 0.2,
+  "forbidden_tokens": ["future", "return", "release", "backtest", "portfolio", "signal", "best_indicator", "best_layer", "best_config", "winner", "optimized_q", "freeze_candidate", "review_candidate", "do_not_freeze", "lift", "delta"]
+}

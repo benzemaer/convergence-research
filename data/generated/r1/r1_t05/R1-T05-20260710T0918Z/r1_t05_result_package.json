@@ -1,0 +1,148 @@
+{
+  "anomaly_scan_path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_anomaly_scan.json",
+  "anomaly_scan_sha256": "af0023d4c42ab24b2f3b5e669127870263301f4ecc4af0080ff9b73b7b1e2768",
+  "code_commit": "c6899a9a3e840f749291dc57fb70f22e58e082e5",
+  "config_path": "configs/r1/r1_t05_indicator_intralayer_diagnostics.v1.json",
+  "config_sha256": "ccf3cd4f14df3131ede20d05f2c05310aa060c1d920315668c48aae1c12160d8",
+  "diagnostic_artifacts": [
+    {
+      "artifact_role": "diagnostic_summary",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_diagnostic_summary.json",
+      "record_count": 1,
+      "sha256": "4e21a27c31c0713024de30bfa22c4fde57fff6f144299cf866395c7ec4aa7edf"
+    },
+    {
+      "artifact_role": "anomaly_scan",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_anomaly_scan.json",
+      "record_count": 1,
+      "sha256": "af0023d4c42ab24b2f3b5e669127870263301f4ecc4af0080ff9b73b7b1e2768"
+    }
+  ],
+  "downstream_gate_allowed": false,
+  "engineering_validation_result_path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_engineering_validation_result.json",
+  "engineering_validation_result_sha256": "62621c9bd3f78e17bfd76488c983e6dc3f884141fac59cf47a52422709e7972f",
+  "expected_current_stage": "R1",
+  "expected_current_task": "R1-T05 单指标诊断与层内互补性分析",
+  "expected_downstream_gate_marker": "R1-T06_allowed_to_start: false",
+  "expected_next_planned_task": "R1-T06 层间同期留存、关联 Lift 与嵌套增量",
+  "experiment_summary_path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_experiment_summary.json",
+  "experiment_summary_sha256": "4938ed1391fd6c482f995c14e2a3cdd61405f5c3df9217d5606bb5c9138e82cb",
+  "formal_evidence_path": "docs/evidence/r1/R1-T05_indicator_intralayer_diagnostics_evidence.md",
+  "formal_evidence_sha256": "ade88c8efb8cebda6796c1ccc45bb8db25d32854f0066f4bc4365e488016e194",
+  "gate_status": {
+    "anomaly_resolution_status": "unresolved",
+    "author_result_analysis_status": "passed",
+    "engineering_validator_status": "passed",
+    "readme_gate_updated": false,
+    "result_artifact_status": "passed",
+    "review_phase": "author_analysis_complete",
+    "scientific_review_status": "needs_revision"
+  },
+  "implementation_actor": "codex",
+  "input_package": {
+    "indicator_score": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-02_r0_t05_strict_past_score_materialization_evidence_repair_20260708T1730Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+      "row_count": 41538456,
+      "security_count": 800,
+      "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+      "table": "r0_t05_indicator_score_results"
+    },
+    "indicator_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-03_r0_t06_nested_state_materialization_evidence_repair_20260708T1740Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_indicator_state_results.duckdb",
+      "row_count": 124615368,
+      "security_count": 800,
+      "sha256": "c82fda0c89265ed9b8d5fbbb4f4fec9ca64acfd8b0d2954b856841a72ef7cc2e",
+      "table": "r0_t06_indicator_state_results"
+    },
+    "raw_metric": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "evidence_path": "docs/evidence/r0/R0-T10-01_r0_t04_raw_metrics_materialization_evidence_repair_20260708T1715Z.md",
+      "path": "data/generated/r0/r0_t10/R0-T10-01-20260708T1715Z/r0_t04/r0_t04_raw_metric_results.duckdb",
+      "row_count": 13846152,
+      "security_count": 800,
+      "sha256": "89ff2979f8e151c1611c0c61b1b547783f76a4ad94953c9252b0ecef98ed56a0",
+      "table": "r0_t04_raw_metric_results"
+    }
+  },
+  "primary_result_artifacts": [
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_indicator_raw_distribution.csv",
+      "record_count": 8,
+      "sha256": "a3996867d2a8ed5d29e55065fc2f40fef83d80e3af3c9dfed973dd6ec19e0c09"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_indicator_score_distribution.csv",
+      "record_count": 24,
+      "sha256": "45a2a7256fb0651f44c4b9e6091bcf2012dc95c393dced4f2d5b96d2e6be9f37"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_indicator_hit_duration.csv",
+      "record_count": 72,
+      "sha256": "7eceb10ccc9bf0d7747936ec187cf891da3c10d65a159c431a1436d12d891d63"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_intralayer_correlation.csv",
+      "record_count": 12,
+      "sha256": "80bb612b98ad6770c77eb7930f18ea0a2739489f953c4348b44be145849c3d6c"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_intralayer_threshold_structure.csv",
+      "record_count": 36,
+      "sha256": "ae6a897a0c09e2c29567de534260e041510b69c18d02bd9d7a0746100796e91f"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_intralayer_diagnostic_summary.csv",
+      "record_count": 12,
+      "sha256": "a6879852a4627118e6a89c16574bb811d21f707db77affb28be64d8d2c73ed1f"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_validity_reason_profile.csv",
+      "record_count": 146,
+      "sha256": "0d839dafca445fa10d9997bfad33e3535327c8cf7a7c7edcfd91161a6b1f62c2"
+    },
+    {
+      "artifact_role": "primary_results",
+      "committed_to_repo": true,
+      "path": "data/generated/r1/r1_t05/R1-T05-20260710T0918Z/r1_t05_r0_t06_reconciliation.csv",
+      "record_count": 72,
+      "sha256": "3b9725b6401af777e9ba400d4356def558a540646d782e509aa7e6c387ebf776"
+    }
+  ],
+  "readme_path": "docs/tasks/README.md",
+  "readme_sha256": "cbf15eefd58bd28223db83a4fbd0a657056afd8dd30b3dc98c4c5826b7786104",
+  "result_analysis_path": "docs/experiments/r1/R1-T05_indicator_intralayer_diagnostics_result_analysis.md",
+  "result_analysis_sha256": "662f9c6bb30204b9364bd00ada8dbf0de22ad4605f154e5849b39c2fee9cc15d",
+  "run_id": "R1-T05-20260710T0918Z",
+  "scientific_review_md_path": null,
+  "scientific_review_md_sha256": null,
+  "scientific_review_record_path": null,
+  "scientific_review_record_sha256": null,
+  "status": "author_analysis_complete",
+  "superseded": true,
+  "superseded_by": "data/generated/r1/r1_t05/R1-T05-20260710T0959Z/r1_t05_result_package.json",
+  "task_class": "formal_experiment",
+  "task_id": "R1-T05"
+}
