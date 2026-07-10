@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benzemaer/convergence-research/schemas/r1/r1_t05_indicator_intralayer_diagnostics.schema.json",
+  "title": "R1-T05 indicator intralayer diagnostics contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "stage",
+    "protocol_version",
+    "task_class",
+    "depends_on_task",
+    "r1_t04_evidence_path",
+    "r1_t04_result_package_path",
+    "r1_t04_scientific_review_path",
+    "r1_t04_scientific_review_md_path",
+    "r0_t11_handoff_evidence_path",
+    "r0_t11_handoff_report_path",
+    "r0_repair_evidence_path",
+    "input_artifacts",
+    "W",
+    "q",
+    "K",
+    "parallelism",
+    "indicators",
+    "layer_pairs",
+    "diagnostic_status_primary_q",
+    "forbidden_tokens"
+  ],
+  "properties": {
+    "task_id": {"const": "R1-T05"},
+    "stage": {"const": "R1"},
+    "protocol_version": {"const": "R1.v0.3.R1-T05.v1"},
+    "task_class": {"const": "formal_experiment"},
+    "depends_on_task": {"const": "R1-T04"},
+    "r1_t04_evidence_path": {"type": "string"},
+    "r1_t04_result_package_path": {"type": "string"},
+    "r1_t04_scientific_review_path": {"type": "string"},
+    "r1_t04_scientific_review_md_path": {"type": "string"},
+    "r0_t11_handoff_evidence_path": {"type": "string"},
+    "r0_t11_handoff_report_path": {"type": "string"},
+    "r0_repair_evidence_path": {"type": "string"},
+    "input_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_metric", "indicator_score", "indicator_state"],
+      "properties": {
+        "raw_metric": {"$ref": "#/$defs/input_artifact"},
+        "indicator_score": {"$ref": "#/$defs/input_artifact"},
+        "indicator_state": {"$ref": "#/$defs/input_artifact"}
+      }
+    },
+    "W": {"type": "array", "prefixItems": [{"const": 120}, {"const": 250}, {"const": 500}], "minItems": 3, "maxItems": 3},
+    "q": {"type": "array", "prefixItems": [{"const": 0.1}, {"const": 0.2}, {"const": 0.3}], "minItems": 3, "maxItems": 3},
+    "K": {"const": "not_applicable"},
+    "parallelism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_workers", "duckdb_threads_per_worker", "duckdb_memory_limit_per_worker", "parallelism_level"],
+      "properties": {
+        "max_workers": {"type": "integer", "minimum": 1, "maximum": 4},
+        "duckdb_threads_per_worker": {"const": 1},
+        "duckdb_memory_limit_per_worker": {"const": "2GB"},
+        "parallelism_level": {"const": "indicator-or-layer aggregate only"}
+      }
+    },
+    "indicators": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["layer", "role", "indicator_id", "raw_source_indicator_id", "raw_metric_name", "domain_rule"],
+        "properties": {
+          "layer": {"enum": ["P", "C", "T", "V"]},
+          "role": {"enum": ["A", "B"]},
+          "indicator_id": {"type": "string"},
+          "raw_source_indicator_id": {"type": "string"},
+          "raw_metric_name": {"type": "string"},
+          "domain_rule": {"type": "string"}
+        }
+      }
+    },
+    "layer_pairs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["layer", "indicator_a", "indicator_b"],
+        "properties": {
+          "layer": {"enum": ["P", "C", "T", "V"]},
+          "indicator_a": {"type": "string"},
+          "indicator_b": {"type": "string"}
+        }
+      }
+    },
+    "diagnostic_status_primary_q": {"const": 0.2},
+    "forbidden_tokens": {"type": "array", "minItems": 15, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "input_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_path", "path", "table", "sha256", "row_count", "security_count", "date_min", "date_max"],
+      "properties": {
+        "evidence_path": {"type": "string"},
+        "path": {"type": "string", "pattern": "_repair_|R0-T10-(01|02|03)-20260708T17"},
+        "table": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "row_count": {"type": "integer", "minimum": 1},
+        "security_count": {"const": 800},
+        "date_min": {"const": "20160104"},
+        "date_max": {"const": "20260630"}
+      }
+    }
+  }
+}

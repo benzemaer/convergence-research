@@ -22,6 +22,7 @@ current_task: R1-T05 单指标诊断与层内互补性分析
 next_planned_task: R1-T06 层间同期留存、关联 Lift 与嵌套增量
 R1-T04 completed via PR #80
 R1-T05_allowed_to_start: true
+R1-T06_allowed_to_start: false
 R1-T08_allowed_to_start: false
 R2_allowed_to_start: false
 ```
