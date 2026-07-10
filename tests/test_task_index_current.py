@@ -11,11 +11,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         text = README.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T10 R1 验收门禁与 R2 交接矩阵",
+            "current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名",
             text,
         )
         self.assertIn(
-            "next_planned_task: R2-T01 参数候选收敛",
+            "next_planned_task: branch-dependent after R1-T14-01 final decision",
             text,
         )
         self.assertIn(
@@ -46,8 +46,20 @@ class TaskIndexCurrentTest(unittest.TestCase):
             "`R1-T09` 年份稳定性与状态集中度检查：completed via PR #85",
             text,
         )
+        self.assertIn("R1-T14-01_decision_status: pending", text)
+        self.assertIn("R1-T14-02_status: blocked_pending_t14_01_decision", text)
+        self.assertIn("R0_q_vector_materialization_request_status: not_requested", text)
+        self.assertIn("R0_q_vector_materialization_task_id: unbound", text)
+        self.assertIn("R0_q_vector_materialization_allowed_to_start: false", text)
+        self.assertIn("R0_q_vector_materialization_status: not_started", text)
         self.assertIn("R1-T09_allowed_to_start: true", text)
-        self.assertIn("R1-T10_allowed_to_start: true", text)
+        self.assertIn("R1-T14-01_allowed_to_start: true", text)
+        self.assertIn("R1-T14-02_allowed_to_start: false", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
+        self.assertIn("R1-T11_allowed_to_start: false", text)
+        self.assertIn("R1-T12_allowed_to_start: false", text)
+        self.assertIn("R1-T13_allowed_to_start: false", text)
+        self.assertIn("R2_allowed_to_start: false", text)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn("状态：blocked until R1", text)
 

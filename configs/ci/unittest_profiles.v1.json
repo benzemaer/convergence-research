@@ -3,6 +3,7 @@
     "pr-fast": {
       "files": [
         "tests/test_task_index_current.py",
+        "tests/r0/test_r_stage_entrypoint_layering.py",
         "tests/r0/test_input_readiness_gate.py",
         "tests/r0/test_raw_metric_engine.py",
         "tests/r0/test_r0_t10_raw_metric_materializer.py",
@@ -28,6 +29,7 @@
         "tests/r1/test_r1_t09_year_stability_concentration.py",
         "tests/r1/test_r1_t09_year_stability_concentration_validator.py",
         "tests/r1/test_r1_t09_formal_experiment_contract.py",
+        "tests/r1/test_r1_t14_route_contract.py",
         "tests/governance/test_r_formal_experiment_governance_contract.py",
         "tests/governance/test_r_formal_experiment_package_validator.py"
       ]

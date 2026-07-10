@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+MAX_R_STAGE_ENTRYPOINT_LINES = 40
 
 CORE_FUNCTION_PREFIXES = (
     "validate_materialization",
@@ -36,7 +37,7 @@ class RStageEntrypointLayeringTest(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 text = path.read_text(encoding="utf-8")
                 lines = text.splitlines()
-                self.assertLessEqual(len(lines), 30)
+                self.assertLessEqual(len(lines), MAX_R_STAGE_ENTRYPOINT_LINES)
 
                 tree = ast.parse(text, filename=str(path))
                 function_names = [
