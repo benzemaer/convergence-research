@@ -250,6 +250,10 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t03_27_grid_light_profile.v1.json",
     ),
     (
+        ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
+        ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
+    ),
+    (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",
     ),

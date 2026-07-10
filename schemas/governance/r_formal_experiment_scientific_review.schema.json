@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "alternative_explanations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "anomaly_review": {
+      "type": "string"
+    },
+    "baseline_challenger_review": {
+      "type": "string"
+    },
+    "blocking_findings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "downstream_gate_recommendation": {
+      "type": "boolean"
+    },
+    "implementation_actor": {
+      "type": "string"
+    },
+    "independence_attestation": {
+      "type": "boolean"
+    },
+    "independent_recomputations": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "nonblocking_findings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "parameter_response_review": {
+      "type": "string"
+    },
+    "reviewed_analysis_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "reviewed_code_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "reviewed_summary_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "reviewer_identity": {
+      "type": "string"
+    },
+    "reviewer_role": {
+      "type": "string"
+    },
+    "scientific_review_status": {
+      "enum": [
+        "pending",
+        "passed",
+        "needs_revision",
+        "blocked"
+      ]
+    }
+  },
+  "required": [
+    "reviewer_identity",
+    "reviewer_role",
+    "implementation_actor",
+    "independence_attestation",
+    "reviewed_code_commit",
+    "reviewed_summary_sha256",
+    "reviewed_analysis_sha256",
+    "independent_recomputations",
+    "baseline_challenger_review",
+    "parameter_response_review",
+    "anomaly_review",
+    "alternative_explanations",
+    "blocking_findings",
+    "nonblocking_findings",
+    "scientific_review_status",
+    "downstream_gate_recommendation"
+  ],
+  "type": "object"
+}

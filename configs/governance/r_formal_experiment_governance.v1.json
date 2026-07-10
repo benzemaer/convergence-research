@@ -1,0 +1,175 @@
+{
+  "anomaly_scan_contract": {
+    "future_tasks_must_preregister": [
+      "applicable_anomaly_checks",
+      "task_specific_thresholds",
+      "expected_parameter_response",
+      "required_invariants",
+      "hard_blocker_conditions"
+    ],
+    "threshold_policy": "generic_governance_sets_no_numeric_thresholds"
+  },
+  "draft_gate_policy": {
+    "author_package_validator_status": "passed",
+    "downstream_gate_allowed": false,
+    "formal_task_completed": false,
+    "required_gate_status": {
+      "anomaly_resolution_status": [
+        "passed",
+        "not_applicable",
+        "unresolved"
+      ],
+      "author_result_analysis_status": "passed",
+      "engineering_validator_status": "passed",
+      "result_artifact_status": "passed",
+      "scientific_review_status": "pending",
+      "superseded": false
+    }
+  },
+  "final_gate_policy": {
+    "downstream_gate_allowed": true,
+    "required_gate_status": {
+      "anomaly_resolution_status": [
+        "passed",
+        "not_applicable"
+      ],
+      "author_result_analysis_status": "passed",
+      "engineering_validator_status": "passed",
+      "result_artifact_status": "passed",
+      "scientific_review_status": "passed",
+      "superseded": false
+    }
+  },
+  "formal_task_classification": {
+    "exempt_classes": [
+      "contract-only",
+      "schema-only",
+      "refactor-only",
+      "synthetic-only",
+      "smoke-only",
+      "pure_materialization_without_research_conclusion"
+    ],
+    "formal_experiment_classes": [
+      "parameter_comparison",
+      "state_profile",
+      "statistical_test",
+      "lift_retention_conditional_probability",
+      "null_model",
+      "stability_analysis",
+      "sensitivity_analysis",
+      "event_study",
+      "prediction_evaluation",
+      "model_evaluation",
+      "portfolio_or_strategy_evaluation"
+    ]
+  },
+  "mandatory_anomaly_checks": [
+    "primary_output_nonempty",
+    "all_zero_check",
+    "all_one_check",
+    "all_null_check",
+    "validity_rate_check",
+    "coverage_check",
+    "parameter_response_check",
+    "baseline_challenger_check",
+    "nested_invariant_check",
+    "funnel_accounting_check",
+    "denominator_integrity_check",
+    "sample_size_check",
+    "upstream_consistency_check",
+    "scale_shift_check",
+    "time_alignment_check",
+    "future_leakage_check",
+    "post_hoc_selection_check",
+    "conclusion_support_check"
+  ],
+  "readme_gate_policy": {
+    "author_draft_must_not_advance_readme": true,
+    "final_gate_requires_readme_and_evidence_consistency": true,
+    "gov_tasks_do_not_change_current_task": true
+  },
+  "required_artifact_roles": [
+    "experiment_summary",
+    "primary_results",
+    "diagnostic_summary",
+    "anomaly_scan",
+    "engineering_validation_result",
+    "result_analysis",
+    "scientific_review",
+    "formal_evidence"
+  ],
+  "required_result_analysis_headings": [
+    "## 1. 研究目标与预注册问题",
+    "## 2. 输入 package、lineage、时间与样本范围",
+    "## 3. 参数网格与 reference baseline",
+    "## 4. 核心结果",
+    "## 5. 预期结果与实际结果对照",
+    "## 6. coverage / NULL / unknown / blocked / denominator 检查",
+    "## 7. baseline 与至少两个 challenger 对照",
+    "## 8. 参数响应与敏感性",
+    "## 9. 层级、漏斗、守恒关系与不变量",
+    "## 10. 异常结果及根因调查",
+    "## 11. 替代解释与反证检查",
+    "## 12. 研究限制",
+    "## 13. 可以支持的结论",
+    "## 14. 不可以支持的结论",
+    "## 15. 下游 gate 建议"
+  ],
+  "scientific_review_independence_policy": {
+    "implementation_actor_cannot_mark_passed": true,
+    "independence_attestation_required": true,
+    "reviewer_identity_must_differ_from_implementation_actor": true
+  },
+  "status_enums": {
+    "anomaly_resolution_status": [
+      "not_applicable",
+      "passed",
+      "unresolved",
+      "blocked"
+    ],
+    "author_result_analysis_status": [
+      "passed",
+      "needs_revision",
+      "blocked"
+    ],
+    "engineering_validator_status": [
+      "passed",
+      "failed"
+    ],
+    "result_artifact_status": [
+      "passed",
+      "failed"
+    ],
+    "review_phase": [
+      "author_analysis_complete",
+      "independent_review_complete"
+    ],
+    "scientific_review_status": [
+      "pending",
+      "passed",
+      "needs_revision",
+      "blocked"
+    ]
+  },
+  "supersession_policy": {
+    "superseded_results_cannot_be_current_evidence": true,
+    "superseded_results_cannot_be_formal_input": true,
+    "superseded_results_cannot_support_parameter_selection": true,
+    "superseded_results_cannot_support_readme_gate": true,
+    "upstream_change_triggers": [
+      "data_package",
+      "field_contract",
+      "metric_definition",
+      "eligibility",
+      "validity",
+      "state_generation",
+      "confirmation",
+      "manifest",
+      "config",
+      "schema",
+      "formal_input_hash"
+    ]
+  },
+  "task_id": "GOV-T01",
+  "version": 1
+}
