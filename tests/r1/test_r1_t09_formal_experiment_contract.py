@@ -13,12 +13,17 @@ RUN_DIR = ROOT / "data/generated/r1/r1_t09/R1-T09-20260710T1825Z"
 
 
 class R1T09FormalExperimentContractTest(unittest.TestCase):
-    def test_final_gate_advances_readme_only_to_r1_t10(self) -> None:
+    def test_final_gate_completion_is_preserved_on_post_t09_q_route(self) -> None:
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
-        self.assertIn("current_task: R1-T10 R1 验收门禁与 R2 交接矩阵", text)
-        self.assertIn("next_planned_task: R2-T01 参数候选收敛", text)
+        self.assertIn("current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名", text)
+        self.assertIn(
+            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+            text,
+        )
         self.assertIn("R1-T09 completed via PR #85", text)
-        self.assertIn("R1-T10_allowed_to_start: true", text)
+        self.assertIn("R1-T14-01_allowed_to_start: true", text)
+        self.assertIn("R1-T14-02_allowed_to_start: false", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
         self.assertIn("R1-T11_allowed_to_start: false", text)
         self.assertIn("R2_allowed_to_start: false", text)
 

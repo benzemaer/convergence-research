@@ -29,12 +29,16 @@ class R1T08FormalExperimentContractTest(unittest.TestCase):
 
     def test_readme_preserves_r1_t08_after_r1_t09_final_gate(self) -> None:
         text = Path("docs/tasks/README.md").read_text(encoding="utf-8")
-        self.assertIn("current_task: R1-T10 R1 验收门禁与 R2 交接矩阵", text)
-        self.assertIn("next_planned_task: R2-T01 参数候选收敛", text)
+        self.assertIn("current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名", text)
+        self.assertIn(
+            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+            text,
+        )
         self.assertIn("R1-T08 completed via PR #84", text)
         self.assertIn("R1-T08_allowed_to_start: true", text)
         self.assertIn("R1-T09_allowed_to_start: true", text)
-        self.assertIn("R1-T10_allowed_to_start: true", text)
+        self.assertIn("R1-T14-01_allowed_to_start: true", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
         self.assertIn("R2_allowed_to_start: false", text)
 
     def test_independent_review_is_bound_to_final_gate(self) -> None:

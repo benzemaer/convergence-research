@@ -11,11 +11,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         text = README.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T10 R1 验收门禁与 R2 交接矩阵",
+            "current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名",
             text,
         )
         self.assertIn(
-            "next_planned_task: R2-T01 参数候选收敛",
+            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
             text,
         )
         self.assertIn(
@@ -47,7 +47,13 @@ class TaskIndexCurrentTest(unittest.TestCase):
             text,
         )
         self.assertIn("R1-T09_allowed_to_start: true", text)
-        self.assertIn("R1-T10_allowed_to_start: true", text)
+        self.assertIn("R1-T14-01_allowed_to_start: true", text)
+        self.assertIn("R1-T14-02_allowed_to_start: false", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
+        self.assertIn("R1-T11_allowed_to_start: false", text)
+        self.assertIn("R1-T12_allowed_to_start: false", text)
+        self.assertIn("R1-T13_allowed_to_start: false", text)
+        self.assertIn("R2_allowed_to_start: false", text)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn("状态：blocked until R1", text)
 

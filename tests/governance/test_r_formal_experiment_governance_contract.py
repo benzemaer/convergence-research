@@ -55,15 +55,15 @@ class FormalExperimentGovernanceContractTest(unittest.TestCase):
         self.assertNotIn("json.load", wrapper)
         self.assertNotIn("Draft202012Validator", wrapper)
 
-    def test_current_task_pointer_advances_after_r1_t09_final_gate(self) -> None:
+    def test_current_task_pointer_follows_post_t09_q_route(self) -> None:
         text = README.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T10 R1 验收门禁与 R2 交接矩阵",
+            "current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名",
             text,
         )
         self.assertIn(
-            "next_planned_task: R2-T01 参数候选收敛",
+            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
             text,
         )
         self.assertIn("R1-T04 completed via PR #80", text)
@@ -77,7 +77,9 @@ class FormalExperimentGovernanceContractTest(unittest.TestCase):
         self.assertIn("R1-T07_allowed_to_start: true", text)
         self.assertIn("R1-T08_allowed_to_start: true", text)
         self.assertIn("R1-T09_allowed_to_start: true", text)
-        self.assertIn("R1-T10_allowed_to_start: true", text)
+        self.assertIn("R1-T14-01_allowed_to_start: true", text)
+        self.assertIn("R1-T14-02_allowed_to_start: false", text)
+        self.assertIn("R1-T10_allowed_to_start: false", text)
         self.assertIn("R1-T11_allowed_to_start: false", text)
         self.assertIn("R2_allowed_to_start: false", text)
 
