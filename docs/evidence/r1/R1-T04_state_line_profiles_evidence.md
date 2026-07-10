@@ -2,16 +2,16 @@
 
 `task_id`: R1-T04
 `task_class`: formal_experiment
-`status`: author_analysis_complete
+`status`: completed
 `run_id`: R1-T04-20260710T0835Z
 `code_commit`: 936188f9ee865def9f4238a54490ed0b0a487ae3
 
 `engineering_validator_status`: passed
 `result_artifact_status`: passed
 `author_result_analysis_status`: passed
-`scientific_review_status`: pending
+`scientific_review_status`: passed
 `anomaly_resolution_status`: passed
-`review_phase`: author_analysis_complete
+`review_phase`: independent_review_complete
 
 `experiment_summary_path`: data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_experiment_summary.json
 `experiment_summary_sha256`: dfa621228f867aa0ce4657150558226a5bc4185b884b69fd4493f26fc8f97de5
@@ -26,16 +26,16 @@
 `anomaly_scan_sha256`: 68a4a86a62258160226b9cc073d27ef4044be5863105371ff70883148b56fd79
 `formal_evidence_path`: docs/evidence/r1/R1-T04_state_line_profiles_evidence.md
 `formal_evidence_sha256`: computed after evidence finalization in result package
-`scientific_review_path`: null
-`scientific_review_sha256`: null
-`scientific_review_md_path`: null
-`scientific_review_md_sha256`: null
+`scientific_review_path`: data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_scientific_review.json
+`scientific_review_sha256`: 1e25f676fcd48a0d7fd73069b9ffedc2c990a6d6615d23ec2acb1ed9790ff789
+`scientific_review_md_path`: docs/reviews/r1/R1-T04_state_line_profiles_scientific_review.md
+`scientific_review_md_sha256`: f8ac284c9b881ccd7cb276d00d3ed2d81941b7806f69e1c8ba544f2ab8b21939
 `readme_path`: docs/tasks/README.md
-`readme_sha256`: 1a16a27d02c83dec0e3d2f1e4869e0fadc8f376bdfc5d119f89b9a903320f838
+`readme_sha256`: e27a0d75c0f93cc4f977240be4e3e70b4ba6f5c904b6e4dcaebb9a827793c021
 `expected_current_stage`: R1
-`expected_current_task`: R1-T04 S_PCT 与 S_PCVT 分线状态画像
-`expected_next_planned_task`: R1-T05 单指标诊断与层内互补性分析
-`expected_downstream_gate_marker`: R1-T05_allowed_to_start: false
+`expected_current_task`: R1-T05 单指标诊断与层内互补性分析
+`expected_next_planned_task`: R1-T06 层间同期留存、关联 Lift 与嵌套增量
+`expected_downstream_gate_marker`: R1-T05_allowed_to_start: true
 
 `r1_t03_summary_sha256`: b813599f823ec4ba97e039fed53d10a182ffbc4797ab3db2dd7d6ebad8a22db8
 `full_grid_manifest_sha256`: b031ae22a3cf396961bcefcf6479c18870b8206a348372cf87d4b9f73c1fd96b
@@ -52,7 +52,7 @@
 
 `superseded`: false
 `superseded_by`: null
-`downstream_gate_allowed`: false
+`downstream_gate_allowed`: true
 
 ## Large input references
 

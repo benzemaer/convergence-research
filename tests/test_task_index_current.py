@@ -11,11 +11,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         text = README.read_text(encoding="utf-8")
         self.assertIn("current_stage: R1", text)
         self.assertIn(
-            "current_task: R1-T04 S_PCT 与 S_PCVT 分线状态画像",
+            "current_task: R1-T05 单指标诊断与层内互补性分析",
             text,
         )
         self.assertIn(
-            "next_planned_task: R1-T05 单指标诊断与层内互补性分析",
+            "next_planned_task: R1-T06 层间同期留存、关联 Lift 与嵌套增量",
             text,
         )
         self.assertIn(
@@ -23,8 +23,7 @@ class TaskIndexCurrentTest(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "`R1-T03` 27 组 W/q/K 全量轻量结构扫描："
-            "completed via this PR against the repaired R0-T10-05 package",
+            "`R1-T04` S_PCT 与 S_PCVT 分线状态画像：completed via PR #80",
             text,
         )
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
