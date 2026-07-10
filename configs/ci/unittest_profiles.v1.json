@@ -25,6 +25,9 @@
         "tests/r1/test_r1_t07_p_onset_fixed_lag_relations.py",
         "tests/r1/test_r1_t07_p_onset_fixed_lag_relations_validator.py",
         "tests/r1/test_r1_t07_formal_experiment_contract.py",
+        "tests/r1/test_r1_t09_year_stability_concentration.py",
+        "tests/r1/test_r1_t09_year_stability_concentration_validator.py",
+        "tests/r1/test_r1_t09_formal_experiment_contract.py",
         "tests/governance/test_r_formal_experiment_governance_contract.py",
         "tests/governance/test_r_formal_experiment_package_validator.py"
       ]

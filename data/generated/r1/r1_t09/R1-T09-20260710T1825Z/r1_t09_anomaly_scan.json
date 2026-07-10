@@ -1,0 +1,245 @@
+{
+  "anomaly_resolution_status": "passed",
+  "blocking_anomalies": [],
+  "blocking_findings": [],
+  "checks": {
+    "all_null_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv"
+      ],
+      "metrics": {
+        "required_null_count": 0
+      },
+      "rationale": "Required annual state coverage and count fields contain no NULL values.",
+      "status": "passed"
+    },
+    "all_one_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv"
+      ],
+      "metrics": {
+        "coverage_below_one_count": 44
+      },
+      "rationale": "Annual coverage values are not uniformly one.",
+      "status": "passed"
+    },
+    "all_zero_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv"
+      ],
+      "metrics": {
+        "nonzero_confirmed_candidate_years": 42
+      },
+      "rationale": "Every formal candidate has nonzero state observations in multiple years.",
+      "status": "passed"
+    },
+    "baseline_challenger_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_reference_challenger_year_comparison.csv"
+      ],
+      "metrics": {
+        "availability_difference_rows": 22,
+        "paired_comparison_rows": 22
+      },
+      "rationale": "W120 and W250 are paired by state line and year with availability retained.",
+      "status": "passed"
+    },
+    "conclusion_support_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_concentration_summary.csv",
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_leave_one_year_out.csv",
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_upstream_reconciliation.csv"
+      ],
+      "metrics": {
+        "blocking_finding_count": 0,
+        "leave_one_year_out_sign_flip_count": 0
+      },
+      "rationale": "Engineering evidence supports yearly descriptive stability with retained warnings; scientific review remains pending.",
+      "status": "passed"
+    },
+    "coverage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv",
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_concentration_summary.csv"
+      ],
+      "metrics": {
+        "candidate_count": 4,
+        "candidate_year_count": 44,
+        "zero_state_year_count": 2
+      },
+      "rationale": "All four candidates and all eligible years are represented, including zero-state years.",
+      "status": "passed"
+    },
+    "denominator_integrity_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_interlayer_profile.csv"
+      ],
+      "metrics": {
+        "two_by_two_error_count": 0
+      },
+      "rationale": "Annual interlayer 2x2 cells conserve the minimal common-valid denominator.",
+      "status": "passed"
+    },
+    "funnel_accounting_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv"
+      ],
+      "metrics": {
+        "conservation_error_count": 0
+      },
+      "rationale": "Annual raw, confirmed and validity partitions conserve eligible rows.",
+      "status": "passed"
+    },
+    "future_leakage_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_upstream_reconciliation.csv"
+      ],
+      "metrics": {
+        "future_field_count": 0
+      },
+      "rationale": "The formal computation reads only authorized contemporaneous state and interval inputs.",
+      "status": "passed"
+    },
+    "nested_invariant_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_upstream_reconciliation.csv"
+      ],
+      "metrics": {
+        "parent_child_mismatch_count": 0
+      },
+      "rationale": "PCVT remains a subset of same-parameter PCT in raw and confirmed states.",
+      "status": "passed"
+    },
+    "parameter_response_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv"
+      ],
+      "metrics": {
+        "distinct_confirmed_coverage_count": 43
+      },
+      "rationale": "Annual coverage varies across windows, state lines and years without degeneracy.",
+      "status": "passed"
+    },
+    "post_hoc_selection_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_concentration_summary.csv"
+      ],
+      "metrics": {
+        "candidate_count": 4,
+        "post_hoc_candidate_count": 0
+      },
+      "rationale": "The registry remains fixed at four candidates and emits no winner or freeze field.",
+      "status": "passed"
+    },
+    "primary_output_nonempty": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv",
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_interval_profile.csv",
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_interlayer_profile.csv"
+      ],
+      "metrics": {
+        "interlayer_rows": 66,
+        "interval_rows": 44,
+        "state_rows": 44
+      },
+      "rationale": "All preregistered primary artifacts contain their expected rows.",
+      "status": "passed"
+    },
+    "sample_size_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_concentration_summary.csv"
+      ],
+      "metrics": {
+        "minimum_evaluable_year_count": 11,
+        "minimum_nonzero_year_count": 10
+      },
+      "rationale": "Each candidate has eleven eligible years and at least ten nonzero years.",
+      "status": "passed"
+    },
+    "scale_shift_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_concentration_summary.csv"
+      ],
+      "metrics": {
+        "maximum_child_share": 0.22353689567430027,
+        "maximum_state_share": 0.22353689567430027
+      },
+      "rationale": "No single year exceeds the preregistered 50% state or child share threshold.",
+      "status": "passed"
+    },
+    "time_alignment_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv",
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_interval_profile.csv"
+      ],
+      "metrics": {
+        "cross_year_interval_count": 81,
+        "partial_year": 2026
+      },
+      "rationale": "State years use trading_date, intervals use confirmation year, and 2026 is partial.",
+      "status": "passed"
+    },
+    "upstream_consistency_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_upstream_reconciliation.csv"
+      ],
+      "metrics": {
+        "reconciliation_mismatch_count": 0
+      },
+      "rationale": "All R1-T04, R1-T06, R1-T08 and parent-child reconciliation checks match.",
+      "status": "passed"
+    },
+    "validity_rate_check": {
+      "artifact_references": [
+        "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_state_profile.csv"
+      ],
+      "metrics": {
+        "state_conservation_error_count": 0
+      },
+      "rationale": "Unknown, blocked and diagnostic-required rows remain separate from false.",
+      "status": "passed"
+    }
+  },
+  "code_commit": "31e2533adcf1852d55ea8e5f16ac38e0a8453e97",
+  "diagnostic_counts": {
+    "availability_difference_row_count": 22,
+    "candidate_year_rows": 44,
+    "interlayer_year_rows": 66,
+    "interval_year_rows": 44,
+    "leave_one_year_out_sign_flip_count": 0,
+    "reconciliation_mismatch_count": 0,
+    "zero_confirmed_state_year_count": 2,
+    "zero_valid_candidate_year_count": 2
+  },
+  "generated_at_utc": "2026-07-10T18:25:40.013226+00:00",
+  "material_warnings": [
+    {
+      "check_id": "zero_state_year_retained",
+      "message": "2 candidate-years have zero confirmed state days and were retained.",
+      "scope_id": "candidate_year"
+    },
+    {
+      "affected_row_count": 2,
+      "check_id": "boundary_year_zero_valid_denominator",
+      "message": "2 candidate-years have zero valid days; all are W250 in 2016 under strict-past availability.",
+      "scope_id": "W250|2016"
+    },
+    {
+      "check_id": "availability_difference_requires_caution",
+      "max_absolute_availability_difference": 37011,
+      "message": "All 22 state-line/year comparisons have different valid-day availability; coverage differences remain descriptive.",
+      "peak_state_line": "S_PCT",
+      "peak_year": 2016,
+      "scope_id": "W120_vs_W250"
+    },
+    {
+      "check_id": "partial_year_observation",
+      "message": "2026 is observed only through 2026-06-30 and is not treated as a full year.",
+      "scope_id": "2026"
+    }
+  ],
+  "run_id": "R1-T09-20260710T1825Z",
+  "scan_status": "passed",
+  "task_id": "R1-T09",
+  "unresolved_questions": []
+}

@@ -266,6 +266,14 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t07_p_onset_fixed_lag_relations.v1.json",
     ),
     (
+        ROOT / "schemas/r1/r1_t08_global_nested_null_models.schema.json",
+        ROOT / "configs/r1/r1_t08_global_nested_null_models.v1.json",
+    ),
+    (
+        ROOT / "schemas/r1/r1_t09_year_stability_concentration.schema.json",
+        ROOT / "configs/r1/r1_t09_year_stability_concentration.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
