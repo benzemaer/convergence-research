@@ -1,0 +1,9 @@
+{
+  "task_id": "R1-T10",
+  "task_class": "stage_acceptance_gate_and_handoff",
+  "protocol_version": "v1",
+  "required_upstream_tasks": ["R1-T01", "R1-T02", "R1-T03", "R1-T04", "R1-T05", "R1-T06", "R1-T07", "R1-T08", "R1-T09", "R1-T14-01", "R0-T15", "R1-T14-02"],
+  "expected_matrix_row_count": 12,
+  "expected_status_counts": {"freeze_candidate": 4, "review_candidate": 6, "do_not_freeze": 2, "blocked_return_to_R0": 0},
+  "author_draft_gate": {"scientific_review_status": "pending", "R2_allowed_to_start": false}
+}

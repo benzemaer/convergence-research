@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R1-T10 R2 handoff manifest",
+  "type": "object",
+  "required": ["run_id", "matrix_path", "matrix_sha256", "row_count", "status_counts", "contains_same_sample_selected_candidates", "selection_path_not_independently_confirmed", "R2_allowed_to_start"],
+  "properties": {
+    "run_id": {"type": "string"}, "matrix_path": {"type": "string"}, "matrix_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "row_count": {"const": 12}, "status_counts": {"type": "object"},
+    "contains_same_sample_selected_candidates": {"const": true}, "selection_path_not_independently_confirmed": {"const": true}, "R2_allowed_to_start": {"const": false}
+  }, "additionalProperties": true
+}

@@ -156,9 +156,12 @@ class R1T14RouteContractTest(unittest.TestCase):
         self.assertIn("R1-T14-01_allowed_to_start: true", current)
         self.assertIn("R1-T14-02_allowed_to_start: false", current)
         self.assertIn("R1-T10_allowed_to_start: true", current)
+        self.assertIn("R1-T10_status: completed", current)
+        self.assertIn("R1-T10_scientific_review_status: passed", current)
+        self.assertIn("R1-T10_independent_review_status: passed", current)
         for task in ("R1-T11", "R1-T12", "R1-T13"):
             self.assertIn(f"{task}_allowed_to_start: false", current)
-        self.assertIn("R2_allowed_to_start: false", current)
+        self.assertIn("R2_allowed_to_start: true", current)
         for task in ("R1-T11", "R1-T12", "R1-T13"):
             self.assertRegex(text, rf"`{task}`.*optional / triggered")
 

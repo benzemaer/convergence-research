@@ -1,0 +1,4 @@
+task_id,trigger_condition,observed_evidence,trigger_status,blocking_R2_handoff,reason,required_action
+R1-T11,hard baseline/challenger conflict or R2 family request,computed from matrix status and required_R2_decision,not_triggered,false,no_hard_baseline_challenger_conflict_and_no_R2_family_request,R2 may request full 27-family evidence
+R1-T12,primary null specification conclusion-sensitive,all primary null gates stable,not_triggered,false,primary_null_specification_not_currently_a_conclusion_sensitive_blocker,none
+R1-T13,authorized alternative or construct invalidation,neither observed,not_triggered,false,no_authorized_R0_alternative_indicator_candidate_and_no_construct_invalidating_warning,none
