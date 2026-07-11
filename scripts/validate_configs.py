@@ -274,6 +274,10 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t09_year_stability_concentration.v1.json",
     ),
     (
+        ROOT / "schemas/r1/r1_t14_01_layer_q_response_diagnostic.schema.json",
+        ROOT / "configs/r1/r1_t14_01_layer_q_response_diagnostic.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),

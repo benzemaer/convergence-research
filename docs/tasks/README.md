@@ -17,21 +17,21 @@
 ## 当前阶段
 
 ```text
-current_stage: R1
-current_task: R1-T14-01 层级 q 单变量响应诊断与候选提名
-next_planned_task: branch-dependent after R1-T14-01 final decision
+current_stage: R0
+current_task: R0-T15 正式 q-vector 物化
+next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
 R1-T07 completed via PR #83
 R1-T08 completed via PR #84
 R1-T09 completed via PR #85
-R1-T14-01_decision_status: pending
-R1-T14-02_status: blocked_pending_t14_01_decision
-R0_q_vector_materialization_request_status: not_requested
-R0_q_vector_materialization_task_id: unbound
-R0_q_vector_materialization_allowed_to_start: false
-R0_q_vector_materialization_status: not_started
+R1-T14-01_decision_status: q_vector_materialization_request
+R1-T14-02_status: blocked_pending_R0
+R0_q_vector_materialization_request_status: approved
+R0_q_vector_materialization_task_id: R0-T15
+R0_q_vector_materialization_allowed_to_start: true
+R0_q_vector_materialization_status: authorized
 R1-T05_allowed_to_start: true
 R1-T06_allowed_to_start: true
 R1-T07_allowed_to_start: true
@@ -284,7 +284,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R1-T07` P 首入锚定的固定滞后结构关系：completed via PR #83
 - `R1-T08` S_PCT/S_PCVT 同步性与嵌套增量零模型：completed via PR #84
 - `R1-T09` 年份稳定性与状态集中度检查：completed via PR #85
-- `R1-T14-01` 层级 q 单变量响应诊断与候选提名：current / authorized
+- `R1-T14-01` 层级 q 单变量响应诊断与候选提名：completed via PR #87
 - `R1-T14-02` 层级 q-vector R0 物化接收与正式结构复验：planned / blocked
 - `R1-T10` R1 验收门禁与 R2 交接矩阵：planned after T14 branch
 - `R1-T11` 27 组全量零模型 family-level sidecar：optional / triggered

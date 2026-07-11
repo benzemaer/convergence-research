@@ -1,0 +1,130 @@
+{
+  "task_id": "R1-T14-01",
+  "stage": "R1",
+  "task_class": "exploratory_structural_diagnostic",
+  "protocol_version": "R1.v0.3.R1-T14-01.v1",
+  "diagnostic_namespace": "r1_t14_01_diagnostic_only",
+  "authoritative": false,
+  "formal_candidate_state": false,
+  "grid": {
+    "W": [120, 250],
+    "K": 3,
+    "Q": [0.1, 0.15, 0.2, 0.25, 0.3],
+    "baseline_q_vector": {"qP": 0.2, "qC": 0.2, "qT": 0.2, "qV": 0.2},
+    "weak_delta": 0.1,
+    "expected_vectors_per_W": 17,
+    "expected_vector_W_count": 34
+  },
+  "input_artifacts": {
+    "dimension_score": {
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "table": "r0_t05_dimension_score_results",
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "row_count": 20769228,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "baseline_daily_confirmation": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_daily_confirmation_results.duckdb",
+      "table": "r0_t07_daily_confirmation_results",
+      "sha256": "e9bcaafbd60229b6d9e01967cedb2739efb3407159a66d1ef47b3d779689b4e3",
+      "row_count": 186923052
+    },
+    "baseline_confirmed_interval": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_confirmed_interval_results.duckdb",
+      "table": "r0_t07_confirmed_interval_results",
+      "sha256": "583187e213edc7b9796d5db5ef0b5484ad4b3fb17624212796ea1b9a721208ad",
+      "row_count": 1012396
+    }
+  },
+  "existence_floors": {
+    "confirmed_state_days": 100,
+    "unique_securities": 20,
+    "confirmed_intervals": 20,
+    "nonzero_years": 5,
+    "max_year_share": 0.5
+  },
+  "fallback_tolerances": {
+    "confirmed_coverage": 0.00001,
+    "confirmed_state_days": 10,
+    "unique_securities": 5,
+    "confirmed_intervals": 10,
+    "fragment_rate": 0.01,
+    "median_duration": 0.25,
+    "baseline_overlap": 0.01,
+    "delta": 0.005,
+    "lift_excess": 0.05
+  },
+  "candidate_rules": {
+    "center_count_max": 4,
+    "nonbaseline_vector_count_max": 10,
+    "v_selectivity_retained_min": 0.5,
+    "strict_subset_required": true,
+    "affected_step_by_layer": {
+      "P": "C_GIVEN_P",
+      "C": "C_GIVEN_P",
+      "T": "T_GIVEN_PC",
+      "V": "V_GIVEN_PCT"
+    },
+    "affected_state_by_layer": {
+      "P": "S_PCT",
+      "C": "S_PCT",
+      "T": "S_PCT",
+      "V": "S_PCVT"
+    },
+    "archetype_by_layer_W": {
+      "P_120": "PCT_fast_W120",
+      "C_120": "PCT_fast_W120",
+      "T_120": "PCT_fast_W120",
+      "P_250": "PCT_q_decoupled_W250",
+      "C_250": "PCT_q_decoupled_W250",
+      "T_250": "PCT_q_decoupled_W250",
+      "V_250": "PCVT_depletion_W250",
+      "V_120": "PCVT_short_window_or_state_line_specific_W120"
+    },
+    "archetype_priority": [
+      "PCT_fast_W120",
+      "PCT_q_decoupled_W250",
+      "PCVT_depletion_W250",
+      "PCVT_short_window_or_state_line_specific_W120"
+    ],
+    "pareto_metrics": {
+      "maximize": ["confirmed_coverage", "affected_delta", "affected_lift_excess", "baseline_retention"],
+      "minimize": ["max_year_share", "fragment_rate"]
+    },
+    "deterministic_tie_break": [
+      "changed_q_component_count_asc",
+      "baseline_distance_asc",
+      "baseline_overlap_desc",
+      "max_year_share_asc",
+      "fragment_rate_asc",
+      "affected_delta_desc",
+      "candidate_q_vector_id_asc"
+    ]
+  },
+  "parallelism": {
+    "parallelism_mode": "duckdb_native_single_process",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "12GB"
+  },
+  "governance": {
+    "scientific_review_status": "pending",
+    "review_phase": "author_analysis_complete",
+    "independent_review_status": "not_started",
+    "downstream_gate_allowed": false,
+    "formal_task_completed": false,
+    "R0_q_vector_materialization_allowed_to_start": false,
+    "R1-T14-02_allowed_to_start": false,
+    "R1-T10_allowed_to_start": false,
+    "R2_allowed_to_start": false
+  },
+  "forbidden_inputs": [
+    "future_return",
+    "future_volatility",
+    "future_direction",
+    "future_path",
+    "backtest",
+    "trading_result"
+  ]
+}

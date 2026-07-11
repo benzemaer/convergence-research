@@ -1,0 +1,5 @@
+archetype,priority,hard_gate_candidate_count,pareto_count,selected_center_id,status
+PCT_fast_W120,1,4,4,W120_K3_P20_C20_T25_V20,selected
+PCT_q_decoupled_W250,2,4,4,W250_K3_P20_C20_T25_V20,selected
+PCVT_depletion_W250,3,1,1,W250_K3_P20_C20_T20_V30,selected
+PCVT_short_window_or_state_line_specific_W120,4,1,1,W120_K3_P20_C20_T20_V30,selected

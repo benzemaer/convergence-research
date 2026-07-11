@@ -133,20 +133,25 @@ class R1T14RouteContractTest(unittest.TestCase):
 
     def test_readme_keeps_downstream_gates_closed(self) -> None:
         text = README.read_text(encoding="utf-8")
+        current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
+        self.assertIn("current_stage: R0", current)
+        self.assertIn("current_task: R0-T15 正式 q-vector 物化", current)
         self.assertIn(
-            "next_planned_task: branch-dependent after R1-T14-01 final decision",
-            text,
+            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+            current,
         )
-        self.assertIn("R1-T14-01_decision_status: pending", text)
-        self.assertIn("R1-T14-02_status: blocked_pending_t14_01_decision", text)
-        self.assertIn("R0_q_vector_materialization_request_status: not_requested", text)
-        self.assertIn("R0_q_vector_materialization_task_id: unbound", text)
-        self.assertIn("R0_q_vector_materialization_allowed_to_start: false", text)
-        self.assertIn("R0_q_vector_materialization_status: not_started", text)
-        self.assertIn("R1-T14-01_allowed_to_start: true", text)
+        self.assertIn(
+            "R1-T14-01_decision_status: q_vector_materialization_request", current
+        )
+        self.assertIn("R1-T14-02_status: blocked_pending_R0", current)
+        self.assertIn("R0_q_vector_materialization_request_status: approved", current)
+        self.assertIn("R0_q_vector_materialization_task_id: R0-T15", current)
+        self.assertIn("R0_q_vector_materialization_allowed_to_start: true", current)
+        self.assertIn("R0_q_vector_materialization_status: authorized", current)
+        self.assertIn("R1-T14-01_allowed_to_start: true", current)
         for task in ("R1-T14-02", "R1-T10", "R1-T11", "R1-T12", "R1-T13"):
-            self.assertIn(f"{task}_allowed_to_start: false", text)
-        self.assertIn("R2_allowed_to_start: false", text)
+            self.assertIn(f"{task}_allowed_to_start: false", current)
+        self.assertIn("R2_allowed_to_start: false", current)
         for task in ("R1-T11", "R1-T12", "R1-T13"):
             self.assertRegex(text, rf"`{task}`.*optional / triggered")
 
@@ -167,13 +172,22 @@ class R1T14RouteContractTest(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
-    def test_no_t14_implementation_or_generated_artifacts_exist(self) -> None:
+    def test_only_t14_01_implementation_exists_before_stacked_downstream(self) -> None:
+        required_patterns = (
+            "src/r1/r1_t14_01*",
+            "scripts/r1/*r1_t14_01*",
+            "configs/r1/r1_t14_01*",
+            "schemas/r1/r1_t14_01*",
+        )
+        for pattern in required_patterns:
+            self.assertTrue(list(ROOT.glob(pattern)), pattern)
         forbidden_patterns = (
-            "src/r1/r1_t14*",
-            "scripts/r1/*r1_t14*",
-            "configs/r1/r1_t14*",
-            "schemas/r1/r1_t14*",
-            "data/generated/r1/r1_t14*",
+            "src/r1/r1_t14_02*",
+            "scripts/r1/*r1_t14_02*",
+            "configs/r1/r1_t14_02*",
+            "schemas/r1/r1_t14_02*",
+            "src/r0/r0_t15*",
+            "scripts/r0/*r0_t15*",
         )
         for pattern in forbidden_patterns:
             self.assertEqual(list(ROOT.glob(pattern)), [], pattern)
