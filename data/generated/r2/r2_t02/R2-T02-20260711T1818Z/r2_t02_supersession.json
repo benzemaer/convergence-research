@@ -1,0 +1,12 @@
+{
+  "task_id": "R2-T02",
+  "run_id": "R2-T02-20260711T1818Z",
+  "status": "superseded",
+  "superseded_by_run_id": "R2-T02-20260711T1854Z",
+  "superseding_result_package_sha256": "2133abdfbd97a66d64a450c8d63d8a9524080cf79a22d012ad80f4d0cd5b52d7",
+  "superseding_validation_sha256": "4198e17233482d8904554582d47fb08ed2533ec88c6973c169dde10389967ab1",
+  "reason": "PR_93_review_4678556133_required_executable_synthetic_cases_correct_finalization_complete_metric_definitions_and_asof_availability",
+  "current_evidence_eligible": false,
+  "formal_input_eligible": false,
+  "R2-T03_allowed_to_start": false
+}

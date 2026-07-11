@@ -3,6 +3,7 @@ import unittest
 from src.r2.r2_t02_event_rule_contract import (
     build_confirmed_intervals,
     compute_event_geometry_metrics,
+    compute_window_overlap_metrics,
     confirm_k3_without_backfill,
     group_qualified_intervals_by_g,
     qualify_intervals_by_d,
@@ -93,6 +94,15 @@ class EventSemanticsTest(unittest.TestCase):
         self.assertEqual(metrics["bridged_gap_count"], 2)
         self.assertEqual(metrics["bridged_day_count"], 2)
         self.assertEqual(metrics["within_route_overlapping_event_count"], 0)
+
+    def test_window_overlap_metrics_use_exact_confirmed_keys(self):
+        left = {("s", "2026-01-01"), ("s", "2026-01-02")}
+        right = {("s", "2026-01-02"), ("s", "2026-01-03")}
+        metrics = compute_window_overlap_metrics(left, right, [], [])
+        self.assertEqual(metrics["intersection_confirmed_days"], 1)
+        self.assertEqual(metrics["W120_only_confirmed_days"], 1)
+        self.assertEqual(metrics["W250_only_confirmed_days"], 1)
+        self.assertEqual(metrics["confirmed_day_jaccard"], 1 / 3)
 
 
 if __name__ == "__main__":
