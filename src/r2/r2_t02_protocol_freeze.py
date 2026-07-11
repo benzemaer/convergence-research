@@ -335,7 +335,14 @@ def validate_output(
     result = _validation_payload(
         output_dir,
         errors,
-        canonical_output_hashes(output_dir, required),
+        canonical_output_hashes(
+            output_dir,
+            [
+                name
+                for name in required
+                if name != "r2_t02_contract_validation_result.json"
+            ],
+        ),
         write_result,
     )
     if write_result:
