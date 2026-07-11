@@ -381,7 +381,7 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 已通过独立科学审阅与 final gate；仅 R2-T02 启动资格打开，R2-T03 至 R2-T08 仍 blocked。
+状态：R2-T02 author analysis 已完成，等待独立科学审阅；R2-T03 至 R2-T08 仍 blocked。
 
 R2-T01 author-draft 历史门禁记录：`R2-T02_allowed_to_start: false`。该 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 `R2-T02_allowed_to_start: true` 为准。
 

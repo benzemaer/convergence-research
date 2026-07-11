@@ -11,9 +11,12 @@ class TaskIndexCurrentTest(unittest.TestCase):
         text = README.read_text(encoding="utf-8")
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
-        self.assertIn("current_task: R2-T01 参数候选收敛与 shortlist registry", current)
         self.assertIn(
-            "next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+            "current_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+            current,
+        )
+        self.assertIn(
+            "next_planned_task: R2-T03 四路线 d×g 事件区间几何扫描",
             current,
         )
         self.assertIn(
@@ -73,10 +76,15 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T01_scientific_review_status: passed", current)
         self.assertIn("R2-T01_independent_review_status: passed", current)
         self.assertIn("R2-T02_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T02_status: author_analysis_complete_pending_independent_review",
+            current,
+        )
+        self.assertIn("R2-T03_allowed_to_start: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn(
-            "状态：R2-T01 已通过独立科学审阅与 final gate",
+            "状态：R2-T02 author analysis 已完成，等待独立科学审阅",
             text,
         )
 
