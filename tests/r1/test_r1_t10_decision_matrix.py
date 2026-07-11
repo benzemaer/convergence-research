@@ -55,3 +55,17 @@ class Matrix(unittest.TestCase):
         )
         self.assertAlmostEqual(float(row["nested_joint_lift"]), 1.7589168403073427)
         self.assertAlmostEqual(float(row["nested_joint_excess"]), 0.1559477341779861)
+
+    def test_upstream_reconciliation_is_complete(self):
+        with (OUT / "r1_t10_upstream_gate_reconciliation.csv").open(
+            encoding="utf-8-sig", newline=""
+        ) as h:
+            rows = list(csv.DictReader(h))
+        self.assertEqual(len(rows), 12)
+        self.assertTrue(all(r["reconciliation_status"] == "passed" for r in rows))
+
+    def test_validator_precedence_is_not_builder_import(self):
+        text = (
+            ROOT / "src/r1/r1_t10_r1_gate_r2_decision_matrix_validator.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("expected_handoff_status", text)

@@ -55,6 +55,14 @@ class R1T1402FinalGateTests(unittest.TestCase):
             transition["t14_02_final_task_index_sha256"],
             transition["current_task_index_sha256"],
         )
+        self.assertEqual(
+            transition["observed_field_changes"],
+            [
+                "R1-T10_independent_review_status",
+                "R1-T10_scientific_review_status",
+                "R1-T10_status",
+            ],
+        )
         self.assertFalse(transition["R2_allowed_to_start"])
 
 

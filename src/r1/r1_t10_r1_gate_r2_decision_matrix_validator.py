@@ -5,7 +5,10 @@ import hashlib
 import json
 from pathlib import Path
 
-from src.r1.r1_t10_r1_gate_r2_decision_matrix import expected_handoff_status
+from src.r1.r1_t10_precedence_validator import (
+    recompute_handoff_status,
+    validate_readme_transition,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -46,6 +49,13 @@ def validate(output: Path) -> dict:
         encoding="utf-8-sig", newline=""
     ) as h:
         rows = list(csv.DictReader(h))
+    upstream_path = output / "r1_t10_upstream_gate_reconciliation.csv"
+    if upstream_path.is_file():
+        with upstream_path.open(encoding="utf-8-sig", newline="") as h:
+            upstream_reconciliation = list(csv.DictReader(h))
+    else:
+        errors.append("upstream_reconciliation_missing")
+        upstream_reconciliation = []
     expected = {
         "freeze_candidate": 4,
         "review_candidate": 6,
@@ -92,7 +102,7 @@ def validate(output: Path) -> dict:
             path = ROOT / meta["path"]
             if not path.is_file() or _sha(path) != meta["sha256"]:
                 errors.append(f"source_hash_mismatch:{r['handoff_row_id']}:{task}")
-        expected_status, reason = expected_handoff_status(r)
+        expected_status, reason = recompute_handoff_status(r)
         recomputed.append(
             {
                 "handoff_row_id": r["handoff_row_id"],
@@ -109,6 +119,15 @@ def validate(output: Path) -> dict:
     anomaly = json.loads(
         (output / "r1_t10_anomaly_scan.json").read_text(encoding="utf-8")
     )
+    upstream_failed = sum(
+        r["reconciliation_status"] != "passed" for r in upstream_reconciliation
+    )
+    if len(upstream_reconciliation) != 12:
+        errors.append("upstream_reconciliation_row_count_must_equal_12")
+    if upstream_failed:
+        errors.append(f"upstream_reconciliation_failed_count:{upstream_failed}")
+    if anomaly.get("upstream_reconciliation_failed_count") != upstream_failed:
+        errors.append("anomaly_upstream_reconciliation_failed_count_mismatch")
     mismatch_count = sum(r["expected_status"] != r["actual_status"] for r in recomputed)
     if anomaly.get("decision_status_mismatch_count") != mismatch_count:
         errors.append("anomaly_decision_mismatch_count_not_recomputed")
@@ -133,6 +152,15 @@ def validate(output: Path) -> dict:
             errors.append("transition_does_not_bind_readme_change")
         if transition.get("R2_allowed_to_start") is not False:
             errors.append("transition_opened_R2")
+        errors.extend(validate_readme_transition(ROOT, transition))
+    checklist_path = output / "r1_t10_stage_acceptance_checklist.csv"
+    if checklist_path.is_file():
+        with checklist_path.open(encoding="utf-8-sig", newline="") as h:
+            checklist = list(csv.DictReader(h))
+        if any(r["status"] == "failed" for r in checklist) != bool(upstream_failed):
+            errors.append("checklist_does_not_reflect_upstream_reconciliation")
+    else:
+        errors.append("stage_acceptance_checklist_missing")
     result = {
         "validator": "independent_read_only_contract_v1",
         "status": "passed" if not errors else "failed",

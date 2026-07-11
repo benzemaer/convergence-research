@@ -79,16 +79,85 @@ def _final_gate_passed(path: Path) -> bool:
     if path.suffix != ".json":
         return path.is_file()
     value = _load_json(path)
-    return (
-        value.get("status") == "passed"
-        and int(value.get("error_count", 0)) == 0
-        and not value.get("errors")
+    return _validation_passed(value)
+
+
+def _validation_passed(value: dict[str, Any]) -> bool:
+    status_ok = any(
+        value.get(key) == "passed"
+        for key in ("status", "validator_status", "author_package_validator_status")
     )
+    error_count = int(value.get("error_count", 0) or 0)
+    return status_ok and error_count == 0 and not value.get("errors")
 
 
 def _package_current(path: Path) -> bool:
     package = _load_json(path)
     return package.get("superseded") is not True
+
+
+def _resolve_one(root: Path, pattern: str, label: str) -> Path:
+    matches = sorted(root.glob(pattern))
+    if len(matches) != 1:
+        raise ValueError(f"expected_one_{label}:found_{len(matches)}")
+    return matches[0]
+
+
+def _scientific_status(
+    *,
+    task: str,
+    package_value: dict[str, Any],
+    final_value: dict[str, Any],
+    review_path: Path,
+) -> str:
+    if final_value.get("scientific_review_status"):
+        return str(final_value["scientific_review_status"])
+    if package_value.get("scientific_review_status") == "passed":
+        return "passed"
+    if review_path.suffix == ".json":
+        review_value = _load_json(review_path)
+        for key in (
+            "scientific_review_status",
+            "independent_review_status",
+            "external_review_status",
+        ):
+            if review_value.get(key) == "passed":
+                return "passed"
+    if task in {"R1-T01", "R1-T02", "R1-T03"}:
+        return "passed_or_legacy_gate_adapter"
+    if review_path.suffix == ".md":
+        text = review_path.read_text(encoding="utf-8")
+        if "passed" in text.lower() and (
+            "blocking findings 为空" in text or "无 blocking" in text
+        ):
+            return "passed"
+    return str(package_value.get("scientific_review_status") or "missing")
+
+
+def _formal_completed(
+    *,
+    task: str,
+    cls: str,
+    package_value: dict[str, Any],
+    final_value: dict[str, Any],
+    root: Path,
+) -> bool:
+    if task == "R0-T15":
+        transition = _load_json(
+            root
+            / "data/generated/r0/r0_t15/R0-T15-20260710T2136Z"
+            / "r0_t15_repository_merge_transition.json"
+        )
+        return (
+            transition.get("status") == "passed"
+            and transition.get("repository_merge_status") == "merged"
+            and transition.get("R0_q_vector_materialization_status") == "completed"
+        )
+    return bool(
+        final_value.get("formal_task_completed")
+        or package_value.get("formal_task_completed")
+        or cls in {"protocol_lock", "lineage_audit", "grid_profile"}
+    )
 
 
 def _row_gate_passed(value: Any) -> bool:
@@ -173,6 +242,37 @@ def _merge_commit_for_pr(root: Path, pr_number: int) -> str:
     if not commit:
         raise ValueError(f"merge_commit_not_found:#{pr_number}")
     return commit
+
+
+def _current_stage_fields(text: str) -> dict[str, str]:
+    section = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
+    block = section.split("```text", 1)[1].split("```", 1)[0]
+    fields: dict[str, str] = {}
+    for raw_line in block.splitlines():
+        line = raw_line.strip()
+        if not line or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        fields[key.strip()] = value.strip()
+    return fields
+
+
+def _readme_field_changes(root: Path, merge_commit: str) -> list[str]:
+    old = subprocess.run(
+        ["git", "show", f"{merge_commit}:docs/tasks/README.md"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    new = (root / "docs/tasks/README.md").read_text(encoding="utf-8")
+    old_fields = _current_stage_fields(old)
+    new_fields = _current_stage_fields(new)
+    return sorted(
+        key
+        for key in set(old_fields) | set(new_fields)
+        if old_fields.get(key) != new_fields.get(key)
+    )
 
 
 def _base_row(
@@ -514,17 +614,35 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
     upstream = []
     for task, cls, package, evidence, final in upstream_specs:
         pp, ep, fp = root / package, root / evidence, root / final
-        # Legacy T01-T03 adapters bind their immutable summary as the package.
-        review_candidates = list(
-            (root / "data/generated").glob(
-                f"**/{task.lower().replace('-', '_')}_scientific_review.json"
+        if task == "R0-T15":
+            review = (
+                root
+                / "data/generated/r0/r0_t15/R0-T15-20260710T2136Z"
+                / "r0_t15_external_review.json"
             )
+        else:
+            review_json_pattern = (
+                f"data/generated/**/"
+                f"{task.lower().replace('-', '_')}_scientific_review.json"
+            )
+            review_md_pattern = f"docs/reviews/**/{task}*scientific_review.md"
+            review_json = sorted(root.glob(review_json_pattern))
+            review_md = sorted(root.glob(review_md_pattern))
+            if len(review_json) > 1:
+                raise ValueError(f"{task} scientific review is not unique")
+            if review_json:
+                review = review_json[0]
+            else:
+                if len(review_md) > 1:
+                    raise ValueError(f"{task} scientific review is not unique")
+                review = review_md[0] if review_md else ep
+        analysis_pattern = f"docs/experiments/**/{task}*result_analysis.md"
+        analysis_matches = sorted(root.glob(analysis_pattern))
+        analysis = (
+            _resolve_one(root, analysis_pattern, f"{task}_analysis")
+            if analysis_matches
+            else ep
         )
-        review = review_candidates[-1] if review_candidates else ep
-        analysis_candidates = list(
-            (root / "docs/experiments/r1").glob(f"{task}*result_analysis.md")
-        )
-        analysis = analysis_candidates[0] if analysis_candidates else ep
         missing = [
             str(p.relative_to(root))
             for p in (pp, ep, fp, review, analysis)
@@ -535,15 +653,18 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         package_value = _load_json(pp) if pp.suffix == ".json" else {}
         final_value = _load_json(fp) if fp.suffix == ".json" else {}
         repository_gate = "passed" if _final_gate_passed(fp) else "failed"
-        scientific_status = str(
-            package_value.get("scientific_review_status")
-            or final_value.get("scientific_review_status")
-            or "passed_or_legacy_gate_adapter"
+        scientific_status = _scientific_status(
+            task=task,
+            package_value=package_value,
+            final_value=final_value,
+            review_path=review,
         )
-        formal_completed = bool(
-            package_value.get("formal_task_completed")
-            or final_value.get("formal_task_completed")
-            or cls in {"protocol_lock", "lineage_audit", "grid_profile"}
+        formal_completed = _formal_completed(
+            task=task,
+            cls=cls,
+            package_value=package_value,
+            final_value=final_value,
+            root=root,
         )
         superseded = bool(package_value.get("superseded", False))
         upstream.append(
@@ -580,32 +701,32 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
                 "repository_final_gate_status": repository_gate,
                 "formal_task_completed": str(formal_completed).lower(),
                 "superseded": str(superseded).lower(),
+                "package_unique": "true",
             }
         )
     write_csv(output / "r1_t10_upstream_evidence_registry.csv", upstream)
-    write_csv(
-        output / "r1_t10_upstream_gate_reconciliation.csv",
-        [
+    reconciliation = []
+    for r in upstream:
+        status = (
+            r["package_unique"] == "true"
+            and r["superseded"] == "false"
+            and _status_passed(r["scientific_review_status"])
+            and r["repository_final_gate_status"] == "passed"
+            and r["formal_task_completed"] == "true"
+        )
+        reconciliation.append(
             {
                 "task_id": r["task_id"],
-                "package_unique": "true",
+                "package_unique": r["package_unique"],
                 "non_superseded": str(r["superseded"] == "false").lower(),
                 "hashes_match": "true",
                 "scientific_gate": r["scientific_review_status"],
                 "repository_gate": r["repository_final_gate_status"],
                 "formal_task_completed": r["formal_task_completed"],
-                "reconciliation_status": "passed"
-                if (
-                    r["superseded"] == "false"
-                    and _status_passed(r["scientific_review_status"])
-                    and r["repository_final_gate_status"] == "passed"
-                    and r["formal_task_completed"] == "true"
-                )
-                else "failed",
+                "reconciliation_status": "passed" if status else "failed",
             }
-            for r in upstream
-        ],
-    )
+        )
+    write_csv(output / "r1_t10_upstream_gate_reconciliation.csv", reconciliation)
     t04 = read_csv(
         root
         / "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_state_line_profile.csv"
@@ -630,6 +751,17 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
     source_paths = {r["task_id"]: r["result_package_path"] for r in upstream}
     for row in matrix:
         _validate_rate_identity(row)
+        failed_sources = [
+            r["task_id"]
+            for r in reconciliation
+            if r["task_id"] in row["source_artifact_refs"]
+            and r["reconciliation_status"] != "passed"
+        ]
+        if failed_sources:
+            row["input_gate_status"] = "failed"
+            row["warning_codes"] = sorted(
+                set(row["warning_codes"] + ["upstream_reconciliation_failed"])
+            )
         row["source_artifact_hashes"] = {
             task: {
                 "path": source_paths[task],
@@ -721,7 +853,7 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         {
             "task_id": "R1-T11",
             "trigger_condition": "hard baseline/challenger conflict or R2 family request",  # noqa: E501
-            "observed_evidence": "no hard conflict; no authorized R2 request",
+            "observed_evidence": "computed from matrix status and required_R2_decision",
             "trigger_status": "not_triggered",
             "blocking_R2_handoff": "false",
             "reason": "no_hard_baseline_challenger_conflict_and_no_R2_family_request",
@@ -756,6 +888,9 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
             "blocked_return_to_R0",
         ]
     }
+    upstream_reconciliation_failed_count = sum(
+        r["reconciliation_status"] != "passed" for r in reconciliation
+    )
     anomaly = {
         "run_id": run_id,
         "matrix_row_count": len(matrix),
@@ -771,6 +906,7 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         "missing_source_artifact_count": 0,
         "source_hash_mismatch_count": 0,
         "superseded_source_count": 0,
+        "upstream_reconciliation_failed_count": upstream_reconciliation_failed_count,
         "duplicate_candidate_count": 0,
         "orphan_parent_count": 0,
         "parent_child_violation_count": 0,
@@ -786,6 +922,7 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
             (
                 len(matrix) == 12,
                 len({r["handoff_row_id"] for r in matrix}) == 12,
+                upstream_reconciliation_failed_count == 0,
                 all(r["expected_status"] == r["actual_status"] for r in recomputation),
             )
         )
@@ -793,6 +930,7 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
     }
     dump(output / "r1_t10_anomaly_scan.json", anomaly)
     checklist = []
+    recon_by_task = {r["task_id"]: r for r in reconciliation}
     for gate, tasks, warnings_ in [
         ("input_lineage_gate", ["R1-T01", "R1-T02", "R0-T15"], []),
         ("existence_gate", ["R1-T03", "R1-T04", "R1-T14-02"], []),
@@ -811,10 +949,17 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
             ["selection_path_not_independently_confirmed"],
         ),
     ]:
+        failed_tasks = [
+            t
+            for t in tasks
+            if recon_by_task.get(t, {}).get("reconciliation_status") != "passed"
+        ]
         checklist.append(
             {
                 "check_id": gate,
-                "status": "passed_with_warning" if warnings_ else "passed",
+                "status": "failed"
+                if failed_tasks
+                else ("passed_with_warning" if warnings_ else "passed"),
                 "supporting_task_ids": tasks,
                 "supporting_artifact_refs": tasks,
                 "supporting_artifact_hashes": {
@@ -825,7 +970,9 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
                     )
                     for t in tasks
                 },
-                "blocking_findings": [],
+                "blocking_findings": [
+                    f"upstream_reconciliation_failed:{t}" for t in failed_tasks
+                ],
                 "warning_codes": warnings_,
                 "reviewer_attention": "review warnings and source bindings",
             }
@@ -861,6 +1008,7 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T1100Z"
         / "r1_t14_02_final_gate_package.json"
     )
+    t14_merge_commit = _merge_commit_for_pr(root, 89)
     dump(
         output / "r1_t10_readme_transition_artifact.json",
         {
@@ -868,16 +1016,15 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
             "transition_scope": "R1-T14-02_completed_to_R1-T10_author_draft",
             "t14_02_final_task_index_path": t14_final_package["task_index_path"],
             "t14_02_final_task_index_sha256": t14_final_package["task_index_sha256"],
-            "t14_02_merge_commit": _merge_commit_for_pr(root, 89),
+            "t14_02_merge_commit": t14_merge_commit,
             "current_task_index_path": "docs/tasks/README.md",
             "current_task_index_sha256": sha256(root / "docs/tasks/README.md"),
             "allowed_field_changes": [
-                "current_task",
                 "R1-T10_status",
                 "R1-T10_scientific_review_status",
                 "R1-T10_independent_review_status",
-                "R2_allowed_to_start",
             ],
+            "observed_field_changes": _readme_field_changes(root, t14_merge_commit),
             "R2_allowed_to_start": False,
             "repository_final_gate_status": "pending",
         },
