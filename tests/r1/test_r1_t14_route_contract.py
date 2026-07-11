@@ -134,25 +134,29 @@ class R1T14RouteContractTest(unittest.TestCase):
     def test_readme_keeps_downstream_gates_closed(self) -> None:
         text = README.read_text(encoding="utf-8")
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
-        self.assertIn("current_stage: R0", current)
-        self.assertIn("current_task: R0-T15 正式 q-vector 物化", current)
+        self.assertIn("current_stage: R1", current)
+        self.assertIn("current_task: R1-T10 R1 验收门禁与 R2 交接矩阵", current)
         self.assertIn(
-            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+            "next_planned_task: R2-T01 参数候选收敛",
             current,
         )
         self.assertIn(
             "R1-T14-01_decision_status: q_vector_materialization_request", current
         )
-        self.assertIn("R1-T14-02_status: blocked_pending_R0", current)
-        self.assertIn("R0_q_vector_materialization_request_status: approved", current)
+        self.assertIn("R1-T14-02_status: completed", current)
+        self.assertIn("R1-T14-02_scientific_review_status: passed", current)
+        self.assertIn("R1-T14-02_independent_review_status: passed", current)
+        self.assertIn("R0_q_vector_materialization_request_status: fulfilled", current)
         self.assertIn("R0_q_vector_materialization_task_id: R0-T15", current)
-        self.assertIn("R0_q_vector_materialization_allowed_to_start: true", current)
+        self.assertIn("R0_q_vector_materialization_allowed_to_start: false", current)
         self.assertIn(
-            "R0_q_vector_materialization_status: final_gate_passed_pending_merge",
+            "R0_q_vector_materialization_status: completed",
             current,
         )
         self.assertIn("R1-T14-01_allowed_to_start: true", current)
-        for task in ("R1-T14-02", "R1-T10", "R1-T11", "R1-T12", "R1-T13"):
+        self.assertIn("R1-T14-02_allowed_to_start: false", current)
+        self.assertIn("R1-T10_allowed_to_start: true", current)
+        for task in ("R1-T11", "R1-T12", "R1-T13"):
             self.assertIn(f"{task}_allowed_to_start: false", current)
         self.assertIn("R2_allowed_to_start: false", current)
         for task in ("R1-T11", "R1-T12", "R1-T13"):
@@ -188,14 +192,14 @@ class R1T14RouteContractTest(unittest.TestCase):
         )
         for pattern in required_patterns:
             self.assertTrue(list(ROOT.glob(pattern)), pattern)
-        forbidden_patterns = (
+        required_t14_02_patterns = (
             "src/r1/r1_t14_02*",
             "scripts/r1/*r1_t14_02*",
             "configs/r1/r1_t14_02*",
             "schemas/r1/r1_t14_02*",
         )
-        for pattern in forbidden_patterns:
-            self.assertEqual(list(ROOT.glob(pattern)), [], pattern)
+        for pattern in required_t14_02_patterns:
+            self.assertTrue(list(ROOT.glob(pattern)), pattern)
 
     def test_r1_t09_final_artifacts_and_reviews_are_immutable(self) -> None:
         tree_hash = sha256()

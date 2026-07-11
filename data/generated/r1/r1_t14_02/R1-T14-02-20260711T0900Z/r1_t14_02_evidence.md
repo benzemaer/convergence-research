@@ -1,0 +1,71 @@
+# R1-T14-02 层级 q-vector 正式结构复验 evidence
+
+```text
+task_id=R1-T14-02
+run_id=R1-T14-02-20260711T0900Z
+code_commit=e4b0fe2fb161054e5929812a322f07847e3c917a
+config_sha256=7cd051360649c9ed83a4de73e79ef7d7ac11e883efa0cd50004c4825e9641a17
+upstream_pr=88
+upstream_final_head=faea7a957b84b0bd0e327d1af945c00c967f6ecb
+upstream_merge_commit=09fb86510dc021f031c5f646777c5202013f2e86
+upstream_result_package_sha256=aaea43c420289d95a384b49ce045f69045007ba6a5ac669079d6d3f055d72ac2
+upstream_handoff_sha256=438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3
+upstream_repository_merge_transition_sha256=c1d3fb28ba8d13b928cec13ae3ecaa3677e29ad62adee05e02ed71db39649e91
+stale_dependency=true
+superseded_run=R1-T14-02-20260710T2340Z
+incomplete_run=R1-T14-02-20260711T0800Z
+```
+
+## Current authoritative artifacts
+
+```text
+decision_matrix_sha256=340de0689bcff35b5866dfd698c1c48fc05df343e86835529aa84df33816c3d4
+complexity_matrix_sha256=4e73b3ca132f0297359b1a31e1994e45b4152aa59fab2dde7431074717c5aa44
+denominator_reconciliation_sha256=8a48af8ddbcbb0cb7e7b79cc9d9822f373da1cec7273b8d7849d83d9456d0b53
+null_results_sha256=88758396d80c82f94c2e0dda40bb1705559f53ca945f307ed8e5e26ca7e964c8
+family_max_sha256=16a3a6782cc6b8f3f2646127f73e67a633525b5c755f573992c630d49895419c
+multiplicity_sha256=3ac955d1ac0dd2778c97fba8ba5978f372639f4f9e8929c0ad282cdf339fe179
+anomaly_scan_sha256=700645762cf07d1e7bd2777eb365a7bc0d13d3f3ba51b1309ed4ac607029e997
+engineering_validation_sha256=353c0d3a7d7d51c6512dc1fc244b6e575740cdfd84759ea460e588ab0ff48ead
+experiment_summary_sha256=c11c64ed304c132aea5b1813d67f4d629a722ab7b7c66fec85847f36a7ae7145
+```
+
+## Revision findings
+
+```text
+registry_vectors=10
+baseline_vectors=2
+centers=4
+immediate_neighbors=4
+r0_reconciliation_mismatch_sum=0
+interval_conservation_mismatch_sum=0
+N_perm=10000
+family_count=5
+family_max_rows=50000
+multiplicity_rows=30
+adjusted_p_all=1/10001
+scope_specific_robust_envelope_check=passed
+V25_neighbors_complexity_not_justified=2/2
+V_selectivity_guard_pass=4/4
+denominator_parent_true_mismatch_sum=0
+denominator_rank_flip_count=0
+denominator_structural_gate_flip_count=0
+center_status=formal_structure_supported_with_warning:4
+neighbor_status=review_only:4
+```
+
+V=.30 center security negative-Delta shares 为 0.13924051 / 0.18193384，均已写入 mandatory warning。Null/family-max/multiplicity/replicate-manifest 与 superseded `2340Z` hash 完全一致，但本 run 实际重新执行了全部 permutations，没有使用 immutable-null copy/reuse。
+
+## Gate boundary
+
+```text
+scientific_review_status=pending
+independent_review_status=not_started
+repository_final_gate_status=pending
+R1-T10_allowed_to_start=false
+R2_allowed_to_start=false
+formal_task_completed=false
+selection_path_not_independently_confirmed=true
+```
+
+本 evidence 只能支持将 corrected authoritative package 提交外部科学复审；不支持独立确认、best/frozen q、预测能力或交易价值结论。

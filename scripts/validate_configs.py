@@ -286,6 +286,18 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t14_01_layer_q_response_diagnostic.v1.json",
     ),
     (
+        ROOT / "schemas/r1/r1_t14_02_formal_structural_revalidation.schema.json",
+        ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v1.json",
+    ),
+    (
+        ROOT / "schemas/r1/r1_t14_02_formal_structural_revalidation.schema.json",
+        ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v2.json",
+    ),
+    (
+        ROOT / "schemas/r1/r1_t14_02_formal_structural_revalidation.schema.json",
+        ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v3.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),

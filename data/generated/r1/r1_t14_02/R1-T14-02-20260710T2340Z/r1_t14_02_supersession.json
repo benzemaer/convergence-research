@@ -1,0 +1,28 @@
+{
+  "review_comment_id": 4941877464,
+  "stale_dependency": true,
+  "status": "superseded",
+  "superseded_artifacts": {
+    "evidence": {
+      "path": "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2340Z/r1_t14_02_evidence.md",
+      "sha256": "f70685fc189c01b4cb7f0b5778ac31fc2955c99e0eb722381dcb496ab143fc72"
+    },
+    "result_analysis": {
+      "path": "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2340Z/r1_t14_02_result_analysis.md",
+      "sha256": "e50e0df1df439257959110b4584de92d800398e6aa619c7dcf9d616292e624d2"
+    },
+    "result_package": {
+      "path": "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2340Z/r1_t14_02_result_package.json",
+      "sha256": "5162a71d3abc60cca234ad2035c2b06164e664b149eb322094923bfcc397ca53"
+    }
+  },
+  "superseded_by_run_id": "R1-T14-02-20260711T0900Z",
+  "superseded_run_id": "R1-T14-02-20260710T2340Z",
+  "supersession_reasons": [
+    "stale_R0_T15_dependency",
+    "scope_specific_robust_envelope_not_used",
+    "V_selectivity_guard_formula_and_status_gate_invalid",
+    "denominator_reconciliation_missing"
+  ],
+  "task_id": "R1-T14-02"
+}

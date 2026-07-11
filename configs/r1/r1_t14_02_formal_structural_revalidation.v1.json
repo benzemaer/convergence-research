@@ -1,0 +1,127 @@
+{
+  "task_id": "R1-T14-02",
+  "stage": "R1",
+  "task_class": "same_sample_formal_structural_revalidation",
+  "protocol_version": "R1.v0.3.R1-T14-02.v1",
+  "selection_path_not_independently_confirmed": true,
+  "upstream_binding": {
+    "task_id": "R0-T15",
+    "draft_pr_number": 88,
+    "exact_head_commit": "35a01fa9ba2e7b20455d7fc5f75d25217892c471",
+    "result_package_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_result_package.json",
+    "result_package_sha256": "43aa859dc938f6a9796f68297107d978e9a3b1a36b1ea12fec8c10e5aee27f8b",
+    "result_analysis_path": "docs/experiments/r0/R0-T15_层级q向量正式物化与R1-T14-02交接_result_analysis.md",
+    "result_analysis_sha256": "0ce1ccc4c3c13f39c5447c0c0b74a3d433254bc11bbf11d65a2dc7268b072418",
+    "artifact_manifest_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_artifact_manifest.json",
+    "artifact_manifest_sha256": "664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51",
+    "candidate_registry_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_candidate_registry.csv",
+    "candidate_registry_sha256": "02fdaf1b94780ef42115a9109ae9f1fd6b90a6e019925a5067ad1bac96d4944f",
+    "goal_internal_continuation_gate_status": "passed",
+    "goal_internal_t14_02_authorized": true,
+    "repository_t14_02_gate_passed": false,
+    "stale_dependency": false
+  },
+  "input_artifacts": {
+    "dimension_score": {
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "table": "r0_t05_dimension_score_results",
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5"
+    },
+    "indicator_score": {
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+      "table": "r0_t05_indicator_score_results",
+      "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447"
+    },
+    "baseline_daily_confirmation": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_daily_confirmation_results.duckdb",
+      "table": "r0_t07_daily_confirmation_results",
+      "sha256": "e9bcaafbd60229b6d9e01967cedb2739efb3407159a66d1ef47b3d779689b4e3"
+    },
+    "baseline_confirmed_interval": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_confirmed_interval_results.duckdb",
+      "table": "r0_t07_confirmed_interval_results",
+      "sha256": "583187e213edc7b9796d5db5ef0b5484ad4b3fb17624212796ea1b9a721208ad"
+    },
+    "r0_t15_dimension_state": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_dimension_state_results.duckdb",
+      "table": "r0_t15_dimension_state_results",
+      "sha256": "f979cf5c13fab855842e834a2c5af67f4d488022c137140ee4098c4241c8e95a"
+    },
+    "r0_t15_nested_daily_state": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_nested_daily_state_results.duckdb",
+      "table": "r0_t15_nested_daily_state_results",
+      "sha256": "39ec9c7c798280a67218cc32ce41b8ae854e68f4c1cf7826520c3eb91eab14d1"
+    },
+    "r0_t15_daily_confirmation": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
+      "table": "r0_t15_daily_confirmation_results",
+      "sha256": "310393bf78d58eaf76fa5a02aeb18cfa069c3e917ba1526c014167f9dca00d46"
+    },
+    "r0_t15_confirmed_interval": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb",
+      "table": "r0_t15_confirmed_interval_results",
+      "sha256": "40c3ec70e68999d0db413a57e79705d85aabd5d0f8c26c498769d4560992a171"
+    }
+  },
+  "null_model": {
+    "N_perm": 10000,
+    "p_floor": 0.00009999000099990001,
+    "root_seed": 202607111402,
+    "seed_derivation_version": "sha256_family_common_schedule_splitmix64_v1",
+    "confirmation_k": 3,
+    "families": [
+      "F1_GLOBAL_PCT",
+      "F2_GLOBAL_PCVT",
+      "F3_C_GIVEN_P",
+      "F4_T_GIVEN_PC",
+      "F5_V_GIVEN_PCT"
+    ],
+    "null_sd_zero_policy": "blocking_anomaly"
+  },
+  "formal_thresholds": {
+    "family_adjusted_p_max": 0.05,
+    "joint_lift_min_exclusive": 1.0,
+    "joint_excess_min_exclusive": 0.0,
+    "max_year_share": 0.5,
+    "v_selectivity_retained_min": 0.5,
+    "strict_parent_child_required": true
+  },
+  "baseline_stability_envelope": {
+    "confirmed_coverage": 0.00001,
+    "confirmed_state_days": 10,
+    "unique_securities": 5,
+    "confirmed_intervals": 10,
+    "fragment_rate": 0.01,
+    "median_duration": 0.25,
+    "baseline_overlap": 0.01,
+    "delta": 0.005,
+    "lift_excess": 0.05
+  },
+  "years": {
+    "values": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026],
+    "partial_years": [2026]
+  },
+  "parallelism": {
+    "parallelism_mode": "duckdb_single_process_numpy_family_common_schedule",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "12GB"
+  },
+  "governance": {
+    "scientific_review_status": "pending",
+    "review_phase": "author_analysis_complete",
+    "independent_review_status": "not_started",
+    "downstream_gate_allowed": false,
+    "R1-T10_allowed_to_start": false,
+    "R2_allowed_to_start": false,
+    "formal_task_completed": false,
+    "selection_path_not_independently_confirmed": true
+  },
+  "forbidden_inputs": [
+    "future_return",
+    "future_volatility",
+    "future_direction",
+    "future_path",
+    "backtest",
+    "trading_result"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "blocking_findings": [
+    "v_selectivity_guard_uses_raw_instead_of_confirmed_state_day_counts"
+  ],
+  "external_review_status": "needs_revision",
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_review_status": "needs_revision",
+  "review_comment_id": 4944536998,
+  "review_source": "https://github.com/benzemaer/convergence-research/pull/89#issuecomment-4944536998",
+  "reviewed_pr_head_commit": "e96692b6f22a93325e40a8a5cf0a38f3a5c13bd2",
+  "reviewed_result_package_sha256": "88cd4d59386036c3b361a4523fc108386ad7ef1b46b2043964c637357c53f5cd",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "task_id": "R1-T14-02"
+}
