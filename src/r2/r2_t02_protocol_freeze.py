@@ -323,7 +323,7 @@ def validate_output(
     rebuilt_registry, rebuilt_results = synthetic_case_artifacts()
     if len(rebuilt_registry) != synthetic_registry.get("case_count"):
         errors.append("synthetic_registry_rebuild_mismatch")
-    if rebuilt_results != synthetic_results:
+    if _csv_string_rows(rebuilt_results) != synthetic_results:
         errors.append("synthetic_result_rebuild_mismatch")
 
     result = _validation_payload(
@@ -1706,6 +1706,10 @@ def _scan_forbidden_output_fields(
             if field in text:
                 errors.append(f"forbidden_output_field:{name}:{field}")
     return errors
+
+
+def _csv_string_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    return [{key: str(value) for key, value in row.items()} for row in rows]
 
 
 def main(argv: list[str] | None = None) -> int:
