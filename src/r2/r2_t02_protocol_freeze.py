@@ -245,6 +245,7 @@ def build_run(
     }
     write_json(output_dir / "r2_t02_scientific_review.json", review)
     validation = {"status": "pending"}
+    write_json(output_dir / "r2_t02_contract_validation_result.json", validation)
     package = result_package(
         run_id, execution_commit, output_dir, summary, validation, anomaly, review
     )
