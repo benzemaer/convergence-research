@@ -30,6 +30,10 @@
         "tests/r1/test_r1_t09_year_stability_concentration_validator.py",
         "tests/r1/test_r1_t09_formal_experiment_contract.py",
         "tests/r1/test_r1_t14_route_contract.py",
+        "tests/r1/test_r1_t10_formal_contract.py",
+        "tests/r1/test_r1_t10_decision_matrix.py",
+        "tests/r1/test_r1_t10_author_draft_contract.py",
+        "tests/r1/test_r1_t10_failure_paths.py",
         "tests/governance/test_r_formal_experiment_governance_contract.py",
         "tests/governance/test_r_formal_experiment_package_validator.py"
       ]

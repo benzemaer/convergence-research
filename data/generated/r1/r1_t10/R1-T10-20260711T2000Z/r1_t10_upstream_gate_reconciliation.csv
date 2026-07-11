@@ -1,0 +1,13 @@
+task_id,package_unique,non_superseded,hashes_match,scientific_gate,repository_gate,reconciliation_status
+R1-T01,true,true,true,passed,passed,passed
+R1-T02,true,true,true,passed,passed,passed
+R1-T03,true,true,true,passed,passed,passed
+R1-T04,true,true,true,passed,passed,passed
+R1-T05,true,true,true,passed,passed,passed
+R1-T06,true,true,true,passed,passed,passed
+R1-T07,true,true,true,passed,passed,passed
+R1-T08,true,true,true,passed,passed,passed
+R1-T09,true,true,true,passed,passed,passed
+R1-T14-01,true,true,true,passed,passed,passed
+R0-T15,true,true,true,passed,passed,passed
+R1-T14-02,true,true,true,passed,passed,passed

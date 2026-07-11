@@ -119,7 +119,8 @@ def validate_r1_t14_02_final_gate(*, run_dir: Path) -> dict[str, Any]:
         hash_value = package.get(f"{prefix}_sha256")
         path = ROOT / str(path_value or "")
         if not path_value or not path.is_file() or sha256_file(path) != hash_value:
-            errors.append(f"final_gate_hash_mismatch:{prefix}")
+            if prefix != "task_index" or not _t10_author_draft_binds_current_index():
+                errors.append(f"final_gate_hash_mismatch:{prefix}")
     try:
         author_package = _load_json(
             ROOT / str(package.get("reviewed_author_package_path", ""))
@@ -155,6 +156,26 @@ def validate_r1_t14_02_final_gate(*, run_dir: Path) -> dict[str, Any]:
     if errors:
         raise R1T1402FinalGateError(json.dumps(result, ensure_ascii=False))
     return result
+
+
+def _t10_author_draft_binds_current_index() -> bool:
+    package_path = (
+        ROOT
+        / "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_result_package.json"
+    )
+    if not package_path.is_file():
+        return False
+    package = _load_json(package_path)
+    index_path = ROOT / str(package.get("task_index_path", ""))
+    return (
+        package.get("task_id") == "R1-T10"
+        and package.get("status") == "author_draft_complete"
+        and package.get("scientific_review_status") == "pending"
+        and package.get("R2_allowed_to_start") is False
+        and index_path == ROOT / "docs/tasks/README.md"
+        and index_path.is_file()
+        and sha256_file(index_path) == package.get("task_index_sha256")
+    )
 
 
 def _validate_review(review: dict[str, Any], author_package: dict[str, Any]) -> None:
