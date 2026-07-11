@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R2
-current_task: R2-T01 参数候选收敛与 shortlist registry
-next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约
+current_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约
+next_planned_task: R2-T03 四路线 d×g 事件区间几何扫描
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
@@ -54,6 +54,9 @@ R2-T01_status: completed
 R2-T01_scientific_review_status: passed
 R2-T01_independent_review_status: passed
 R2-T02_allowed_to_start: true
+R2-T02_status: author_analysis_complete_pending_independent_review
+R2-T02_scientific_review_status: pending
+R2-T02_independent_review_status: pending
 R2-T03_allowed_to_start: false
 R2-T04_allowed_to_start: false
 R2-T05_allowed_to_start: false

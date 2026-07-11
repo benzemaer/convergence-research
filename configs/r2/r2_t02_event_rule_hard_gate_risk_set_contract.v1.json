@@ -1,0 +1,46 @@
+{
+  "task_id": "R2-T02",
+  "task_class": "protocol_freeze",
+  "task_subclass": "event_rule_metric_hard_gate_and_risk_set_contract",
+  "contract_version": "r2_t02_event_rule_contract.v1",
+  "selection_path_not_independently_confirmed": true,
+  "upstream": {
+    "run_id": "R2-T01-20260712T0020Z",
+    "reviewed_pr_head_commit": "22b2edcfdb728864ade14fed33c8a0f92d53f250",
+    "merge_commit": "94925ccbb247254c4b009d1486cec7d83348c6d8",
+    "final_package_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_final_gate_package.json",
+    "final_package_sha256": "2ef8eafe47725cadd0d785423b9897b0953650cd5aaea75aa3f0dc152c689ff6",
+    "final_validation_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_final_gate_validation_result.json",
+    "final_validation_sha256": "bfd4c5b1e6e355cc84a6282ea38a578b7ee474457803375213b00702df54ab24",
+    "shortlist_registry_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_shortlist_registry.csv",
+    "shortlist_registry_sha256": "9b625cdf06132a8a0488d1b304f41633306287d39f0986208f4ce11f0b042d4d",
+    "primary_shortlist_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_primary_shortlist.csv",
+    "primary_shortlist_sha256": "cfe9a18cdfef22fa2a5aa7f0658be2784819b95b775de814f08f97d1e95b6144",
+    "candidate_disposition_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_candidate_disposition_registry.csv",
+    "candidate_disposition_sha256": "6cfff0f33b062a547a81ca8b7c227605b4dbda923ea9aae669262e0023f2de67",
+    "input_binding_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_input_binding.json",
+    "input_binding_sha256": "21e34813ccfc14fb1a325237e86f93ea9a2ed061c59607fcc0ed979b9ed1fb76",
+    "scientific_review_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_independent_scientific_review.json",
+    "scientific_review_sha256": "144e5b2aad73680dbcd36620413e13975dc2665ff14e9c91b324d66035ce9280"
+  },
+  "candidate_boundary": {"primary_route_count": 4, "shared_sidecar_route_count": 4, "sensitivity_route_cell_count": 0, "excluded_route_cell_count": 0},
+  "event_rule": {
+    "K": 3, "d_grid": [1, 2, 3], "d_operator": ">=", "g_grid": [0, 1, 2],
+    "gap_count_unit": "eligible_trading_days", "confirmation_backfill": false,
+    "hard_break_states": ["unknown", "blocked", "ineligible", "missing_trading_row"],
+    "event_identity_fields": ["contract_version", "route_id", "security_id", "d", "g", "first_qualified_interval_confirmed_start_date"],
+    "year_assignment": "year_of_first_event_qualification_time",
+    "open_event_policy": "observed_to_date_no_fabricated_finalization"
+  },
+  "denominator_scopes": {
+    "own_eligible": "route_eligible_security_trade_date_keys",
+    "common_W120_W250": "exact_key_intersection_within_state_line_and_role"
+  },
+  "hard_gates": {
+    "global_zero_tolerance": ["lineage_mismatch_count", "schema_mismatch_count", "source_hash_mismatch_count", "source_superseded_count", "duplicate_primary_key_count", "unknown_bridged_day_count", "blocked_bridged_day_count", "ineligible_bridged_day_count", "confirmed_day_conservation_mismatch_count", "within_route_overlapping_event_count", "post_merge_short_zone_count", "risk_set_guard_violation_count", "strict_core_subset_violation_count", "forbidden_output_field_count"],
+    "S_PCT": {"event_floor": 250, "event_interval_fraction": 0.05, "security_floor": 150, "security_fraction": 0.20, "retention_min": 0.35, "drop_max": 0.80, "bridge_max": 0.30, "merge_max": 0.70, "open_max": 0.10, "nonzero_years_min": 8, "max_year_share_max": 0.35, "duration_inflation_max": 3.0},
+    "S_PCVT": {"event_floor": 100, "event_interval_fraction": 0.05, "security_floor": 100, "security_fraction": 0.15, "retention_min": 0.25, "drop_max": 0.85, "bridge_max": 0.35, "merge_max": 0.75, "open_max": 0.10, "nonzero_years_min": 8, "max_year_share_max": 0.35, "duration_inflation_max": 3.0}
+  },
+  "forbidden_output_fields": ["selected_d", "selected_g", "automatic_winner", "automatic_rank", "freeze_decision", "freeze_plan", "state_version_id", "release_label", "future_return", "future_volatility", "future_direction", "future_path", "precision", "recall", "matched_control", "outcome_window", "cooldown", "backtest", "PnL", "trade_signal", "portfolio"],
+  "author_draft_gate_state": {"R2-T02_status": "author_analysis_complete_pending_independent_review", "R2-T02_scientific_review_status": "pending", "R2-T02_independent_review_status": "pending", "formal_task_completed": false, "R2-T03_allowed_to_start": false, "R3_allowed_to_start": false}
+}
