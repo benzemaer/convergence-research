@@ -1,0 +1,66 @@
+{
+  "task_id": "R0-T15",
+  "stage": "R0",
+  "task_class": "formal_materialization_bridge",
+  "protocol_version": "R0.v0.3.R0-T15.v1",
+  "upstream_binding": {
+    "upstream_pr_number": 87,
+    "upstream_head_commit": "2e2cc2931a4c3ff1ab427966bc78f79a0f69c151",
+    "upstream_result_package_path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_result_package.json",
+    "upstream_result_package_sha256": "ceb869819569ff4949db4b07febc364cf74eb2bb7419da5f460f7b91e4b06306",
+    "upstream_author_analysis_path": "docs/experiments/r1/R1-T14-01_层级q单变量响应诊断与候选提名_result_analysis.md",
+    "upstream_author_analysis_sha256": "edc804be74d4a2780b3ebce061e56c38bead7e9d3739c39db474bd5554e530da",
+    "materialization_request_path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_materialization_request.json",
+    "materialization_request_sha256": "7ee17192ae32c71d6ee839af93993b4b7f841738dbc0a17e9078ac1d1408fb33",
+    "upstream_internal_continuation_gate_status": "passed",
+    "goal_internal_r0_materialization_authorized": true,
+    "repository_r0_materialization_gate_passed": false,
+    "stale_dependency": false
+  },
+  "input_artifacts": {
+    "dimension_score": {
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "table": "r0_t05_dimension_score_results",
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "row_count": 20769228,
+      "security_count": 800,
+      "date_min": "20160104",
+      "date_max": "20260630"
+    },
+    "baseline_daily_confirmation": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_daily_confirmation_results.duckdb",
+      "table": "r0_t07_daily_confirmation_results",
+      "sha256": "e9bcaafbd60229b6d9e01967cedb2739efb3407159a66d1ef47b3d779689b4e3"
+    },
+    "baseline_confirmed_interval": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_confirmed_interval_results.duckdb",
+      "table": "r0_t07_confirmed_interval_results",
+      "sha256": "583187e213edc7b9796d5db5ef0b5484ad4b3fb17624212796ea1b9a721208ad"
+    }
+  },
+  "materialization": {
+    "weak_delta": 0.1,
+    "confirmation_k": 3,
+    "state_names": ["S_P", "S_PC", "S_PCT", "S_PCVT"],
+    "dimension_names": ["P", "C", "T", "V"],
+    "expected_baseline_reference_count": 2,
+    "expected_nonbaseline_vector_count": 8,
+    "expected_total_registry_count": 10,
+    "reuse_baseline_without_copy": true,
+    "formal_vector_id_fields": ["W", "K", "qP", "qC", "qT", "qV", "state_line_role", "request_id"]
+  },
+  "parallelism": {
+    "parallelism_mode": "duckdb_native_single_process",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "12GB"
+  },
+  "governance": {
+    "R0_q_vector_materialization_status": "author_draft_complete",
+    "independent_review_status": "not_started",
+    "repository_final_gate_status": "pending",
+    "R1-T14-02_allowed_to_start": false,
+    "R1-T10_allowed_to_start": false,
+    "R2_allowed_to_start": false,
+    "formal_task_completed": false
+  }
+}

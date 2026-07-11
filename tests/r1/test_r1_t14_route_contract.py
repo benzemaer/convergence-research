@@ -147,7 +147,10 @@ class R1T14RouteContractTest(unittest.TestCase):
         self.assertIn("R0_q_vector_materialization_request_status: approved", current)
         self.assertIn("R0_q_vector_materialization_task_id: R0-T15", current)
         self.assertIn("R0_q_vector_materialization_allowed_to_start: true", current)
-        self.assertIn("R0_q_vector_materialization_status: authorized", current)
+        self.assertIn(
+            "R0_q_vector_materialization_status: final_gate_passed_pending_merge",
+            current,
+        )
         self.assertIn("R1-T14-01_allowed_to_start: true", current)
         for task in ("R1-T14-02", "R1-T10", "R1-T11", "R1-T12", "R1-T13"):
             self.assertIn(f"{task}_allowed_to_start: false", current)
@@ -172,12 +175,16 @@ class R1T14RouteContractTest(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
-    def test_only_t14_01_implementation_exists_before_stacked_downstream(self) -> None:
+    def test_t14_01_and_r0_t15_exist_before_stacked_t14_02(self) -> None:
         required_patterns = (
             "src/r1/r1_t14_01*",
             "scripts/r1/*r1_t14_01*",
             "configs/r1/r1_t14_01*",
             "schemas/r1/r1_t14_01*",
+            "src/r0/r0_t15*",
+            "scripts/r0/*r0_t15*",
+            "configs/r0/r0_t15*",
+            "schemas/r0/r0_t15*",
         )
         for pattern in required_patterns:
             self.assertTrue(list(ROOT.glob(pattern)), pattern)
@@ -186,8 +193,6 @@ class R1T14RouteContractTest(unittest.TestCase):
             "scripts/r1/*r1_t14_02*",
             "configs/r1/r1_t14_02*",
             "schemas/r1/r1_t14_02*",
-            "src/r0/r0_t15*",
-            "scripts/r0/*r0_t15*",
         )
         for pattern in forbidden_patterns:
             self.assertEqual(list(ROOT.glob(pattern)), [], pattern)

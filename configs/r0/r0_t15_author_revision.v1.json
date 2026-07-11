@@ -1,0 +1,71 @@
+{
+    "task_id": "R0-T15",
+    "revision_id": "R0-T15-REV1",
+    "revision_class": "post_run_lineage_and_handoff_revision",
+    "protocol_version": "R0.v0.3.R0-T15.REV1",
+    "source_run": {
+        "run_id": "R0-T15-20260710T2136Z",
+        "execution_code_commit": "b7cd0c2a3d4d3dbe3867246712c68107ea604c96",
+        "execution_config_path": "configs/r0/r0_t15_layer_q_vector_materialization.v1.json",
+        "execution_config_sha256": "c5f16022336458259cf0a3695ad188cc625cfa60cb2ca5d8d71c704e09a4236b",
+        "execution_summary_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_execution_summary.json",
+        "execution_summary_sha256": "464294ad167b28ac88d43336402bf58fed966ff804344ec9d66293905ac167e6",
+        "request_binding_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_request_binding.json",
+        "request_binding_sha256": "23e357bb14e0233fb72e9797457ca9b492d6dd010aa5621366d4d5baff8ef005",
+        "artifact_manifest_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_artifact_manifest.json",
+        "artifact_manifest_sha256": "664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51",
+        "candidate_registry_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_candidate_registry.csv",
+        "candidate_registry_sha256": "02fdaf1b94780ef42115a9109ae9f1fd6b90a6e019925a5067ad1bac96d4944f",
+        "original_handoff_archive_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_authorized_handoff_manifest.author_draft_v1.json",
+        "original_handoff_sha256": "fa589db97a19c8e4ba5baee272d5250c0a666e476532d316de2f1225feac879d",
+        "original_result_package_archive_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_result_package.author_draft_v1.json",
+        "original_result_package_sha256": "43aa859dc938f6a9796f68297107d978e9a3b1a36b1ea12fec8c10e5aee27f8b",
+        "original_analysis_archive_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_result_analysis.author_draft_v1.md",
+        "original_analysis_sha256": "0ce1ccc4c3c13f39c5447c0c0b74a3d433254bc11bbf11d65a2dc7268b072418",
+        "original_evidence_archive_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_evidence.author_draft_v1.md",
+        "original_evidence_sha256": "a9bdbbe581753e22eb7f19731c8871b3057121389e10212948d42ce8ead38a5a"
+    },
+    "upstream_final_gate_binding": {
+        "upstream_pr_number": 87,
+        "reviewed_pr_head_commit": "2e2cc2931a4c3ff1ab427966bc78f79a0f69c151",
+        "finalization_commit": "be446a8fe73a8575c76bee3ee1975993010cad93",
+        "merge_commit": "13598861a620ab9e599957db3a34f8595630035b",
+        "result_package_path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_result_package.json",
+        "result_package_sha256": "300bbc213a1b42b317f1a8ea7452b846ee5406882eae7aff79e9c4ce12138a35",
+        "scientific_review_path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_scientific_review.json",
+        "scientific_review_sha256": "bfdfb7060f01e47580edd31a96a13406bf28fec82dd14808df3973cedeacc19f",
+        "final_gate_validation_path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_final_gate_package_validation_result.json",
+        "final_gate_validation_sha256": "e7298a9acc1258143913890114c1055dbd7f0160dc81b896195af2cfe7c4558e",
+        "materialization_request_path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_materialization_request.json",
+        "materialization_request_sha256": "7ee17192ae32c71d6ee839af93993b4b7f841738dbc0a17e9078ac1d1408fb33",
+        "scientific_review_status": "passed",
+        "repository_final_gate_status": "passed",
+        "formal_task_completed": true,
+        "R0_q_vector_materialization_request_status": "approved",
+        "R0_q_vector_materialization_allowed_to_start": true,
+        "R1-T14-02_allowed_to_start": false,
+        "selection_path_not_independently_confirmed": true
+    },
+    "external_review": {
+        "pr_number": 88,
+        "comment_id": 4941872279,
+        "prior_review_status": "needs_revision",
+        "blocking_findings": [
+            "stale_handoff_artifact_manifest_hash",
+            "stale_handoff_candidate_registry_hash"
+        ],
+        "external_direct_duckdb_byte_review_performed": false
+    },
+    "governance": {
+        "author_revision_status": "completed_pending_rereview",
+        "independent_review_status": "pending_rereview",
+        "repository_final_gate_status": "pending",
+        "goal_internal_continuation_allowed": false,
+        "goal_internal_t14_02_authorized": false,
+        "R1-T14-02_allowed_to_start": false,
+        "R1-T10_allowed_to_start": false,
+        "R2_allowed_to_start": false,
+        "selection_path_not_independently_confirmed": true,
+        "formal_task_completed": false
+    }
+}

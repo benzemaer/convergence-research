@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["task_id", "stage", "task_class", "protocol_version", "upstream_binding", "input_artifacts", "materialization", "parallelism", "governance"],
+  "properties": {
+    "task_id": {"const": "R0-T15"},
+    "stage": {"const": "R0"},
+    "task_class": {"const": "formal_materialization_bridge"},
+    "upstream_binding": {
+      "type": "object",
+      "required": ["upstream_pr_number", "upstream_head_commit", "upstream_result_package_path", "upstream_result_package_sha256", "upstream_author_analysis_path", "upstream_author_analysis_sha256", "materialization_request_path", "materialization_request_sha256", "upstream_internal_continuation_gate_status", "goal_internal_r0_materialization_authorized", "repository_r0_materialization_gate_passed", "stale_dependency"],
+      "properties": {
+        "upstream_pr_number": {"const": 87},
+        "upstream_head_commit": {"const": "2e2cc2931a4c3ff1ab427966bc78f79a0f69c151"},
+        "upstream_internal_continuation_gate_status": {"const": "passed"},
+        "goal_internal_r0_materialization_authorized": {"const": true},
+        "repository_r0_materialization_gate_passed": {"const": false},
+        "stale_dependency": {"const": false}
+      }
+    },
+    "input_artifacts": {"type": "object", "required": ["dimension_score", "baseline_daily_confirmation", "baseline_confirmed_interval"]},
+    "materialization": {
+      "type": "object",
+      "required": ["weak_delta", "confirmation_k", "state_names", "dimension_names", "expected_baseline_reference_count", "expected_nonbaseline_vector_count", "expected_total_registry_count", "reuse_baseline_without_copy", "formal_vector_id_fields"],
+      "properties": {
+        "weak_delta": {"const": 0.1},
+        "confirmation_k": {"const": 3},
+        "state_names": {"const": ["S_P", "S_PC", "S_PCT", "S_PCVT"]},
+        "dimension_names": {"const": ["P", "C", "T", "V"]},
+        "expected_baseline_reference_count": {"const": 2},
+        "expected_nonbaseline_vector_count": {"const": 8},
+        "expected_total_registry_count": {"const": 10},
+        "reuse_baseline_without_copy": {"const": true}
+      }
+    },
+    "parallelism": {"type": "object", "required": ["parallelism_mode", "duckdb_threads", "duckdb_memory_limit"]},
+    "governance": {
+      "type": "object",
+      "required": ["R0_q_vector_materialization_status", "independent_review_status", "repository_final_gate_status", "R1-T14-02_allowed_to_start", "R1-T10_allowed_to_start", "R2_allowed_to_start", "formal_task_completed"],
+      "properties": {
+        "R0_q_vector_materialization_status": {"const": "author_draft_complete"},
+        "independent_review_status": {"const": "not_started"},
+        "repository_final_gate_status": {"const": "pending"},
+        "R1-T14-02_allowed_to_start": {"const": false},
+        "R1-T10_allowed_to_start": {"const": false},
+        "R2_allowed_to_start": {"const": false},
+        "formal_task_completed": {"const": false}
+      }
+    }
+  },
+  "additionalProperties": true
+}

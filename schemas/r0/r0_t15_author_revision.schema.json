@@ -1,0 +1,148 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+        "task_id",
+        "revision_id",
+        "revision_class",
+        "protocol_version",
+        "source_run",
+        "upstream_final_gate_binding",
+        "external_review",
+        "governance"
+    ],
+    "properties": {
+        "task_id": {"const": "R0-T15"},
+        "revision_id": {"const": "R0-T15-REV1"},
+        "revision_class": {"const": "post_run_lineage_and_handoff_revision"},
+        "protocol_version": {"const": "R0.v0.3.R0-T15.REV1"},
+        "source_run": {
+            "type": "object",
+            "required": [
+                "run_id",
+                "execution_code_commit",
+                "execution_config_path",
+                "execution_config_sha256",
+                "execution_summary_path",
+                "execution_summary_sha256",
+                "request_binding_path",
+                "request_binding_sha256",
+                "artifact_manifest_path",
+                "artifact_manifest_sha256",
+                "candidate_registry_path",
+                "candidate_registry_sha256",
+                "original_handoff_archive_path",
+                "original_handoff_sha256",
+                "original_result_package_archive_path",
+                "original_result_package_sha256",
+                "original_analysis_archive_path",
+                "original_analysis_sha256",
+                "original_evidence_archive_path",
+                "original_evidence_sha256"
+            ],
+            "properties": {
+                "run_id": {"const": "R0-T15-20260710T2136Z"},
+                "execution_code_commit": {
+                    "const": "b7cd0c2a3d4d3dbe3867246712c68107ea604c96"
+                },
+                "artifact_manifest_sha256": {
+                    "const": "664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51"
+                },
+                "candidate_registry_sha256": {
+                    "const": "02fdaf1b94780ef42115a9109ae9f1fd6b90a6e019925a5067ad1bac96d4944f"
+                },
+                "original_handoff_sha256": {
+                    "const": "fa589db97a19c8e4ba5baee272d5250c0a666e476532d316de2f1225feac879d"
+                },
+                "original_result_package_sha256": {
+                    "const": "43aa859dc938f6a9796f68297107d978e9a3b1a36b1ea12fec8c10e5aee27f8b"
+                }
+            }
+        },
+        "upstream_final_gate_binding": {
+            "type": "object",
+            "required": [
+                "upstream_pr_number",
+                "reviewed_pr_head_commit",
+                "finalization_commit",
+                "merge_commit",
+                "result_package_path",
+                "result_package_sha256",
+                "scientific_review_path",
+                "scientific_review_sha256",
+                "final_gate_validation_path",
+                "final_gate_validation_sha256",
+                "materialization_request_path",
+                "materialization_request_sha256",
+                "scientific_review_status",
+                "repository_final_gate_status",
+                "formal_task_completed",
+                "R0_q_vector_materialization_request_status",
+                "R0_q_vector_materialization_allowed_to_start",
+                "R1-T14-02_allowed_to_start",
+                "selection_path_not_independently_confirmed"
+            ],
+            "properties": {
+                "upstream_pr_number": {"const": 87},
+                "reviewed_pr_head_commit": {
+                    "const": "2e2cc2931a4c3ff1ab427966bc78f79a0f69c151"
+                },
+                "finalization_commit": {
+                    "const": "be446a8fe73a8575c76bee3ee1975993010cad93"
+                },
+                "merge_commit": {"const": "13598861a620ab9e599957db3a34f8595630035b"},
+                "scientific_review_status": {"const": "passed"},
+                "repository_final_gate_status": {"const": "passed"},
+                "formal_task_completed": {"const": true},
+                "R0_q_vector_materialization_request_status": {"const": "approved"},
+                "R0_q_vector_materialization_allowed_to_start": {"const": true},
+                "R1-T14-02_allowed_to_start": {"const": false},
+                "selection_path_not_independently_confirmed": {"const": true}
+            }
+        },
+        "external_review": {
+            "type": "object",
+            "required": [
+                "pr_number",
+                "comment_id",
+                "prior_review_status",
+                "blocking_findings",
+                "external_direct_duckdb_byte_review_performed"
+            ],
+            "properties": {
+                "pr_number": {"const": 88},
+                "comment_id": {"const": 4941872279},
+                "prior_review_status": {"const": "needs_revision"},
+                "external_direct_duckdb_byte_review_performed": {"const": false}
+            }
+        },
+        "governance": {
+            "type": "object",
+            "required": [
+                "author_revision_status",
+                "independent_review_status",
+                "repository_final_gate_status",
+                "goal_internal_continuation_allowed",
+                "goal_internal_t14_02_authorized",
+                "R1-T14-02_allowed_to_start",
+                "R1-T10_allowed_to_start",
+                "R2_allowed_to_start",
+                "selection_path_not_independently_confirmed",
+                "formal_task_completed"
+            ],
+            "properties": {
+                "author_revision_status": {"const": "completed_pending_rereview"},
+                "independent_review_status": {"const": "pending_rereview"},
+                "repository_final_gate_status": {"const": "pending"},
+                "goal_internal_continuation_allowed": {"const": false},
+                "goal_internal_t14_02_authorized": {"const": false},
+                "R1-T14-02_allowed_to_start": {"const": false},
+                "R1-T10_allowed_to_start": {"const": false},
+                "R2_allowed_to_start": {"const": false},
+                "selection_path_not_independently_confirmed": {"const": true},
+                "formal_task_completed": {"const": false}
+            }
+        }
+    },
+    "additionalProperties": true
+}

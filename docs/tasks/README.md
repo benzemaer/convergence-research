@@ -31,7 +31,7 @@ R1-T14-02_status: blocked_pending_R0
 R0_q_vector_materialization_request_status: approved
 R0_q_vector_materialization_task_id: R0-T15
 R0_q_vector_materialization_allowed_to_start: true
-R0_q_vector_materialization_status: authorized
+R0_q_vector_materialization_status: final_gate_passed_pending_merge
 R1-T05_allowed_to_start: true
 R1-T06_allowed_to_start: true
 R1-T07_allowed_to_start: true
@@ -268,6 +268,7 @@ PR #60 的 D3-T11 full-run 摘要以 canonical local output-dir `data/generated/
 - `R0-T12` 替代指标口径敏感性骨架：optional
 - `R0-T13` Post-Up-Release Short-PCT 研究接口占位：optional
 - `R0-T14` R0 并行确定性与性能优化：optional
+- `R0-T15` 层级 q-vector 正式物化与 R1-T14-02 交接：REV1 author revision pending external rereview in Draft PR #88
 
 ## R1：状态存在性、结构关系、稳定性与零模型检验
 
