@@ -134,10 +134,13 @@ class R1T14RouteContractTest(unittest.TestCase):
     def test_readme_keeps_downstream_gates_closed(self) -> None:
         text = README.read_text(encoding="utf-8")
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
-        self.assertIn("current_stage: R1", current)
-        self.assertIn("current_task: R1-T10 R1 验收门禁与 R2 交接矩阵", current)
+        self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "next_planned_task: R2-T01 参数候选收敛",
+            "current_task: R2-T01 参数候选收敛与 shortlist registry",
+            current,
+        )
+        self.assertIn(
+            "next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
             current,
         )
         self.assertIn(
@@ -153,6 +156,9 @@ class R1T14RouteContractTest(unittest.TestCase):
             "R0_q_vector_materialization_status: completed",
             current,
         )
+        self.assertIn("R2-T01_scientific_review_status: pending", current)
+        self.assertIn("R2-T02_allowed_to_start: false", current)
+        self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("R1-T14-01_allowed_to_start: true", current)
         self.assertIn("R1-T14-02_allowed_to_start: false", current)
         self.assertIn("R1-T10_allowed_to_start: true", current)

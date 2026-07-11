@@ -17,9 +17,9 @@
 ## 当前阶段
 
 ```text
-current_stage: R1
-current_task: R1-T10 R1 验收门禁与 R2 交接矩阵
-next_planned_task: R2-T01 参数候选收敛
+current_stage: R2
+current_task: R2-T01 参数候选收敛与 shortlist registry
+next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
@@ -49,6 +49,18 @@ R1-T11_allowed_to_start: false
 R1-T12_allowed_to_start: false
 R1-T13_allowed_to_start: false
 R2_allowed_to_start: true
+R2-T01_allowed_to_start: true
+R2-T01_status: author_analysis_complete_pending_independent_review
+R2-T01_scientific_review_status: pending
+R2-T01_independent_review_status: pending
+R2-T02_allowed_to_start: false
+R2-T03_allowed_to_start: false
+R2-T04_allowed_to_start: false
+R2-T05_allowed_to_start: false
+R2-T06_allowed_to_start: false
+R2-T07_allowed_to_start: false
+R2-T08_allowed_to_start: false
+R3_allowed_to_start: false
 ```
 
 ## 命名与路径规则
@@ -366,11 +378,16 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：ready after R1-T10 final gate; R2-T01 not started in PR #90
+状态：R2-T01 author analysis complete pending independent scientific review；R2-T02 至 R2-T08 仍 blocked。
 
-- `R2-T01` 参数候选收敛
-- `R2-T02` 事件规则与状态边界
-- `R2-T03` 状态版本冻结
+- `R2-T01` 参数候选收敛与 shortlist registry：author_analysis_complete_pending_independent_review
+- `R2-T02` K/d/g、事件指标、hard gate 与 R3 risk-set 契约：blocked until R2-T01 final gate
+- `R2-T03` 四路线 d×g 事件区间几何扫描：blocked
+- `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：blocked
+- `R2-T05` canonical 日度状态与事件区间物化：blocked
+- `R2-T06` canonical 状态机无前视回放与一致性验收：blocked
+- `R2-T07` 状态版本登记册与最终 freeze manifest：blocked
+- `R2-T08` R2 阶段验收与 R3 交接：blocked
 
 ## R3：释放定义、风险集、对照组与未来标签
 

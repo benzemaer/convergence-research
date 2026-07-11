@@ -46,6 +46,14 @@
         }
       ]
     },
+    "stage-r2": {
+      "discover": [
+        {
+          "start_dir": "tests/r2",
+          "pattern": "test*.py"
+        }
+      ]
+    },
     "full": {
       "discover": [
         {

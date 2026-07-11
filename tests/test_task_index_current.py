@@ -10,9 +10,12 @@ class TaskIndexCurrentTest(unittest.TestCase):
     def test_current_task_pointer_is_centralized(self) -> None:
         text = README.read_text(encoding="utf-8")
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
-        self.assertIn("current_stage: R1", current)
-        self.assertIn("current_task: R1-T10 R1 验收门禁与 R2 交接矩阵", current)
-        self.assertIn("next_planned_task: R2-T01 参数候选收敛", current)
+        self.assertIn("current_stage: R2", current)
+        self.assertIn("current_task: R2-T01 参数候选收敛与 shortlist registry", current)
+        self.assertIn(
+            "next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+            current,
+        )
         self.assertIn(
             "`R1-T01` 验证协议、状态线假设与 manifest 锁定：completed via PR #75",
             text,
@@ -65,8 +68,20 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R1-T12_allowed_to_start: false", current)
         self.assertIn("R1-T13_allowed_to_start: false", current)
         self.assertIn("R2_allowed_to_start: true", current)
+        self.assertIn("R2-T01_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T01_status: author_analysis_complete_pending_independent_review",
+            current,
+        )
+        self.assertIn("R2-T01_scientific_review_status: pending", current)
+        self.assertIn("R2-T02_allowed_to_start: false", current)
+        self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
-        self.assertIn("状态：ready after R1-T10 final gate", text)
+        self.assertIn(
+            "状态：R2-T01 author analysis complete pending independent "
+            "scientific review",
+            text,
+        )
 
 
 if __name__ == "__main__":
