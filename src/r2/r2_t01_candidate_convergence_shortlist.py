@@ -233,6 +233,74 @@ def _check_input_authorization(
         != config["inputs"]["expected_sha256"]["decision_matrix"]
     ):
         raise R2T01Error("input_matrix_hash_check")
+    _check_final_input_chain(config, final_gate, final_validation, rows)
+
+
+def _check_final_input_chain(
+    config: dict[str, Any],
+    final_gate: dict[str, Any],
+    final_validation: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> None:
+    paths = config["inputs"]
+    final_package_path = ROOT / paths["final_gate_package_path"]
+    reviewed_path = ROOT / paths["reviewed_author_package_path"]
+    review_path = ROOT / paths["scientific_review_path"]
+    handoff_path = ROOT / paths["handoff_manifest_path"]
+    reviewed = _load_json(reviewed_path)
+    review = _load_json(review_path)
+    handoff = _load_json(handoff_path)
+    if final_validation.get("final_gate_package_sha256") != sha256_file(
+        final_package_path
+    ):
+        raise R2T01Error("input_final_gate_package_sha_check")
+    if final_gate.get("reviewed_author_package_sha256") != sha256_file(reviewed_path):
+        raise R2T01Error("input_reviewed_author_package_sha_check")
+    if final_gate.get("reviewed_author_package_sha256") != review.get(
+        "reviewed_author_package_sha256"
+    ):
+        raise R2T01Error("input_review_author_package_cross_binding_check")
+    if final_gate.get("reviewed_author_package_sha256") != review.get(
+        "reviewed_result_package_sha256"
+    ):
+        raise R2T01Error("input_review_result_package_cross_binding_check")
+    if final_gate.get("scientific_review_status") != review.get(
+        "scientific_review_status"
+    ):
+        raise R2T01Error("input_scientific_review_status_binding_check")
+    if final_gate.get("independent_review_status") != review.get(
+        "independent_review_status"
+    ):
+        raise R2T01Error("input_independent_review_status_binding_check")
+    matrix_sha = config["inputs"]["expected_sha256"]["decision_matrix"]
+    if (
+        handoff.get("matrix_sha256") != matrix_sha
+        or review.get("reviewed_matrix_sha256") != matrix_sha
+    ):
+        raise R2T01Error("input_handoff_matrix_sha_check")
+    if handoff.get("row_count") != len(rows):
+        raise R2T01Error("input_handoff_matrix_cardinality_check")
+    if (
+        reviewed.get("committed_artifacts", {})
+        .get(paths["decision_matrix_path"], {})
+        .get("sha256")
+        != matrix_sha
+    ):
+        raise R2T01Error("input_reviewed_package_matrix_sha_check")
+    expected_head = final_gate.get("reviewed_pr_head_commit")
+    if expected_head and not _is_ancestor(expected_head, current_commit(ROOT), ROOT):
+        raise R2T01Error("input_pr90_merge_lineage_check")
+
+
+def _is_ancestor(ancestor: str, descendant: str, root: Path) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
 
 
 def reconcile_sources(
@@ -289,7 +357,9 @@ def reconcile_sources(
                 "source_artifact_hash_check": "passed"
                 if _source_hashes_match(source)
                 else "failed",
-                "source_supersession_check": "passed",
+                "source_supersession_check": "passed"
+                if _source_current(source)
+                else "failed",
             }
         )
     if upstream_failed:
@@ -311,6 +381,25 @@ def _source_hashes_match(row: dict[str, str]) -> bool:
     for meta in hashes.values():
         path = ROOT / meta["path"]
         if not path.is_file() or sha256_file(path) != meta["sha256"]:
+            return False
+    return True
+
+
+def _source_current(row: dict[str, str]) -> bool:
+    hashes = json.loads(row["source_artifact_hashes"])
+    for meta in hashes.values():
+        path = ROOT / meta["path"]
+        if not path.is_file():
+            return False
+        if path.suffix != ".json":
+            continue
+        try:
+            payload = _load_json(path)
+        except Exception:
+            return False
+        if payload.get("superseded") is True or payload.get("status") == "superseded":
+            return False
+        if payload.get("superseded_by"):
             return False
     return True
 
@@ -400,6 +489,15 @@ def audit_row(
 def evidence_row(row: dict[str, str]) -> dict[str, Any]:
     fields = [
         "handoff_row_id",
+        "state_line",
+        "W",
+        "K",
+        "qP",
+        "qC",
+        "qT",
+        "qV",
+        "source_route",
+        "archetype",
         "confirmed_state_days",
         "confirmed_coverage",
         "unique_securities",
@@ -416,7 +514,51 @@ def evidence_row(row: dict[str, str]) -> dict[str, Any]:
         "nested_joint_lift",
         "warning_codes",
     ]
-    return {field: row[field] for field in fields}
+    result = {field: row[field] for field in fields}
+    result["eligible_days"] = _eligible_days(row)
+    result["denominator_scope"] = _denominator_scope(row)
+    result["metric_source_task"] = _metric_source_task(row)
+    result["metric_source_run"] = _metric_source_run(row)
+    result["coverage_comparable_group"] = _coverage_comparable_group(row)
+    result["coverage_cross_group_comparable"] = "False"
+    return result
+
+
+def _eligible_days(row: dict[str, str]) -> int:
+    coverage = float(row["confirmed_coverage"])
+    if coverage <= 0:
+        return 0
+    return round(float(row["confirmed_state_days"]) / coverage)
+
+
+def _denominator_scope(row: dict[str, str]) -> str:
+    if row["handoff_row_id"].startswith("shared_"):
+        return "r1_t01_to_t09_strict_common_valid_mixed_scope"
+    return "r1_t14_02_same_sample_ordered_short_circuit_scope"
+
+
+def _metric_source_task(row: dict[str, str]) -> str:
+    if row["handoff_row_id"].startswith("shared_"):
+        return "R1-T01..R1-T09"
+    return "R1-T14-02"
+
+
+def _metric_source_run(row: dict[str, str]) -> str:
+    refs = json.loads(row["source_artifact_hashes"])
+    if row["handoff_row_id"].startswith("shared_"):
+        return "lineage_mixed_R1-T01_R1-T09"
+    path = refs.get("R1-T14-02", {}).get("path", "")
+    if not path:
+        return "unknown"
+    return Path(path).parts[-2]
+
+
+def _coverage_comparable_group(row: dict[str, str]) -> str:
+    if row["handoff_row_id"].startswith("shared_"):
+        return f"mixed_scope_shared_q_W{row['W']}_{row['state_line']}"
+    if row["state_line"] == "S_PCT":
+        return f"same_scope_t14_02_pct_W{row['W']}"
+    return f"same_scope_t14_02_pcvt_W{row['W']}"
 
 
 def anomaly_scan(
@@ -515,54 +657,148 @@ def anomaly_scan(
         "data/generated/r2/r2_t01/" + run_id + "/r2_t01_source_reconciliation.csv",
         "data/generated/r2/r2_t01/" + run_id + "/r2_t01_evidence_snapshot.csv",
     ]
-    mandatory = (
-        "primary_output_nonempty",
-        "all_zero_check",
-        "all_one_check",
-        "all_null_check",
-        "validity_rate_check",
-        "coverage_check",
-        "parameter_response_check",
-        "baseline_challenger_check",
-        "nested_invariant_check",
-        "funnel_accounting_check",
-        "denominator_integrity_check",
-        "sample_size_check",
-        "upstream_consistency_check",
-        "scale_shift_check",
-        "time_alignment_check",
-        "future_leakage_check",
-        "post_hoc_selection_check",
-        "conclusion_support_check",
-    )
+    coverage_groups = Counter(_coverage_comparable_group(row) for row in source_rows)
+    source_routes = Counter(row["source_route"] for row in source_rows)
+    post_hoc_passed = _post_hoc_selection_passed(source_rows, registry, config)
+    readme_passed = _readme_gate_passed(config)
+    if not post_hoc_passed:
+        errors.append("post_hoc_selection_check")
+    if not readme_passed:
+        errors.append("README_transition_check")
     checks = {
-        name: {
-            "status": "passed" if not errors else "blocked",
-            "rationale": (
-                "Registry task-specific invariant and degeneration checks passed."
-            )
-            if not errors
-            else "One or more task-specific registry invariants failed.",
-            "metrics": {
+        "primary_output_nonempty": _check_payload(
+            bool(primary_ids),
+            "Primary shortlist contains the four pre-registered routes.",
+            {"primary_route_count": len(primary_ids)},
+            artifact_refs,
+        ),
+        "all_zero_check": _check_payload(
+            len(role_counts) > 1,
+            "Registry roles are not degenerate to one all-zero class.",
+            {"role_counts": dict(role_counts)},
+            artifact_refs,
+        ),
+        "all_one_check": _check_payload(
+            len(role_counts) > 1,
+            "Registry roles are not degenerate to one all-one class.",
+            {"role_counts": dict(role_counts)},
+            artifact_refs,
+        ),
+        "all_null_check": _check_payload(
+            all(row["route_id"] and row["r1_handoff_row_id"] for row in registry),
+            "Required identity fields are populated on every registry row.",
+            {"registry_rows": len(registry)},
+            artifact_refs,
+        ),
+        "validity_rate_check": _check_payload(
+            all(row["r1_handoff_status"] != "blocked_return_to_R0" for row in registry),
+            "No blocked_return_to_R0 handoff row entered the R2-T01 registry.",
+            dict(Counter(row["r1_handoff_status"] for row in registry)),
+            artifact_refs,
+        ),
+        "coverage_check": _check_payload(
+            all(float(row["confirmed_coverage"]) > 0 for row in source_rows),
+            "Coverage is positive for all source evidence rows; cross-scope "
+            "comparisons are disallowed by denominator metadata.",
+            {"coverage_comparable_groups": dict(coverage_groups)},
+            artifact_refs,
+        ),
+        "parameter_response_check": _not_applicable(
+            "R2-T01 does not scan parameters; it validates deterministic role "
+            "disposition of R1-T10 handed-off rows.",
+            artifact_refs,
+        ),
+        "baseline_challenger_check": _check_payload(
+            role_counts["strict_core_reference"] == 4
+            and role_counts["primary"] == 4
+            and role_counts["sensitivity"] == 2
+            and role_counts["excluded"] == 2,
+            "Shared-q, q-vector center, qT sensitivity, and qV excluded cohorts "
+            "are all present as deterministic dispositions.",
+            {"role_counts": dict(role_counts)},
+            artifact_refs,
+        ),
+        "nested_invariant_check": _not_applicable(
+            "Nested-state truth tables are not recomputed in R2-T01; upstream "
+            "source hashes and current package status are checked instead.",
+            artifact_refs,
+        ),
+        "funnel_accounting_check": _check_payload(
+            len(source_rows) == len(registry) == len(audit) == len(reconciliation),
+            "Source matrix, registry, audit, and reconciliation preserve the "
+            "12-row handoff cardinality.",
+            {
                 "source_rows": len(source_rows),
                 "registry_rows": len(registry),
-                "role_counts": dict(role_counts),
-                "blocking_error_count": len(errors),
+                "audit_rows": len(audit),
+                "reconciliation_rows": len(reconciliation),
             },
-            "artifact_references": artifact_refs,
-        }
-        for name in mandatory
+            artifact_refs,
+        ),
+        "denominator_integrity_check": _check_payload(
+            len(coverage_groups) >= 4
+            and all(float(r["confirmed_coverage"]) > 0 for r in source_rows),
+            "Denominator scopes are explicitly separated into comparable groups "
+            "and eligible_days are derivable.",
+            {"coverage_comparable_groups": dict(coverage_groups)},
+            artifact_refs,
+        ),
+        "sample_size_check": _check_payload(
+            len(source_rows) == config["expected_input_counts"]["row_count"],
+            "Input row count matches the authorized R1-T10 handoff matrix.",
+            {"source_rows": len(source_rows)},
+            artifact_refs,
+        ),
+        "upstream_consistency_check": _check_payload(
+            all(
+                row["candidate_registry_reconciliation"] == "passed"
+                and row["warning_registry_reconciliation"] == "passed"
+                and row["decision_recomputation_status"] == "passed"
+                and row["source_artifact_hash_check"] == "passed"
+                and row["source_supersession_check"] == "passed"
+                for row in reconciliation
+            ),
+            "R1-T10 source registries, warnings, recomputation rows, source "
+            "hashes, and current-status checks passed.",
+            {"reconciliation_rows": len(reconciliation)},
+            artifact_refs,
+        ),
+        "scale_shift_check": _check_payload(
+            all(0 < float(row["confirmed_coverage"]) < 1 for row in source_rows)
+            and all(float(row["association_lift"]) > 0 for row in source_rows),
+            "Coverage proportions and lift values are in expected positive ranges.",
+            {"source_routes": dict(source_routes)},
+            artifact_refs,
+        ),
+        "time_alignment_check": _check_payload(
+            all(_source_hashes_match(row) for row in source_rows),
+            "All row-level source artifact hashes resolve to current committed bytes.",
+            {"source_rows": len(source_rows)},
+            artifact_refs,
+        ),
+        "future_leakage_check": _check_payload(
+            not forbidden,
+            "Registry serialization contains no forbidden d/g/event/future/"
+            "freeze/backtest fields.",
+            {"forbidden_tokens": forbidden},
+            artifact_refs,
+        ),
+        "post_hoc_selection_check": _check_payload(
+            post_hoc_passed,
+            "Primary routes exactly match the pre-registered config and "
+            "row-level selection-path limitations are preserved.",
+            {"primary_route_ids": primary_ids, "selection_path_flags": dict(flags)},
+            artifact_refs,
+        ),
+        "conclusion_support_check": _check_payload(
+            not errors,
+            "Conclusions are limited to deterministic 12-row registry "
+            "disposition and keep downstream gates closed.",
+            {"blocking_error_count": len(errors)},
+            artifact_refs,
+        ),
     }
-    checks["parameter_response_check"]["status"] = "not_applicable"
-    checks["parameter_response_check"]["rationale"] = (
-        "R2-T01 does not scan parameters; mutation-sensitive role mapping is "
-        "covered by q_vector_role_check and role_count_check."
-    )
-    checks["parameter_response_check"]["metrics"] = {"scanned_parameter_count": 0}
-    checks["baseline_challenger_check"]["rationale"] = (
-        "R2-T01 compares shared-q references, q-vector centers, sensitivity neighbors, "
-        "and excluded rows only as deterministic dispositions, not as winners."
-    )
+    determinism_status = "passed" if not errors else "blocked"
     return {
         "task_id": "R2-T01",
         "run_id": run_id,
@@ -570,16 +806,78 @@ def anomaly_scan(
         "scan_status": "passed" if not errors else "blocked",
         "status": "passed" if not errors else "blocked",
         "checks": checks,
-        "blocking_anomalies": list(checks) if errors else [],
+        "blocking_anomalies": [
+            name for name, payload in checks.items() if payload["status"] == "blocked"
+        ],
         "unresolved_questions": [],
         "blocking_errors": errors,
         "generic_checks": generic,
         "role_counts": dict(role_counts),
         "selection_path_flag_counts": {str(k): v for k, v in flags.items()},
-        "post_hoc_selection_check": "passed",
-        "deterministic_output_check": "passed",
-        "README_transition_check": "passed",
+        "post_hoc_selection_check": "passed" if post_hoc_passed else "blocked",
+        "deterministic_output_check": determinism_status,
+        "README_transition_check": "passed" if readme_passed else "blocked",
     }
+
+
+def _check_payload(
+    passed: bool,
+    rationale: str,
+    metrics: dict[str, Any],
+    artifact_refs: list[str],
+) -> dict[str, Any]:
+    return {
+        "status": "passed" if passed else "blocked",
+        "rationale": rationale,
+        "metrics": metrics,
+        "artifact_references": artifact_refs,
+    }
+
+
+def _not_applicable(
+    rationale: str, artifact_refs: list[str] | None = None
+) -> dict[str, Any]:
+    return {
+        "status": "not_applicable",
+        "rationale": rationale,
+        "metrics": {},
+        "artifact_references": artifact_refs or [],
+    }
+
+
+def _post_hoc_selection_passed(
+    source_rows: list[dict[str, str]],
+    registry: list[dict[str, Any]],
+    config: dict[str, Any],
+) -> bool:
+    actual_primary = sorted(
+        row["route_id"] for row in registry if row["candidate_role"] == "primary"
+    )
+    if actual_primary != sorted(config["primary_shortlist_route_ids"]):
+        return False
+    by_id = {row["r1_handoff_row_id"]: row for row in registry}
+    for source in source_rows:
+        actual = by_id.get(source["handoff_row_id"])
+        if actual is None:
+            return False
+        if (source["selection_path_not_independently_confirmed"] == "True") != actual[
+            "selection_path_not_independently_confirmed"
+        ]:
+            return False
+    return True
+
+
+def _readme_gate_passed(config: dict[str, Any]) -> bool:
+    readme = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
+    gate = config["author_draft_gate_state"]
+    required = [
+        gate["current_stage"],
+        gate["current_task"],
+        gate["next_planned_task"],
+        "R2-T02_allowed_to_start: false",
+        "R3_allowed_to_start: false",
+    ]
+    return all(token in readme for token in required)
 
 
 def experiment_summary(

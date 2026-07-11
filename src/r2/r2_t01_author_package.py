@@ -73,6 +73,24 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _denominator_groups(rows: list[dict[str, str]]) -> dict[str, dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        group = row.get("coverage_comparable_group", "unknown")
+        entry = groups.setdefault(
+            group,
+            {
+                "rows": 0,
+                "denominator_scope": row.get("denominator_scope", "unknown"),
+                "eligible_days": [],
+            },
+        )
+        entry["rows"] += 1
+        if row.get("eligible_days"):
+            entry["eligible_days"].append(row["eligible_days"])
+    return groups
+
+
 def _analysis_markdown(
     run_id: str,
     summary: dict[str, Any],
@@ -97,6 +115,7 @@ def _analysis_markdown(
         for row in registry
         if row["candidate_role"] == "strict_core_reference"
     }
+    denominator_groups = _denominator_groups(evidence_snapshot)
     warning_fail = sum(
         row["warning_reconciliation_status"] != "passed" for row in audit
     )
@@ -129,10 +148,10 @@ observed_fact: canonical registry 行数为 {len(registry)}，role counts 为 {r
 observed_fact: 预期 4/4/2/2 角色计数，实际为 {role_counts}；预期 primary 行数 4，实际为 {len(primary)}。observed_fact: audit assignment failed count 为 {diagnostic["audit_failed_count"]}。inference: 实际结果与预注册 deterministic mapping 一致，没有产生 automatic winner、preferred window 或排名字段。
 
 ## 6. coverage / NULL / unknown / blocked / denominator 检查
-observed_fact: 本任务不重新计算日度 coverage、unknown、blocked 或 denominator；它复制 R1 matrix 的 evidence snapshot 供审阅。derived_statistic: evidence snapshot 行数为 {len(evidence_snapshot)}，与 registry 行数一致。research_judgment: 对本 registry 型任务，非退化检查体现为 primary output 非空、candidate_role 非单值、selection_eligible 与 fallback_eligible 均非全零或全一，anomaly scan 状态为 `{anomaly["scan_status"]}`。
+observed_fact: evidence snapshot 行数为 {len(evidence_snapshot)}，与 registry 行数一致，并包含 eligible_days、denominator_scope、metric_source_task、metric_source_run 与 coverage_comparable_group。derived_statistic: denominator groups 为 {denominator_groups}。research_judgment: R1-T10 matrix 是 mixed-scope lineage snapshot；shared-q 的 strict-common-valid denominator 与 R1-T14-02 q-vector ordered short-circuit denominator 不同，不能直接用 confirmed_coverage 的跨角色差值说明 q-vector 覆盖扩大。inference: 只有相同 coverage_comparable_group 内的 q-vector neighbor rows 可做数值响应比较；shared-q 只能作为 fallback/reference identity，不作为同口径 coverage baseline。
 
 ## 7. baseline 与至少两个 challenger 对照
-observed_fact: baseline 是四个 shared-q strict-core/fallback reference；challenger 一是四个 q-vector center primary；challenger 二是两个 qT=.30 immediate-neighbor sensitivity rows；另有两个 qV=.25 excluded rows 保留 R1 do_not_freeze 结论。inference: 这些对照只用于确认角色处置和限制传播，不构成 winner 排名。
+observed_fact: baseline 是四个 shared-q strict-core/fallback reference；challenger 一是四个 q-vector center primary；challenger 二是两个 qT=.30 immediate-neighbor sensitivity rows；另有两个 qV=.25 excluded rows 保留 R1 do_not_freeze 结论。inference: 这些对照只用于确认角色处置和限制传播，不构成 winner 排名；涉及 q-vector 数值变化时，仅在 R1-T14-02 same-scope group 内解释方向，不把 shared-q mixed-scope coverage 当成同口径 challenger。
 
 ## 8. 参数响应与敏感性
 observed_fact: T01 不扫描 d/g，不重扫 K，也不生成新 q-vector。derived_statistic: qT=.30 sensitivity 行数为 2，qV=.25 excluded 行数为 2。research_judgment: 参数响应在 T01 表现为 mutation-sensitive role mapping；若 qT=.30 被改为 primary 或 qV=.25 被改为 sensitivity/excluded 以外角色，validator 必须失败。
@@ -144,7 +163,7 @@ observed_fact: source rows、candidate disposition registry、canonical shortlis
 observed_fact: anomaly blocking errors 为 {anomaly.get("blocking_errors", [])}。observed_fact: source reconciliation failed count 为 {source_fail}，warning reconciliation failed count 为 {warning_fail}。research_judgment: 当前 author analysis 未发现 unresolved blocker；若后续 reviewer 发现 warning 丢失、source hash 变化或行级 selection_path limitation 丢失，应标记 blocked_return_to_R1 或 needs_revision。
 
 ## 11. 替代解释与反证检查
-inference: q-vector primary 的扩大覆盖可能来自阈值放宽和状态身份变化，而非更强的经济结构。research_judgment: T01 只接受 R1 已完成的结构资格和 R2 预注册角色安排，不证明 q-vector 优于 shared-q，也不证明未来预测价值。observed_fact: result package 保持 scientific_review_status=pending，等待独立 reviewer 直接读取 matrix、registry、audit、warning reconciliation 和本报告。
+inference: q-vector rows 的 same-scope 参数响应可能来自阈值放宽和状态身份变化，而非更强的经济结构。research_judgment: T01 只接受 R1 已完成的结构资格和 R2 预注册角色安排，不证明 q-vector 优于 shared-q，也不证明未来预测价值。observed_fact: result package 保持 scientific_review_status=pending，等待独立 reviewer 直接读取 matrix、registry、audit、warning reconciliation 和本报告。
 
 ## 12. 研究限制
 research_judgment: 本任务没有事件区间、d/g、释放标签、未来路径、交易成本或样本外证据；selection_path_not_independently_confirmed 仍为 package 顶层限制。inference: 任何把四条 primary 解释为最终冻结版本或交易信号的说法均超出本任务证据。
@@ -168,6 +187,13 @@ def _evidence_markdown(
     analysis_path: Path,
 ) -> str:
     sci = output_dir / "r2_t01_scientific_review.json"
+    input_binding = output_dir / "r2_t01_input_binding.json"
+    config_path = ROOT / "configs/r2/r2_t01_candidate_convergence_shortlist.v1.json"
+    output_hashes = {
+        path.name: sha256_file(path)
+        for path in sorted(output_dir.glob("r2_t01_*"))
+        if path.is_file()
+    }
     return f"""# R2-T01 evidence
 
 `task_id`: R2-T01
@@ -175,6 +201,19 @@ def _evidence_markdown(
 `code_commit`: {engineering.get("code_commit")}
 `input_matrix_sha256`: {engineering.get("matrix_sha256")}
 `config_hash`: {engineering.get("config_sha256")}
+`config_path`: {repo_rel(config_path)}
+`input_binding_path`: {repo_rel(input_binding)}
+`input_binding_sha256`: {sha256_file(input_binding)}
+`input_paths_and_hashes`: {_load_json(input_binding).get("input_artifacts")}
+`output_paths_and_hashes`: {output_hashes}
+`validator_command`: python scripts/r2/validate_r2_t01_candidate_convergence_shortlist.py --output {repo_rel(output_dir)}
+`validator_name`: {engineering.get("validator")}
+`lineage_check`: source hashes, supersession/current status, final package/review/handoff cross-binding, and PR #90 ancestry checked
+`forbidden_field_check`: {anomaly.get("checks", {}).get("future_leakage_check", {}).get("status")}
+`full_sha_check`: config/input/output hashes recorded as full SHA-256
+`row_payload_policy`: aggregate registry/evidence rows only; no raw vendor row payloads
+`deterministic_output_check`: {engineering.get("deterministic_output_check")}
+`README_transition_check`: {engineering.get("README_transition_check")}
 `output_row_counts`: shortlist_registry=12;primary_shortlist=4
 `role_counts`: {summary.get("role_counts")}
 `engineering_validator_status`: passed
@@ -219,8 +258,13 @@ def _package(
     primary_artifacts = [
         _artifact(output_dir / "r2_t01_shortlist_registry.csv", "primary_results"),
         _artifact(output_dir / "r2_t01_primary_shortlist.csv", "primary_shortlist"),
+        _artifact(
+            output_dir / "r2_t01_candidate_disposition_registry.csv",
+            "candidate_disposition_registry",
+        ),
     ]
     diagnostic_artifacts = [
+        _artifact(output_dir / "r2_t01_input_binding.json", "input_binding"),
         _artifact(
             output_dir / "r2_t01_source_reconciliation.csv", "source_reconciliation"
         ),
