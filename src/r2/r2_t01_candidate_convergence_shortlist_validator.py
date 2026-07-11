@@ -658,14 +658,24 @@ def _canonical_json_sha256(value: Any) -> str:
 def _readme_gate_passed(root: Path, config: dict[str, Any]) -> bool:
     readme = (root / "docs/tasks/README.md").read_text(encoding="utf-8")
     gate = config["author_draft_gate_state"]
-    required = [
+    author_draft = [
         gate["current_stage"],
         gate["current_task"],
         gate["next_planned_task"],
         "R2-T02_allowed_to_start: false",
         "R3_allowed_to_start: false",
     ]
-    return all(token in readme for token in required)
+    completed = [
+        "R2-T01_status: completed",
+        "R2-T01_scientific_review_status: passed",
+        "R2-T01_independent_review_status: passed",
+        "R2-T02_allowed_to_start: true",
+        "R2-T03_allowed_to_start: false",
+        "R3_allowed_to_start: false",
+    ]
+    return all(token in readme for token in author_draft) or all(
+        token in readme for token in completed
+    )
 
 
 def _read_jsonish_csv(path: Path) -> list[dict[str, Any]]:
