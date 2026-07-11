@@ -20,14 +20,30 @@ AUTHOR_PACKAGE_SHA256 = (
     "fca9e9288035843bc79e2efe0adc3222c29afc7af35d16224efdb942afae3506"
 )
 REVIEWED_ARTIFACTS = {
-    "r2_t01_shortlist_registry.csv": "9b625cdf06132a8a0488d1b304f41633306287d39f0986208f4ce11f0b042d4d",
-    "r2_t01_primary_shortlist.csv": "cfe9a18cdfef22fa2a5aa7f0658be2784819b95b775de814f08f97d1e95b6144",
-    "r2_t01_candidate_disposition_registry.csv": "6cfff0f33b062a547a81ca8b7c227605b4dbda923ea9aae669262e0023f2de67",
-    "r2_t01_role_assignment_audit.csv": "38c58ea82e42715cc4a901c3b44fce04e3e1dff6ad7e236973a231e0da3555e7",
-    "r2_t01_source_reconciliation.csv": "33999d92619a512ae92535355a53129b0d1a4e434007f7e887fd99fe2f544310",
-    "r2_t01_evidence_snapshot.csv": "8bf2a408de97e49f12ef39403d384370618c05ac79389841c1dfca41cbf54fd9",
-    "r2_t01_result_analysis.md": "2ca49099b759c024f3288a7f38743bb1e597b299ae4ec37842cc4b874d870b26",
-    "r2_t01_evidence.md": "bfb08ad1e00c81f7ebef4dbf4588d2b48f9f95ae0bc76301bb72e34253e31475",
+    "r2_t01_shortlist_registry.csv": (
+        "9b625cdf06132a8a0488d1b304f41633306287d39f0986208f4ce11f0b042d4d"
+    ),
+    "r2_t01_primary_shortlist.csv": (
+        "cfe9a18cdfef22fa2a5aa7f0658be2784819b95b775de814f08f97d1e95b6144"
+    ),
+    "r2_t01_candidate_disposition_registry.csv": (
+        "6cfff0f33b062a547a81ca8b7c227605b4dbda923ea9aae669262e0023f2de67"
+    ),
+    "r2_t01_role_assignment_audit.csv": (
+        "38c58ea82e42715cc4a901c3b44fce04e3e1dff6ad7e236973a231e0da3555e7"
+    ),
+    "r2_t01_source_reconciliation.csv": (
+        "33999d92619a512ae92535355a53129b0d1a4e434007f7e887fd99fe2f544310"
+    ),
+    "r2_t01_evidence_snapshot.csv": (
+        "8bf2a408de97e49f12ef39403d384370618c05ac79389841c1dfca41cbf54fd9"
+    ),
+    "r2_t01_result_analysis.md": (
+        "2ca49099b759c024f3288a7f38743bb1e597b299ae4ec37842cc4b874d870b26"
+    ),
+    "r2_t01_evidence.md": (
+        "bfb08ad1e00c81f7ebef4dbf4588d2b48f9f95ae0bc76301bb72e34253e31475"
+    ),
 }
 
 
@@ -200,7 +216,9 @@ def _validate_review(review: dict[str, Any]) -> None:
         "reviewed_author_package_sha256": AUTHOR_PACKAGE_SHA256,
         "reviewed_result_package_sha256": AUTHOR_PACKAGE_SHA256,
         "reviewed_code_commit": "c0be8673c0fba95002132913d8b6d87ddf9538f4",
-        "reviewed_summary_sha256": "278f3bde230885d3887a8a2e127ff4af706e2c90d3de25942eff61383bc371d9",
+        "reviewed_summary_sha256": (
+            "278f3bde230885d3887a8a2e127ff4af706e2c90d3de25942eff61383bc371d9"
+        ),
         "reviewed_analysis_sha256": REVIEWED_ARTIFACTS["r2_t01_result_analysis.md"],
         "scientific_review_status": "passed",
         "independent_review_status": "passed",
