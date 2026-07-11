@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -88,11 +89,11 @@ def validate_readme_transition(root: Path, transition: dict[str, Any]) -> list[s
     )
     if old_result.returncode:
         return ["transition_old_readme_unreadable"]
-    current_path = root / str(transition.get("current_task_index_path", ""))
-    if not current_path.is_file():
+    current_text = _transition_current_text(root, transition)
+    if current_text is None:
         return ["transition_current_readme_missing"]
     old_fields = current_stage_block(old_result.stdout)
-    new_fields = current_stage_block(current_path.read_text(encoding="utf-8"))
+    new_fields = current_stage_block(current_text)
     allowed = set(transition.get("allowed_field_changes", []))
     changed = {
         key
@@ -108,3 +109,36 @@ def validate_readme_transition(root: Path, transition: dict[str, Any]) -> list[s
     if new_fields.get("R2_allowed_to_start") != "false":
         errors.append("transition_current_R2_not_false")
     return errors
+
+
+def _transition_current_text(root: Path, transition: dict[str, Any]) -> str | None:
+    path_value = str(transition.get("current_task_index_path", ""))
+    expected_sha = str(transition.get("current_task_index_sha256", ""))
+    current_path = root / path_value
+    if current_path.is_file():
+        text = current_path.read_text(encoding="utf-8")
+        if sha256(text.encode("utf-8")).hexdigest() == expected_sha:
+            return text
+    history = subprocess.run(
+        ["git", "log", "--format=%H", "--", path_value],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if history.returncode:
+        return None
+    for commit in history.stdout.splitlines():
+        result = subprocess.run(
+            ["git", "show", f"{commit}:{path_value}"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if (
+            result.returncode == 0
+            and sha256(result.stdout.encode("utf-8")).hexdigest() == expected_sha
+        ):
+            return result.stdout
+    return None

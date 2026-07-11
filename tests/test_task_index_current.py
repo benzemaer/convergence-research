@@ -58,12 +58,15 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R1-T14-01_allowed_to_start: true", text)
         self.assertIn("R1-T14-02_allowed_to_start: false", current)
         self.assertIn("R1-T10_allowed_to_start: true", current)
+        self.assertIn("R1-T10_status: completed", current)
+        self.assertIn("R1-T10_scientific_review_status: passed", current)
+        self.assertIn("R1-T10_independent_review_status: passed", current)
         self.assertIn("R1-T11_allowed_to_start: false", current)
         self.assertIn("R1-T12_allowed_to_start: false", current)
         self.assertIn("R1-T13_allowed_to_start: false", current)
-        self.assertIn("R2_allowed_to_start: false", current)
+        self.assertIn("R2_allowed_to_start: true", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
-        self.assertIn("状态：blocked until R1", text)
+        self.assertIn("状态：ready after R1-T10 final gate", text)
 
 
 if __name__ == "__main__":

@@ -162,9 +162,10 @@ class R0T15FinalGateContractTests(unittest.TestCase):
                             "r1_t10_result_package.json"
                         ).read_text(encoding="utf-8")
                     )
-                    self.assertEqual(t10_author["status"], "author_draft_complete")
-                    self.assertEqual(t10_author["scientific_review_status"], "pending")
-                    self.assertFalse(t10_author["R2_allowed_to_start"])
+                    self.assertEqual(t10_author["status"], "completed")
+                    self.assertEqual(t10_author["scientific_review_status"], "passed")
+                    self.assertTrue(t10_author["formal_task_completed"])
+                    self.assertTrue(t10_author["R2_allowed_to_start"])
                     self.assertEqual(current_sha, t10_author["task_index_sha256"])
 
     def test_repository_merge_transition_authorizes_only_t14_02(self) -> None:
