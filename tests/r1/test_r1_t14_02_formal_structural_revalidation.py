@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import shutil
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
@@ -14,11 +16,26 @@ from src.r1.r1_t14_02_formal_structural_revalidation import (
     _step_metrics,
     _v_selectivity_retained,
 )
+from src.r1.r1_t14_02_formal_structural_revalidation_validator import (
+    validate_r1_t14_02_formal_structural_revalidation,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class R1T1402FormalStructuralRevalidationTests(unittest.TestCase):
+    def test_validator_fails_closed_for_raw_ratio_source(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T0900Z"
+        )
+        with TemporaryDirectory() as temporary:
+            run_dir = Path(temporary) / source.name
+            shutil.copytree(source, run_dir)
+            result = validate_r1_t14_02_formal_structural_revalidation(run_dir=run_dir)
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("v_selectivity_guard_contract", result["errors"])
+
     def test_confirmed_coverage_uses_k3_without_backfill(self) -> None:
         security = np.asarray([0, 0, 0, 0, 0, 1, 1, 1], dtype=np.int32)
         true_indices = np.asarray([0, 1, 2, 4, 5, 6, 7], dtype=np.int64)

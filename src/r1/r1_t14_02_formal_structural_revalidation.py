@@ -35,7 +35,7 @@ from src.r1.r1_t08_null_engine import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v2.json"
+CONFIG_PATH = ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v3.json"
 SCHEMA_PATH = ROOT / "schemas/r1/r1_t14_02_formal_structural_revalidation.schema.json"
 TASK_ID = "R1-T14-02"
 LAYERS = ("P", "C", "T", "V")
@@ -296,7 +296,10 @@ def _validate_governance(config: Mapping[str, Any]) -> None:
     upstream = config["upstream_binding"]
     if not upstream["goal_internal_t14_02_authorized"]:
         raise R1T1402Error("goal_internal_continuation_not_authorized")
-    current_revision = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v2"
+    current_revision = config.get("protocol_version") in {
+        "R1.v0.4.R1-T14-02.v2",
+        "R1.v0.4.R1-T14-02.v3",
+    }
     if current_revision:
         if (
             upstream["goal_internal_continuation_gate_status"]
@@ -314,7 +317,7 @@ def _validate_governance(config: Mapping[str, Any]) -> None:
         raise R1T1402Error("legacy_author_draft_gate_invalid")
     governance = config["governance"]
     if (
-        governance["scientific_review_status"] != "pending"
+        governance["scientific_review_status"] not in {"pending", "needs_revision"}
         or governance["formal_task_completed"]
         or governance["R1-T10_allowed_to_start"]
     ):
@@ -329,7 +332,10 @@ def _verify_inputs(config: Mapping[str, Any]) -> None:
         ("artifact_manifest_path", "artifact_manifest_sha256"),
         ("candidate_registry_path", "candidate_registry_sha256"),
     ]
-    current_revision = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v2"
+    current_revision = config.get("protocol_version") in {
+        "R1.v0.4.R1-T14-02.v2",
+        "R1.v0.4.R1-T14-02.v3",
+    }
     if current_revision:
         upstream_refs.extend(
             [
@@ -1802,12 +1808,12 @@ def _decision_rows(
         )
         if state == "S_PCVT":
             candidate_ratio = _safe_div(
-                state_cache[(vector_id, "S_PCVT")]["raw_true_count"],
-                state_cache[(vector_id, "S_PCT")]["raw_true_count"],
+                state_cache[(vector_id, "S_PCVT")]["confirmed_true_count"],
+                state_cache[(vector_id, "S_PCT")]["confirmed_true_count"],
             )
             baseline_ratio = _safe_div(
-                state_cache[(baseline_id, "S_PCVT")]["raw_true_count"],
-                state_cache[(baseline_id, "S_PCT")]["raw_true_count"],
+                state_cache[(baseline_id, "S_PCVT")]["confirmed_true_count"],
+                state_cache[(baseline_id, "S_PCT")]["confirmed_true_count"],
             )
             selectivity_retained = _v_selectivity_retained(
                 candidate_ratio, baseline_ratio
@@ -1826,6 +1832,7 @@ def _decision_rows(
             selectivity_retained = None
             candidate_ratio_lt_one = True
             v_selectivity_guard_pass = True
+        ratio_scope = "confirmed_state_days" if state == "S_PCVT" else None
         try:
             warning_codes = list(json.loads(str(spec.get("warnings", "[]"))))
         except json.JSONDecodeError as exc:
@@ -1879,6 +1886,7 @@ def _decision_rows(
                 "complexity_return_gate_pass": complexity_pass,
                 "v_candidate_pcvt_pct_ratio": candidate_ratio,
                 "v_baseline_pcvt_pct_ratio": baseline_ratio,
+                "v_ratio_scope": ratio_scope,
                 "v_selectivity_retained": selectivity_retained,
                 "v_candidate_ratio_lt_one": candidate_ratio_lt_one,
                 "v_nested_formal_pass": v_nested_formal_pass,
@@ -1890,7 +1898,9 @@ def _decision_rows(
                     "formal_structure_supported_with_warning",
                 },
                 "selection_path_not_independently_confirmed": True,
-                "scientific_review_status": "pending",
+                "scientific_review_status": config["governance"][
+                    "scientific_review_status"
+                ],
                 "formal_task_completed": False,
             }
         )
@@ -2005,7 +2015,7 @@ def _anomaly_scan(
             "repository_gate_closed",
             all(
                 not _as_bool(row["formal_task_completed"])
-                and row["scientific_review_status"] == "pending"
+                and row["scientific_review_status"] in {"pending", "needs_revision"}
                 for row in decisions
             ),
         ),
@@ -2067,9 +2077,9 @@ def _experiment_summary(
         },
         "elapsed_seconds": elapsed,
         "output_paths": outputs,
-        "scientific_review_status": "pending",
-        "review_phase": "author_analysis_pending",
-        "independent_review_status": "not_started",
+        "scientific_review_status": config["governance"]["scientific_review_status"],
+        "review_phase": config["governance"]["review_phase"],
+        "independent_review_status": config["governance"]["independent_review_status"],
         "downstream_gate_allowed": False,
         "R1-T10_allowed_to_start": False,
         "R2_allowed_to_start": False,

@@ -55,7 +55,14 @@ def validate_r1_t14_02_formal_structural_revalidation(
         errors.append("summary_identity_or_N_perm")
     config_path = ROOT / str(summary.get("config_path", ""))
     config = _load_optional(config_path)
-    current_revision = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v2"
+    protocol_version = config.get("protocol_version")
+    current_revision = protocol_version in {
+        "R1.v0.4.R1-T14-02.v2",
+        "R1.v0.4.R1-T14-02.v3",
+    }
+    expected_review_status = (
+        "needs_revision" if protocol_version == "R1.v0.4.R1-T14-02.v3" else "pending"
+    )
     if not config_path.is_file() or sha256_file(config_path) != summary.get(
         "config_sha256"
     ):
@@ -63,7 +70,7 @@ def validate_r1_t14_02_formal_structural_revalidation(
     if current_revision:
         _validate_revision_binding(config, summary, errors)
     if (
-        summary.get("scientific_review_status") != "pending"
+        summary.get("scientific_review_status") != expected_review_status
         or summary.get("formal_task_completed") is not False
     ):
         errors.append("summary_author_boundary")
@@ -118,7 +125,7 @@ def validate_r1_t14_02_formal_structural_revalidation(
     }
     if any(
         row.get("candidate_status") not in allowed
-        or row.get("scientific_review_status") != "pending"
+        or row.get("scientific_review_status") != expected_review_status
         or row.get("formal_task_completed") != "false"
         or row.get("selection_path_not_independently_confirmed") != "true"
         or row.get("parent_child_raw_violation_count") != "0"
@@ -134,8 +141,13 @@ def validate_r1_t14_02_formal_structural_revalidation(
         package = _load_optional(run_dir / "r1_t14_02_result_package.json")
         if (
             package.get("status") != "author_draft_complete"
-            or package.get("scientific_review_status") != "pending"
-            or package.get("independent_review_status") != "not_started"
+            or package.get("scientific_review_status") != expected_review_status
+            or package.get("independent_review_status")
+            != (
+                "needs_revision"
+                if expected_review_status == "needs_revision"
+                else "not_started"
+            )
             or package.get("repository_final_gate_status") != "pending"
             or package.get("R1-T10_allowed_to_start") is not False
             or package.get("formal_task_completed") is not False
@@ -207,16 +219,37 @@ def _validate_revision_binding(
     for key, value in expected.items():
         if upstream.get(key) != value:
             errors.append(f"revised_upstream_binding:{key}")
+    is_v3 = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v3"
+    if is_v3 and (
+        upstream.get("current_dependency_stale") is not False
+        or upstream.get("superseded_run_dependency_stale") is not True
+        or upstream.get("stale_dependency_scope")
+        != "superseded_runs_only_current_dependency_verified"
+    ):
+        errors.append("stale_dependency_scope_ambiguous")
     superseded = config.get("superseded_run", {})
     supersession_path = ROOT / str(superseded.get("supersession_path", ""))
+    expected_superseded_run = (
+        "R1-T14-02-20260711T0900Z" if is_v3 else "R1-T14-02-20260710T2340Z"
+    )
     if (
-        superseded.get("run_id") != "R1-T14-02-20260710T2340Z"
+        superseded.get("run_id") != expected_superseded_run
         or not supersession_path.is_file()
         or sha256_file(supersession_path) != superseded.get("supersession_sha256")
     ):
         errors.append("superseded_run_binding")
     elif _load_optional(supersession_path).get("status") != "superseded":
         errors.append("superseded_run_status")
+    if is_v3:
+        review_path = ROOT / str(superseded.get("external_review_path", ""))
+        review = _load_optional(review_path)
+        if (
+            not review_path.is_file()
+            or sha256_file(review_path) != superseded.get("external_review_sha256")
+            or review.get("review_comment_id") != 4944536998
+            or review.get("external_review_status") != "needs_revision"
+        ):
+            errors.append("superseded_external_review_binding")
     if config.get("null_model", {}).get("reuse_prior_null") is not False:
         errors.append("prior_null_reuse_not_disabled")
 
@@ -261,14 +294,43 @@ def _validate_revised_science_gates(
     ):
         errors.append("v_neighbor_robust_envelope_classification")
 
+    existence = _csv_rows(run_dir / "r1_t14_02_existence_profile.csv")
+    confirmed_counts = {
+        (row.get("formal_vector_id"), row.get("state_line")): int(
+            row["state_true_day_count"]
+        )
+        for row in existence
+        if row.get("analysis_level") == "confirmed"
+    }
+    registry = _csv_rows(run_dir / "r1_t14_02_candidate_registry.csv")
+    baseline_by_window = {
+        row["W"]: row["formal_vector_id"]
+        for row in registry
+        if row.get("baseline_reuse") == "true"
+    }
     v_decisions = [row for row in decisions if row.get("state_line") == "S_PCVT"]
     for row in v_decisions:
+        vector_id = row["formal_vector_id"]
+        baseline_id = baseline_by_window.get(row["W"])
+        candidate_ratio_from_source = _safe_ratio(
+            confirmed_counts.get((vector_id, "S_PCVT")),
+            confirmed_counts.get((baseline_id, "S_PCT")),
+        )
+        baseline_ratio_from_source = _safe_ratio(
+            confirmed_counts.get((baseline_id, "S_PCVT")),
+            confirmed_counts.get((baseline_id, "S_PCT")),
+        )
         candidate_ratio = float(row["v_candidate_pcvt_pct_ratio"])
         baseline_ratio = float(row["v_baseline_pcvt_pct_ratio"])
         retained = float(row["v_selectivity_retained"])
         expected = (1 - candidate_ratio) / (1 - baseline_ratio)
         if (
-            abs(retained - expected) > 1e-15
+            row.get("v_ratio_scope") != "confirmed_state_days"
+            or candidate_ratio_from_source is None
+            or baseline_ratio_from_source is None
+            or abs(candidate_ratio - candidate_ratio_from_source) > 1e-15
+            or abs(baseline_ratio - baseline_ratio_from_source) > 1e-15
+            or abs(retained - expected) > 1e-15
             or row.get("v_candidate_ratio_lt_one") != "true"
             or row.get("v_nested_formal_pass") != "true"
             or row.get("v_selectivity_guard_pass") != "true"
@@ -320,6 +382,12 @@ def _csv_rows(path: Path) -> list[dict[str, str]]:
         return []
     with path.open(encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def _safe_ratio(left: int | None, right: int | None) -> float | None:
+    if left is None or right in (None, 0):
+        return None
+    return left / right
 
 
 def _row_count(path: Path) -> int:

@@ -59,9 +59,9 @@
       "type": "object",
       "required": ["scientific_review_status", "review_phase", "independent_review_status", "downstream_gate_allowed", "R1-T10_allowed_to_start", "R2_allowed_to_start", "formal_task_completed", "selection_path_not_independently_confirmed"],
       "properties": {
-        "scientific_review_status": {"const": "pending"},
-        "review_phase": {"const": "author_analysis_complete"},
-        "independent_review_status": {"const": "not_started"},
+        "scientific_review_status": {"enum": ["pending", "needs_revision"]},
+        "review_phase": {"enum": ["author_analysis_complete", "author_revision_pending_external_rereview"]},
+        "independent_review_status": {"enum": ["not_started", "needs_revision"]},
         "downstream_gate_allowed": {"const": false},
         "R1-T10_allowed_to_start": {"const": false},
         "R2_allowed_to_start": {"const": false},
@@ -112,6 +112,43 @@
             "t14_01_robust_envelope", "t14_01_interlayer_profile",
             "r1_t06_layer_step_profile"
           ]
+        }
+      }
+    },
+    {
+      "required": [
+        "superseded_run", "diagnostic_reconciliation_inputs",
+        "robust_envelope_policy", "denominator_reconciliation_policy"
+      ],
+      "properties": {
+        "protocol_version": {"const": "R1.v0.4.R1-T14-02.v3"},
+        "upstream_binding": {
+          "required": [
+            "merge_commit", "handoff_manifest_path", "handoff_manifest_sha256",
+            "external_review_path", "external_review_sha256",
+            "final_gate_validation_path", "final_gate_validation_sha256",
+            "current_dependency_verified", "stale_dependency_scope"
+          ],
+          "properties": {
+            "goal_internal_continuation_gate_status": {"const": "passed_after_repository_merge"},
+            "repository_t14_02_gate_passed": {"const": true},
+            "current_dependency_verified": {"const": true},
+            "stale_dependency": {"const": true}
+          }
+        },
+        "diagnostic_reconciliation_inputs": {
+          "type": "object",
+          "required": [
+            "t14_01_robust_envelope", "t14_01_interlayer_profile",
+            "r1_t06_layer_step_profile"
+          ]
+        },
+        "governance": {
+          "properties": {
+            "scientific_review_status": {"const": "needs_revision"},
+            "review_phase": {"const": "author_revision_pending_external_rereview"},
+            "independent_review_status": {"const": "needs_revision"}
+          }
         }
       }
     }

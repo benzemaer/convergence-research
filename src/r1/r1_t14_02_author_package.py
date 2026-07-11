@@ -26,6 +26,8 @@ def build_r1_t14_02_author_package(
     anomaly = _load_json(run_dir / "r1_t14_02_anomaly_scan.json")
     engineering = _load_json(run_dir / "r1_t14_02_engineering_validation_result.json")
     summary = _load_json(run_dir / "r1_t14_02_experiment_summary.json")
+    review_status = summary["scientific_review_status"]
+    independent_review_status = summary["independent_review_status"]
     if (
         anomaly.get("status") != "passed"
         or anomaly.get("blocking_findings")
@@ -98,9 +100,9 @@ def build_r1_t14_02_author_package(
         "author_result_analysis_status": "passed",
         "goal_internal_completion_gate_status": "passed",
         "goal_internal_completion_allowed": True,
-        "scientific_review_status": "pending",
-        "review_phase": "author_analysis_complete",
-        "independent_review_status": "not_started",
+        "scientific_review_status": review_status,
+        "review_phase": summary["review_phase"],
+        "independent_review_status": independent_review_status,
         "repository_final_gate_status": "pending",
         "downstream_gate_allowed": False,
         "R1-T10_allowed_to_start": False,
