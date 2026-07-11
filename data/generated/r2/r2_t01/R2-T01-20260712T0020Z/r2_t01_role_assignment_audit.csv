@@ -1,0 +1,13 @@
+r1_handoff_row_id,observed_handoff_status,observed_q_vector,expected_candidate_role,actual_candidate_role,mapping_rule_id,warning_reconciliation_status,selection_path_propagation_status,assignment_status,failure_reason
+q_W120_K3_P20_C20_T25_V20_S_PCT,review_candidate,"P=0.2,C=0.2,T=0.25,V=0.2",primary,primary,primary_s_pct_w120_qt25,passed,passed,passed,
+q_W250_K3_P20_C20_T25_V20_S_PCT,review_candidate,"P=0.2,C=0.2,T=0.25,V=0.2",primary,primary,primary_s_pct_w250_qt25,passed,passed,passed,
+q_W120_K3_P20_C20_T20_V30_S_PCVT,review_candidate,"P=0.2,C=0.2,T=0.2,V=0.3",primary,primary,primary_s_pcvt_w120_qv30,passed,passed,passed,
+q_W250_K3_P20_C20_T20_V30_S_PCVT,review_candidate,"P=0.2,C=0.2,T=0.2,V=0.3",primary,primary,primary_s_pcvt_w250_qv30,passed,passed,passed,
+shared_S_PCT_W120,freeze_candidate,q=.20,strict_core_reference,strict_core_reference,strict_core_s_pct_w120_shared,passed,passed,passed,
+shared_S_PCT_W250,freeze_candidate,q=.20,strict_core_reference,strict_core_reference,strict_core_s_pct_w250_shared,passed,passed,passed,
+shared_S_PCVT_W120,freeze_candidate,q=.20,strict_core_reference,strict_core_reference,strict_core_s_pcvt_w120_shared,passed,passed,passed,
+shared_S_PCVT_W250,freeze_candidate,q=.20,strict_core_reference,strict_core_reference,strict_core_s_pcvt_w250_shared,passed,passed,passed,
+q_W120_K3_P20_C20_T30_V20_S_PCT,review_candidate,"P=0.2,C=0.2,T=0.3,V=0.2",sensitivity,sensitivity,sensitivity_s_pct_w120_qt30,passed,passed,passed,
+q_W250_K3_P20_C20_T30_V20_S_PCT,review_candidate,"P=0.2,C=0.2,T=0.3,V=0.2",sensitivity,sensitivity,sensitivity_s_pct_w250_qt30,passed,passed,passed,
+q_W120_K3_P20_C20_T20_V25_S_PCVT,do_not_freeze,"P=0.2,C=0.2,T=0.2,V=0.25",excluded,excluded,excluded_s_pcvt_w120_qv25,passed,passed,passed,
+q_W250_K3_P20_C20_T20_V25_S_PCVT,do_not_freeze,"P=0.2,C=0.2,T=0.2,V=0.25",excluded,excluded,excluded_s_pcvt_w250_qv25,passed,passed,passed,
