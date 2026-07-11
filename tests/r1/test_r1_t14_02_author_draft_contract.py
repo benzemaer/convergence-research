@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RUN_DIR = ROOT / "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2340Z"
+RUN_DIR = ROOT / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T0900Z"
 T05_DIR = ROOT / "data/generated/r1/r1_t05/R1-T05-20260710T0959Z"
 
 
@@ -25,6 +25,11 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
     def test_package_preserves_same_sample_and_external_review_boundaries(self) -> None:
         package = load_json("r1_t14_02_result_package.json")
         self.assertEqual(package["status"], "author_draft_complete")
+        self.assertTrue(package["stale_dependency"])
+        self.assertEqual(
+            package["upstream_binding"]["merge_commit"],
+            "09fb86510dc021f031c5f646777c5202013f2e86",
+        )
         self.assertTrue(package["selection_path_not_independently_confirmed"])
         self.assertEqual(package["goal_internal_completion_gate_status"], "passed")
         self.assertTrue(package["goal_internal_completion_allowed"])
@@ -125,6 +130,50 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
                 for row in decisions
             )
         )
+        v_rows = [row for row in decisions if row["state_line"] == "S_PCVT"]
+        self.assertEqual(len(v_rows), 4)
+        self.assertTrue(
+            all(row["v_selectivity_guard_pass"] == "true" for row in v_rows)
+        )
+        self.assertTrue(
+            all(
+                row["security_heterogeneity_warning"] == "true"
+                and "V_security_negative_delta_share_material"
+                in row["candidate_warning_codes"]
+                for row in v_rows
+            )
+        )
+
+    def test_scope_specific_complexity_and_denominator_reconciliation(self) -> None:
+        dominance = rows(RUN_DIR / "r1_t14_02_complexity_dominance_matrix.csv")
+        v_neighbors = [
+            row
+            for row in dominance
+            if row["state_line"] == "S_PCVT"
+            and row["request_role"] == "immediate_neighbor"
+        ]
+        self.assertEqual(len(v_neighbors), 2)
+        self.assertTrue(
+            all(
+                row["improvement_beyond_stability_envelope"] == "false"
+                and row["complexity_not_justified"] == "true"
+                and row["prefer_shared_q"] == "true"
+                and row["dominance_status"] == "stability_envelope_equivalent"
+                for row in v_neighbors
+            )
+        )
+        denominator = rows(RUN_DIR / "r1_t14_02_denominator_reconciliation.csv")
+        self.assertEqual(len(denominator), 10)
+        self.assertTrue(
+            all(
+                row["t14_02_vs_r1_t06_parent_true_cell_mismatch_count"] == "0"
+                and row["t14_02_vs_r1_t06_baseline_reconciliation_status"] == "passed"
+                and row["affected_structural_gate_flip"] == "false"
+                and row["affected_delta_rank_flip"] == "false"
+                for row in denominator
+            )
+        )
+        decisions = rows(RUN_DIR / "r1_t14_02_candidate_decision_matrix.csv")
         self.assertTrue(
             all(row["year_level_delta_conflict"] == "false" for row in decisions)
         )
@@ -156,11 +205,13 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for marker in (
             "selection_path_not_independently_confirmed=true",
-            "2221Z",
-            "2245Z",
-            "2306Z",
-            "不作为当前 evidence",
-            "不支持“独立确认”",
+            "R1-T14-02-20260711T0900Z",
+            "R1-T14-02-20260710T2340Z",
+            "R1-T14-02-20260711T0800Z",
+            "stability_envelope_equivalent / complexity_not_justified / prefer_shared_q",
+            "V_security_negative_delta_share_material",
+            "structural gate flip=0",
+            "不能据此声称 q-vector 已独立确认",
             "scientific_review_status=pending",
             "R1-T10_allowed_to_start=false",
         ):

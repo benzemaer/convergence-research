@@ -1,0 +1,5 @@
+formal_vector_id,candidate_q_vector_id,W,K,qP,qC,qT,qV,request_role,archetype,center_id,state_line,neighbor_vector_id,center_neighbor_global_excess_direction_consistent,center_neighbor_nested_excess_direction_consistent,neighbor_non_degenerate,neighbor_adjusted_null_pass,isolated_peak_warning,neighborhood_status,selection_path_not_independently_confirmed
+R0T15_60b6c8080a398fa8fed4,W120_K3_P20_C20_T20_V30,120,3,0.2,0.2,0.2,0.3,center,PCVT_short_window_or_state_line_specific_W120,W120_K3_P20_C20_T20_V30,S_PCVT,R0T15_4623702357099f4800ff,true,true,true,true,false,passed,true
+R0T15_30cc9cff66c45b57bc80,W120_K3_P20_C20_T25_V20,120,3,0.2,0.2,0.25,0.2,center,PCT_fast_W120,W120_K3_P20_C20_T25_V20,S_PCT,R0T15_ebf91f90f1a105d63dda,true,true,true,true,false,passed,true
+R0T15_6544fee51f1246d4915d,W250_K3_P20_C20_T20_V30,250,3,0.2,0.2,0.2,0.3,center,PCVT_depletion_W250,W250_K3_P20_C20_T20_V30,S_PCVT,R0T15_91a5b343f0936218f031,true,true,true,true,false,passed,true
+R0T15_67d6724c4be0c280defb,W250_K3_P20_C20_T25_V20,250,3,0.2,0.2,0.25,0.2,center,PCT_q_decoupled_W250,W250_K3_P20_C20_T25_V20,S_PCT,R0T15_1c9720c4f9f1497c6968,true,true,true,true,false,passed,true

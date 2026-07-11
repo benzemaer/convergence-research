@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import subprocess
 import unittest
 from copy import deepcopy
 from pathlib import Path
@@ -119,14 +120,43 @@ class R0T15FinalGateContractTests(unittest.TestCase):
 
     def test_committed_artifact_hashes_are_current_and_unique(self) -> None:
         package = load_json("r0_t15_result_package.json")
+        transition = load_json("r0_t15_repository_merge_transition.json")
         paths = [artifact["path"] for artifact in package["committed_artifacts"]]
         self.assertEqual(len(paths), len(set(paths)))
         for artifact in package["committed_artifacts"]:
             path = ROOT / artifact["path"]
             self.assertTrue(path.is_file(), path)
+            current_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+            if artifact["path"] != "docs/tasks/README.md":
+                self.assertEqual(current_sha, artifact["sha256"], path)
+                continue
             self.assertEqual(
-                hashlib.sha256(path.read_bytes()).hexdigest(), artifact["sha256"], path
+                artifact["sha256"],
+                transition["historical_final_gate_readme_sha256"],
             )
+            historical = subprocess.run(
+                [
+                    "git",
+                    "show",
+                    f"{transition['final_head_commit']}:{artifact['path']}",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                check=True,
+            ).stdout
+            self.assertEqual(hashlib.sha256(historical).hexdigest(), artifact["sha256"])
+            self.assertEqual(current_sha, transition["current_readme_sha256"])
+
+    def test_repository_merge_transition_authorizes_only_t14_02(self) -> None:
+        transition = load_json("r0_t15_repository_merge_transition.json")
+        self.assertEqual(transition["status"], "passed")
+        self.assertEqual(transition["repository_merge_status"], "merged")
+        self.assertEqual(
+            transition["merge_commit"], "09fb86510dc021f031c5f646777c5202013f2e86"
+        )
+        self.assertTrue(transition["R1-T14-02_allowed_to_start"])
+        self.assertFalse(transition["R1-T10_allowed_to_start"])
+        self.assertFalse(transition["R2_allowed_to_start"])
 
     def test_local_attestation_is_author_local_not_independent_review(self) -> None:
         attestation = load_json("r0_t15_local_duckdb_attestation.json")

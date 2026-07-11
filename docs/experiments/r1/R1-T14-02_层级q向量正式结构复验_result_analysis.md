@@ -1,77 +1,75 @@
 # R1-T14-02 层级 q-vector 正式结构复验 result analysis
 
-## 1. Formal registry 与 R0 lineage
+## 1. Authoritative run 与 lineage
 
-权威 author-draft run 为 `R1-T14-02-20260710T2340Z`，代码提交为 `8f1c9479065f1f5f31d7d1a330b653d8a7a32116`。formal registry 严格等于 R0-T15 交接的 10 个向量：W120/W250 各 1 个 shared-q baseline reference、1 个 T=.25 center、1 个 T=.30 immediate neighbor、1 个 V=.30 center 和 1 个 V=.25 immediate neighbor，没有运行后增删。12 个 `vector × relevant state line` 的 raw days、confirmed days、证券数、区间数与区间 duration sum 均与 R0-T15 或原 shared-q R0 artifact 一致，mismatch 全为 0。
+本报告读取并分析新的 authoritative run `R1-T14-02-20260711T0900Z`。运行绑定 code commit `e4b0fe2fb161054e5929812a322f07847e3c917a`、v2 config SHA-256 `7cd051360649c9ed83a4de73e79ef7d7ac11e883efa0cd50004c4825e9641a17`，实际执行 `N_perm=10000`，耗时 1709.91 秒。旧 run `R1-T14-02-20260710T2340Z` 已由独立 supersession record 标记为 stale；`R1-T14-02-20260711T0800Z` 因 orchestration timeout 在 formal null 中途终止，只保留 incomplete-run record，不产生 result package，也不属于 current evidence。
 
-## 2. Same-sample limitation
+v2 upstream binding 指向已合并 PR #88：final head `faea7a957b84b0bd0e327d1af945c00c967f6ecb`、merge commit `09fb86510dc021f031c5f646777c5202013f2e86`、final package `aaea43c420289d95a384b49ce045f69045007ba6a5ac669079d6d3f055d72ac2`、canonical handoff `438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3`、manifest `664b6d45...`、registry `02fdaf1b...`、external review `28062c82...` 与 final-gate validation `2e68d0fa...`。Post-merge transition record `c1d3fb28...` 另外绑定 #88 final-head 时的历史 README blob `e753cc3b...` 与当前 T14-02-authorized README `b0880c2e...`；它解释全局任务索引的合法演进，不改写 frozen #88 package。旧 #89 dependency 明确为 `stale_dependency=true`，但 current dependency 经 merge/final-gate cross-binding 验证通过。
 
-本任务是 same-sample formal structural revalidation，不是独立 confirmatory test。T14-01 在同一历史样本上完成提名，T14-02 的 10,000 次置换和 family correction 只控制冻结的 T14-02 family，不能校正 T14-01 更大的 OFAT discovery path。因此所有 package、matrix 和 handoff 永久保留 `selection_path_not_independently_confirmed=true`；以下“supported”仅指预注册结构门槛在同一样本内得到支持。
+## 2. Frozen family、工程验收与非退化性
 
-## 3. Baseline、center 与 neighbor 的存在性
+Registry 仍严格为 10 vectors：2 个 shared-q baselines、4 个 centers、4 个 immediate neighbors；没有运行后删减或重排。12 项 R0 state-line reconciliation 的 mismatch 总和为 0，24 项 existence profiles 均非全零/全一，12 项 interval conservation mismatch 为 0，raw/confirmed PCVT→PCT violation 均为 0。Anomaly scan 的 15 项 checks 全部 passed，engineering validator 为 passed、0 errors。
 
-shared-q confirmed state days 为 W120 PCT/PCVT=12,480/2,941，W250=10,854/2,143。T=.25 centers 将 PCT confirmed days 提高至 W120 20,479、W250 18,328；T=.30 neighbors 进一步提高至 29,515、27,083。V=.30 centers 将 PCVT confirmed days提高至 W120 4,567、W250 3,591；V=.25 neighbors 为 3,723、2,808。所有 relevant profiles 均非零、非全一、非全 NULL，证券覆盖 520–788 只；confirmed max-year share 为 .157–.227，低于 .50 门槛。
+运行继续保留 `selection_path_not_independently_confirmed=true`。它是同一样本结构复验，不校正 T14-01 discovery path，也不选择 best/frozen q。
 
-## 4. Layer intralayer structure
+## 3. Scope-specific robust envelope 与 complexity gate
 
-40 行层内结果覆盖每个向量的 P/C/T/V。author-side 对 8 个 `W × layer` continuous Spearman 与 R1-T05 reviewed artifact 对账，average-rank tie semantics 下全部在 `1e-12` 容差内一致；冻结 family 与 T05 相交的 12 个 q=.20/.30 threshold profiles 在 common eligible、both-hit、a-only、b-only、neither counts 上完全一致。受影响层的 Spearman 为 T W120/W250=.65546/.66646、V=.61950/.52894；T/V center/neighbor 的 Jaccard 范围 .284–.425，未显示近乎完全冗余。q 放宽使 both-hit 单调增加，参数响应方向正常。
+Complexity matrix 逐 W、affected state/step 直接读取 T14-01 committed robust envelope `a97c094d...`，不再使用 T14-02 固定 fallback 代替。四个 centers 均至少在 coverage 或 affected Delta 上超过相应 envelope，仍是 `tradeoff_not_dominated`：
 
-## 5. Retention、Lift 与 Delta
+- W120 T=.25：coverage +0.00499085 > 0.00354046，Delta +0.03655636 > 0.01131262；
+- W250 T=.25：coverage +0.00497050 > 0.00327239，Delta +0.03488450 > 0.02490461；
+- W120 V=.30：coverage +0.00101518 > 0.00055873，Delta +0.05584514 > 0.04172699；
+- W250 V=.30：coverage +0.00096317 > 0.00068610，Delta +0.06946805 > 0.04169740。
 
-PCT T=.25 centers 的 T_given_PC retention 为 W120 .3614、W250 .3466，Delta 为 .1582/.1483；shared-q baseline 的 Delta 为 .1216/.1134。T=.30 neighbors 的 Delta 进一步为 .1915/.1807，但 Lift 从 baseline 1.796/1.770 降至 1.752/1.719，显示覆盖与相对 lift 的取舍。PCVT V=.30 centers 的 V_given_PCT retention 为 .4147/.3750，Delta 为 .1694/.1701；baseline Delta 为 .1135/.1007。W120 V=.30 的 Lift 与 baseline 几乎相同（变化 -.00062 in lift-excess），W250 V=.30 改善 .04666。所有 pooled JointExcess 为正。
+两个 V=.25 neighbors 的旧分类被纠正。W120 的 coverage +0.00048823、Delta +0.02591690 和 Lift 改变均未超过 scope envelope；W250 的 coverage +0.00044234、Delta +0.03160425 和 Lift 改变也均未超过。因此二者现为 `stability_envelope_equivalent / complexity_not_justified / prefer_shared_q`，candidate status 为 `review_only`。T=.30 neighbors 虽有 material improvement，但 frozen role 仍只是 neighbor，不能据此替换 T=.25 center。
 
-## 6. Global null
+## 4. V selectivity guard 与 security heterogeneity
 
-global PCT 和 global PCVT 使用 P 固定、其余目标层在 `security × year × continuous segment` 内按共同 schedule 平移，再按 K=3 重建 confirmation；没有直接平移最终联合状态。F1 PCT 的 observed/null lift 为 3.49–3.95，F2 PCVT 为 4.73–6.00。两个 global families 的 12 个成员 family-adjusted p 均为 `1/10001=.00009999000099990002`。
+V guard 已按预注册公式实现：
 
-## 7. Nested null
+```text
+selectivity_retained = (1 - R_candidate) / (1 - R_baseline)
+R = raw PCVT / same-parameter raw PCT
+```
 
-C_given_P、T_given_PC、V_given_PCT 分别形成 F3/F4/F5。F3 observed/null lift 为 1.74–1.79，F4 为 1.67–1.78，F5 为 1.44–1.57；全部 JointExcess>0。18 个 nested family members 的 adjusted p 同样均为 p-floor。PCVT decision 明确同时绑定同参数 PCT parent 的 F1/F3/F4 通过，不以 global PCVT 替代 V nested gate。
+四个 V vectors 的 reported 值经独立复算逐字一致：W120 V=.30 为 0.81727060、V=.25 为 0.91282034；W250 V=.30 为 0.81289479、V=.25 为 0.91358625，均高于 0.50。所有 candidate ratio < 1，V nested formal pass=true，raw/confirmed parent-child violation=0，因此 guard 全部通过。Guard 已进入 candidate status、anomaly 和 validator hard gate；若失败会强制 `do_not_advance`。
 
-## 8. Max-statistic correction
+V=.30 centers 的 security-level negative Delta share 分别为 13.9241% 和 18.1934%。Pooled 与 security median 没有符号反转，但这仍是 material heterogeneity；decision matrix 已加入 `V_security_negative_delta_share_material`，所以两个 V centers 必须保持 `formal_structure_supported_with_warning`，不能降格为一般备注。
 
-正式运行固定 `N_perm=10000`。每个 family 的 replicate identity 同时覆盖 W120、W250、baseline、center 和 neighbor；共写出 50,000 行 family maxima、30 行 candidate null results 和 30 行 multiplicity results。所有 `null_sd>0`；studentized observed Z 的 family 范围为 F1 83.77–130.29、F2 46.87–80.05、F3 91.92–96.48、F4 67.70–85.14、F5 18.56–33.17。author-side 逐行复算 `(n_family_extreme+1)/10001` 与 artifact 完全一致。显著性很强，但不能消除选择路径的非独立性。
+## 5. Denominator reconciliation
 
-## 9. Year stability
+新增 10 行 `r1_t14_02_denominator_reconciliation.csv`，逐 vector/affected step 同时列出 T14-01、T14-02 与 R1-T06 baseline 的 `N/n11/n10/n01/n00`、retention、target marginal、Lift 与 Delta。三者语义为：
 
-132 行 year profile 保留 2016–2026 的所有年份行及 2026 partial-year 标记，没有删除零状态年份。四个 centers 的 max-year share 为 W120 V30=.1570、T25=.1816，W250 V30=.2050、T25=.2268。affected step 的 11 个 year Delta 对所有非 baseline 向量均保持正方向；330 行 LOYO 中 Delta 与 Lift-excess 无方向翻转。
+- T14-01：strict required-layer common-valid；
+- T14-02：ordered short-circuit parent + target valid；
+- R1-T06：step-specific minimal common-valid。
 
-## 10. Identity overlap
+T14-02 short-circuit 只扩张 shared baseline 的 parent-false rows；四种 W×step 扩张量为 19,970、20,056、38,695、42,719。所有对账中 `n11/n10` mismatch=0、retention change=0，差异仅落在 `n01/n00`，因此来源可解释。八个 nonbaseline vectors 的 T14-01→T14-02 Delta 改变为 +0.000739 至 +0.002161；affected Delta rank flip=0，structural gate flip=0。
 
-所有变更都是从 q=.20 向 .25/.30 放宽，因此 baseline confirmed days 全部被保留，lost days=0，baseline retention=1。与此同时 identity 并非等价：T=.25 centers 对 baseline 的 Jaccard 为 .609/.592，新增 7,999/7,474 days；T=.30 neighbors Jaccard 降至 .423/.401。V=.30 centers Jaccard 为 .644/.597，新增 1,626/1,448 days；V=.25 neighbors为 .790/.763。identity 漂移被视为复杂度与解释性代价，不能只报告 coverage gain。
+审阅举例也被逐字复现：W120 T=.25 Delta 从 0.15746302 变为 0.15820179；W250 V=.30 从 0.16815583 变为 0.17012764。该变化来自 denominator 语义，不是候选重选、未来标签或 null 变化。
 
-## 11. Interval geometry
+## 6. Null、multiplicity、年份与邻域
 
-12 个 relevant profiles 的 confirmed interval count 为 1,024–9,499，duration median 均为 2；interval duration sum 与 confirmed-day count 全部守恒，open interval 为 0，cross-year interval 为 18–226。PCT fragment rate 从 baseline W120/W250=.455/.461 降至 T25=.383/.378、T30=.327/.309。PCVT fragment rate维持在 .475–.497，V 放宽增加事件量，但没有形成明显更长的中位持续期。
+本 run 从头执行 10,000 permutations；`reuse_prior_null=false`。30 行 null results、50,000 行 family maxima、30 行 multiplicity 与 replicate manifest 的 SHA-256 均与 superseded `2340Z` 完全相同，证明三项门禁修复没有偷偷改变 frozen family、seed 或 null schedule。独立复算确认每一项 adjusted p 均为 `(0+1)/(10000+1)=1/10001`，所有 null SD > 0。
 
-## 12. Neighborhood stability
+最大 confirmed-year share 为 0.22681144，低于 0.50；全部 affected-step LOYO rows 保持 Delta>0、Lift>1；四个 center neighborhood status 全部 passed。年份、LOYO 和邻域没有因 denominator revision 发生方向或排序翻转。
 
-四个 center 均有预注册 immediate neighbor。center/neighbor 的 global 与 affected nested JointExcess 方向一致，neighbor 非退化且通过 adjusted null；四个 center 均无 isolated-peak warning。neighbor 本身在 decision matrix 中保持 `review_only`，因为其职责是验证局部连续性，不作为另一个正向 handoff center。
+## 7. Decision matrix 与有限推断
 
-## 13. Complexity return
+四个 centers 的最终 author-side status 仍为 `formal_structure_supported_with_warning`，四个 immediate neighbors 为 `review_only`。这说明在冻结的 same-sample family 内，centers 的 global/nested structure、年份与邻域证据没有被三项修复推翻；同时 complexity 结论现在正确区分 V=.25 neighbors，V heterogeneity 也被正式保留。
 
-四个 centers 相对 shared-q 的 coverage 与 affected Delta 改善均超过 stability envelope，且 baseline 不在所有重要维度上支配它们。代价是 T centers 的 lift-excess 分别下降 .0178/.0221，W120 V center 下降 .00062；W250 V center 则上升 .0467。所有非 baseline 行属于 `tradeoff_not_dominated`，不是自动 winner，也不表示复杂度已经由外部 reviewer 认可。
+有限推断仅限于：当前 corrected package 可以提交独立外部科学复审。不能据此声称 q-vector 已独立确认、T/V q 优于 shared q、存在因果机制、已冻结最终状态定义、具有预测能力或交易优势。
 
-## 14. Baseline dominance
+## 8. Author-draft gate
 
-shared-q 没有严格支配任何 center 或 neighbor；反之，复杂向量也没有在 coverage、identity、Lift、fragment、年份与简洁性上全面支配 baseline。当前证据应理解为 Pareto tradeoff：放宽 T/V 增加状态日和 pooled Delta，同时扩大 identity novelty；T 放宽还降低 Lift，V 放宽的 security heterogeneity 更明显。
+```text
+scientific_review_status=pending
+independent_review_status=not_started
+repository_final_gate_status=pending
+R1-T10_allowed_to_start=false
+R2_allowed_to_start=false
+formal_task_completed=false
+selection_path_not_independently_confirmed=true
+```
 
-## 15. V construct guard
-
-两个 V=.30 centers 与 V=.25 neighbors 均通过 `selectivity_retained>=.50`、V nested formal gate 和 PCVT 严格窄于同参数 PCT 的保护。raw/confirmed PCVT→PCT 逐日 violation 均为 0。需要保留的 material warning 是 security heterogeneity：V=.30 centers 的 security-level Delta 为负占比分别为 13.92% 和 18.19%，V=.25 neighbors 为 18.61% 和 21.37%；虽然 pooled 与 security median 均为正，不能写成所有证券同向。
-
-## 16. Anomalies 与 root causes
-
-权威 anomaly scan 的 11 项检查全部 passed，blocking/unresolved findings 为空。三次先行正式计算 `2221Z`、`2245Z` 与 `2306Z` 不作为当前 evidence：`2221Z` 暴露 decision assembler 未显式计算 PCVT parent PCT gates、security median sign 和逐日 parent-child count；`2245Z` 修复门禁后又在 author-side T05 对账中发现 Spearman ties 使用带空档 rank 而非 average rank；`2306Z` 通过科学与工程复核，但全仓回归发现 security-level artifact 含原始证券代码，最终改为确定性 SHA-256 pseudonym。三类修复均未改变 frozen family、seed、null、existence、year、interval 或结构统计值；四次 run 的 null results、family maxima 和 multiplicity SHA 完全一致，`2306Z` 与 `2340Z` 的 24,360 行 interlayer 除 `group_id` 表示外逐列一致。只提交 `2340Z` 为当前 author-draft evidence。
-
-## 17. Supported conclusions
-
-同一样本、冻结 family 和正式 max-stat correction 下，四个 centers 均通过对应 global/nested、年份、LOYO、parent-child、邻域、复杂度和 V guard 门槛，状态为 `formal_structure_supported_with_warning`。四个 immediate neighbors 为 `review_only`，并提供中心响应非孤立的证据。R0 lineage、K3 confirmation、interval conservation 与 R1-T05 层内语义得到复验。
-
-## 18. Unsupported conclusions
-
-本结果不支持“独立确认”“最终 winner”“最佳 q”“冻结参数”“预测能力”“因果机制”“稳定交易优势”或 R2 authorization。p-floor 不代表效应大小没有不确定性，也不能校正 T14-01 的选择过程。security-level 负 Delta、identity novelty、T Lift 下降和 PCVT 高 fragment 均限制了强结论。
-
-## 19. R1-T10 handoff recommendation
-
-author-side 建议把四个 centers 及 shared-q baseline 的完整 evidence matrix 交给外部 review；在 review 通过前只设置 goal 内部 completion gate，不设置 repository downstream gate。外部 reviewer 应重点审查：T coverage/Delta 与 Lift 退化的取舍、V security heterogeneity、identity novelty、same-sample selection limitation，以及复杂度是否足以优于 shared-q。当前保持 `scientific_review_status=pending`、`independent_review_status=not_started`、`repository_final_gate_status=pending`、`R1-T10_allowed_to_start=false`、`R2_allowed_to_start=false`、`formal_task_completed=false`。
+Engineering validator 与 author analysis 均不能替代独立审阅。本 package 只提交 Draft；在新的外部科学复审与 final gate 前，不推进 R1-T10 或 R2。

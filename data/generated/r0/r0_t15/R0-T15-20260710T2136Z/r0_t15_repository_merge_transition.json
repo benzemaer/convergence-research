@@ -1,0 +1,20 @@
+{
+  "R0_q_vector_materialization_request_status": "fulfilled",
+  "R0_q_vector_materialization_status": "completed",
+  "R1-T10_allowed_to_start": false,
+  "R1-T14-02_allowed_to_start": true,
+  "R1-T14-02_status": "authorized",
+  "R2_allowed_to_start": false,
+  "current_readme_path": "docs/tasks/README.md",
+  "current_readme_sha256": "b0880c2e92f76360afb73ecd74d49cdd5672b61987eef62f8a05301a9885bd92",
+  "downstream_transition_task_id": "R1-T14-02",
+  "final_head_commit": "faea7a957b84b0bd0e327d1af945c00c967f6ecb",
+  "final_result_package_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_result_package.json",
+  "final_result_package_sha256": "aaea43c420289d95a384b49ce045f69045007ba6a5ac669079d6d3f055d72ac2",
+  "historical_final_gate_readme_path": "docs/tasks/README.md",
+  "historical_final_gate_readme_sha256": "e753cc3bbd31d9b6a39c060b5cff9d28bba5be17009bdf76bb13013c1b79664a",
+  "merge_commit": "09fb86510dc021f031c5f646777c5202013f2e86",
+  "repository_merge_status": "merged",
+  "status": "passed",
+  "task_id": "R0-T15"
+}
