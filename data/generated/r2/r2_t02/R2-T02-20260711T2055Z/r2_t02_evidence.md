@@ -1,9 +1,9 @@
 # R2-T02 formal evidence (author draft)
 
 `run_id`: R2-T02-20260711T2055Z
-`code_commit`: 875c47a0cc1b930ab47ffd30d541999c7c88f1d1
-`config_sha256`: 6ab39ada07068c254b8e7e9ee816490be80477711683a775a9023136faad7018
-`metric_definition_source_sha256`: 76f5bb15192f62e8d8768d56858e07b58ba94f5ec5dec880579ae70620baf191
+`code_commit`: 74ad322fb5ad6e9f138dc2e6aac117131f59dee7
+`config_sha256`: 4bb6b3b0ace5f53e87a6ab213f41cdd447e62a8ac835ce33e56b3de05f778a2b
+`metric_definition_source_sha256`: eb174aa4c249397a01b4dbd836e14cdfff7c98872e133affee1ed7d17a983cf9
 `validator_command`: python scripts/r2/validate_r2_t02_event_rule_contract.py --output-dir data/generated/r2/r2_t02/R2-T02-20260711T2055Z
 `validator_status`: passed
 `validator_independence`: true
