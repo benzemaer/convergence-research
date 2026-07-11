@@ -105,7 +105,7 @@ class R2T01FailurePaths(unittest.TestCase):
             out = Path(tmp) / "R2-T01-20260711T0108Z"
             build_run(CONFIG, out)
             validate_output(out, CONFIG)
-            build_author_package(out)
+            build_author_package(out, docs_output_dir=Path(tmp) / "docs")
             evidence = (out / "r2_t01_evidence.md").read_text(encoding="utf-8")
         self.assertNotIn("config_hash`: None", evidence)
         self.assertIn("input_paths_and_hashes", evidence)

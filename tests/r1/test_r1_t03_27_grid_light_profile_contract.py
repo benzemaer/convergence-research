@@ -213,7 +213,7 @@ class R1T03LightProfileContractTest(unittest.TestCase):
             )
             self.assertIsNone(relative[0]["raw_coverage_ratio_to_baseline"])
 
-    def test_wrappers_are_thin_and_pr_fast_includes_r1_t03(self) -> None:
+    def test_wrappers_are_thin_and_pr_fast_uses_r1_t03_smoke(self) -> None:
         wrapper = Path("scripts/r1/run_r1_t03_27_grid_light_profile.py").read_text(
             encoding="utf-8"
         )
@@ -231,7 +231,11 @@ class R1T03LightProfileContractTest(unittest.TestCase):
             validator,
         )
         self.assertNotIn("duckdb", wrapper.lower())
-        self.assertIn("tests/r1/test_r1_t03_27_grid_light_profile_contract.py", profile)
+        self.assertIn("tests/r1/test_r1_t03_grid_contract_smoke.py", profile)
+        pr_fast = json.loads(profile)["profiles"]["pr-fast"]["files"]
+        self.assertNotIn(
+            "tests/r1/test_r1_t03_27_grid_light_profile_contract.py", pr_fast
+        )
 
     def _forbidden_profile_column_blocks(self, column: str) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,5 +1,27 @@
 {
   "profiles": {
+    "unit-fast": {
+      "files": [
+        "tests/test_run_unittest_profile.py",
+        "tests/test_task_index_current.py",
+        "tests/r0/test_r_stage_entrypoint_layering.py",
+        "tests/r0/test_r0_t15_formal_contract.py",
+        "tests/r1/test_r1_t01_validation_protocol_manifest_lock_contract.py",
+        "tests/r1/test_r1_t02_lineage_pit_audit_contract.py",
+        "tests/r1/test_r1_t04_formal_experiment_contract.py",
+        "tests/r1/test_r1_t05_formal_experiment_contract.py",
+        "tests/r1/test_r1_t06_formal_experiment_contract.py",
+        "tests/r1/test_r1_t07_formal_experiment_contract.py",
+        "tests/r1/test_r1_t09_formal_experiment_contract.py",
+        "tests/r1/test_r1_t10_formal_contract.py",
+        "tests/r1/test_r1_t14_route_contract.py",
+        "tests/r1/test_r1_t14_01_formal_contract.py",
+        "tests/r1/test_r1_t14_02_formal_contract.py",
+        "tests/r2/test_r2_stage_route_contract.py",
+        "tests/r2/test_r2_t01_formal_contract.py"
+      ],
+      "discover": [{"start_dir": "tests/governance", "pattern": "test*.py"}]
+    },
     "pr-fast": {
       "files": [
         "tests/test_task_index_current.py",
@@ -10,10 +32,10 @@
         "tests/r0/test_confirmation_interval_engine.py",
         "tests/r0/test_r0_t10_nested_state_materializer.py",
         "tests/r0/test_r0_t10_confirmation_interval_materializer.py",
-        "tests/r0/test_r0_t10_full_grid_materializer.py",
+        "tests/r0/test_r0_t10_full_grid_materializer_smoke.py",
         "tests/r1/test_r1_t01_validation_protocol_manifest_lock_contract.py",
         "tests/r1/test_r1_t02_lineage_pit_audit_contract.py",
-        "tests/r1/test_r1_t03_27_grid_light_profile_contract.py",
+        "tests/r1/test_r1_t03_grid_contract_smoke.py",
         "tests/r1/test_r1_t04_state_line_profiles.py",
         "tests/r1/test_r1_t04_state_line_profiles_validator.py",
         "tests/r1/test_r1_t04_formal_experiment_contract.py",
@@ -52,6 +74,44 @@
           "start_dir": "tests/r2",
           "pattern": "test*.py"
         }
+      ]
+    },
+    "integration": {
+      "files": [
+        "tests/test_validate_csi800_static_membership_materialization.py",
+        "tests/test_materialize_d2_hithink_raw_market_prices_candidate.py",
+        "tests/test_materialize_d2_adjusted_price_quality_gap_candidate.py",
+        "tests/test_duckdb_schema_contract.py",
+        "tests/test_d2_t19_targeted_provider_repair.py",
+        "tests/test_d2_t18_provider_coverage_blocker_diagnostics.py",
+        "tests/test_d2_t16_provider_runner.py",
+        "tests/test_d2_t15_provider_resume_ledger.py",
+        "tests/test_d2_t15_duckdb_staging_writer.py",
+        "tests/test_d2_t15_duckdb_quality_gate.py",
+        "tests/test_d2_t13_tnskhdata_provider_fetch_planning.py",
+        "tests/test_d2_t13_tnskhdata_materializer_rules.py",
+        "tests/test_d2_t13_tnskhdata_full_materialization_contract.py",
+        "tests/test_d2_t13_provider_error_gate.py",
+        "tests/test_d2_t12_tnskhdata_provider_adapter.py",
+        "tests/test_d2_t12_provider_remediation_contract.py",
+        "tests/test_d2_t12_provider_code_mapping.py",
+        "tests/test_d2_t12_provider_capability_matrix.py",
+        "tests/test_d2_raw_market_prices_materialization_validator.py",
+        "tests/test_d2_raw_market_prices_materialization_contract.py",
+        "tests/test_d2_hithink_raw_market_prices_candidate_materialization_contract.py",
+        "tests/test_build_d2_hithink_candidate_materialization_plan.py",
+        "tests/r0/test_r0_t15_layer_q_vector_materialization.py",
+        "tests/r0/test_r0_t10_score_materializer.py",
+        "tests/r0/test_r0_t10_score_materialization_validator.py",
+        "tests/r0/test_r0_t10_score_materialization_evidence.py",
+        "tests/r0/test_r0_t10_raw_metric_materializer.py",
+        "tests/r0/test_r0_t10_nested_state_materializer.py",
+        "tests/r0/test_r0_t10_nested_state_materialization_evidence.py",
+        "tests/r0/test_r0_t10_materialization_evidence.py",
+        "tests/r0/test_r0_t10_full_grid_materializer.py",
+        "tests/r0/test_r0_t10_confirmation_interval_materializer.py",
+        "tests/r0/test_r0_t10_confirmation_interval_materialization_evidence.py",
+        "tests/r0/test_r0_t09_main_grid_materialization_contract.py"
       ]
     },
     "full": {
