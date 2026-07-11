@@ -63,6 +63,30 @@ class UnittestProfileRunnerTest(unittest.TestCase):
         }
         self.assertTrue(discovered)
 
+    def test_heavy_tests_are_split_without_losing_full_coverage(self):
+        runner = _load_runner()
+        profiles = runner._load_profiles(PROFILE_PATH)
+        r0_smoke = "tests/r0/test_r0_t10_full_grid_materializer_smoke.py"
+        r0_full = "tests/r0/test_r0_t10_full_grid_materializer.py"
+        r1_smoke = "tests/r1/test_r1_t03_grid_contract_smoke.py"
+        r1_full = "tests/r1/test_r1_t03_27_grid_light_profile_contract.py"
+
+        self.assertTrue({r0_smoke, r1_smoke}.issubset(profiles["pr-fast"]["files"]))
+        self.assertTrue({r0_full, r1_full}.isdisjoint(profiles["pr-fast"]["files"]))
+        self.assertIn(r0_full, profiles["integration"]["files"])
+
+        stage_r1_ids = [
+            test.id() for test in _flatten(runner._build_suite(profiles["stage-r1"]))
+        ]
+        self.assertTrue(
+            any(
+                "test_r1_t03_27_grid_light_profile_contract" in test_id
+                for test_id in stage_r1_ids
+            )
+        )
+        for test_file in (r0_smoke, r0_full, r1_smoke, r1_full):
+            self.assertTrue((ROOT / test_file).is_file(), test_file)
+
 
 def _flatten(suite):
     for item in suite:

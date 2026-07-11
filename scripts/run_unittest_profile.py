@@ -112,7 +112,7 @@ def _load_profiles(path: Path) -> dict[str, Any]:
 
 
 def _build_suite(profile: dict[str, Any]) -> unittest.TestSuite:
-    loader = unittest.defaultTestLoader
+    loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     for test_file in profile.get("files", []):
         suite.addTests(_load_tests_from_file(loader, ROOT / test_file))
