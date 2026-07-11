@@ -40,7 +40,8 @@ class FailurePathTest(unittest.TestCase):
             build_contract_artifacts(out)
             validate_contract(out)
             path = out / "r2_t02_synthetic_case_results.csv"
-            rows = list(csv.DictReader(path.open(encoding="utf-8", newline="")))
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
             rows[0]["assertion_ledger"] = "[]"
             with path.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(
@@ -57,13 +58,10 @@ class FailurePathTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             build_contract_artifacts(out)
-            rows = list(
-                csv.DictReader(
-                    (out / "r2_t02_synthetic_case_results.csv").open(
-                        encoding="utf-8", newline=""
-                    )
-                )
-            )
+            with (out / "r2_t02_synthetic_case_results.csv").open(
+                encoding="utf-8", newline=""
+            ) as handle:
+                rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 37)
             self.assertTrue(all(int(row["assertion_count"]) > 0 for row in rows))
             self.assertTrue(all(row["assertion_ledger"] != "[]" for row in rows))

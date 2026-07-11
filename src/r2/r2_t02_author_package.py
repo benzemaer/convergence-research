@@ -8,6 +8,8 @@ from src.r0.upstream_artifact_io import sha256_file, write_json_atomic
 from src.r2.r2_t02_event_rule_contract_validator import validate_contract
 
 ROOT = Path(__file__).resolve().parents[2]
+PREVIOUS_RUN_ID = "R2-T02-20260711T1818Z"
+METRIC_CONFIG = ROOT / "configs/r2/r2_t02_metric_dictionary.v1.json"
 ARTIFACTS = [
     "r2_t02_input_binding.json",
     "r2_t02_event_rule_contract.json",
@@ -97,6 +99,7 @@ The 37 committed synthetic cases cover confirmation, qualification, grouping, av
 `run_id`: {output_dir.name}
 `code_commit`: {code_commit}
 `config_sha256`: {sha256_file(ROOT / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json")}
+`metric_definition_source_sha256`: {sha256_file(METRIC_CONFIG)}
 `validator_command`: python scripts/r2/validate_r2_t02_event_rule_contract.py --output-dir {output_dir.relative_to(ROOT).as_posix()}
 `validator_status`: passed
 `validator_independence`: true
@@ -121,6 +124,8 @@ The 37 committed synthetic cases cover confirmation, qualification, grouping, av
         "config_sha256": sha256_file(
             ROOT / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
         ),
+        "metric_definition_source_path": "configs/r2/r2_t02_metric_dictionary.v1.json",
+        "metric_definition_source_sha256": sha256_file(METRIC_CONFIG),
         "committed_artifacts": [
             {
                 "path": f"data/generated/r2/r2_t02/{output_dir.name}/{name}",
@@ -149,6 +154,7 @@ The 37 committed synthetic cases cover confirmation, qualification, grouping, av
         "R3_allowed_to_start": False,
         "superseded": False,
         "superseded_by": None,
+        "supersedes_run_id": PREVIOUS_RUN_ID,
     }
     write_json_atomic(output_dir / "r2_t02_result_package.json", package)
     result = {
