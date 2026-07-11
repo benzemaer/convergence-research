@@ -43,4 +43,6 @@ python -m unittest discover -s tests -v
 git diff --check
 ```
 
+分层测试的适用范围、执行时机和耗时统计见 [`docs/测试执行profiles.md`](docs/测试执行profiles.md)。
+
 上述命令只校验治理文件与示例，不执行数据处理、特征计算或研究运行。

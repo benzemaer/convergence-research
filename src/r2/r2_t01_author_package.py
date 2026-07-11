@@ -15,7 +15,12 @@ from src.r2.r2_t01_candidate_convergence_shortlist import (
 )
 
 
-def build_author_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, Any]:
+def build_author_package(
+    output_dir: Path,
+    *,
+    root: Path = ROOT,
+    docs_output_dir: Path | None = None,
+) -> dict[str, Any]:
     output_dir = output_dir.resolve()
     run_id = output_dir.name
     summary = _load_json(output_dir / "r2_t01_experiment_summary.json")
@@ -58,9 +63,9 @@ def build_author_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, An
     )
     analysis_out = output_dir / "r2_t01_result_analysis.md"
     analysis_out.write_bytes(analysis_text.encode("utf-8"))
+    docs_output_dir = docs_output_dir or root / "docs/experiments/r2"
     docs_analysis = (
-        root
-        / "docs/experiments/r2/R2-T01_参数候选收敛与shortlist_registry_result_analysis.md"
+        docs_output_dir / "R2-T01_参数候选收敛与shortlist_registry_result_analysis.md"
     )
     docs_analysis.parent.mkdir(parents=True, exist_ok=True)
     docs_analysis.write_bytes(analysis_text.encode("utf-8"))
