@@ -1,0 +1,19 @@
+{
+  "authoritative_evidence_eligible": false,
+  "code_commit": "74b8d4df85330f6e7d883bedabac532c7a7fd72e",
+  "config_path": "configs/r1/r1_t14_02_formal_structural_revalidation.v2.json",
+  "config_sha256": "155820c8b3c69dc739f4ba8dfabe594ff888165b15f2e22a158d3feb026ff544",
+  "elapsed_seconds_before_termination": 1804.1,
+  "exit_code": 124,
+  "failure_class": "orchestration_timeout_during_formal_null",
+  "formal_task_completed": false,
+  "null_outputs_completed": false,
+  "partial_output_file_count": 10,
+  "partial_outputs_committed": false,
+  "repository_final_gate_status": "not_applicable",
+  "retry_run_id": "R1-T14-02-20260711T0900Z",
+  "run_id": "R1-T14-02-20260711T0800Z",
+  "scientific_review_status": "not_started",
+  "status": "failed_incomplete",
+  "task_id": "R1-T14-02"
+}
