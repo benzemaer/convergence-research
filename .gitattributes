@@ -6,3 +6,4 @@
 *.py text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf
+configs/r1/r1_t14_02_formal_structural_revalidation.v3.json whitespace=-blank-at-eof
