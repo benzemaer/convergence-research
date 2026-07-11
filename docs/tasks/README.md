@@ -18,7 +18,7 @@
 
 ```text
 current_stage: R2
-current_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约
+current_task: R2-T02 confirmed-state 与 event-zone 双层状态机契约
 next_planned_task: R2-T03 四路线 d×g 事件区间几何扫描
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
@@ -386,7 +386,7 @@ R2_allowed_to_start: false
 R2-T01 author-draft 历史门禁记录：`R2-T02_allowed_to_start: false`。该 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 `R2-T02_allowed_to_start: true` 为准。
 
 - `R2-T01` 参数候选收敛与 shortlist registry：completed via PR #91 final gate
-- `R2-T02` K/d/g、事件指标、hard gate 与 R3 risk-set 契约：allowed after PR #91 merge
+- `R2-T02` confirmed-state 与 event-zone 双层状态机契约：allowed after PR #91 merge
 - `R2-T03` 四路线 d×g 事件区间几何扫描：blocked
 - `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：blocked
 - `R2-T05` canonical 日度状态与事件区间物化：blocked

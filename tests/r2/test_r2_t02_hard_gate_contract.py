@@ -15,7 +15,7 @@ class HardGateTest(unittest.TestCase):
         cfg = json.loads(
             (
                 ROOT
-                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
+                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v2.json"
             ).read_text()
         )
         self.assertEqual(
@@ -27,7 +27,7 @@ class HardGateTest(unittest.TestCase):
         cfg = json.loads(
             (
                 ROOT
-                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
+                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v2.json"
             ).read_text()
         )
         self.assertEqual(cfg["event_rule"]["d_grid"], [1, 2, 3])

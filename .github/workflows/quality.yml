@@ -66,5 +66,16 @@ jobs:
         run: python scripts/run_unittest_profile.py --profile regression-lite -v
 
       - name: Run premerge full tests
-        if: github.event_name == 'workflow_dispatch' || github.event.action == 'ready_for_review'
-        run: python scripts/run_unittest_profile.py --profile full -v
+        if: github.event_name == 'workflow_dispatch' || github.event.action == 'ready_for_review' || (github.event.action == 'synchronize' && github.event.pull_request.draft == false)
+        run: python scripts/run_unittest_profile.py --profile full -v --result-json "${{ runner.temp }}/full-result.json"
+
+      - name: Build R2-T02 premerge full evidence
+        if: github.event_name == 'workflow_dispatch' || github.event.action == 'ready_for_review' || (github.event.action == 'synchronize' && github.event.pull_request.draft == false)
+        run: python scripts/r2/build_r2_t02_premerge_full_evidence.py --runner-result "${{ runner.temp }}/full-result.json" --output "${{ runner.temp }}/r2_t02_premerge_full_evidence.json" --tested-head "${{ github.sha }}" --workflow-run-id "${{ github.run_id }}" --workflow-run-attempt "${{ github.run_attempt }}"
+
+      - name: Upload R2-T02 premerge full evidence
+        if: github.event_name == 'workflow_dispatch' || github.event.action == 'ready_for_review' || (github.event.action == 'synchronize' && github.event.pull_request.draft == false)
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-t02-premerge-full-evidence
+          path: ${{ runner.temp }}/r2_t02_premerge_full_evidence.json

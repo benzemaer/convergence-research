@@ -10,7 +10,7 @@ class AuthorDraftTest(unittest.TestCase):
         cfg = json.loads(
             (
                 ROOT
-                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
+                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v2.json"
             ).read_text()
         )
         gate = cfg["author_draft_gate_state"]
@@ -22,7 +22,7 @@ class AuthorDraftTest(unittest.TestCase):
         cfg = json.loads(
             (
                 ROOT
-                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
+                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v2.json"
             ).read_text()
         )
         self.assertIn("future_return", cfg["forbidden_output_fields"])

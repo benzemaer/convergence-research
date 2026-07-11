@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "task_id", "profile", "status", "tested_head", "workflow_run_id", "workflow_run_attempt", "test_count", "unique_test_count", "skipped_count", "failure_count", "error_count", "elapsed_seconds", "test_collection_sha256", "heavy_profile", "heavy_test_count", "heavy_test_collection_sha256", "heavy_test_ids", "collection_conservation", "formal_surface_sha256"],
+  "properties": {
+    "schema_version": {"const": "r2_t02_premerge_full_evidence.v1"},
+    "task_id": {"const": "R2-T02"},
+    "profile": {"const": "full"},
+    "status": {"const": "passed"},
+    "tested_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "workflow_run_id": {"type": "string", "minLength": 1},
+    "workflow_run_attempt": {"type": "string", "minLength": 1},
+    "test_count": {"type": "integer", "minimum": 1},
+    "unique_test_count": {"type": "integer", "minimum": 1},
+    "skipped_count": {"type": "integer", "minimum": 0},
+    "failure_count": {"const": 0},
+    "error_count": {"const": 0},
+    "elapsed_seconds": {"type": "number", "minimum": 0},
+    "test_collection_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "heavy_profile": {"const": "r0-heavy-premerge"},
+    "heavy_test_count": {"type": "integer", "minimum": 1},
+    "heavy_test_collection_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "heavy_test_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "collection_conservation": {"const": {"executed_equals_collected": true, "full_equals_current_collection": true, "heavy_is_subset_of_full": true}},
+    "formal_surface_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}

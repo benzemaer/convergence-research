@@ -62,7 +62,7 @@ class FailurePathTest(unittest.TestCase):
                 encoding="utf-8", newline=""
             ) as handle:
                 rows = list(csv.DictReader(handle))
-            self.assertEqual(len(rows), 37)
+            self.assertEqual(len(rows), 53)
             self.assertTrue(all(int(row["assertion_count"]) > 0 for row in rows))
             self.assertTrue(all(row["assertion_ledger"] != "[]" for row in rows))
             self.assertTrue(all(row["status"] == "passed" for row in rows))

@@ -8,14 +8,27 @@ class MetricDictionaryTest(unittest.TestCase):
         rows = metric_dictionary()
         required = {
             "metric_id",
-            "numerator",
+            "layer",
+            "entity_level",
+            "numerator_or_aggregation",
             "denominator",
+            "deduplication_key",
+            "included_rows",
+            "excluded_rows",
+            "censoring_policy",
             "denominator_scope",
             "open_event_policy",
+            "expected_parameter_response",
+            "hard_gate_usage",
             "null_or_zero_denominator_policy",
+            "availability_basis",
         }
         self.assertTrue(all(required <= set(x) for x in rows))
-        self.assertIn("confirmed_event_coverage", {x["metric_id"] for x in rows})
+        self.assertIn("confirmed_state_coverage", {x["metric_id"] for x in rows})
+        self.assertIn(
+            "prequalification_right_censored_count", {x["metric_id"] for x in rows}
+        )
+        self.assertIn("zone_revision_count", {x["metric_id"] for x in rows})
         self.assertGreaterEqual(len(rows), 38)
         serialized = str(rows)
         self.assertNotIn("metric-defined", serialized)

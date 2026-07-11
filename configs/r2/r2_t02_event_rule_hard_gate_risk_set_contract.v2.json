@@ -1,0 +1,105 @@
+{
+  "task_id": "R2-T02",
+  "task_class": "protocol_freeze",
+  "task_subclass": "confirmed_state_and_event_zone_dual_state_machine_contract",
+  "contract_version": "r2_t02_event_rule_contract.v2",
+  "selection_path_not_independently_confirmed": true,
+  "metric_definition_source": {
+    "path": "configs/r2/r2_t02_metric_dictionary.v2.json",
+    "sha256": "76f5bb15192f62e8d8768d56858e07b58ba94f5ec5dec880579ae70620baf191"
+  },
+  "trading_calendar_or_expected_key_binding": {
+    "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
+    "sha256": "310393bf78d58eaf76fa5a02aeb18cfa069c3e917ba1526c014167f9dca00d46",
+    "source_run_id": "R0-T15-20260710T2136Z",
+    "schema_version": "r0_t15_daily_confirmation_results.v1",
+    "primary_key": ["formal_vector_id", "security_id", "trading_date"],
+    "date_field": "trading_date",
+    "index_field": "derived_row_number_by_trading_date_within_route_security",
+    "attestation_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_local_duckdb_attestation.json",
+    "attestation_sha256": "b0d081dfc5718385801b5dd9bd3b931f2fee1faa21bf1f1e832cd566f45fbfb3"
+  },
+  "upstream": {
+    "run_id": "R2-T01-20260712T0020Z",
+    "reviewed_pr_head_commit": "22b2edcfdb728864ade14fed33c8a0f92d53f250",
+    "merge_commit": "94925ccbb247254c4b009d1486cec7d83348c6d8",
+    "final_package_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_final_gate_package.json",
+    "final_package_sha256": "2ef8eafe47725cadd0d785423b9897b0953650cd5aaea75aa3f0dc152c689ff6",
+    "final_validation_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_final_gate_validation_result.json",
+    "final_validation_sha256": "bfd4c5b1e6e355cc84a6282ea38a578b7ee474457803375213b00702df54ab24",
+    "shortlist_registry_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_shortlist_registry.csv",
+    "shortlist_registry_sha256": "9b625cdf06132a8a0488d1b304f41633306287d39f0986208f4ce11f0b042d4d",
+    "primary_shortlist_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_primary_shortlist.csv",
+    "primary_shortlist_sha256": "cfe9a18cdfef22fa2a5aa7f0658be2784819b95b775de814f08f97d1e95b6144",
+    "candidate_disposition_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_candidate_disposition_registry.csv",
+    "candidate_disposition_sha256": "6cfff0f33b062a547a81ca8b7c227605b4dbda923ea9aae669262e0023f2de67",
+    "input_binding_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_input_binding.json",
+    "input_binding_sha256": "21e34813ccfc14fb1a325237e86f93ea9a2ed061c59607fcc0ed979b9ed1fb76",
+    "scientific_review_path": "data/generated/r2/r2_t01/R2-T01-20260712T0020Z/r2_t01_independent_scientific_review.json",
+    "scientific_review_sha256": "144e5b2aad73680dbcd36620413e13975dc2665ff14e9c91b324d66035ce9280"
+  },
+  "candidate_boundary": {"primary_route_count": 4, "shared_sidecar_route_count": 4, "sensitivity_route_cell_count": 0, "excluded_route_cell_count": 0},
+  "daily_confirmed_state_machine": {
+    "states": ["RAW_NOT_CONFIRMED", "CONFIRMED_ACTIVE", "CONFIRMED_EXITED"],
+    "termination_reason_mapping": {
+      "raw_state_false": "natural_state_exit",
+      "unknown": "quality_interruption",
+      "diagnostic_required": "quality_interruption",
+      "blocked": "quality_interruption",
+      "missing_observation": "quality_interruption",
+      "end_of_input_open": "sample_end_censoring"
+    },
+    "truth_source": "reuse_R0_daily_confirmed_state_without_recomputing_percentiles",
+    "backfill": false
+  },
+  "event_zone_state_machine": {
+    "states": ["COMPONENT_FORMING", "UNQUALIFIED_CLOSED", "QUALIFIED_ACTIVE", "GAP_PENDING", "REENTRY_PENDING_QUALIFICATION", "FINALIZED", "FINALIZED_WITH_QUALITY_BREAK", "RIGHT_CENSORED"],
+    "unqualified_reentry_policy": "record_separately_and_close_prior_zone_not_ordinary_gap",
+    "transitive_merge_policy": "maximal_connected_component_under_gap_tolerance",
+    "bridge_count_limit_policy": "unlimited",
+    "censoring_states": ["left_censored_component", "right_censored_component", "prequalification_right_censored", "open_gap_pending_zone", "right_censored_zone"]
+  },
+  "event_identity": {
+    "scan_event_id": ["contract_version", "candidate_cell_id", "security_id", "first_qualified_component_identity"],
+    "canonical_event_id": ["state_version_id", "security_id", "first_qualified_component_identity"],
+    "zone_revision_policy": "zero_at_first_qualification_increment_per_qualified_reentry",
+    "cross_state_version_merge": false
+  },
+  "anti_percolation": {
+    "research_judgment": true,
+    "bridge_count_limit_policy": "unlimited",
+    "required_fields": ["component_interval_count", "bridge_count", "bridged_gap_days", "max_single_gap_days", "zone_trading_span", "zone_confirmed_day_count", "confirmed_density", "bridged_gap_ratio", "zone_revision_count", "mega_zone_ratio", "max_zone_span", "top_zone_confirmed_day_share"]
+  },
+  "t03_boundary": {
+    "primary_route_count": 4,
+    "fallback_route_count": 4,
+    "d_count": 3,
+    "g_count": 3,
+    "formal_cell_count": 72,
+    "sensitivity_cell_count": 0,
+    "excluded_cell_count": 0
+  },
+  "event_rule": {
+    "K": 3, "d_grid": [1, 2, 3], "d_operator": ">=", "g_grid": [0, 1, 2],
+    "gap_count_unit": "eligible_trading_days", "confirmation_backfill": false,
+    "trading_row_completeness_key": "expected_trade_index",
+    "trading_row_completeness_policy": "observed_keys_and_date_index_mapping_must_equal_independent_R0_T15_authoritative_expected_key_registry_including_boundaries",
+    "hard_break_states": ["unknown", "blocked", "ineligible", "missing_trading_row"],
+    "event_identity_fields": ["contract_version", "candidate_cell_id", "security_id", "first_qualified_component_identity"],
+    "year_assignment": "year_of_first_event_qualification_time",
+    "open_event_policy": "observed_to_date_no_fabricated_finalization",
+    "matched_event_algorithm": "global_lexicographic_bipartite_matching_max_cardinality_then_total_overlap_then_min_total_qualification_distance_then_deterministic_id",
+    "processing_order": ["atomic_confirmed_interval", "d_qualification", "qualified_component", "g_grouping", "event_zone"]
+  },
+  "denominator_scopes": {
+    "own_eligible": "route_eligible_security_trade_date_keys",
+    "common_W120_W250": "exact_key_intersection_within_state_line_and_role"
+  },
+  "hard_gates": {
+    "global_zero_tolerance": ["lineage_mismatch_count", "schema_mismatch_count", "source_hash_mismatch_count", "source_superseded_count", "duplicate_primary_key_count", "unknown_bridged_day_count", "blocked_bridged_day_count", "ineligible_bridged_day_count", "confirmed_day_conservation_mismatch_count", "within_route_overlapping_event_count", "post_merge_short_zone_count", "risk_set_guard_violation_count", "strict_core_subset_violation_count", "forbidden_output_field_count"],
+    "S_PCT": {"event_floor": 250, "event_interval_fraction": 0.05, "security_floor": 150, "security_fraction": 0.20, "retention_min": 0.35, "drop_max": 0.80, "bridge_max": 0.30, "merge_max": 0.70, "open_max": 0.10, "nonzero_years_min": 8, "max_year_share_max": 0.35, "duration_inflation_max": 3.0},
+    "S_PCVT": {"event_floor": 100, "event_interval_fraction": 0.05, "security_floor": 100, "security_fraction": 0.15, "retention_min": 0.25, "drop_max": 0.85, "bridge_max": 0.35, "merge_max": 0.75, "open_max": 0.10, "nonzero_years_min": 8, "max_year_share_max": 0.35, "duration_inflation_max": 3.0}
+  },
+  "forbidden_output_fields": ["selected_d", "selected_g", "automatic_winner", "automatic_rank", "freeze_decision", "freeze_plan", "state_version_id", "release_label", "future_return", "future_volatility", "future_direction", "future_path", "precision", "recall", "matched_control", "outcome_window", "cooldown", "backtest", "PnL", "trade_signal", "portfolio"],
+  "author_draft_gate_state": {"R2-T02_status": "author_analysis_complete_pending_independent_review", "R2-T02_scientific_review_status": "pending", "R2-T02_independent_review_status": "pending", "formal_task_completed": false, "R2-T03_allowed_to_start": false, "R2-T04_allowed_to_start": false, "R3_allowed_to_start": false}
+}

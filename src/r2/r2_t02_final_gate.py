@@ -5,7 +5,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from scripts.run_unittest_profile import profile_test_ids
 from src.r0.upstream_artifact_io import sha256_file, write_json_atomic
+from src.r2.r2_t02_premerge_full_evidence import (
+    collection_sha256,
+    formal_surface_sha256,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,11 +25,13 @@ def finalize_r2_t02_reviewed_package(
     review_record_path: Path,
     reviewed_head: str,
     task_index_path: Path,
+    premerge_full_evidence_path: Path,
 ) -> dict[str, Any]:
     errors = []
     review = _load(review_record_path)
     package = _load(output_dir / "r2_t02_result_package.json")
     validation = _load(output_dir / "r2_t02_contract_validation_result.json")
+    premerge = _load(premerge_full_evidence_path)
     expected = {
         "task_id": "R2-T02",
         "scientific_review_status": "passed",
@@ -53,6 +60,35 @@ def finalize_r2_t02_reviewed_package(
         capture_output=True,
     ).returncode:
         errors.append("reviewed_head_not_ancestor")
+    full_ids = profile_test_ids("full")
+    heavy_ids = profile_test_ids("r0-heavy-premerge")
+    premerge_expected = {
+        "task_id": "R2-T02",
+        "profile": "full",
+        "status": "passed",
+        "tested_head": reviewed_head,
+        "test_count": len(full_ids),
+        "unique_test_count": len(set(full_ids)),
+        "failure_count": 0,
+        "error_count": 0,
+        "test_collection_sha256": collection_sha256(full_ids),
+        "heavy_profile": "r0-heavy-premerge",
+        "heavy_test_count": len(heavy_ids),
+        "heavy_test_collection_sha256": collection_sha256(heavy_ids),
+        "heavy_test_ids": heavy_ids,
+        "formal_surface_sha256": formal_surface_sha256(reviewed_head),
+    }
+    for key, value in premerge_expected.items():
+        if premerge.get(key) != value:
+            errors.append(f"premerge_full_evidence:{key}")
+    if not premerge.get("workflow_run_id") or not premerge.get("workflow_run_attempt"):
+        errors.append("premerge_full_evidence:workflow_binding")
+    if premerge.get("collection_conservation") != {
+        "full_equals_current_collection": True,
+        "heavy_is_subset_of_full": True,
+        "executed_equals_collected": True,
+    }:
+        errors.append("premerge_full_evidence:collection_conservation")
     current = task_index_path.read_text(encoding="utf-8")
     for marker in [
         "R2-T02_scientific_review_status: pending",
@@ -73,6 +109,10 @@ def finalize_r2_t02_reviewed_package(
         "reviewed_pr_head_commit": reviewed_head,
         "review_record_path": review_record_path.relative_to(ROOT).as_posix(),
         "review_record_sha256": sha256_file(review_record_path),
+        "premerge_full_evidence_path": premerge_full_evidence_path.relative_to(
+            ROOT
+        ).as_posix(),
+        "premerge_full_evidence_sha256": sha256_file(premerge_full_evidence_path),
         "reviewed_author_package_sha256": sha256_file(
             output_dir / "r2_t02_result_package.json"
         ),

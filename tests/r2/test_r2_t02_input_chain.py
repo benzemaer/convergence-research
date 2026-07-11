@@ -12,7 +12,7 @@ class InputChainTest(unittest.TestCase):
         cfg = json.loads(
             (
                 ROOT
-                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
+                / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v2.json"
             ).read_text()
         )
         for key, path in cfg["upstream"].items():

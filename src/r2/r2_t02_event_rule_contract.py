@@ -15,8 +15,8 @@ from typing import Any
 from src.r0.upstream_artifact_io import sha256_file, write_json_atomic
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = ROOT / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
-METRIC_CONFIG = ROOT / "configs/r2/r2_t02_metric_dictionary.v1.json"
+CONFIG = ROOT / "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v2.json"
+METRIC_CONFIG = ROOT / "configs/r2/r2_t02_metric_dictionary.v2.json"
 
 
 class R2T02ContractError(RuntimeError):
@@ -171,6 +171,7 @@ def group_qualified_intervals_by_g(
             )
             if bridgeable:
                 current["intervals"].append(interval)
+                current["zone_revision"] += 1
                 current["bridge_rows"].extend(gap)
                 current["bridge_segments"].append(
                     {
@@ -437,24 +438,42 @@ def compute_common_eligible_keys(
     return set(left_keys) & set(right_keys)
 
 
+def canonical_event_id(
+    state_version_id: str, security_id: str, first_qualified_component_identity: str
+) -> str:
+    if not state_version_id:
+        raise R2T02ContractError("state_version_id_required")
+    return _hash(state_version_id, security_id, first_qualified_component_identity)
+
+
 def validate_risk_set_guard(rows: list[dict[str, Any]]) -> dict[str, Any]:
     errors = []
     for index, row in enumerate(rows):
         valid_quality = row.get("quality_state") == "valid"
         eligible = row.get("eligible") is True
-        expected = (
+        state_expected = (
             row.get("confirmed_state") is True
             and row.get("available_at_evaluation_time") is True
             and eligible
             and valid_quality
         )
+        qualified_expected = (
+            state_expected and row.get("component_qualified_as_of") is True
+        )
+        state_actual = row.get("state_risk_set_eligible", row.get("risk_set_eligible"))
+        qualified_actual = row.get(
+            "qualified_event_risk_set_eligible", qualified_expected
+        )
         if row.get("confirmed_state") is True and (not eligible or not valid_quality):
             errors.append(f"confirmed_quality_contradiction:{index}")
-        if row.get("risk_set_eligible") is not expected:
-            errors.append(f"risk_set_equivalence:{index}")
+        if state_actual is not state_expected:
+            errors.append(f"state_risk_set_equivalence:{index}")
+        if qualified_actual is not qualified_expected:
+            errors.append(f"qualified_event_risk_set_equivalence:{index}")
         if row.get("is_bridged_gap") is True and (
             row.get("confirmed_state") is not False
-            or row.get("risk_set_eligible") is not False
+            or state_actual is not False
+            or qualified_actual is not False
             or row.get("event_zone_member") is not True
         ):
             errors.append(f"bridged_gap_guard:{index}")
@@ -853,13 +872,28 @@ def build_contract_artifacts(output_dir: Path) -> dict[str, Any]:
         **config["event_rule"],
         "selection_path_not_independently_confirmed": True,
     }
+    daily_machine = {
+        "task_id": "R2-T02",
+        "contract_version": config["contract_version"],
+        **config["daily_confirmed_state_machine"],
+    }
+    zone_machine = {
+        "task_id": "R2-T02",
+        "contract_version": config["contract_version"],
+        **config["event_zone_state_machine"],
+        "event_identity": config["event_identity"],
+        "anti_percolation": config["anti_percolation"],
+    }
+    transitions = _transition_registry()
+    t03_cells = _t03_cell_registry(config)
+    t03_schemas = _t03_output_schema_registry()
     risk = {
         "task_id": "R2-T02",
-        "eligibility_rule": (
-            "confirmed_true_and_available_and_eligible_and_quality_valid"
-        ),
+        "state_risk_set_rule": "confirmed_and_available_and_eligible_and_quality_valid",
+        "qualified_event_risk_set_rule": "state_risk_set_and_component_qualified_as_of",
         "guards": [
-            "risk_true_implies_confirmed_true",
+            "state_risk_true_implies_confirmed_true",
+            "qualified_event_risk_true_implies_state_risk_true",
             "bridge_implies_confirmed_false",
             "bridge_implies_risk_false",
             "bridge_implies_zone_member",
@@ -897,17 +931,170 @@ def build_contract_artifacts(output_dir: Path) -> dict[str, Any]:
     }
     write_json_atomic(output_dir / "r2_t02_input_binding.json", input_binding)
     write_json_atomic(output_dir / "r2_t02_event_rule_contract.json", event)
+    write_json_atomic(
+        output_dir / "r2_t02_daily_confirmed_state_machine_contract.json",
+        daily_machine,
+    )
+    write_json_atomic(
+        output_dir / "r2_t02_event_zone_state_machine_contract.json", zone_machine
+    )
+    _write_csv(output_dir / "r2_t02_event_transition_registry.csv", transitions)
     _write_csv(output_dir / "r2_t02_metric_dictionary.csv", metric_dictionary())
     _write_csv(output_dir / "r2_t02_hard_gate_registry.csv", hard_gate_registry())
     write_json_atomic(output_dir / "r2_t02_r3_risk_set_contract.json", risk)
+    _write_csv(output_dir / "r2_t02_t03_cell_registry.csv", t03_cells)
+    write_json_atomic(
+        output_dir / "r2_t02_t03_output_schema_registry.json", t03_schemas
+    )
     write_json_atomic(output_dir / "r2_t02_synthetic_case_registry.json", cases)
     _write_csv(output_dir / "r2_t02_synthetic_case_results.csv", results)
     return {
         "task_id": "R2-T02",
         "run_id": output_dir.name,
         "status": "built",
-        "artifact_count": 7,
+        "artifact_count": 12,
         "synthetic_case_count": len(cases),
+    }
+
+
+def _transition_registry() -> list[dict[str, Any]]:
+    rows = [
+        ("daily", "RAW_NOT_CONFIRMED", "CONFIRMED_ACTIVE", "k_valid_raw_true_rows"),
+        ("daily", "CONFIRMED_ACTIVE", "CONFIRMED_EXITED", "raw_state_false"),
+        ("daily", "CONFIRMED_ACTIVE", "CONFIRMED_EXITED", "quality_interruption"),
+        ("daily", "CONFIRMED_ACTIVE", "CONFIRMED_ACTIVE", "valid_raw_true"),
+        ("component", "COMPONENT_FORMING", "QUALIFIED_ACTIVE", "confirmed_days_ge_d"),
+        (
+            "component",
+            "COMPONENT_FORMING",
+            "UNQUALIFIED_CLOSED",
+            "normal_exit_before_d",
+        ),
+        ("component", "COMPONENT_FORMING", "RIGHT_CENSORED", "sample_end_before_d"),
+        ("zone", "QUALIFIED_ACTIVE", "GAP_PENDING", "atomic_interval_exit"),
+        ("zone", "GAP_PENDING", "FINALIZED", "g_plus_one_false"),
+        ("zone", "GAP_PENDING", "FINALIZED_WITH_QUALITY_BREAK", "quality_break"),
+        ("zone", "GAP_PENDING", "REENTRY_PENDING_QUALIFICATION", "confirmed_reentry"),
+        ("zone", "GAP_PENDING", "RIGHT_CENSORED", "sample_end"),
+        (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "QUALIFIED_ACTIVE",
+            "reentry_reaches_d",
+        ),
+        (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "FINALIZED",
+            "reentry_exits_before_d",
+        ),
+        (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "FINALIZED_WITH_QUALITY_BREAK",
+            "quality_break",
+        ),
+        ("zone", "REENTRY_PENDING_QUALIFICATION", "RIGHT_CENSORED", "sample_end"),
+    ]
+    return [
+        {
+            "machine_layer": layer,
+            "from_state": source,
+            "to_state": target,
+            "trigger": trigger,
+            "expected_transition": True,
+        }
+        for layer, source, target, trigger in rows
+    ]
+
+
+def _t03_cell_registry(config: dict[str, Any]) -> list[dict[str, Any]]:
+    shortlist_path = ROOT / config["upstream"]["shortlist_registry_path"]
+    with shortlist_path.open(encoding="utf-8", newline="") as handle:
+        routes = [
+            row
+            for row in csv.DictReader(handle)
+            if row["candidate_role"] in {"primary", "strict_core_reference"}
+        ]
+    cells = []
+    for route in routes:
+        role = "primary" if route["candidate_role"] == "primary" else "fallback"
+        for d in (1, 2, 3):
+            for g in (0, 1, 2):
+                cells.append(
+                    {
+                        "candidate_cell_id": f"{route['route_id']}_d{d}_g{g}",
+                        "route_id": route["route_id"],
+                        "candidate_role": role,
+                        "state_line": route["state_line"],
+                        "W": int(route["W"]),
+                        "d": d,
+                        "g": g,
+                        "execution_status": "not_executed_contract_only",
+                    }
+                )
+    if len(cells) != config["t03_boundary"]["formal_cell_count"]:
+        raise R2T02ContractError("t03_cell_count_mismatch")
+    return cells
+
+
+def _t03_output_schema_registry() -> dict[str, Any]:
+    return {
+        "schema_version": "r2_t02_t03_output_schema_registry.v2",
+        "actual_scan_executed": False,
+        "tables": {
+            "atomic_confirmed_baseline": [
+                "route_id",
+                "candidate_role",
+                "eligible_days",
+                "confirmed_state_days",
+                "upstream_reconciliation_status",
+            ],
+            "d_qualification_profile": [
+                "route_id",
+                "candidate_role",
+                "d",
+                "qualified_component_count",
+                "prequalification_right_censored_count",
+            ],
+            "dg_event_zone_profile": [
+                "route_id",
+                "candidate_role",
+                "d",
+                "g",
+                "total_event_zone_count",
+                "confirmed_density",
+                "zone_revision_count",
+            ],
+            "event_state_transition_profile": [
+                "route_id",
+                "candidate_role",
+                "d",
+                "g",
+                "from_state",
+                "to_state",
+                "transition_count",
+                "transition_rate",
+                "expected_transition",
+                "conservation_status",
+            ],
+            "strict_core_shell_profile": [
+                "route_id",
+                "d",
+                "g",
+                "strict_core_confirmed_day_share",
+                "shell_only_zone_ratio",
+                "subset_status",
+            ],
+            "window_overlap_comparison": [
+                "state_line",
+                "d",
+                "g",
+                "denominator_scope",
+                "confirmed_jaccard",
+                "matched_event_count",
+            ],
+        },
     }
 
 
@@ -950,6 +1137,22 @@ def _synthetic_cases() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         "input_chain_mutation_detected",
         "forbidden_field_detected",
         "double_rebuild_hash_equal",
+        "daily_confirmation_transition",
+        "daily_natural_exit_transition",
+        "daily_quality_exit_transition",
+        "component_qualification_transition",
+        "component_unqualified_close_transition",
+        "component_prequalification_censor_transition",
+        "zone_gap_pending_transition",
+        "zone_gap_finalization_transition",
+        "zone_quality_finalization_transition",
+        "zone_reentry_pending_transition",
+        "zone_gap_censor_transition",
+        "zone_reentry_qualification_transition",
+        "zone_reentry_failure_transition",
+        "zone_reentry_quality_break_transition",
+        "zone_reentry_censor_transition",
+        "t03_exact_72_cell_boundary",
     ]
     cases = []
     results = []
@@ -1349,6 +1552,132 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         return value, [
             check(name, _canonical_hash(value), _canonical_hash(dict(value)))
         ]
+    transition_cases = {
+        "daily_confirmation_transition": (
+            "daily",
+            "RAW_NOT_CONFIRMED",
+            "k_valid_raw_true_rows",
+            "CONFIRMED_ACTIVE",
+        ),
+        "daily_natural_exit_transition": (
+            "daily",
+            "CONFIRMED_ACTIVE",
+            "raw_state_false",
+            "CONFIRMED_EXITED",
+        ),
+        "daily_quality_exit_transition": (
+            "daily",
+            "CONFIRMED_ACTIVE",
+            "quality_interruption",
+            "CONFIRMED_EXITED",
+        ),
+        "component_qualification_transition": (
+            "component",
+            "COMPONENT_FORMING",
+            "confirmed_days_ge_d",
+            "QUALIFIED_ACTIVE",
+        ),
+        "component_unqualified_close_transition": (
+            "component",
+            "COMPONENT_FORMING",
+            "normal_exit_before_d",
+            "UNQUALIFIED_CLOSED",
+        ),
+        "component_prequalification_censor_transition": (
+            "component",
+            "COMPONENT_FORMING",
+            "sample_end_before_d",
+            "RIGHT_CENSORED",
+        ),
+        "zone_gap_pending_transition": (
+            "zone",
+            "QUALIFIED_ACTIVE",
+            "atomic_interval_exit",
+            "GAP_PENDING",
+        ),
+        "zone_gap_finalization_transition": (
+            "zone",
+            "GAP_PENDING",
+            "g_plus_one_false",
+            "FINALIZED",
+        ),
+        "zone_quality_finalization_transition": (
+            "zone",
+            "GAP_PENDING",
+            "quality_break",
+            "FINALIZED_WITH_QUALITY_BREAK",
+        ),
+        "zone_reentry_pending_transition": (
+            "zone",
+            "GAP_PENDING",
+            "confirmed_reentry",
+            "REENTRY_PENDING_QUALIFICATION",
+        ),
+        "zone_gap_censor_transition": (
+            "zone",
+            "GAP_PENDING",
+            "sample_end",
+            "RIGHT_CENSORED",
+        ),
+        "zone_reentry_qualification_transition": (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "reentry_reaches_d",
+            "QUALIFIED_ACTIVE",
+        ),
+        "zone_reentry_failure_transition": (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "reentry_exits_before_d",
+            "FINALIZED",
+        ),
+        "zone_reentry_quality_break_transition": (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "quality_break",
+            "FINALIZED_WITH_QUALITY_BREAK",
+        ),
+        "zone_reentry_censor_transition": (
+            "zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "sample_end",
+            "RIGHT_CENSORED",
+        ),
+    }
+    if name in transition_cases:
+        layer, source, trigger, expected = transition_cases[name]
+        matches = [
+            row["to_state"]
+            for row in _transition_registry()
+            if row["machine_layer"] == layer
+            and row["from_state"] == source
+            and row["trigger"] == trigger
+        ]
+        fixture = {"machine_layer": layer, "from_state": source, "trigger": trigger}
+        return fixture, [check(name, matches, [expected])]
+    if name == "t03_exact_72_cell_boundary":
+        config = json.loads(CONFIG.read_text(encoding="utf-8"))
+        cells = _t03_cell_registry(config)
+        observed = {
+            "cell_count": len(cells),
+            "primary_count": sum(x["candidate_role"] == "primary" for x in cells),
+            "fallback_count": sum(x["candidate_role"] == "fallback" for x in cells),
+            "executed_count": sum(
+                x["execution_status"] != "not_executed_contract_only" for x in cells
+            ),
+        }
+        return config["t03_boundary"], [
+            check(
+                name,
+                observed,
+                {
+                    "cell_count": 72,
+                    "primary_count": 36,
+                    "fallback_count": 36,
+                    "executed_count": 0,
+                },
+            )
+        ]
     raise R2T02ContractError(f"unknown_synthetic_case:{name}")
 
 
@@ -1526,15 +1855,19 @@ def _finish_interval(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _new_zone(interval: dict[str, Any], g: int, contract: str) -> dict[str, Any]:
+    candidate_cell_id = f"{interval['route_id']}_d{interval['d']}_g{g}"
+    scan_event_id = _hash(
+        contract,
+        candidate_cell_id,
+        interval["security_id"],
+        interval["confirmed_interval_id"],
+    )
     return {
-        "event_id": _hash(
-            contract,
-            interval["route_id"],
-            interval["security_id"],
-            interval["d"],
-            g,
-            interval["confirmed_start_date"],
-        ),
+        "event_id": scan_event_id,
+        "scan_event_id": scan_event_id,
+        "candidate_cell_id": candidate_cell_id,
+        "first_qualified_component_identity": interval["confirmed_interval_id"],
+        "zone_revision": 0,
         "route_id": interval["route_id"],
         "security_id": interval["security_id"],
         "d": interval["d"],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import sys
@@ -21,6 +22,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", required=True, help="Profile name to run.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose tests.")
     parser.add_argument(
+        "--result-json",
+        type=Path,
+        help="Write a machine-readable profile result.",
+    )
+    parser.add_argument(
         "--slowest-files",
         type=int,
         default=10,
@@ -37,6 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     suite = _build_suite(profiles[args.profile])
+    test_ids = sorted(test.id() for test in _flatten_suite(suite))
     runner = unittest.TextTestRunner(
         verbosity=2 if args.verbose else 1,
         resultclass=TimingTestResult,
@@ -52,6 +59,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.slowest_files:
         _print_slowest_files(result, args.slowest_files)
+    if args.result_json:
+        payload = {
+            "profile": args.profile,
+            "status": "passed" if result.wasSuccessful() else "failed",
+            "test_count": result.testsRun,
+            "collected_test_count": len(test_ids),
+            "unique_test_count": len(set(test_ids)),
+            "failure_count": len(result.failures),
+            "error_count": len(result.errors),
+            "skipped_count": len(result.skipped),
+            "elapsed_seconds": round(elapsed, 6),
+            "test_ids": test_ids,
+            "test_collection_sha256": hashlib.sha256(
+                json.dumps(test_ids, separators=(",", ":")).encode()
+            ).hexdigest(),
+        }
+        args.result_json.parent.mkdir(parents=True, exist_ok=True)
+        args.result_json.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     return 0 if result.wasSuccessful() else 1
 
 
@@ -131,6 +158,15 @@ def _build_suite(profile: dict[str, Any]) -> unittest.TestSuite:
     if suite.countTestCases() == 0:
         raise ValueError("unittest profile selected zero tests")
     return suite
+
+
+def profile_test_ids(profile_name: str) -> list[str]:
+    profiles = _load_profiles(PROFILE_CONFIG)
+    if profile_name not in profiles:
+        raise ValueError(f"unknown unittest profile: {profile_name}")
+    return sorted(
+        test.id() for test in _flatten_suite(_build_suite(profiles[profile_name]))
+    )
 
 
 def _canonical_test_path(value: str) -> str:

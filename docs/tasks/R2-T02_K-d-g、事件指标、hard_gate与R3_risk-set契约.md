@@ -1,8 +1,8 @@
-# R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约
+# R2-T02 confirmed-state 与 event-zone 双层状态机契约
 
 ## 任务边界
 
-本任务是 `protocol_freeze`，只冻结从 confirmed state 到 retrospective event geometry 的规则、指标、hard gate 和 R3 risk-set guard。它不读取正式日表，不运行四条路线的 `d x g` 几何扫描，不选择参数，不定义 release 或未来标签，也不形成状态版本。输入候选边界由 R2-T01 final gate 固定为 4 条 primary、4 条 shared-q sidecar、2 条 sensitivity-only 和 2 条 excluded；后两类在 T03 的 cell 数均为零。
+本任务是 `protocol_freeze`，冻结 confirmed-state 日级状态机、event-zone 事件状态机、指标、hard gate 和两套下游 risk-set guard。它不运行 `d x g` 几何扫描，不选择参数，不定义 release 或未来标签，也不形成状态版本。输入边界由 R2-T01 final gate 固定为 4 条 primary 和 4 条 shared-q fallback；每条路线展开 `d={1,2,3}` 与 `g={0,1,2}`，因此 T03 formal registry 恰为 72 cells，sensitivity/excluded cell 数均为零，全部标记为 `not_executed_contract_only`。
 
 ## 事件规则
 
@@ -12,7 +12,7 @@
 
 `g in {0,1,2}`，单位是 eligible trading days。只有两个 qualified intervals 之间全部为 eligible confirmed-false rows 且 gap 不超过 g 时才可合并。unknown、blocked、ineligible、缺行及 intervening unqualified confirmed interval 都是 hard break。bridge membership 直到后一个 interval 取得资格才可见。open zone 没有伪造 finalization time，并排除在 closed-duration quantiles 之外。
 
-事件 ID 对 `contract_version, route_id, security_id, d, g, first_qualified_interval_confirmed_start_date` 做 SHA-256；后续 merge 不改写 identity。
+机器契约分别冻结 `RAW_NOT_CONFIRMED / CONFIRMED_ACTIVE / CONFIRMED_EXITED` 日级状态，以及 component forming、qualification、gap pending、reentry pending、finalization、quality break 和 right censoring 的事件转换。`scan_event_id` 绑定 contract/candidate cell/security/首个 qualified component；`canonical_event_id` 在状态版本冻结后绑定 state version/security/首个 qualified component。每次 qualified reentry 增加 `zone_revision`，不得跨状态版本合并。
 
 ## 指标与 denominator
 
@@ -28,9 +28,9 @@
 
 shared-q strict core 必须在 common eligible keys 上是 paired primary 的 confirmed subset；standalone fallback 仍须通过同状态线完整 geometry gates，并需要明确用户决策，不能静默补选。
 
-## R3 Risk Set
+## 两套 Risk Set
 
-`risk_set_eligible=true` 当且仅当 `confirmed_state` 显式为 true、`eligible=true`、`quality_state=valid` 且该行在 evaluation time 已可见。unknown、blocked、null、ineligible 和 bridged false days 均不得进入风险集；`confirmed_state=true` 与 invalid quality 或 ineligible 的组合属于输入矛盾并 fail closed。`event_zone_member` 不能扩张风险集；尚未取得 d 资格的 confirmed day 仍可进入风险集。T02 不定义 release、outcome、control、cooldown 或交易信号。
+`state_risk_set` 当且仅当 `confirmed_state=true`、`eligible=true`、`quality_state=valid` 且该行在 evaluation time 已可见。`qualified_event_risk_set` 还必须满足 component 已在该时点取得 d 资格。unknown、blocked、null、ineligible 和 bridged false days 均不得进入任一风险集；输入矛盾必须 fail closed。retrospective `event_zone_member` 不能扩张风险集。T02 不定义 release、outcome、control、cooldown 或交易信号。
 
 ## Gate 状态
 

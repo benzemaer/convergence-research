@@ -12,7 +12,7 @@ class R2StageRouteContract(unittest.TestCase):
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         for task in (
             "`R2-T01` 参数候选收敛与 shortlist registry",
-            "`R2-T02` K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+            "`R2-T02` confirmed-state 与 event-zone 双层状态机契约",
             "`R2-T03` 四路线 d×g 事件区间几何扫描",
             "`R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan",
             "`R2-T05` canonical 日度状态与事件区间物化",

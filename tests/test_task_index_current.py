@@ -12,7 +12,7 @@ class TaskIndexCurrentTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "current_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+            "current_task: R2-T02 confirmed-state 与 event-zone 双层状态机契约",
             current,
         )
         self.assertIn(

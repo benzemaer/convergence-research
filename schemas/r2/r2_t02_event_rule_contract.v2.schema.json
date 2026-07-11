@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["task_id", "contract_version", "K", "d_grid", "d_operator", "g_grid", "gap_count_unit", "confirmation_backfill", "trading_row_completeness_key", "trading_row_completeness_policy", "hard_break_states", "event_identity_fields", "year_assignment", "open_event_policy", "matched_event_algorithm", "processing_order", "selection_path_not_independently_confirmed"],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "contract_version": {"const": "r2_t02_event_rule_contract.v2"},
+    "K": {"const": 3},
+    "d_grid": {"const": [1, 2, 3]},
+    "d_operator": {"const": ">="},
+    "g_grid": {"const": [0, 1, 2]},
+    "gap_count_unit": {"const": "eligible_trading_days"},
+    "confirmation_backfill": {"const": false},
+    "trading_row_completeness_key": {"const": "expected_trade_index"},
+    "trading_row_completeness_policy": {"type": "string", "minLength": 20},
+    "hard_break_states": {"const": ["unknown", "blocked", "ineligible", "missing_trading_row"]},
+    "event_identity_fields": {"const": ["contract_version", "candidate_cell_id", "security_id", "first_qualified_component_identity"]},
+    "year_assignment": {"const": "year_of_first_event_qualification_time"},
+    "open_event_policy": {"const": "observed_to_date_no_fabricated_finalization"},
+    "matched_event_algorithm": {"const": "global_lexicographic_bipartite_matching_max_cardinality_then_total_overlap_then_min_total_qualification_distance_then_deterministic_id"},
+    "processing_order": {"const": ["atomic_confirmed_interval", "d_qualification", "qualified_component", "g_grouping", "event_zone"]},
+    "selection_path_not_independently_confirmed": {"const": true}
+  },
+  "additionalProperties": false
+}
