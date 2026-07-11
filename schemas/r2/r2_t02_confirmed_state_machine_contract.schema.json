@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "contract_version", "execution_code_commit", "K", "states", "confirmation_rule", "no_backfill", "exit_day_confirmed_state", "missing_expected_trading_row_policy", "expected_key_registry_required", "calendar_non_trading_day_participates_in_streak"],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "run_id": {"type": "string"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"},
+    "execution_code_commit": {"type": "string"},
+    "K": {"const": 3},
+    "states": {"type": "array", "items": {"enum": ["RAW_NOT_CONFIRMED", "CONFIRMED_ACTIVE", "CONFIRMED_EXITED"]}},
+    "confirmation_rule": {"type": "string"},
+    "no_backfill": {"const": true},
+    "exit_day_confirmed_state": {"const": false},
+    "missing_expected_trading_row_policy": {"const": "fail_closed"},
+    "expected_key_registry_required": {"const": true},
+    "calendar_non_trading_day_participates_in_streak": {"const": false}
+  }
+}

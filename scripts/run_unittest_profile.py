@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import sys
@@ -37,6 +38,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     suite = _build_suite(profiles[args.profile])
+    test_ids = _suite_test_ids(suite)
+    collection_sha256 = hashlib.sha256(
+        "\n".join(sorted(test_ids)).encode("utf-8")
+    ).hexdigest()
     runner = unittest.TextTestRunner(
         verbosity=2 if args.verbose else 1,
         resultclass=TimingTestResult,
@@ -48,7 +53,9 @@ def main(argv: list[str] | None = None) -> int:
         "unittest_profile="
         f"{args.profile} tests={result.testsRun} failures={len(result.failures)} "
         f"errors={len(result.errors)} skipped={len(result.skipped)} "
-        f"elapsed_seconds={elapsed:.3f}"
+        f"elapsed_seconds={elapsed:.3f} "
+        f"unique_tests={len(set(test_ids))} "
+        f"test_collection_sha256={collection_sha256}"
     )
     if args.slowest_files:
         _print_slowest_files(result, args.slowest_files)
@@ -114,18 +121,49 @@ def _load_profiles(path: Path) -> dict[str, Any]:
 def _build_suite(profile: dict[str, Any]) -> unittest.TestSuite:
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
+    exclude_files = set(profile.get("exclude_files", []))
     for test_file in profile.get("files", []):
+        if test_file in exclude_files:
+            continue
         suite.addTests(_load_tests_from_file(loader, ROOT / test_file))
     for item in profile.get("discover", []):
+        discovered = loader.discover(
+            start_dir=item["start_dir"],
+            pattern=item.get("pattern", "test*.py"),
+        )
         suite.addTests(
-            loader.discover(
-                start_dir=item["start_dir"],
-                pattern=item.get("pattern", "test*.py"),
+            _filter_suite_by_file(
+                discovered,
+                exclude_files | set(item.get("exclude_files", [])),
             )
         )
     if suite.countTestCases() == 0:
         raise ValueError("unittest profile selected zero tests")
     return suite
+
+
+def _filter_suite_by_file(
+    suite: unittest.TestSuite, exclude_files: set[str]
+) -> unittest.TestSuite:
+    filtered = unittest.TestSuite()
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            nested = _filter_suite_by_file(item, exclude_files)
+            if nested.countTestCases():
+                filtered.addTests(nested)
+        elif _test_file(item) not in exclude_files:
+            filtered.addTest(item)
+    return filtered
+
+
+def _suite_test_ids(suite: unittest.TestSuite) -> list[str]:
+    ids: list[str] = []
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            ids.extend(_suite_test_ids(item))
+        else:
+            ids.append(item.id())
+    return ids
 
 
 def _load_tests_from_file(

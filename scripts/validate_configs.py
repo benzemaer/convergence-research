@@ -298,6 +298,10 @@ CONFIGS = (
         ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v3.json",
     ),
     (
+        ROOT / "schemas/r2/r2_t02_protocol_freeze_config.schema.json",
+        ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),

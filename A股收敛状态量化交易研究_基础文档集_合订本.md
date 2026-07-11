@@ -196,6 +196,12 @@ draft → candidate → validated → frozen → released
 
 R1-R6 formal experiment 必须遵守 `docs/03_可复现研究工程标准.md` §12.8-12.14：工程 validator 通过不等于科学结果通过；正式运行后必须立即读取并分析真实结果包；author-draft 阶段不得自行设置 `scientific_review_status=passed` 或推进 downstream gate；superseded 结果不得作为当前 evidence、formal input、参数选择或 README gate 依据。
 
+### 8.1 Canonical text 与正式哈希
+
+所有正式文本输入、配置、schema、脚本和 generated JSON/CSV/Markdown 必须使用 UTF-8、无 BOM、LF 换行、禁止 bare CR，且文件末尾恰好一个 LF。正式 lineage hash 只能来自 committed Git object bytes，例如 `git show <commit>:<path>` 或等价 Git blob 读取；禁止使用工作树 `Path.read_bytes()` 作为 formal source binding。正式绑定至少记录 `source_commit`、`git_blob_sha`、`committed_byte_sha256`、`normalized_text_sha256`、encoding、line ending、BOM 和末尾 LF 计数。JSON 可额外记录唯一 canonical JSON hash，但不得用它替代 committed byte hash。
+
+formal run 顺序固定为：先提交 execution code/config/schema，再从 execution commit 的 Git blobs 读取绑定输入并验证 canonical text contract，然后生成 formal artifacts，最后提交 generated artifacts 并复验 committed artifact bytes。工作树 dirty、staged-but-uncommitted、CRLF、BOM、bare CR、末尾 LF 不合规、blob 缺失、blob hash mismatch、工作树与 committed normalized content 不一致，均必须 fail closed。
+
 ## 9. Pull Request 与变更控制
 
 - `main` 只接受通过审核与 CI 的 PR。

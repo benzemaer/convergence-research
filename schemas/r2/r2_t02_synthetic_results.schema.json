@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registry_json_required_fields", "results_csv_columns", "minimum_case_count", "additionalProperties"],
+  "properties": {
+    "registry_json_required_fields": {"type": "array"},
+    "results_csv_columns": {"type": "array"},
+    "minimum_case_count": {"const": 40},
+    "additionalProperties": {"const": false}
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["csv_columns", "primary_key", "additionalProperties"],
+  "properties": {
+    "csv_columns": {"const": ["machine", "from_state", "to_state", "trigger", "reason_code", "hard_break"]},
+    "primary_key": {"const": ["machine", "from_state", "to_state", "reason_code"]},
+    "additionalProperties": {"const": false}
+  }
+}

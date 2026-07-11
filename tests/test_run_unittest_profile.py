@@ -66,25 +66,36 @@ class UnittestProfileRunnerTest(unittest.TestCase):
     def test_heavy_tests_are_split_without_losing_full_coverage(self):
         runner = _load_runner()
         profiles = runner._load_profiles(PROFILE_PATH)
-        r0_smoke = "tests/r0/test_r0_t10_full_grid_materializer_smoke.py"
-        r0_full = "tests/r0/test_r0_t10_full_grid_materializer.py"
-        r1_smoke = "tests/r1/test_r1_t03_grid_contract_smoke.py"
-        r1_full = "tests/r1/test_r1_t03_27_grid_light_profile_contract.py"
+        heavy_files = {
+            "tests/r0/test_r0_t10_score_materializer.py",
+            "tests/r0/test_r0_t10_score_materialization_validator.py",
+            "tests/r0/test_r0_t10_full_grid_materializer.py",
+        }
 
-        self.assertTrue({r0_smoke, r1_smoke}.issubset(profiles["pr-fast"]["files"]))
-        self.assertTrue({r0_full, r1_full}.isdisjoint(profiles["pr-fast"]["files"]))
-        self.assertIn(r0_full, profiles["integration"]["files"])
+        self.assertEqual(set(profiles["r0-heavy-premerge"]["files"]), heavy_files)
+        self.assertTrue(heavy_files.isdisjoint(profiles["unit-fast"]["files"]))
+        self.assertTrue(heavy_files.isdisjoint(profiles["pr-fast"]["files"]))
+        self.assertEqual(set(profiles["regression-lite"]["exclude_files"]), heavy_files)
 
-        stage_r1_ids = [
-            test.id() for test in _flatten(runner._build_suite(profiles["stage-r1"]))
-        ]
-        self.assertTrue(
-            any(
-                "test_r1_t03_27_grid_light_profile_contract" in test_id
-                for test_id in stage_r1_ids
-            )
+        full_tests = list(_flatten(runner._build_suite(profiles["full"])))
+        regression_tests = list(
+            _flatten(runner._build_suite(profiles["regression-lite"]))
         )
-        for test_file in (r0_smoke, r0_full, r1_smoke, r1_full):
+        heavy_tests = list(_flatten(runner._build_suite(profiles["r0-heavy-premerge"])))
+        full_files = {runner._test_file(test) for test in full_tests}
+        regression_files = {runner._test_file(test) for test in regression_tests}
+        heavy_files_actual = {runner._test_file(test) for test in heavy_tests}
+
+        full_count = len(full_tests)
+        regression_count = len(regression_tests)
+        heavy_count = len(heavy_tests)
+        self.assertTrue(heavy_tests)
+        self.assertTrue(regression_tests)
+        self.assertEqual(full_files, regression_files | heavy_files_actual)
+        self.assertFalse(regression_files & heavy_files_actual)
+        self.assertEqual(full_count, regression_count + heavy_count)
+
+        for test_file in heavy_files:
             self.assertTrue((ROOT / test_file).is_file(), test_file)
 
 

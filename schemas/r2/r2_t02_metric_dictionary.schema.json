@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["csv_columns", "primary_key", "additionalProperties"],
+  "properties": {
+    "csv_columns": {"type": "array"},
+    "primary_key": {"const": ["metric_id"]},
+    "additionalProperties": {"const": false},
+    "forbidden_template_text": {"type": "array"}
+  }
+}

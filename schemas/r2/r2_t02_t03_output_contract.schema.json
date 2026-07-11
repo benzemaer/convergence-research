@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "contract_version", "execution_code_commit", "primary_cell_count", "shared_q_sidecar_cell_count", "registry_row_count", "actual_scan_executed", "execution_status", "forbidden_fields"],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "run_id": {"type": "string"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"},
+    "execution_code_commit": {"type": "string"},
+    "primary_cell_count": {"const": 36},
+    "shared_q_sidecar_cell_count": {"const": 36},
+    "registry_row_count": {"const": 72},
+    "actual_scan_executed": {"const": false},
+    "execution_status": {"const": "not_executed_contract_only"},
+    "forbidden_fields": {"type": "array"}
+  }
+}

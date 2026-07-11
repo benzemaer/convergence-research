@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["csv_columns", "primary_key", "row_count", "additionalProperties"],
+  "properties": {
+    "csv_columns": {"type": "array"},
+    "primary_key": {"const": ["candidate_cell_id"]},
+    "row_count": {"const": 72},
+    "additionalProperties": {"const": false}
+  }
+}

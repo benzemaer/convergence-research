@@ -101,17 +101,34 @@
         "tests/test_d2_hithink_raw_market_prices_candidate_materialization_contract.py",
         "tests/test_build_d2_hithink_candidate_materialization_plan.py",
         "tests/r0/test_r0_t15_layer_q_vector_materialization.py",
-        "tests/r0/test_r0_t10_score_materializer.py",
-        "tests/r0/test_r0_t10_score_materialization_validator.py",
         "tests/r0/test_r0_t10_score_materialization_evidence.py",
         "tests/r0/test_r0_t10_raw_metric_materializer.py",
         "tests/r0/test_r0_t10_nested_state_materializer.py",
         "tests/r0/test_r0_t10_nested_state_materialization_evidence.py",
         "tests/r0/test_r0_t10_materialization_evidence.py",
-        "tests/r0/test_r0_t10_full_grid_materializer.py",
         "tests/r0/test_r0_t10_confirmation_interval_materializer.py",
         "tests/r0/test_r0_t10_confirmation_interval_materialization_evidence.py",
         "tests/r0/test_r0_t09_main_grid_materialization_contract.py"
+      ]
+    },
+    "regression-lite": {
+      "discover": [
+        {
+          "start_dir": "tests",
+          "pattern": "test*.py"
+        }
+      ],
+      "exclude_files": [
+        "tests/r0/test_r0_t10_score_materializer.py",
+        "tests/r0/test_r0_t10_score_materialization_validator.py",
+        "tests/r0/test_r0_t10_full_grid_materializer.py"
+      ]
+    },
+    "r0-heavy-premerge": {
+      "files": [
+        "tests/r0/test_r0_t10_score_materializer.py",
+        "tests/r0/test_r0_t10_score_materialization_validator.py",
+        "tests/r0/test_r0_t10_full_grid_materializer.py"
       ]
     },
     "full": {
