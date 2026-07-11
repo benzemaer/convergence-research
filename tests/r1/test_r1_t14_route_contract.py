@@ -136,11 +136,11 @@ class R1T14RouteContractTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "current_task: R2-T01 参数候选收敛与 shortlist registry",
+            "current_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
             current,
         )
         self.assertIn(
-            "next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+            "next_planned_task: R2-T03 四路线 d×g 事件区间几何扫描",
             current,
         )
         self.assertIn(

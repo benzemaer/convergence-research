@@ -20,6 +20,10 @@ class InputChainTest(unittest.TestCase):
                 self.assertEqual(
                     sha256_file(ROOT / path), cfg["upstream"][key[:-5] + "_sha256"]
                 )
+        metric_source = cfg["metric_definition_source"]
+        self.assertEqual(
+            sha256_file(ROOT / metric_source["path"]), metric_source["sha256"]
+        )
 
 
 if __name__ == "__main__":
