@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RUN_DIR = ROOT / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T0900Z"
+RUN_DIR = ROOT / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T1100Z"
 T05_DIR = ROOT / "data/generated/r1/r1_t05/R1-T05-20260710T0959Z"
 
 
@@ -33,8 +33,8 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
         self.assertTrue(package["selection_path_not_independently_confirmed"])
         self.assertEqual(package["goal_internal_completion_gate_status"], "passed")
         self.assertTrue(package["goal_internal_completion_allowed"])
-        self.assertEqual(package["scientific_review_status"], "pending")
-        self.assertEqual(package["independent_review_status"], "not_started")
+        self.assertEqual(package["scientific_review_status"], "needs_revision")
+        self.assertEqual(package["independent_review_status"], "needs_revision")
         self.assertEqual(package["repository_final_gate_status"], "pending")
         self.assertFalse(package["downstream_gate_allowed"])
         self.assertFalse(package["R1-T10_allowed_to_start"])
@@ -136,6 +136,17 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
             all(row["v_selectivity_guard_pass"] == "true" for row in v_rows)
         )
         self.assertTrue(
+            all(row["v_ratio_scope"] == "confirmed_state_days" for row in v_rows)
+        )
+        retained = {
+            (row["W"], row["qV"]): float(row["v_selectivity_retained"])
+            for row in v_rows
+        }
+        self.assertAlmostEqual(retained[("120", "0.3")], 0.8295418807002831)
+        self.assertAlmostEqual(retained[("120", "0.25")], 0.9180207568927561)
+        self.assertAlmostEqual(retained[("250", "0.3")], 0.8337733899667088)
+        self.assertAlmostEqual(retained[("250", "0.25")], 0.9236597405579154)
+        self.assertTrue(
             all(
                 row["security_heterogeneity_warning"] == "true"
                 and "V_security_negative_delta_share_material"
@@ -192,7 +203,7 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
         )
         self.assertTrue(
             all(
-                row["scientific_review_status"] == "pending"
+                row["scientific_review_status"] == "needs_revision"
                 and row["formal_task_completed"] == "false"
                 for row in decisions
             )
@@ -205,6 +216,7 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for marker in (
             "selection_path_not_independently_confirmed=true",
+            "R1-T14-02-20260711T1100Z",
             "R1-T14-02-20260711T0900Z",
             "R1-T14-02-20260710T2340Z",
             "R1-T14-02-20260711T0800Z",
@@ -212,7 +224,7 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
             "V_security_negative_delta_share_material",
             "structural gate flip=0",
             "不能据此声称 q-vector 已独立确认",
-            "scientific_review_status=pending",
+            "scientific_review_status=needs_revision",
             "R1-T10_allowed_to_start=false",
         ):
             self.assertIn(marker, analysis)
