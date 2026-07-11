@@ -2,7 +2,7 @@
 
 ## 1. Formal registry 与 R0 lineage
 
-权威 author-draft run 为 `R1-T14-02-20260710T2306Z`，代码提交为 `a17bbf676169305fa921ae5e612b3a71ca3acfe4`。formal registry 严格等于 R0-T15 交接的 10 个向量：W120/W250 各 1 个 shared-q baseline reference、1 个 T=.25 center、1 个 T=.30 immediate neighbor、1 个 V=.30 center 和 1 个 V=.25 immediate neighbor，没有运行后增删。12 个 `vector × relevant state line` 的 raw days、confirmed days、证券数、区间数与区间 duration sum 均与 R0-T15 或原 shared-q R0 artifact 一致，mismatch 全为 0。
+权威 author-draft run 为 `R1-T14-02-20260710T2340Z`，代码提交为 `8f1c9479065f1f5f31d7d1a330b653d8a7a32116`。formal registry 严格等于 R0-T15 交接的 10 个向量：W120/W250 各 1 个 shared-q baseline reference、1 个 T=.25 center、1 个 T=.30 immediate neighbor、1 个 V=.30 center 和 1 个 V=.25 immediate neighbor，没有运行后增删。12 个 `vector × relevant state line` 的 raw days、confirmed days、证券数、区间数与区间 duration sum 均与 R0-T15 或原 shared-q R0 artifact 一致，mismatch 全为 0。
 
 ## 2. Same-sample limitation
 
@@ -62,7 +62,7 @@ shared-q 没有严格支配任何 center 或 neighbor；反之，复杂向量也
 
 ## 16. Anomalies 与 root causes
 
-权威 anomaly scan 的 11 项检查全部 passed，blocking/unresolved findings 为空。两次先行正式计算 `2221Z` 与 `2245Z` 不作为当前 evidence：`2221Z` 暴露 decision assembler 未显式计算 PCVT parent PCT gates、security median sign 和逐日 parent-child count；`2245Z` 修复门禁后又在 author-side T05 对账中发现 Spearman ties 使用带空档 rank 而非 average rank。两次修复均未改变 frozen family、seed、null、existence、interlayer、year 或 interval；三次 run 的 null results、family maxima 和 multiplicity SHA 完全一致。只提交 `2306Z` 为当前 author-draft evidence。
+权威 anomaly scan 的 11 项检查全部 passed，blocking/unresolved findings 为空。三次先行正式计算 `2221Z`、`2245Z` 与 `2306Z` 不作为当前 evidence：`2221Z` 暴露 decision assembler 未显式计算 PCVT parent PCT gates、security median sign 和逐日 parent-child count；`2245Z` 修复门禁后又在 author-side T05 对账中发现 Spearman ties 使用带空档 rank 而非 average rank；`2306Z` 通过科学与工程复核，但全仓回归发现 security-level artifact 含原始证券代码，最终改为确定性 SHA-256 pseudonym。三类修复均未改变 frozen family、seed、null、existence、year、interval 或结构统计值；四次 run 的 null results、family maxima 和 multiplicity SHA 完全一致，`2306Z` 与 `2340Z` 的 24,360 行 interlayer 除 `group_id` 表示外逐列一致。只提交 `2340Z` 为当前 author-draft evidence。
 
 ## 17. Supported conclusions
 

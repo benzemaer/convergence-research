@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RUN_DIR = ROOT / "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2306Z"
+RUN_DIR = ROOT / "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2340Z"
 T05_DIR = ROOT / "data/generated/r1/r1_t05/R1-T05-20260710T0959Z"
 
 
@@ -78,6 +78,21 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
             compared += 1
         self.assertEqual(compared, 8)
 
+    def test_security_level_groups_are_pseudonymized(self) -> None:
+        interlayer = rows(RUN_DIR / "r1_t14_02_interlayer_profile.csv")
+        security_rows = [
+            row for row in interlayer if row["analysis_level"] == "security"
+        ]
+        self.assertEqual(len(security_rows), 24000)
+        self.assertTrue(
+            all(
+                row["group_id"].startswith("security_sha256_")
+                and ".SH" not in row["group_id"]
+                and ".SZ" not in row["group_id"]
+                for row in security_rows
+            )
+        )
+
     def test_multiplicity_uses_complete_five_family_max_statistic(self) -> None:
         maxima = rows(RUN_DIR / "r1_t14_02_family_max_statistic.csv")
         multiplicity = rows(RUN_DIR / "r1_t14_02_multiplicity_results.csv")
@@ -143,6 +158,7 @@ class R1T1402AuthorDraftContractTests(unittest.TestCase):
             "selection_path_not_independently_confirmed=true",
             "2221Z",
             "2245Z",
+            "2306Z",
             "不作为当前 evidence",
             "不支持“独立确认”",
             "scientific_review_status=pending",
