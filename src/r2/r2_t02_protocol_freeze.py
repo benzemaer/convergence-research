@@ -213,8 +213,6 @@ def build_run(
         ],
     )
 
-    validation = validate_output(output_dir, config_path, root=root, write_result=False)
-    write_json(output_dir / "r2_t02_contract_validation_result.json", validation)
     anomaly = {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -246,10 +244,17 @@ def build_run(
         "R3_allowed_to_start": False,
     }
     write_json(output_dir / "r2_t02_scientific_review.json", review)
+    validation = {"status": "pending"}
     package = result_package(
         run_id, execution_commit, output_dir, summary, validation, anomaly, review
     )
     write_json(output_dir / "r2_t02_result_package.json", package)
+    validation = validate_output(output_dir, config_path, root=root, write_result=True)
+    package = result_package(
+        run_id, execution_commit, output_dir, summary, validation, anomaly, review
+    )
+    write_json(output_dir / "r2_t02_result_package.json", package)
+    validate_output(output_dir, config_path, root=root, write_result=True)
     return summary
 
 
