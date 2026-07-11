@@ -23,8 +23,10 @@ def row_gate_passed(value: Any) -> bool:
 
 
 def recompute_handoff_status(row: dict[str, Any]) -> tuple[str, str]:
-    hard_gates = [
+    input_gates = [
         "input_gate_status",
+    ]
+    scientific_gates = [
         "existence_status",
         "intra_layer_status",
         "inter_layer_increment_status",
@@ -37,9 +39,14 @@ def recompute_handoff_status(row: dict[str, Any]) -> tuple[str, str]:
         "complexity_status",
         "multiplicity_status",
     ]
-    failed = [gate for gate in hard_gates if not row_gate_passed(row.get(gate))]
-    if failed:
-        return "blocked_return_to_R0", ";".join(failed)
+    input_failed = [gate for gate in input_gates if not row_gate_passed(row.get(gate))]
+    if input_failed:
+        return "blocked_return_to_R0", ";".join(input_failed)
+    scientific_failed = [
+        gate for gate in scientific_gates if not row_gate_passed(row.get(gate))
+    ]
+    if scientific_failed:
+        return "do_not_freeze", ";".join(scientific_failed)
     if row.get("archetype") == "shared_q":
         return "freeze_candidate", ""
     if (

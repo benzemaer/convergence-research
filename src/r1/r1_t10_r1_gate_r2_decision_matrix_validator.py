@@ -43,6 +43,39 @@ def _check_rate_identity(row: dict[str, str]) -> list[str]:
     return errors
 
 
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open(encoding="utf-8-sig", newline="") as h:
+        return list(csv.DictReader(h))
+
+
+def _check_q_nested_family(row: dict[str, str]) -> list[str]:
+    if not row["formal_vector_id"]:
+        return []
+    expected_family = (
+        "F4_T_GIVEN_PC" if row["state_line"] == "S_PCT" else "F5_V_GIVEN_PCT"
+    )
+    null_path = (
+        ROOT
+        / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T1100Z"
+        / "r1_t14_02_null_results.csv"
+    )
+    matches = [
+        r
+        for r in _read_csv(null_path)
+        if r["formal_vector_id"] == row["formal_vector_id"]
+        and r["family_id"] == expected_family
+    ]
+    if len(matches) != 1:
+        return [f"nested_family_source_missing:{row['handoff_row_id']}"]
+    expected = matches[0]
+    errors = []
+    if abs(float(row["nested_joint_lift"]) - float(expected["joint_lift"])) > 1e-10:
+        errors.append(f"nested_family_lift_mismatch:{row['handoff_row_id']}")
+    if abs(float(row["nested_joint_excess"]) - float(expected["joint_excess"])) > 1e-10:
+        errors.append(f"nested_family_excess_mismatch:{row['handoff_row_id']}")
+    return errors
+
+
 def validate(output: Path) -> dict:
     errors = []
     with (output / "r1_t10_r2_decision_matrix.csv").open(
@@ -97,6 +130,7 @@ def validate(output: Path) -> dict:
             if missing:
                 errors.append(f"shared_q_source_lineage_missing:{r['handoff_row_id']}")
         errors.extend(_check_rate_identity(r))
+        errors.extend(_check_q_nested_family(r))
         hashes = json.loads(r["source_artifact_hashes"])
         for task, meta in hashes.items():
             path = ROOT / meta["path"]
@@ -124,6 +158,16 @@ def validate(output: Path) -> dict:
     )
     if len(upstream_reconciliation) != 12:
         errors.append("upstream_reconciliation_row_count_must_equal_12")
+    for r in upstream_reconciliation:
+        for key in ("package_unique", "non_superseded", "hashes_match"):
+            if r.get(key) != "true":
+                errors.append(f"upstream_{key}_failed:{r.get('task_id')}")
+        if r.get("scientific_gate") not in {"passed", "passed_or_legacy_gate_adapter"}:
+            errors.append(f"upstream_scientific_gate_failed:{r.get('task_id')}")
+        if r.get("repository_gate") != "passed":
+            errors.append(f"upstream_repository_gate_failed:{r.get('task_id')}")
+        if r.get("formal_task_completed") != "true":
+            errors.append(f"upstream_formal_task_incomplete:{r.get('task_id')}")
     if upstream_failed:
         errors.append(f"upstream_reconciliation_failed_count:{upstream_failed}")
     if anomaly.get("upstream_reconciliation_failed_count") != upstream_failed:
@@ -161,6 +205,18 @@ def validate(output: Path) -> dict:
             errors.append("checklist_does_not_reflect_upstream_reconciliation")
     else:
         errors.append("stage_acceptance_checklist_missing")
+    trigger_path = output / "r1_t10_optional_task_trigger_matrix.csv"
+    if trigger_path.is_file():
+        with trigger_path.open(encoding="utf-8-sig", newline="") as h:
+            triggers = list(csv.DictReader(h))
+        for row in triggers:
+            if (
+                row.get("trigger_status") != "not_triggered"
+                or row.get("blocking_R2_handoff") != "false"
+            ):
+                errors.append(f"optional_trigger_conflict:{row.get('task_id')}")
+    else:
+        errors.append("optional_task_trigger_matrix_missing")
     result = {
         "validator": "independent_read_only_contract_v1",
         "status": "passed" if not errors else "failed",

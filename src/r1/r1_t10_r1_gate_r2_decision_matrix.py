@@ -176,8 +176,8 @@ def _row_gate_passed(value: Any) -> bool:
 
 
 def expected_handoff_status(row: dict[str, Any]) -> tuple[str, str]:
-    hard_gates = [
-        "input_gate_status",
+    input_gates = ["input_gate_status"]
+    scientific_gates = [
         "existence_status",
         "intra_layer_status",
         "inter_layer_increment_status",
@@ -190,9 +190,14 @@ def expected_handoff_status(row: dict[str, Any]) -> tuple[str, str]:
         "complexity_status",
         "multiplicity_status",
     ]
-    failed = [gate for gate in hard_gates if not _row_gate_passed(row.get(gate))]
-    if failed:
-        return "blocked_return_to_R0", ";".join(failed)
+    input_failed = [gate for gate in input_gates if not _row_gate_passed(row.get(gate))]
+    if input_failed:
+        return "blocked_return_to_R0", ";".join(input_failed)
+    scientific_failed = [
+        gate for gate in scientific_gates if not _row_gate_passed(row.get(gate))
+    ]
+    if scientific_failed:
+        return "do_not_freeze", ";".join(scientific_failed)
     if row.get("archetype") == "shared_q":
         return "freeze_candidate", ""
     if (
@@ -242,6 +247,41 @@ def _merge_commit_for_pr(root: Path, pr_number: int) -> str:
     if not commit:
         raise ValueError(f"merge_commit_not_found:#{pr_number}")
     return commit
+
+
+def _commit_sha(root: Path, ref: str) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", ref],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def _lineage_commit(root: Path, task: str) -> str:
+    pr_by_task = {
+        "R1-T01": 75,
+        "R1-T04": 80,
+        "R1-T05": 81,
+        "R1-T06": 82,
+        "R1-T07": 83,
+        "R1-T08": 84,
+        "R1-T09": 85,
+        "R1-T14-01": 87,
+        "R0-T15": 88,
+        "R1-T14-02": 89,
+    }
+    legacy_commit_by_task = {
+        "R1-T02": "8903726",
+        "R1-T03": "750cd6a",
+    }
+    if task in pr_by_task:
+        return _merge_commit_for_pr(root, pr_by_task[task])
+    if task in legacy_commit_by_task:
+        return _commit_sha(root, legacy_commit_by_task[task])
+    raise ValueError(f"missing_lineage_commit:{task}")
 
 
 def _current_stage_fields(text: str) -> dict[str, str]:
@@ -692,10 +732,7 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
                     or package_value.get("code_commit")
                     or "legacy_adapter"
                 ),
-                "merge_commit": str(
-                    package_value.get("upstream_binding", {}).get("merge_commit")
-                    or "repository_main_history"
-                ),
+                "merge_commit": _lineage_commit(root, task),
                 "status": str(package_value.get("status") or "completed"),
                 "scientific_review_status": scientific_status,
                 "repository_final_gate_status": repository_gate,
