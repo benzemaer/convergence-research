@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -8,7 +9,10 @@ from pathlib import Path
 
 import duckdb
 
+from src.r0.r0_t15_author_revision import build_r0_t15_author_revision
 from src.r0.r0_t15_layer_q_vector_materialization_validator import (
+    _rel,
+    _validate_handoff_lineage,
     validate_r0_t15_layer_q_vector_materialization,
 )
 from src.r0.r0_t15_layer_q_vector_materializer import (
@@ -172,6 +176,60 @@ class R0T15LayerQVectorMaterializationTests(unittest.TestCase):
             self.assertNotIn(b"\r\n", json_path.read_bytes())
             self.assertNotIn(b"\r\n", csv_path.read_bytes())
             self.assertEqual(csv_path.read_bytes().count(b"\n"), 3)
+
+    def test_handoff_rejects_crlf_runtime_hashes_after_lf_normalization(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            run_dir = Path(directory)
+            manifest_path = run_dir / "r0_t15_artifact_manifest.json"
+            registry_path = run_dir / "r0_t15_candidate_registry.csv"
+            write_json_atomic(manifest_path, {"status": "passed"})
+            registry_path.write_text("id\nA\n", encoding="utf-8", newline="\n")
+            manifest_bytes = manifest_path.read_bytes()
+            registry_bytes = registry_path.read_bytes()
+            handoff = {
+                "artifact_manifest_path": _rel(manifest_path),
+                "artifact_manifest_sha256": hashlib.sha256(
+                    manifest_bytes.replace(b"\n", b"\r\n")
+                ).hexdigest(),
+                "candidate_registry_path": _rel(registry_path),
+                "candidate_registry_sha256": hashlib.sha256(
+                    registry_bytes.replace(b"\n", b"\r\n")
+                ).hexdigest(),
+                "repository_t14_02_gate_passed": False,
+                "R1-T14-02_allowed_to_start": False,
+                "R1-T10_allowed_to_start": False,
+                "R2_allowed_to_start": False,
+                "formal_task_completed": False,
+            }
+            errors: list[str] = []
+            _validate_handoff_lineage(run_dir, handoff, errors)
+            self.assertIn("handoff_artifact_manifest_hash_mismatch", errors)
+            self.assertIn("handoff_candidate_registry_hash_mismatch", errors)
+            handoff["artifact_manifest_sha256"] = hashlib.sha256(
+                manifest_bytes
+            ).hexdigest()
+            handoff["candidate_registry_sha256"] = hashlib.sha256(
+                registry_bytes
+            ).hexdigest()
+            errors = []
+            _validate_handoff_lineage(run_dir, handoff, errors)
+            self.assertEqual(errors, [])
+
+    def test_revision_builder_rejects_non_head_revision_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(
+                RuntimeError, "revision_code_commit_must_equal_head"
+            ):
+                build_r0_t15_author_revision(
+                    run_dir=root,
+                    analysis_path=root / "analysis.md",
+                    evidence_path=root / "evidence.md",
+                    local_attestation_path=root / "attestation.json",
+                    revision_code_commit="0" * 40,
+                )
 
 
 if __name__ == "__main__":
