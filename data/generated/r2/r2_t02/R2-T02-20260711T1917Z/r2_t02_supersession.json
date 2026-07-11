@@ -1,0 +1,12 @@
+{
+  "task_id": "R2-T02",
+  "run_id": "R2-T02-20260711T1917Z",
+  "status": "superseded",
+  "superseded_by_run_id": "R2-T02-20260711T2011Z",
+  "superseding_result_package_sha256": "8be94989c689ec98f362ed37383ed2f05d3d38fbf8e45510ebe8179f3e35803d",
+  "superseding_validation_sha256": "e70e39182ac84b9fb00dadb7ec044bdbd87538b9858790016c2b438a4494a3d5",
+  "reason": "PR_93_review_4678656306_required_authoritative_expected_keys_real_mutation_replay_and_draft_premerge_profile_separation",
+  "current_evidence_eligible": false,
+  "formal_input_eligible": false,
+  "R2-T03_allowed_to_start": false
+}
