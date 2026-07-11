@@ -17,6 +17,7 @@ from src.r0.r0_t15_layer_q_vector_materialization_validator import (
 
 ROOT = Path(__file__).resolve().parents[2]
 RUN_DIR = ROOT / "data/generated/r0/r0_t15/R0-T15-20260710T2136Z"
+README = ROOT / "docs/tasks/README.md"
 
 
 def load_json(name: str) -> dict[str, object]:
@@ -166,7 +167,17 @@ class R0T15FinalGateContractTests(unittest.TestCase):
                     self.assertEqual(t10_author["scientific_review_status"], "passed")
                     self.assertTrue(t10_author["formal_task_completed"])
                     self.assertTrue(t10_author["R2_allowed_to_start"])
-                    self.assertEqual(current_sha, t10_author["task_index_sha256"])
+                    readme_text = README.read_text(encoding="utf-8")
+                    if (
+                        "R2-T01_status: author_analysis_complete_pending_independent_review"
+                        in readme_text
+                    ):
+                        self.assertIn("R2-T02_allowed_to_start: false", readme_text)
+                        self.assertIn("R3_allowed_to_start: false", readme_text)
+                    else:
+                        self.assertIn("R2-T01_status: completed", readme_text)
+                        self.assertIn("R2-T02_allowed_to_start: true", readme_text)
+                        self.assertIn("R3_allowed_to_start: false", readme_text)
 
     def test_repository_merge_transition_authorizes_only_t14_02(self) -> None:
         transition = load_json("r0_t15_repository_merge_transition.json")

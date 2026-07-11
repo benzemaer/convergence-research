@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "route_id": {"type": "string"},
+    "state_line": {"enum": ["S_PCT", "S_PCVT"]},
+    "window_track_id": {"enum": ["short_reference", "long_reference"]},
+    "W": {"enum": [120, 250]},
+    "K": {"const": 3},
+    "qP": {"type": "string"},
+    "qC": {"type": "string"},
+    "qT": {"type": "string"},
+    "qV": {"type": "string"},
+    "candidate_role": {"enum": ["primary", "strict_core_reference", "sensitivity", "excluded"]},
+    "r1_handoff_row_id": {"type": "string"},
+    "r1_handoff_status": {"enum": ["freeze_candidate", "review_candidate", "do_not_freeze"]},
+    "r1_required_R2_decision": {"type": "string"},
+    "selection_eligible": {"type": "boolean"},
+    "fallback_eligible": {"type": "boolean"},
+    "independent_product_eligible": {"type": "boolean"},
+    "t03_geometry_role": {"enum": ["primary", "shared_q_sidecar", "not_run"]},
+    "paired_primary_route_id": {"type": "string"},
+    "role_reason_code": {"type": "string"},
+    "role_capabilities": {"items": {"type": "string"}, "type": "array"},
+    "selection_path_not_independently_confirmed": {"type": "boolean"},
+    "warning_codes": {"items": {"type": "string"}, "type": "array"},
+    "source_artifact_refs": {"items": {"type": "string"}, "type": "array"},
+    "source_artifact_hashes": {"type": "object"},
+    "source_matrix_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "contract_version": {"type": "string"}
+  },
+  "required": [
+    "route_id",
+    "state_line",
+    "window_track_id",
+    "W",
+    "K",
+    "qP",
+    "qC",
+    "qT",
+    "qV",
+    "candidate_role",
+    "r1_handoff_row_id",
+    "r1_handoff_status",
+    "r1_required_R2_decision",
+    "selection_eligible",
+    "fallback_eligible",
+    "independent_product_eligible",
+    "t03_geometry_role",
+    "paired_primary_route_id",
+    "role_reason_code",
+    "selection_path_not_independently_confirmed",
+    "warning_codes",
+    "source_artifact_refs",
+    "source_artifact_hashes",
+    "source_matrix_sha256",
+    "contract_version"
+  ],
+  "allOf": [
+    {
+      "if": {"properties": {"candidate_role": {"const": "strict_core_reference"}}},
+      "then": {
+        "properties": {
+          "fallback_eligible": {"const": true},
+          "independent_product_eligible": {"const": false},
+          "t03_geometry_role": {"const": "shared_q_sidecar"}
+        },
+        "not": {"properties": {"paired_primary_route_id": {"const": ""}}}
+      }
+    },
+    {
+      "if": {"properties": {"candidate_role": {"const": "primary"}}},
+      "then": {
+        "properties": {
+          "selection_eligible": {"const": true},
+          "t03_geometry_role": {"const": "primary"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"candidate_role": {"enum": ["sensitivity", "excluded"]}}},
+      "then": {
+        "properties": {
+          "selection_eligible": {"const": false},
+          "fallback_eligible": {"const": false},
+          "t03_geometry_role": {"const": "not_run"}
+        }
+      }
+    }
+  ],
+  "type": "object"
+}

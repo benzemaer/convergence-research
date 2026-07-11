@@ -1,0 +1,13 @@
+handoff_row_id,candidate_registry_reconciliation,warning_registry_reconciliation,decision_recomputation_status,source_artifact_hash_check,source_supersession_check
+q_W120_K3_P20_C20_T20_V25_S_PCVT,passed,passed,passed,passed,passed
+q_W120_K3_P20_C20_T20_V30_S_PCVT,passed,passed,passed,passed,passed
+q_W120_K3_P20_C20_T25_V20_S_PCT,passed,passed,passed,passed,passed
+q_W120_K3_P20_C20_T30_V20_S_PCT,passed,passed,passed,passed,passed
+q_W250_K3_P20_C20_T20_V25_S_PCVT,passed,passed,passed,passed,passed
+q_W250_K3_P20_C20_T20_V30_S_PCVT,passed,passed,passed,passed,passed
+q_W250_K3_P20_C20_T25_V20_S_PCT,passed,passed,passed,passed,passed
+q_W250_K3_P20_C20_T30_V20_S_PCT,passed,passed,passed,passed,passed
+shared_S_PCT_W120,passed,passed,passed,passed,passed
+shared_S_PCT_W250,passed,passed,passed,passed,passed
+shared_S_PCVT_W120,passed,passed,passed,passed,passed
+shared_S_PCVT_W250,passed,passed,passed,passed,passed

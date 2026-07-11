@@ -1,0 +1,251 @@
+{
+  "task_id": "R2-T01",
+  "task_class": "parameter_comparison",
+  "task_subclass": "deterministic_candidate_convergence_and_registry",
+  "protocol_version": "r2_t01_candidate_convergence_shortlist.v1",
+  "inputs": {
+    "final_gate_package_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_final_gate_package.json",
+    "final_gate_validation_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_final_gate_validation_result.json",
+    "reviewed_author_package_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_reviewed_author_package.json",
+    "scientific_review_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_scientific_review.json",
+    "decision_matrix_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_r2_decision_matrix.csv",
+    "handoff_manifest_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_r2_handoff_manifest.json",
+    "candidate_registry_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_candidate_registry.csv",
+    "warning_registry_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_warning_registry.csv",
+    "decision_recomputation_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_decision_recomputation.csv",
+    "upstream_reconciliation_path": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_upstream_gate_reconciliation.csv",
+    "expected_sha256": {
+      "decision_matrix": "c3dddd698a0876743e822a55864be06074f94c14a4cd142b44de062a35d83134"
+    }
+  },
+  "input_authorization": {
+    "final_gate_required_fields": {
+      "task_id": "R1-T10",
+      "run_id": "R1-T10-20260711T2000Z",
+      "status": "completed",
+      "formal_task_completed": true,
+      "scientific_review_status": "passed",
+      "independent_review_status": "passed",
+      "repository_final_gate_status": "passed",
+      "R2_allowed_to_start": true,
+      "downstream_gate_scope": "R2-T01_only",
+      "selection_path_not_independently_confirmed": true,
+      "blocking_findings": []
+    }
+  },
+  "expected_input_counts": {
+    "row_count": 12,
+    "overall_handoff_status": {
+      "freeze_candidate": 4,
+      "review_candidate": 6,
+      "do_not_freeze": 2
+    }
+  },
+  "window_track_mapping": {
+    "W120": "short_reference",
+    "W250": "long_reference"
+  },
+  "expected_role_counts": {
+    "primary": 4,
+    "strict_core_reference": 4,
+    "sensitivity": 2,
+    "excluded": 2
+  },
+  "primary_shortlist_route_ids": [
+    "r2_s_pct_w120_qt25_primary",
+    "r2_s_pct_w250_qt25_primary",
+    "r2_s_pcvt_w120_qv30_primary",
+    "r2_s_pcvt_w250_qv30_primary"
+  ],
+  "reconciliation": {
+    "candidate_registry_key_fields": [
+      "handoff_row_id",
+      "state_line",
+      "candidate_config_id",
+      "formal_vector_id",
+      "candidate_q_vector_id",
+      "W",
+      "K",
+      "qP",
+      "qC",
+      "qT",
+      "qV",
+      "primary_role",
+      "request_role",
+      "center_id",
+      "same_parameter_parent_id"
+    ]
+  },
+  "source_row_to_route_mapping": {
+    "q_W120_K3_P20_C20_T25_V20_S_PCT": {
+      "mapping_rule_id": "primary_s_pct_w120_qt25",
+      "route_id": "r2_s_pct_w120_qt25_primary",
+      "candidate_role": "primary",
+      "t03_geometry_role": "primary",
+      "fallback_eligible": false,
+      "independent_product_eligible": true,
+      "paired_primary_route_id": "r2_s_pct_w120_qt25_primary",
+      "role_capabilities": ["primary"],
+      "role_reason_code": "pre_registered_primary_q_vector_route"
+    },
+    "q_W250_K3_P20_C20_T25_V20_S_PCT": {
+      "mapping_rule_id": "primary_s_pct_w250_qt25",
+      "route_id": "r2_s_pct_w250_qt25_primary",
+      "candidate_role": "primary",
+      "t03_geometry_role": "primary",
+      "fallback_eligible": false,
+      "independent_product_eligible": true,
+      "paired_primary_route_id": "r2_s_pct_w250_qt25_primary",
+      "role_capabilities": ["primary"],
+      "role_reason_code": "pre_registered_primary_q_vector_route"
+    },
+    "q_W120_K3_P20_C20_T20_V30_S_PCVT": {
+      "mapping_rule_id": "primary_s_pcvt_w120_qv30",
+      "route_id": "r2_s_pcvt_w120_qv30_primary",
+      "candidate_role": "primary",
+      "t03_geometry_role": "primary",
+      "fallback_eligible": false,
+      "independent_product_eligible": true,
+      "paired_primary_route_id": "r2_s_pcvt_w120_qv30_primary",
+      "role_capabilities": ["primary"],
+      "role_reason_code": "pre_registered_primary_q_vector_route"
+    },
+    "q_W250_K3_P20_C20_T20_V30_S_PCVT": {
+      "mapping_rule_id": "primary_s_pcvt_w250_qv30",
+      "route_id": "r2_s_pcvt_w250_qv30_primary",
+      "candidate_role": "primary",
+      "t03_geometry_role": "primary",
+      "fallback_eligible": false,
+      "independent_product_eligible": true,
+      "paired_primary_route_id": "r2_s_pcvt_w250_qv30_primary",
+      "role_capabilities": ["primary"],
+      "role_reason_code": "pre_registered_primary_q_vector_route"
+    },
+    "shared_S_PCT_W120": {
+      "mapping_rule_id": "strict_core_s_pct_w120_shared",
+      "route_id": "r2_s_pct_w120_q20_shared",
+      "candidate_role": "strict_core_reference",
+      "t03_geometry_role": "shared_q_sidecar",
+      "fallback_eligible": true,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pct_w120_qt25_primary",
+      "role_capabilities": ["strict_core_reference", "fallback"],
+      "role_reason_code": "shared_q_strict_core_and_fallback_reference"
+    },
+    "shared_S_PCT_W250": {
+      "mapping_rule_id": "strict_core_s_pct_w250_shared",
+      "route_id": "r2_s_pct_w250_q20_shared",
+      "candidate_role": "strict_core_reference",
+      "t03_geometry_role": "shared_q_sidecar",
+      "fallback_eligible": true,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pct_w250_qt25_primary",
+      "role_capabilities": ["strict_core_reference", "fallback"],
+      "role_reason_code": "shared_q_strict_core_and_fallback_reference"
+    },
+    "shared_S_PCVT_W120": {
+      "mapping_rule_id": "strict_core_s_pcvt_w120_shared",
+      "route_id": "r2_s_pcvt_w120_q20_shared",
+      "candidate_role": "strict_core_reference",
+      "t03_geometry_role": "shared_q_sidecar",
+      "fallback_eligible": true,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pcvt_w120_qv30_primary",
+      "role_capabilities": ["strict_core_reference", "fallback"],
+      "role_reason_code": "shared_q_strict_core_and_fallback_reference"
+    },
+    "shared_S_PCVT_W250": {
+      "mapping_rule_id": "strict_core_s_pcvt_w250_shared",
+      "route_id": "r2_s_pcvt_w250_q20_shared",
+      "candidate_role": "strict_core_reference",
+      "t03_geometry_role": "shared_q_sidecar",
+      "fallback_eligible": true,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pcvt_w250_qv30_primary",
+      "role_capabilities": ["strict_core_reference", "fallback"],
+      "role_reason_code": "shared_q_strict_core_and_fallback_reference"
+    },
+    "q_W120_K3_P20_C20_T30_V20_S_PCT": {
+      "mapping_rule_id": "sensitivity_s_pct_w120_qt30",
+      "route_id": "r2_s_pct_w120_qt30_sensitivity",
+      "candidate_role": "sensitivity",
+      "t03_geometry_role": "not_run",
+      "fallback_eligible": false,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pct_w120_qt25_primary",
+      "role_capabilities": ["sensitivity"],
+      "role_reason_code": "immediate_neighbor_sensitivity_only"
+    },
+    "q_W250_K3_P20_C20_T30_V20_S_PCT": {
+      "mapping_rule_id": "sensitivity_s_pct_w250_qt30",
+      "route_id": "r2_s_pct_w250_qt30_sensitivity",
+      "candidate_role": "sensitivity",
+      "t03_geometry_role": "not_run",
+      "fallback_eligible": false,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pct_w250_qt25_primary",
+      "role_capabilities": ["sensitivity"],
+      "role_reason_code": "immediate_neighbor_sensitivity_only"
+    },
+    "q_W120_K3_P20_C20_T20_V25_S_PCVT": {
+      "mapping_rule_id": "excluded_s_pcvt_w120_qv25",
+      "route_id": "r2_s_pcvt_w120_qv25_excluded",
+      "candidate_role": "excluded",
+      "t03_geometry_role": "not_run",
+      "fallback_eligible": false,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pcvt_w120_qv30_primary",
+      "role_capabilities": ["excluded"],
+      "role_reason_code": "r1_do_not_freeze_complexity_not_justified"
+    },
+    "q_W250_K3_P20_C20_T20_V25_S_PCVT": {
+      "mapping_rule_id": "excluded_s_pcvt_w250_qv25",
+      "route_id": "r2_s_pcvt_w250_qv25_excluded",
+      "candidate_role": "excluded",
+      "t03_geometry_role": "not_run",
+      "fallback_eligible": false,
+      "independent_product_eligible": false,
+      "paired_primary_route_id": "r2_s_pcvt_w250_qv30_primary",
+      "role_capabilities": ["excluded"],
+      "role_reason_code": "r1_do_not_freeze_complexity_not_justified"
+    }
+  },
+  "warning_propagation_policy": "row_level_warning_codes_must_match_r1_matrix_and_warning_registry_exactly",
+  "selection_path_propagation_policy": "row_level_flag_must_match_r1_matrix; package_top_level_true_because_primary_routes_are_same_sample_q_vectors",
+  "forbidden_output_fields": [
+    "d",
+    "g",
+    "selected_d",
+    "selected_g",
+    "event_id",
+    "event_zone_member",
+    "future_return",
+    "future_volatility",
+    "future_direction",
+    "future_path",
+    "precision",
+    "recall",
+    "backtest",
+    "state_version_id",
+    "freeze_decision",
+    "freeze_plan"
+  ],
+  "author_draft_gate_state": {
+    "current_stage": "R2",
+    "current_task": "R2-T01 参数候选收敛与 shortlist registry",
+    "next_planned_task": "R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
+    "R2_allowed_to_start": true,
+    "R2-T01_allowed_to_start": true,
+    "R2-T01_status": "author_analysis_complete_pending_independent_review",
+    "R2-T01_scientific_review_status": "pending",
+    "R2-T01_independent_review_status": "pending",
+    "R2-T02_allowed_to_start": false,
+    "R2-T03_allowed_to_start": false,
+    "R2-T04_allowed_to_start": false,
+    "R2-T05_allowed_to_start": false,
+    "R2-T06_allowed_to_start": false,
+    "R2-T07_allowed_to_start": false,
+    "R2-T08_allowed_to_start": false,
+    "R3_allowed_to_start": false
+  }
+}
