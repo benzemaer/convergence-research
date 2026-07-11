@@ -20,6 +20,7 @@ ARTIFACTS = [
 
 
 def build_author_package(output_dir: Path, code_commit: str) -> dict[str, Any]:
+    output_dir = output_dir.resolve()
     validation = validate_contract(output_dir)
     analysis = output_dir / "r2_t02_result_analysis.md"
     analysis.write_text(
