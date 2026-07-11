@@ -433,8 +433,8 @@ def _verify_superseded_run(binding: Mapping[str, Any]) -> None:
     record = _load_json(path)
     if (
         record.get("status") != "superseded"
-        or record.get("stale_dependency") is not True
         or record.get("superseded_run_id") != binding.get("run_id")
+        or not record.get("supersession_reasons")
     ):
         raise R1T1402Error("supersession_record_semantics_invalid")
 
