@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 
 from src.r1.r1_t14_02_formal_structural_revalidation import (
     _confirmed_coverage_fast,
+    _load_robust_envelopes,
     _security_hash,
     _sign,
     _step_metrics,
+    _v_selectivity_retained,
 )
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class R1T1402FormalStructuralRevalidationTests(unittest.TestCase):
@@ -42,6 +48,25 @@ class R1T1402FormalStructuralRevalidationTests(unittest.TestCase):
         self.assertEqual(first, _security_hash("000001.SZ"))
         self.assertNotIn("000001", first)
         self.assertTrue(first.startswith("security_sha256_"))
+
+    def test_v_selectivity_guard_uses_complement_retention_formula(self) -> None:
+        self.assertAlmostEqual(_v_selectivity_retained(0.35, 0.20), 0.8125)
+        self.assertNotEqual(_v_selectivity_retained(0.35, 0.20), 0.35 / 0.20)
+        self.assertIsNone(_v_selectivity_retained(0.35, 1.0))
+
+    def test_scope_specific_robust_envelopes_are_loaded_from_t14_01(self) -> None:
+        config = json.loads(
+            (
+                ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v2.json"
+            ).read_text(encoding="utf-8")
+        )
+        envelopes = _load_robust_envelopes(config)
+        self.assertAlmostEqual(
+            envelopes[(120, "S_PCVT", "confirmed_coverage")], 0.0005587316611579772
+        )
+        self.assertAlmostEqual(
+            envelopes[(250, "V_GIVEN_PCT", "delta")], 0.04169739768175059
+        )
 
 
 if __name__ == "__main__":

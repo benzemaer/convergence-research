@@ -10,13 +10,13 @@ class TaskIndexCurrentTest(unittest.TestCase):
     def test_current_task_pointer_is_centralized(self) -> None:
         text = README.read_text(encoding="utf-8")
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
-        self.assertIn("current_stage: R0", current)
+        self.assertIn("current_stage: R1", current)
         self.assertIn(
-            "current_task: R0-T15 正式 q-vector 物化",
+            "current_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
             current,
         )
         self.assertIn(
-            "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+            "next_planned_task: R1-T10 R1 验收门禁与 R2 交接矩阵",
             current,
         )
         self.assertIn(
@@ -50,17 +50,17 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn(
             "R1-T14-01_decision_status: q_vector_materialization_request", current
         )
-        self.assertIn("R1-T14-02_status: blocked_pending_R0", current)
-        self.assertIn("R0_q_vector_materialization_request_status: approved", current)
+        self.assertIn("R1-T14-02_status: authorized", current)
+        self.assertIn("R0_q_vector_materialization_request_status: fulfilled", current)
         self.assertIn("R0_q_vector_materialization_task_id: R0-T15", current)
-        self.assertIn("R0_q_vector_materialization_allowed_to_start: true", current)
+        self.assertIn("R0_q_vector_materialization_allowed_to_start: false", current)
         self.assertIn(
-            "R0_q_vector_materialization_status: final_gate_passed_pending_merge",
+            "R0_q_vector_materialization_status: completed",
             current,
         )
         self.assertIn("R1-T09_allowed_to_start: true", text)
         self.assertIn("R1-T14-01_allowed_to_start: true", text)
-        self.assertIn("R1-T14-02_allowed_to_start: false", current)
+        self.assertIn("R1-T14-02_allowed_to_start: true", current)
         self.assertIn("R1-T10_allowed_to_start: false", current)
         self.assertIn("R1-T11_allowed_to_start: false", current)
         self.assertIn("R1-T12_allowed_to_start: false", current)

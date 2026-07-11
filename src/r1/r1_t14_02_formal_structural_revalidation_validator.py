@@ -8,6 +8,7 @@ from typing import Any
 
 from src.r0.upstream_artifact_io import sha256_file, write_json_atomic
 
+ROOT = Path(__file__).resolve().parents[2]
 TASK_ID = "R1-T14-02"
 REQUIRED = {
     "r1_t14_02_candidate_registry.csv": 10,
@@ -52,6 +53,15 @@ def validate_r1_t14_02_formal_structural_revalidation(
     manifest = _load_optional(run_dir / "r1_t14_02_null_replicates_manifest.json")
     if summary.get("task_id") != TASK_ID or summary.get("N_perm") != 10000:
         errors.append("summary_identity_or_N_perm")
+    config_path = ROOT / str(summary.get("config_path", ""))
+    config = _load_optional(config_path)
+    current_revision = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v2"
+    if not config_path.is_file() or sha256_file(config_path) != summary.get(
+        "config_sha256"
+    ):
+        errors.append("summary_config_binding")
+    if current_revision:
+        _validate_revision_binding(config, summary, errors)
     if (
         summary.get("scientific_review_status") != "pending"
         or summary.get("formal_task_completed") is not False
@@ -118,6 +128,8 @@ def validate_r1_t14_02_formal_structural_revalidation(
         for row in decisions
     ):
         errors.append("candidate_decision_boundary")
+    if current_revision:
+        _validate_revised_science_gates(run_dir, config, decisions, errors)
     if require_author_package:
         package = _load_optional(run_dir / "r1_t14_02_result_package.json")
         if (
@@ -128,6 +140,11 @@ def validate_r1_t14_02_formal_structural_revalidation(
             or package.get("R1-T10_allowed_to_start") is not False
             or package.get("formal_task_completed") is not False
             or package.get("selection_path_not_independently_confirmed") is not True
+            or (current_revision and package.get("stale_dependency") is not True)
+            or (
+                current_revision
+                and package.get("upstream_binding") != config.get("upstream_binding")
+            )
         ):
             errors.append("author_package_boundary")
         for artifact in package.get("committed_artifacts", []):
@@ -152,6 +169,143 @@ def validate_r1_t14_02_formal_structural_revalidation(
         result,
     )
     return result
+
+
+def _validate_revision_binding(
+    config: dict[str, Any], summary: dict[str, Any], errors: list[str]
+) -> None:
+    upstream = config.get("upstream_binding", {})
+    if summary.get("upstream_binding") != upstream:
+        errors.append("summary_upstream_binding_mismatch")
+    expected = {
+        "exact_head_commit": "faea7a957b84b0bd0e327d1af945c00c967f6ecb",
+        "merge_commit": "09fb86510dc021f031c5f646777c5202013f2e86",
+        "result_package_sha256": (
+            "aaea43c420289d95a384b49ce045f69045007ba6a5ac669079d6d3f055d72ac2"
+        ),
+        "handoff_manifest_sha256": (
+            "438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3"
+        ),
+        "artifact_manifest_sha256": (
+            "664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51"
+        ),
+        "candidate_registry_sha256": (
+            "02fdaf1b94780ef42115a9109ae9f1fd6b90a6e019925a5067ad1bac96d4944f"
+        ),
+        "external_review_sha256": (
+            "28062c827c54b35bdf15bf2ea881866da097c0ee923d956f87538172cc39722a"
+        ),
+        "final_gate_validation_sha256": (
+            "2e68d0fab0af768dc0b3648d183c34d711645befe4b0ae81f66e5b00f9808aa1"
+        ),
+        "goal_internal_continuation_gate_status": ("passed_after_repository_merge"),
+        "goal_internal_t14_02_authorized": True,
+        "repository_t14_02_gate_passed": True,
+        "current_dependency_verified": True,
+        "stale_dependency": True,
+    }
+    for key, value in expected.items():
+        if upstream.get(key) != value:
+            errors.append(f"revised_upstream_binding:{key}")
+    superseded = config.get("superseded_run", {})
+    supersession_path = ROOT / str(superseded.get("supersession_path", ""))
+    if (
+        superseded.get("run_id") != "R1-T14-02-20260710T2340Z"
+        or not supersession_path.is_file()
+        or sha256_file(supersession_path) != superseded.get("supersession_sha256")
+    ):
+        errors.append("superseded_run_binding")
+    elif _load_optional(supersession_path).get("status") != "superseded":
+        errors.append("superseded_run_status")
+    if config.get("null_model", {}).get("reuse_prior_null") is not False:
+        errors.append("prior_null_reuse_not_disabled")
+
+
+def _validate_revised_science_gates(
+    run_dir: Path,
+    config: dict[str, Any],
+    decisions: list[dict[str, str]],
+    errors: list[str],
+) -> None:
+    dominance = _csv_rows(run_dir / "r1_t14_02_complexity_dominance_matrix.csv")
+    expected_envelope_sha = config["diagnostic_reconciliation_inputs"][
+        "t14_01_robust_envelope"
+    ]["sha256"]
+    if len(dominance) != 8 or any(
+        row.get("robust_envelope_source_sha256") != expected_envelope_sha
+        or row.get("robust_envelope_source_policy")
+        != "R1-T14-01_scope_specific_max_LOYO_MAD_fallback"
+        or (
+            row.get("material_improvement") == "false"
+            and (
+                row.get("complexity_not_justified") != "true"
+                or row.get("prefer_shared_q") != "true"
+            )
+        )
+        for row in dominance
+    ):
+        errors.append("scope_specific_robust_envelope_contract")
+    v_neighbors = [
+        row
+        for row in dominance
+        if row.get("request_role") == "immediate_neighbor"
+        and row.get("state_line") == "S_PCVT"
+        and abs(float(row.get("qV", "nan")) - 0.25) < 1e-12
+    ]
+    if len(v_neighbors) != 2 or any(
+        row.get("improvement_beyond_stability_envelope") != "false"
+        or row.get("complexity_not_justified") != "true"
+        or row.get("prefer_shared_q") != "true"
+        or row.get("dominance_status") != "stability_envelope_equivalent"
+        for row in v_neighbors
+    ):
+        errors.append("v_neighbor_robust_envelope_classification")
+
+    v_decisions = [row for row in decisions if row.get("state_line") == "S_PCVT"]
+    for row in v_decisions:
+        candidate_ratio = float(row["v_candidate_pcvt_pct_ratio"])
+        baseline_ratio = float(row["v_baseline_pcvt_pct_ratio"])
+        retained = float(row["v_selectivity_retained"])
+        expected = (1 - candidate_ratio) / (1 - baseline_ratio)
+        if (
+            abs(retained - expected) > 1e-15
+            or row.get("v_candidate_ratio_lt_one") != "true"
+            or row.get("v_nested_formal_pass") != "true"
+            or row.get("v_selectivity_guard_pass") != "true"
+        ):
+            errors.append("v_selectivity_guard_contract")
+            break
+    v_centers = [row for row in v_decisions if row.get("request_role") == "center"]
+    if len(v_centers) != 2 or any(
+        float(row["security_negative_delta_share"]) > 0
+        and (
+            row.get("security_heterogeneity_warning") != "true"
+            or "V_security_negative_delta_share_material"
+            not in row.get("candidate_warning_codes", "")
+        )
+        for row in v_centers
+    ):
+        errors.append("v_security_heterogeneity_warning_missing")
+
+    denominator_path = run_dir / "r1_t14_02_denominator_reconciliation.csv"
+    denominator = _csv_rows(denominator_path)
+    if not denominator_path.is_file() or len(denominator) != 10:
+        errors.append("denominator_reconciliation_missing_or_incomplete")
+        return
+    for row in denominator:
+        if (
+            sum(
+                int(row[key])
+                for key in ("t14_02_n11", "t14_02_n10", "t14_02_n01", "t14_02_n00")
+            )
+            != int(row["t14_02_N"])
+            or row.get("t14_02_vs_r1_t06_parent_true_cell_mismatch_count") != "0"
+            or int(row["t14_02_vs_r1_t06_parent_false_expansion_count"]) < 0
+            or row.get("t14_02_vs_r1_t06_baseline_reconciliation_status") != "passed"
+            or row.get("affected_structural_gate_flip") != "false"
+        ):
+            errors.append("denominator_reconciliation_contract")
+            break
 
 
 def _load_optional(path: Path) -> dict[str, Any]:

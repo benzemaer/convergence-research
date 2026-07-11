@@ -35,7 +35,7 @@ from src.r1.r1_t08_null_engine import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v1.json"
+CONFIG_PATH = ROOT / "configs/r1/r1_t14_02_formal_structural_revalidation.v2.json"
 SCHEMA_PATH = ROOT / "schemas/r1/r1_t14_02_formal_structural_revalidation.schema.json"
 TASK_ID = "R1-T14-02"
 LAYERS = ("P", "C", "T", "V")
@@ -114,6 +114,7 @@ def run_r1_t14_02_formal_structural_revalidation(
     )
     _attach_inputs(con, config)
     registry = _load_registry(config)
+    robust_envelopes = _load_robust_envelopes(config)
     _write_csv(output_dir / "r1_t14_02_candidate_registry.csv", registry)
 
     existence_rows: list[dict[str, Any]] = []
@@ -159,6 +160,12 @@ def run_r1_t14_02_formal_structural_revalidation(
                 loyo_rows.extend(loyo)
         intralayer_rows.extend(_intralayer_rows_for_window(con, specs, W))
 
+    denominator_rows = _denominator_reconciliation_rows(
+        registry=registry,
+        step_cache=step_cache,
+        config=config,
+    )
+
     for spec in registry:
         vector_id = str(spec["formal_vector_id"])
         if bool(spec["baseline_reuse"]):
@@ -184,6 +191,9 @@ def run_r1_t14_02_formal_structural_revalidation(
     _write_csv(output_dir / "r1_t14_02_interval_profile.csv", interval_rows)
     _write_csv(output_dir / "r1_t14_02_year_profile.csv", year_rows)
     _write_csv(output_dir / "r1_t14_02_leave_one_year_out.csv", loyo_rows)
+    _write_csv(
+        output_dir / "r1_t14_02_denominator_reconciliation.csv", denominator_rows
+    )
 
     _heartbeat(run_id, "formal_null_start", N_perm=n_perm)
     null_results, family_max_rows, multiplicity_rows, replicate_manifest = (
@@ -208,7 +218,12 @@ def run_r1_t14_02_formal_structural_revalidation(
         registry, state_cache, step_cache, multiplicity_rows
     )
     dominance_rows = _dominance_rows(
-        registry, state_cache, step_cache, identity_rows, config
+        registry,
+        state_cache,
+        step_cache,
+        identity_rows,
+        robust_envelopes,
+        config,
     )
     decision_rows = _decision_rows(
         registry,
@@ -236,6 +251,8 @@ def run_r1_t14_02_formal_structural_revalidation(
         null_results,
         multiplicity_rows,
         decision_rows,
+        denominator_rows,
+        dominance_rows,
         n_perm,
     )
     write_json_atomic(output_dir / "r1_t14_02_anomaly_scan.json", anomaly)
@@ -253,6 +270,7 @@ def run_r1_t14_02_formal_structural_revalidation(
         "family_count": len(FAMILY_SPEC),
         "null_test_count": len(null_results),
         "family_max_row_count": len(family_max_rows),
+        "denominator_reconciliation_row_count": len(denominator_rows),
         "candidate_status_counts": _count_by(decision_rows, "candidate_status"),
         "blocking_findings": anomaly["blocking_findings"],
         "created_at_utc": datetime.now(UTC).isoformat(),
@@ -276,13 +294,24 @@ def _validate_governance(config: Mapping[str, Any]) -> None:
     if not config.get("selection_path_not_independently_confirmed"):
         raise R1T1402Error("selection_limitation_missing")
     upstream = config["upstream_binding"]
-    if (
-        upstream["goal_internal_continuation_gate_status"] != "passed"
-        or not upstream["goal_internal_t14_02_authorized"]
-    ):
+    if not upstream["goal_internal_t14_02_authorized"]:
         raise R1T1402Error("goal_internal_continuation_not_authorized")
-    if upstream["repository_t14_02_gate_passed"]:
-        raise R1T1402Error("repository_gate_must_remain_closed_in_author_draft")
+    current_revision = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v2"
+    if current_revision:
+        if (
+            upstream["goal_internal_continuation_gate_status"]
+            != "passed_after_repository_merge"
+            or not upstream["repository_t14_02_gate_passed"]
+            or not upstream.get("current_dependency_verified")
+            or not upstream.get("stale_dependency")
+        ):
+            raise R1T1402Error("revised_repository_gate_not_authorized")
+    elif (
+        upstream["goal_internal_continuation_gate_status"] != "passed"
+        or upstream["repository_t14_02_gate_passed"]
+        or upstream.get("stale_dependency")
+    ):
+        raise R1T1402Error("legacy_author_draft_gate_invalid")
     governance = config["governance"]
     if (
         governance["scientific_review_status"] != "pending"
@@ -294,29 +323,114 @@ def _validate_governance(config: Mapping[str, Any]) -> None:
 
 def _verify_inputs(config: Mapping[str, Any]) -> None:
     upstream = config["upstream_binding"]
-    for path_key, hash_key in (
+    upstream_refs = [
         ("result_package_path", "result_package_sha256"),
         ("result_analysis_path", "result_analysis_sha256"),
         ("artifact_manifest_path", "artifact_manifest_sha256"),
         ("candidate_registry_path", "candidate_registry_sha256"),
-    ):
+    ]
+    current_revision = config.get("protocol_version") == "R1.v0.4.R1-T14-02.v2"
+    if current_revision:
+        upstream_refs.extend(
+            [
+                ("handoff_manifest_path", "handoff_manifest_sha256"),
+                ("external_review_path", "external_review_sha256"),
+                ("final_gate_validation_path", "final_gate_validation_sha256"),
+            ]
+        )
+    for path_key, hash_key in upstream_refs:
         path = ROOT / upstream[path_key]
         if not path.is_file() or sha256_file(path) != upstream[hash_key]:
             raise R1T1402Error(f"upstream_hash_mismatch:{path_key}")
     package = _load_json(ROOT / upstream["result_package_path"])
-    gate = package.get("gate_status", {})
-    if gate.get("goal_internal_continuation_gate_status") != "passed" or not gate.get(
-        "goal_internal_t14_02_authorized"
-    ):
-        raise R1T1402Error("upstream_internal_gate_not_passed")
-    if package.get("repository_final_gate_status") != "pending" or package.get(
-        "formal_task_completed"
-    ):
-        raise R1T1402Error("upstream_external_review_boundary_invalid")
+    if current_revision:
+        if (
+            package.get("repository_final_gate_status") != "passed"
+            or package.get("repository_merge_status") != "pending"
+            or package.get("formal_task_completed") is not False
+            or package.get("R1-T14-02_allowed_to_start") is not False
+        ):
+            raise R1T1402Error("upstream_final_package_boundary_invalid")
+        handoff = _load_json(ROOT / upstream["handoff_manifest_path"])
+        review = _load_json(ROOT / upstream["external_review_path"])
+        final_gate = _load_json(ROOT / upstream["final_gate_validation_path"])
+        if (
+            package.get("handoff_manifest_sha256")
+            != upstream["handoff_manifest_sha256"]
+            or handoff.get("artifact_manifest_sha256")
+            != upstream["artifact_manifest_sha256"]
+            or handoff.get("candidate_registry_sha256")
+            != upstream["candidate_registry_sha256"]
+        ):
+            raise R1T1402Error("upstream_cross_file_hash_mismatch")
+        if (
+            review.get("external_review_status") != "passed"
+            or review.get("review_comment_id") != 4943245857
+            or final_gate.get("status") != "passed"
+            or final_gate.get("result_package_sha256")
+            != upstream["result_package_sha256"]
+        ):
+            raise R1T1402Error("upstream_review_or_final_gate_invalid")
+        _verify_merged_commit_binding(upstream)
+        _verify_superseded_run(config["superseded_run"])
+        for name, artifact in config["diagnostic_reconciliation_inputs"].items():
+            path = ROOT / artifact["path"]
+            if not path.is_file() or sha256_file(path) != artifact["sha256"]:
+                raise R1T1402Error(f"diagnostic_input_hash_mismatch:{name}")
+    else:
+        gate = package.get("gate_status", {})
+        if gate.get(
+            "goal_internal_continuation_gate_status"
+        ) != "passed" or not gate.get("goal_internal_t14_02_authorized"):
+            raise R1T1402Error("upstream_internal_gate_not_passed")
+        if package.get("repository_final_gate_status") != "pending" or package.get(
+            "formal_task_completed"
+        ):
+            raise R1T1402Error("upstream_external_review_boundary_invalid")
     for name, artifact in config["input_artifacts"].items():
         path = ROOT / artifact["path"]
         if not path.is_file() or sha256_file(path) != artifact["sha256"]:
             raise R1T1402Error(f"input_hash_mismatch:{name}")
+
+
+def _verify_merged_commit_binding(upstream: Mapping[str, Any]) -> None:
+    head = str(upstream.get("exact_head_commit", ""))
+    merge = str(upstream.get("merge_commit", ""))
+    for commit in (head, merge):
+        if (
+            len(commit) != 40
+            or subprocess.run(
+                ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+                cwd=ROOT,
+                capture_output=True,
+            ).returncode
+        ):
+            raise R1T1402Error("upstream_commit_object_missing")
+    if subprocess.run(
+        ["git", "merge-base", "--is-ancestor", head, merge],
+        cwd=ROOT,
+        capture_output=True,
+    ).returncode:
+        raise R1T1402Error("upstream_head_not_merged")
+    if subprocess.run(
+        ["git", "merge-base", "--is-ancestor", merge, "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+    ).returncode:
+        raise R1T1402Error("upstream_merge_not_in_current_lineage")
+
+
+def _verify_superseded_run(binding: Mapping[str, Any]) -> None:
+    path = ROOT / str(binding.get("supersession_path", ""))
+    if not path.is_file() or sha256_file(path) != binding.get("supersession_sha256"):
+        raise R1T1402Error("supersession_record_hash_mismatch")
+    record = _load_json(path)
+    if (
+        record.get("status") != "superseded"
+        or record.get("stale_dependency") is not True
+        or record.get("superseded_run_id") != binding.get("run_id")
+    ):
+        raise R1T1402Error("supersession_record_semantics_invalid")
 
 
 def _attach_inputs(con: Any, config: Mapping[str, Any]) -> None:
@@ -352,6 +466,41 @@ def _load_registry(config: Mapping[str, Any]) -> list[dict[str, Any]]:
         row["baseline_reuse"] = _as_bool(row["baseline_reuse"])
         row["selection_path_not_independently_confirmed"] = True
     return rows
+
+
+def _load_robust_envelopes(
+    config: Mapping[str, Any],
+) -> dict[tuple[int, str, str], float]:
+    artifact = config["diagnostic_reconciliation_inputs"]["t14_01_robust_envelope"]
+    path = ROOT / artifact["path"]
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    envelopes: dict[tuple[int, str, str], float] = {}
+    for row in rows:
+        if row.get("role") != "baseline":
+            continue
+        key = (int(row["W"]), str(row["scope"]), str(row["metric"]))
+        if key in envelopes:
+            raise R1T1402Error(f"duplicate_robust_envelope:{key}")
+        envelopes[key] = float(row["robust_envelope"])
+    required = {
+        (W, scope, metric)
+        for W in (120, 250)
+        for scope, metric in (
+            ("S_PCT", "confirmed_coverage"),
+            ("S_PCVT", "confirmed_coverage"),
+            ("T_GIVEN_PC", "delta"),
+            ("T_GIVEN_PC", "lift"),
+            ("V_GIVEN_PCT", "delta"),
+            ("V_GIVEN_PCT", "lift"),
+        )
+    }
+    if not required.issubset(envelopes):
+        missing = sorted(required - set(envelopes))
+        raise R1T1402Error(f"scope_specific_robust_envelope_missing:{missing}")
+    if config["robust_envelope_policy"].get("fallback_allowed") is not False:
+        raise R1T1402Error("robust_envelope_fallback_must_be_disabled")
+    return envelopes
 
 
 def _load_base_score_data(con: Any, W: int) -> BaseScoreData:
@@ -913,6 +1062,215 @@ def _step_metrics(n11: int, n10: int, n01: int, n00: int) -> dict[str, Any]:
     }
 
 
+def _denominator_reconciliation_rows(
+    *,
+    registry: Sequence[Mapping[str, Any]],
+    step_cache: Mapping[tuple[str, str], Mapping[str, Any]],
+    config: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    inputs = config["diagnostic_reconciliation_inputs"]
+    with (ROOT / inputs["t14_01_interlayer_profile"]["path"]).open(
+        encoding="utf-8", newline=""
+    ) as handle:
+        t14_rows = list(csv.DictReader(handle))
+    with (ROOT / inputs["r1_t06_layer_step_profile"]["path"]).open(
+        encoding="utf-8", newline=""
+    ) as handle:
+        t06_rows = list(csv.DictReader(handle))
+    t14_index = {
+        (row["candidate_q_vector_id"], int(row["W"]), row["step_id"]): row
+        for row in t14_rows
+        if row["profile_type"] == "pooled"
+    }
+    t06_index = {
+        (int(row["W"]), row["step_id"]): row
+        for row in t06_rows
+        if abs(float(row["q"]) - 0.2) < 1e-12
+    }
+    rows: list[dict[str, Any]] = []
+    count_fields = ("n11", "n10", "n01", "n00")
+    for spec in registry:
+        state = (
+            "S_PCT"
+            if spec["request_role"] == "baseline_reference"
+            else _relevant_states(spec)[0]
+        )
+        if spec["request_role"] == "baseline_reference":
+            step = "T_GIVEN_PC"
+        else:
+            step = "T_GIVEN_PC" if state == "S_PCT" else "V_GIVEN_PCT"
+        vector_id = str(spec["formal_vector_id"])
+        diagnostic = t14_index[
+            (str(spec["candidate_q_vector_id"]), int(spec["W"]), step)
+        ]
+        formal = step_cache[(vector_id, step)]
+        shared_baseline = step_cache[(_baseline_id(int(spec["W"])), step)]
+        baseline = t06_index[(int(spec["W"]), step)]
+        t14_metrics = {
+            "N": int(diagnostic["N"]),
+            **{field: int(diagnostic[field]) for field in count_fields},
+            "retention": float(diagnostic["retention"]),
+            "target_marginal": float(diagnostic["target_marginal_rate"]),
+            "lift": float(diagnostic["lift"]),
+            "delta": float(diagnostic["delta"]),
+        }
+        formal_metrics = {
+            "N": int(formal["N"]),
+            **{field: int(formal[field]) for field in count_fields},
+            "retention": float(formal["retention"]),
+            "target_marginal": float(formal["target_marginal"]),
+            "lift": float(formal["lift"]),
+            "delta": float(formal["delta"]),
+        }
+        t06_metrics = {
+            "N": int(baseline["N"]),
+            **{field: int(baseline[field]) for field in count_fields},
+            "retention": float(baseline["retention"]),
+            "target_marginal": float(baseline["target_marginal_rate"]),
+            "lift": float(baseline["lift"]),
+            "delta": float(baseline["delta"]),
+        }
+        shared_baseline_metrics = {
+            "N": int(shared_baseline["N"]),
+            **{field: int(shared_baseline[field]) for field in count_fields},
+            "retention": float(shared_baseline["retention"]),
+            "target_marginal": float(shared_baseline["target_marginal"]),
+            "lift": float(shared_baseline["lift"]),
+            "delta": float(shared_baseline["delta"]),
+        }
+        count_mismatch = sum(
+            t14_metrics[field] != formal_metrics[field]
+            for field in ("N", *count_fields)
+        )
+        baseline_mismatch = sum(
+            shared_baseline_metrics[field] != t06_metrics[field]
+            for field in ("N", *count_fields)
+        )
+        baseline_parent_true_mismatch = sum(
+            shared_baseline_metrics[field] != t06_metrics[field]
+            for field in ("n11", "n10")
+        )
+        baseline_parent_false_expansion = (
+            shared_baseline_metrics["n01"]
+            + shared_baseline_metrics["n00"]
+            - t06_metrics["n01"]
+            - t06_metrics["n00"]
+        )
+        baseline_reconciliation_pass = (
+            baseline_parent_true_mismatch == 0
+            and baseline_parent_false_expansion >= 0
+            and shared_baseline_metrics["n01"] >= t06_metrics["n01"]
+            and shared_baseline_metrics["n00"] >= t06_metrics["n00"]
+            and abs(shared_baseline_metrics["retention"] - t06_metrics["retention"])
+            <= 1e-15
+        )
+        t14_gate = t14_metrics["delta"] > 0 and t14_metrics["lift"] > 1
+        formal_gate = formal_metrics["delta"] > 0 and formal_metrics["lift"] > 1
+        row = {
+            **_vector_fields(spec),
+            "state_line": state,
+            "step_id": step,
+            "t14_01_denominator_scope": "strict_required_layer_common_valid",
+            "t14_02_denominator_scope": (
+                "ordered_short_circuit_parent_plus_target_valid"
+            ),
+            "r1_t06_denominator_scope": "step_specific_minimal_common_valid",
+            **{f"t14_01_{key}": value for key, value in t14_metrics.items()},
+            **{f"t14_02_{key}": value for key, value in formal_metrics.items()},
+            **{f"r1_t06_baseline_{key}": value for key, value in t06_metrics.items()},
+            **{
+                f"t14_02_shared_baseline_{key}": value
+                for key, value in shared_baseline_metrics.items()
+            },
+            "t14_01_vs_t14_02_four_cell_mismatch_count": count_mismatch,
+            "t14_02_vs_r1_t06_baseline_four_cell_mismatch_count": baseline_mismatch,
+            "t14_02_vs_r1_t06_parent_true_cell_mismatch_count": (
+                baseline_parent_true_mismatch
+            ),
+            "t14_02_vs_r1_t06_parent_false_expansion_count": (
+                baseline_parent_false_expansion
+            ),
+            "t14_02_vs_r1_t06_retention_change": (
+                shared_baseline_metrics["retention"] - t06_metrics["retention"]
+            ),
+            "t14_02_vs_r1_t06_baseline_reconciliation_status": (
+                "passed"
+                if baseline_reconciliation_pass
+                else "blocked_unexplained_denominator_difference"
+            ),
+            "delta_change_from_denominator": (
+                formal_metrics["delta"] - t14_metrics["delta"]
+            ),
+            "lift_change_from_denominator": (
+                formal_metrics["lift"] - t14_metrics["lift"]
+            ),
+            "difference_source": (
+                "none"
+                if count_mismatch == 0
+                else "ordered_short_circuit_parent_status_vs_strict_required_layer_validity"
+            ),
+            "baseline_difference_source": (
+                "ordered_short_circuit_expands_parent_false_rows_only"
+                if baseline_mismatch
+                else "none"
+            ),
+            "affected_structural_gate_t14_01": t14_gate,
+            "affected_structural_gate_t14_02": formal_gate,
+            "affected_structural_gate_flip": t14_gate != formal_gate,
+            "selection_path_not_independently_confirmed": True,
+        }
+        rows.append(row)
+
+    for W in (120, 250):
+        for state in ("S_PCT", "S_PCVT"):
+            group = [
+                row
+                for row in rows
+                if int(row["W"]) == W
+                and row["state_line"] == state
+                and row["request_role"] != "baseline_reference"
+            ]
+            t14_rank = {
+                row["formal_vector_id"]: rank
+                for rank, row in enumerate(
+                    sorted(
+                        group,
+                        key=lambda item: (
+                            -float(item["t14_01_delta"]),
+                            str(item["formal_vector_id"]),
+                        ),
+                    ),
+                    start=1,
+                )
+            }
+            formal_rank = {
+                row["formal_vector_id"]: rank
+                for rank, row in enumerate(
+                    sorted(
+                        group,
+                        key=lambda item: (
+                            -float(item["t14_02_delta"]),
+                            str(item["formal_vector_id"]),
+                        ),
+                    ),
+                    start=1,
+                )
+            }
+            for row in group:
+                vector_id = row["formal_vector_id"]
+                row["affected_delta_rank_t14_01"] = t14_rank[vector_id]
+                row["affected_delta_rank_t14_02"] = formal_rank[vector_id]
+                row["affected_delta_rank_flip"] = (
+                    t14_rank[vector_id] != formal_rank[vector_id]
+                )
+    for row in rows:
+        if row["request_role"] == "baseline_reference":
+            row["affected_delta_rank_t14_01"] = None
+            row["affected_delta_rank_t14_02"] = None
+            row["affected_delta_rank_flip"] = False
+    return rows
+
+
 def _identity_row(
     spec: Mapping[str, Any],
     state: str,
@@ -1233,13 +1591,16 @@ def _dominance_rows(
     state_cache: Mapping[tuple[str, str], Mapping[str, Any]],
     step_cache: Mapping[tuple[str, str], Mapping[str, Any]],
     identity_rows: Sequence[Mapping[str, Any]],
+    robust_envelopes: Mapping[tuple[int, str, str], float],
     config: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     identity_index = {
         (row["formal_vector_id"], row["state_line"]): row for row in identity_rows
     }
     rows = []
-    envelope = config["baseline_stability_envelope"]
+    envelope_source = config["diagnostic_reconciliation_inputs"][
+        "t14_01_robust_envelope"
+    ]
     for spec in (row for row in registry if not row["baseline_reuse"]):
         state = _relevant_states(spec)[0]
         baseline = _baseline_spec(registry, int(spec["W"]))
@@ -1265,17 +1626,19 @@ def _dominance_rows(
             "delta": float(c_step["delta"]) - float(b_step["delta"]),
             "lift_excess": (float(c_step["lift"]) - 1) - (float(b_step["lift"]) - 1),
         }
-        beyond = (
-            abs(improvements["coverage"]) > envelope["confirmed_coverage"]
-            or abs(improvements["delta"]) > envelope["delta"]
-            or abs(improvements["lift_excess"]) > envelope["lift_excess"]
+        envelope = {
+            "coverage": robust_envelopes[(int(spec["W"]), state, "confirmed_coverage")],
+            "delta": robust_envelopes[(int(spec["W"]), step, "delta")],
+            "lift_excess": robust_envelopes[(int(spec["W"]), step, "lift")],
+        }
+        material_improvement = any(
+            improvements[key] > envelope[key] for key in improvements
         )
-        baseline_dominates = (
-            improvements["coverage"] <= envelope["confirmed_coverage"]
-            and improvements["delta"] <= envelope["delta"]
-            and improvements["lift_excess"] <= envelope["lift_excess"]
-            and any(value < 0 for value in improvements.values())
+        material_degradation = any(
+            improvements[key] < -envelope[key] for key in improvements
         )
+        beyond = material_improvement or material_degradation
+        baseline_dominates = not material_improvement and material_degradation
         equivalent = not beyond
         rows.append(
             {
@@ -1285,13 +1648,23 @@ def _dominance_rows(
                 "confirmed_coverage_change": improvements["coverage"],
                 "affected_delta_change": improvements["delta"],
                 "affected_lift_excess_change": improvements["lift_excess"],
+                "confirmed_coverage_robust_envelope": envelope["coverage"],
+                "affected_delta_robust_envelope": envelope["delta"],
+                "affected_lift_excess_robust_envelope": envelope["lift_excess"],
+                "robust_envelope_source_path": envelope_source["path"],
+                "robust_envelope_source_sha256": envelope_source["sha256"],
+                "robust_envelope_source_policy": (
+                    "R1-T14-01_scope_specific_max_LOYO_MAD_fallback"
+                ),
+                "material_improvement": material_improvement,
+                "material_degradation": material_degradation,
                 "confirmed_jaccard": identity_index[(spec["formal_vector_id"], state)][
                     "confirmed_jaccard"
                 ],
                 "improvement_beyond_stability_envelope": beyond,
                 "baseline_dominates": baseline_dominates,
-                "complexity_not_justified": equivalent or baseline_dominates,
-                "prefer_shared_q": equivalent or baseline_dominates,
+                "complexity_not_justified": not material_improvement,
+                "prefer_shared_q": not material_improvement,
                 "dominance_status": "baseline_dominates"
                 if baseline_dominates
                 else "stability_envelope_equivalent"
@@ -1325,6 +1698,8 @@ def _decision_rows(
             continue
         vector_id = spec["formal_vector_id"]
         state = _relevant_states(spec)[0]
+        baseline = _baseline_spec(registry, int(spec["W"]))
+        baseline_id = baseline["formal_vector_id"]
         if state == "S_PCT":
             family_members = (
                 ("F1_GLOBAL_PCT", vector_id),
@@ -1353,6 +1728,12 @@ def _decision_rows(
             and float(p[(family, member_id)]["family_adjusted_p"])
             <= thresholds["family_adjusted_p_max"]
             for family, member_id in family_members
+        )
+        v_nested_formal_pass = state != "S_PCVT" or (
+            float(p[("F5_V_GIVEN_PCT", vector_id)]["joint_lift"]) > 1
+            and float(p[("F5_V_GIVEN_PCT", vector_id)]["joint_excess"]) > 0
+            and float(p[("F5_V_GIVEN_PCT", vector_id)]["family_adjusted_p"])
+            <= thresholds["family_adjusted_p_max"]
         )
         max_year = max(
             (
@@ -1395,6 +1776,9 @@ def _decision_rows(
         security_median_delta = (
             float(np.median(security_delta)) if security_delta else None
         )
+        security_negative_delta_share = _safe_div(
+            sum(value < 0 for value in security_delta), len(security_delta)
+        )
         pooled_security_reversal = security_median_delta is None or _sign(
             pooled_delta
         ) != _sign(security_median_delta)
@@ -1416,6 +1800,45 @@ def _decision_rows(
         same_parent = (
             parent_child_raw_violations == 0 and parent_child_confirmed_violations == 0
         )
+        if state == "S_PCVT":
+            candidate_ratio = _safe_div(
+                state_cache[(vector_id, "S_PCVT")]["raw_true_count"],
+                state_cache[(vector_id, "S_PCT")]["raw_true_count"],
+            )
+            baseline_ratio = _safe_div(
+                state_cache[(baseline_id, "S_PCVT")]["raw_true_count"],
+                state_cache[(baseline_id, "S_PCT")]["raw_true_count"],
+            )
+            selectivity_retained = _v_selectivity_retained(
+                candidate_ratio, baseline_ratio
+            )
+            candidate_ratio_lt_one = candidate_ratio is not None and candidate_ratio < 1
+            v_selectivity_guard_pass = (
+                selectivity_retained is not None
+                and selectivity_retained >= thresholds["v_selectivity_retained_min"]
+                and candidate_ratio_lt_one
+                and v_nested_formal_pass
+                and same_parent
+            )
+        else:
+            candidate_ratio = None
+            baseline_ratio = None
+            selectivity_retained = None
+            candidate_ratio_lt_one = True
+            v_selectivity_guard_pass = True
+        try:
+            warning_codes = list(json.loads(str(spec.get("warnings", "[]"))))
+        except json.JSONDecodeError as exc:
+            raise R1T1402Error("candidate_warning_payload_invalid") from exc
+        security_heterogeneity_warning = (
+            state == "S_PCVT"
+            and security_negative_delta_share is not None
+            and security_negative_delta_share
+            > thresholds["security_negative_delta_share_warning_min_exclusive"]
+        )
+        if security_heterogeneity_warning:
+            warning_codes.append("V_security_negative_delta_share_material")
+        warning_codes = sorted(set(str(value) for value in warning_codes))
         if (
             not null_pass
             or max_year > thresholds["max_year_share"]
@@ -1423,11 +1846,12 @@ def _decision_rows(
             or year_delta_conflict
             or pooled_security_reversal
             or not same_parent
+            or not v_selectivity_guard_pass
         ):
             status = "do_not_advance"
         elif not neighborhood_pass or not complexity_pass:
             status = "review_only"
-        elif spec["warnings"] not in ("", "[]"):
+        elif warning_codes:
             status = "formal_structure_supported_with_warning"
         else:
             status = "formal_structure_supported"
@@ -1442,8 +1866,10 @@ def _decision_rows(
                 "loyo_direction_stable": loyo_stable,
                 "pooled_delta": pooled_delta,
                 "security_median_delta": security_median_delta,
-                "security_negative_delta_share": _safe_div(
-                    sum(value < 0 for value in security_delta), len(security_delta)
+                "security_negative_delta_share": security_negative_delta_share,
+                "security_heterogeneity_warning": security_heterogeneity_warning,
+                "candidate_warning_codes": json.dumps(
+                    warning_codes, ensure_ascii=False, separators=(",", ":")
                 ),
                 "pooled_security_sign_reversal": pooled_security_reversal,
                 "parent_child_raw_violation_count": parent_child_raw_violations,
@@ -1451,29 +1877,12 @@ def _decision_rows(
                 "parent_child_gate_pass": same_parent,
                 "neighborhood_gate_pass": neighborhood_pass,
                 "complexity_return_gate_pass": complexity_pass,
-                "v_selectivity_guard_pass": True
-                if state != "S_PCVT"
-                else state_cache[(vector_id, state)]["confirmed_true_count"]
-                / max(1, state_cache[(vector_id, "S_PCT")]["confirmed_true_count"])
-                >= thresholds["v_selectivity_retained_min"]
-                * (
-                    state_cache[
-                        (
-                            _baseline_spec(registry, int(spec["W"]))[
-                                "formal_vector_id"
-                            ],
-                            "S_PCVT",
-                        )
-                    ]["confirmed_true_count"]
-                    / state_cache[
-                        (
-                            _baseline_spec(registry, int(spec["W"]))[
-                                "formal_vector_id"
-                            ],
-                            "S_PCT",
-                        )
-                    ]["confirmed_true_count"]
-                ),
+                "v_candidate_pcvt_pct_ratio": candidate_ratio,
+                "v_baseline_pcvt_pct_ratio": baseline_ratio,
+                "v_selectivity_retained": selectivity_retained,
+                "v_candidate_ratio_lt_one": candidate_ratio_lt_one,
+                "v_nested_formal_pass": v_nested_formal_pass,
+                "v_selectivity_guard_pass": v_selectivity_guard_pass,
                 "candidate_status": status,
                 "R1_T10_positive_handoff_recommended": status
                 in {
@@ -1498,6 +1907,8 @@ def _anomaly_scan(
     null_results: Sequence[Mapping[str, Any]],
     multiplicity: Sequence[Mapping[str, Any]],
     decisions: Sequence[Mapping[str, Any]],
+    denominator_reconciliation: Sequence[Mapping[str, Any]],
+    dominance: Sequence[Mapping[str, Any]],
     n_perm: int,
 ) -> dict[str, Any]:
     checks = [
@@ -1542,6 +1953,45 @@ def _anomaly_scan(
                 int(row["parent_child_raw_violation_count"]) == 0
                 and int(row["parent_child_confirmed_violation_count"]) == 0
                 for row in decisions
+            ),
+        ),
+        _check(
+            "scope_specific_robust_envelope",
+            len(dominance) == 8
+            and all(
+                row["robust_envelope_source_sha256"]
+                == "a97c094de3b1a78564a2404721ec1ddd69ad0f1646f3e0396fc0d46a1bad2940"
+                and (
+                    bool(row["material_improvement"])
+                    or bool(row["complexity_not_justified"])
+                )
+                for row in dominance
+            ),
+        ),
+        _check(
+            "denominator_reconciliation_complete",
+            len(denominator_reconciliation) == 10
+            and all(
+                row["t14_02_vs_r1_t06_baseline_reconciliation_status"] == "passed"
+                and not bool(row["affected_structural_gate_flip"])
+                for row in denominator_reconciliation
+            ),
+        ),
+        _check(
+            "v_selectivity_guard",
+            all(
+                bool(row["v_selectivity_guard_pass"])
+                for row in decisions
+                if row["state_line"] == "S_PCVT"
+            ),
+        ),
+        _check(
+            "v_security_heterogeneity_warning_preserved",
+            all(
+                float(row["security_negative_delta_share"]) <= 0
+                or bool(row["security_heterogeneity_warning"])
+                for row in decisions
+                if row["state_line"] == "S_PCVT" and row["request_role"] == "center"
             ),
         ),
         _check(
@@ -1600,6 +2050,14 @@ def _experiment_summary(
         "config_path": _rel(config_path),
         "config_sha256": sha256_file(config_path),
         "upstream_binding": config["upstream_binding"],
+        "superseded_run": config.get("superseded_run"),
+        "diagnostic_reconciliation_inputs": config.get(
+            "diagnostic_reconciliation_inputs"
+        ),
+        "robust_envelope_policy": config.get("robust_envelope_policy"),
+        "denominator_reconciliation_policy": config.get(
+            "denominator_reconciliation_policy"
+        ),
         "N_perm": n_perm,
         "selection_path_not_independently_confirmed": True,
         "runtime_dependencies": {
@@ -1658,6 +2116,14 @@ def _safe_div(left: Any, right: Any) -> float | None:
     if left is None or right in (None, 0):
         return None
     return float(left) / float(right)
+
+
+def _v_selectivity_retained(
+    candidate_ratio: float | None, baseline_ratio: float | None
+) -> float | None:
+    if candidate_ratio is None or baseline_ratio is None:
+        return None
+    return _safe_div(1 - candidate_ratio, 1 - baseline_ratio)
 
 
 def _sign(value: float, tolerance: float = 1e-12) -> str:

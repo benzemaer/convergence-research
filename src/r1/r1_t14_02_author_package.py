@@ -78,6 +78,15 @@ def build_r1_t14_02_author_package(
         "config_path": summary["config_path"],
         "config_sha256": summary["config_sha256"],
         "upstream_binding": summary["upstream_binding"],
+        "superseded_run": summary.get("superseded_run"),
+        "diagnostic_reconciliation_inputs": summary.get(
+            "diagnostic_reconciliation_inputs"
+        ),
+        "robust_envelope_policy": summary.get("robust_envelope_policy"),
+        "denominator_reconciliation_policy": summary.get(
+            "denominator_reconciliation_policy"
+        ),
+        "stale_dependency": True,
         "result_analysis_path": _rel(analysis_path),
         "result_analysis_sha256": sha256_file(analysis_path),
         "formal_evidence_path": _rel(evidence_path),

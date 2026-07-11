@@ -1,0 +1,175 @@
+{
+  "task_id": "R1-T14-02",
+  "stage": "R1",
+  "task_class": "same_sample_formal_structural_revalidation",
+  "protocol_version": "R1.v0.4.R1-T14-02.v2",
+  "selection_path_not_independently_confirmed": true,
+  "upstream_binding": {
+    "task_id": "R0-T15",
+    "draft_pr_number": 88,
+    "exact_head_commit": "faea7a957b84b0bd0e327d1af945c00c967f6ecb",
+    "merge_commit": "09fb86510dc021f031c5f646777c5202013f2e86",
+    "result_package_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_result_package.json",
+    "result_package_sha256": "aaea43c420289d95a384b49ce045f69045007ba6a5ac669079d6d3f055d72ac2",
+    "result_analysis_path": "docs/experiments/r0/R0-T15_层级q向量正式物化与R1-T14-02交接_result_analysis.md",
+    "result_analysis_sha256": "1e587bd0c225d8a4cc719cf40aec4323e3ebd94e279a228bbc74cb96c7d11a4d",
+    "handoff_manifest_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_authorized_handoff_manifest.json",
+    "handoff_manifest_sha256": "438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3",
+    "artifact_manifest_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_artifact_manifest.json",
+    "artifact_manifest_sha256": "664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51",
+    "candidate_registry_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_candidate_registry.csv",
+    "candidate_registry_sha256": "02fdaf1b94780ef42115a9109ae9f1fd6b90a6e019925a5067ad1bac96d4944f",
+    "external_review_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_external_review.json",
+    "external_review_sha256": "28062c827c54b35bdf15bf2ea881866da097c0ee923d956f87538172cc39722a",
+    "final_gate_validation_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_final_gate_validation_result.json",
+    "final_gate_validation_sha256": "2e68d0fab0af768dc0b3648d183c34d711645befe4b0ae81f66e5b00f9808aa1",
+    "goal_internal_continuation_gate_status": "passed_after_repository_merge",
+    "goal_internal_t14_02_authorized": true,
+    "repository_t14_02_gate_passed": true,
+    "current_dependency_verified": true,
+    "stale_dependency": true,
+    "stale_dependency_scope": "superseded_run_R1-T14-02-20260710T2340Z_only"
+  },
+  "superseded_run": {
+    "run_id": "R1-T14-02-20260710T2340Z",
+    "supersession_path": "data/generated/r1/r1_t14_02/R1-T14-02-20260710T2340Z/r1_t14_02_supersession.json",
+    "supersession_sha256": "8f5b76137766ac1748b61f6db2b5c23d1215989aa99a27acfba3d6449f31c9c5",
+    "result_package_sha256": "5162a71d3abc60cca234ad2035c2b06164e664b149eb322094923bfcc397ca53",
+    "result_analysis_sha256": "e50e0df1df439257959110b4584de92d800398e6aa619c7dcf9d616292e624d2",
+    "evidence_sha256": "f70685fc189c01b4cb7f0b5778ac31fc2955c99e0eb722381dcb496ab143fc72"
+  },
+  "diagnostic_reconciliation_inputs": {
+    "t14_01_robust_envelope": {
+      "path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_baseline_stability_envelope.csv",
+      "sha256": "a97c094de3b1a78564a2404721ec1ddd69ad0f1646f3e0396fc0d46a1bad2940"
+    },
+    "t14_01_interlayer_profile": {
+      "path": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_interlayer_profile.csv",
+      "sha256": "68745f5fcb069e93d2e57357526de62a10d3b9ea015b2316e20f49e4a05ebab1"
+    },
+    "r1_t06_layer_step_profile": {
+      "path": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_layer_step_profile.csv",
+      "sha256": "98c80443be455f31a279666c6d9074180a3050bbdb11665e45a36099d4d7f3e4"
+    }
+  },
+  "input_artifacts": {
+    "dimension_score": {
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "table": "r0_t05_dimension_score_results",
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5"
+    },
+    "indicator_score": {
+      "path": "data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+      "table": "r0_t05_indicator_score_results",
+      "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447"
+    },
+    "baseline_daily_confirmation": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_daily_confirmation_results.duckdb",
+      "table": "r0_t07_daily_confirmation_results",
+      "sha256": "e9bcaafbd60229b6d9e01967cedb2739efb3407159a66d1ef47b3d779689b4e3"
+    },
+    "baseline_confirmed_interval": {
+      "path": "data/generated/r0/r0_t10/R0-T10-04-20260708T1746Z/r0_t07/r0_t07_confirmed_interval_results.duckdb",
+      "table": "r0_t07_confirmed_interval_results",
+      "sha256": "583187e213edc7b9796d5db5ef0b5484ad4b3fb17624212796ea1b9a721208ad"
+    },
+    "r0_t15_dimension_state": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_dimension_state_results.duckdb",
+      "table": "r0_t15_dimension_state_results",
+      "sha256": "f979cf5c13fab855842e834a2c5af67f4d488022c137140ee4098c4241c8e95a"
+    },
+    "r0_t15_nested_daily_state": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_nested_daily_state_results.duckdb",
+      "table": "r0_t15_nested_daily_state_results",
+      "sha256": "39ec9c7c798280a67218cc32ce41b8ae854e68f4c1cf7826520c3eb91eab14d1"
+    },
+    "r0_t15_daily_confirmation": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
+      "table": "r0_t15_daily_confirmation_results",
+      "sha256": "310393bf78d58eaf76fa5a02aeb18cfa069c3e917ba1526c014167f9dca00d46"
+    },
+    "r0_t15_confirmed_interval": {
+      "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb",
+      "table": "r0_t15_confirmed_interval_results",
+      "sha256": "40c3ec70e68999d0db413a57e79705d85aabd5d0f8c26c498769d4560992a171"
+    }
+  },
+  "null_model": {
+    "N_perm": 10000,
+    "p_floor": 0.00009999000099990001,
+    "root_seed": 202607111402,
+    "seed_derivation_version": "sha256_family_common_schedule_splitmix64_v1",
+    "confirmation_k": 3,
+    "families": [
+      "F1_GLOBAL_PCT",
+      "F2_GLOBAL_PCVT",
+      "F3_C_GIVEN_P",
+      "F4_T_GIVEN_PC",
+      "F5_V_GIVEN_PCT"
+    ],
+    "null_sd_zero_policy": "blocking_anomaly",
+    "reuse_prior_null": false
+  },
+  "formal_thresholds": {
+    "family_adjusted_p_max": 0.05,
+    "joint_lift_min_exclusive": 1.0,
+    "joint_excess_min_exclusive": 0.0,
+    "max_year_share": 0.5,
+    "v_selectivity_retained_min": 0.5,
+    "security_negative_delta_share_warning_min_exclusive": 0.0,
+    "strict_parent_child_required": true
+  },
+  "baseline_stability_envelope": {
+    "confirmed_coverage": 0.00001,
+    "confirmed_state_days": 10,
+    "unique_securities": 5,
+    "confirmed_intervals": 10,
+    "fragment_rate": 0.01,
+    "median_duration": 0.25,
+    "baseline_overlap": 0.01,
+    "delta": 0.005,
+    "lift_excess": 0.05
+  },
+  "robust_envelope_policy": {
+    "source": "R1-T14-01_scope_specific_max_LOYO_MAD_fallback",
+    "coverage_scope": "affected_state_line",
+    "delta_scope": "affected_interlayer_step",
+    "lift_excess_scope": "affected_interlayer_step_lift",
+    "fallback_allowed": false
+  },
+  "denominator_reconciliation_policy": {
+    "t14_01_scope": "strict_required_layer_common_valid",
+    "t14_02_scope": "ordered_short_circuit_parent_plus_target_valid",
+    "r1_t06_scope": "step_specific_minimal_common_valid",
+    "baseline_parent_true_cell_mismatch_allowed": false,
+    "baseline_parent_false_short_circuit_expansion_allowed": true,
+    "affected_structural_gate_flip_allowed": false
+  },
+  "years": {
+    "values": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026],
+    "partial_years": [2026]
+  },
+  "parallelism": {
+    "parallelism_mode": "duckdb_single_process_numpy_family_common_schedule",
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "12GB"
+  },
+  "governance": {
+    "scientific_review_status": "pending",
+    "review_phase": "author_analysis_complete",
+    "independent_review_status": "not_started",
+    "downstream_gate_allowed": false,
+    "R1-T10_allowed_to_start": false,
+    "R2_allowed_to_start": false,
+    "formal_task_completed": false,
+    "selection_path_not_independently_confirmed": true
+  },
+  "forbidden_inputs": [
+    "future_return",
+    "future_volatility",
+    "future_direction",
+    "future_path",
+    "backtest",
+    "trading_result"
+  ]
+}

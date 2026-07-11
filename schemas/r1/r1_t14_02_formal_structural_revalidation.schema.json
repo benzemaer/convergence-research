@@ -12,6 +12,7 @@
     "task_id": {"const": "R1-T14-02"},
     "stage": {"const": "R1"},
     "task_class": {"const": "same_sample_formal_structural_revalidation"},
+    "protocol_version": {"type": "string"},
     "selection_path_not_independently_confirmed": {"const": true},
     "upstream_binding": {
       "type": "object",
@@ -26,10 +27,10 @@
       "properties": {
         "task_id": {"const": "R0-T15"},
         "exact_head_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-        "goal_internal_continuation_gate_status": {"const": "passed"},
+        "goal_internal_continuation_gate_status": {"type": "string"},
         "goal_internal_t14_02_authorized": {"const": true},
-        "repository_t14_02_gate_passed": {"const": false},
-        "stale_dependency": {"const": false}
+        "repository_t14_02_gate_passed": {"type": "boolean"},
+        "stale_dependency": {"type": "boolean"}
       }
     },
     "input_artifacts": {
@@ -68,5 +69,51 @@
         "selection_path_not_independently_confirmed": {"const": true}
       }
     }
-  }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "protocol_version": {"const": "R1.v0.3.R1-T14-02.v1"},
+        "upstream_binding": {
+          "properties": {
+            "goal_internal_continuation_gate_status": {"const": "passed"},
+            "repository_t14_02_gate_passed": {"const": false},
+            "stale_dependency": {"const": false}
+          }
+        }
+      }
+    },
+    {
+      "required": [
+        "superseded_run", "diagnostic_reconciliation_inputs",
+        "robust_envelope_policy", "denominator_reconciliation_policy"
+      ],
+      "properties": {
+        "protocol_version": {"const": "R1.v0.4.R1-T14-02.v2"},
+        "upstream_binding": {
+          "required": [
+            "merge_commit", "handoff_manifest_path", "handoff_manifest_sha256",
+            "external_review_path", "external_review_sha256",
+            "final_gate_validation_path", "final_gate_validation_sha256",
+            "current_dependency_verified", "stale_dependency_scope"
+          ],
+          "properties": {
+            "goal_internal_continuation_gate_status": {
+              "const": "passed_after_repository_merge"
+            },
+            "repository_t14_02_gate_passed": {"const": true},
+            "current_dependency_verified": {"const": true},
+            "stale_dependency": {"const": true}
+          }
+        },
+        "diagnostic_reconciliation_inputs": {
+          "type": "object",
+          "required": [
+            "t14_01_robust_envelope", "t14_01_interlayer_profile",
+            "r1_t06_layer_step_profile"
+          ]
+        }
+      }
+    }
+  ]
 }
