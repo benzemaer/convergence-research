@@ -1,0 +1,1 @@
+{"blocking_findings":[],"checks":{"README_transition":"passed","determinism":"passed","future_leakage":"passed","lineage":"passed","real_geometry_scan":"not_applicable_protocol_freeze","risk_set_guard":"passed","schema":"passed","winner_or_rank":"not_applicable_no_selection"},"status":"passed","task_id":"R2-T02","unresolved_ambiguities":[]}

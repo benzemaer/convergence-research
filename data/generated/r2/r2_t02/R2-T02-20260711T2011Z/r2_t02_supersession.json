@@ -1,0 +1,14 @@
+{
+  "task_id": "R2-T02",
+  "run_id": "R2-T02-20260711T2011Z",
+  "status": "superseded",
+  "superseded_by_run_id": "R2-T02-20260711T2055Z",
+  "superseding_result_package_sha256": "ac2d1ae4adfef0b6619a6e3db6c475fb8e541952e35b433738720b79671b8a28",
+  "superseding_validation_sha256": "dacf7db3bcbba8ecca915f990c86f0ee41b9f85b815088ff5040d9a7cd0b72c6",
+  "reason": "R2_stage_spec_v0.2_dual_state_machine_and_premerge_full_evidence_revision",
+  "current_evidence_eligible": false,
+  "formal_input_eligible": false,
+  "R2-T03_allowed_to_start": false,
+  "R2-T04_allowed_to_start": false,
+  "R3_allowed_to_start": false
+}
