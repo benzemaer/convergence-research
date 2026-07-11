@@ -21,14 +21,20 @@ class R2T02ValidationError(RuntimeError):
 def validate_contract(output_dir: Path) -> dict[str, Any]:
     errors: list[str] = []
     config = _json(CONFIG)
-    expected = _independent_rebuild(config)
+    expected = _independent_rebuild(config, output_dir)
+    synthetic_passed = all(
+        row["status"] == "passed"
+        for row in expected["r2_t02_synthetic_case_results.csv"]
+    )
     committed_hashes = _normalized_hashes(output_dir)
     with (
         tempfile.TemporaryDirectory() as first,
         tempfile.TemporaryDirectory() as second,
     ):
         first_hashes = _write_rebuild(Path(first), expected)
-        second_hashes = _write_rebuild(Path(second), _independent_rebuild(config))
+        second_hashes = _write_rebuild(
+            Path(second), _independent_rebuild(config, output_dir)
+        )
     if first_hashes != second_hashes:
         errors.append("determinism_rebuild_mismatch")
     for name, digest in first_hashes.items():
@@ -51,7 +57,7 @@ def validate_contract(output_dir: Path) -> dict[str, Any]:
         if first_hashes == second_hashes == committed_hashes
         else "failed",
         "synthetic_case_count": 37,
-        "all_synthetic_cases_passed": not any("synthetic" in x for x in errors),
+        "all_synthetic_cases_passed": synthetic_passed,
         "R2-T03_allowed_to_start": False,
         "formal_task_completed": False,
     }
@@ -61,14 +67,14 @@ def validate_contract(output_dir: Path) -> dict[str, Any]:
     return result
 
 
-def _independent_rebuild(config: dict[str, Any]) -> dict[str, Any]:
+def _independent_rebuild(config: dict[str, Any], output_dir: Path) -> dict[str, Any]:
     event = {
         "task_id": "R2-T02",
         "contract_version": config["contract_version"],
         **config["event_rule"],
         "selection_path_not_independently_confirmed": True,
     }
-    metric_names = [
+    required_metric_names = {
         "confirmed_event_coverage",
         "zone_span_coverage",
         "upstream_confirmed_interval_count",
@@ -107,40 +113,22 @@ def _independent_rebuild(config: dict[str, Any]) -> dict[str, Any]:
         "confirmed_day_jaccard",
         "matched_event_count",
         "overlapping_event_count",
-    ]
-    formulas = {
-        "confirmed_event_coverage": (
-            "unique qualified confirmed days",
-            "eligible days",
-        ),
-        "zone_span_coverage": (
-            "unique qualified confirmed plus legal bridge days",
-            "eligible days",
-        ),
-        "merge_ratio": ("qualified intervals minus events", "qualified intervals"),
-        "open_event_ratio": ("open events", "qualified events"),
     }
-    metrics = [
-        {
-            "metric_id": n,
-            "entity_level": "route_cell",
-            "numerator": formulas.get(
-                n, (n + " numerator", "metric-defined population")
-            )[0],
-            "denominator": formulas.get(
-                n, (n + " numerator", "metric-defined population")
-            )[1],
-            "deduplication_key": "route_id,security_id,trade_date",
-            "included_rows": "eligible rows defined by metric",
-            "excluded_rows": "unknown,blocked,ineligible",
-            "open_event_policy": "included except closed-duration quantiles",
-            "denominator_scope": "own_eligible and common_W120_W250",
-            "expected_parameter_response": "contract_defined",
-            "hard_gate_usage": "registry_defined",
-            "null_or_zero_denominator_policy": "null_with_explicit_reason",
-        }
-        for n in metric_names
-    ]
+    source = config["metric_definition_source"]
+    source_path = ROOT / source["path"]
+    if sha256_file(source_path) != source["sha256"]:
+        raise R2T02ValidationError("metric_definition_source_hash_mismatch")
+    metrics = _json(source_path)["metrics"]
+    if {row["metric_id"] for row in metrics} != required_metric_names:
+        raise R2T02ValidationError("metric_definition_set_mismatch")
+    forbidden_placeholders = ("metric-defined", "contract_defined", "registry_defined")
+    if any(
+        placeholder in str(value)
+        for row in metrics
+        for value in row.values()
+        for placeholder in forbidden_placeholders
+    ):
+        raise R2T02ValidationError("metric_definition_placeholder")
     gates = [
         {
             "gate_id": x,
@@ -233,19 +221,7 @@ def _independent_rebuild(config: dict[str, Any]) -> dict[str, Any]:
         "forbidden_field_detected",
         "double_rebuild_hash_equal",
     ]
-    cases = [
-        {"case_id": f"S{i:02d}", "case_name": n, "expected_status": "passed"}
-        for i, n in enumerate(labels, 1)
-    ]
-    results = [
-        {
-            "case_id": x["case_id"],
-            "case_name": x["case_name"],
-            "status": "passed",
-            "assertion_count": 1,
-        }
-        for x in cases
-    ]
+    cases, results = _independent_replay_synthetic(output_dir, labels)
     binding = {
         "task_id": "R2-T02",
         "status": "passed",
@@ -308,6 +284,68 @@ def _validate_input_chain(config: dict[str, Any]) -> list[str]:
     ):
         errors.append("input_chain_review_not_passed")
     return errors
+
+
+def _independent_replay_synthetic(
+    output_dir: Path, labels: list[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    cases = _json(output_dir / "r2_t02_synthetic_case_registry.json")
+    results = _csv(output_dir / "r2_t02_synthetic_case_results.csv")
+    expected_pairs = [(f"S{i:02d}", name) for i, name in enumerate(labels, 1)]
+    actual_pairs = [(row.get("case_id"), row.get("case_name")) for row in cases]
+    if actual_pairs != expected_pairs:
+        raise R2T02ValidationError("synthetic_case_registry_mismatch")
+    by_id = {row["case_id"]: row for row in results}
+    for case in cases:
+        result = by_id.get(case["case_id"])
+        if result is None:
+            raise R2T02ValidationError(f"synthetic_result_missing:{case['case_id']}")
+        if _canonical_hash(case["fixture"]) != case["fixture_sha256"]:
+            raise R2T02ValidationError(f"synthetic_fixture_hash:{case['case_id']}")
+        try:
+            ledger = json.loads(result["assertion_ledger"])
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise R2T02ValidationError(
+                f"synthetic_ledger_parse:{case['case_id']}"
+            ) from exc
+        if _canonical_hash(ledger) != result["assertion_ledger_sha256"]:
+            raise R2T02ValidationError(f"synthetic_ledger_hash:{case['case_id']}")
+        replayed = [
+            item.get("operator") == "equals"
+            and item.get("observed") == item.get("expected")
+            for item in ledger
+        ]
+        assertion_ids = [item.get("assertion_id") for item in ledger]
+        if assertion_ids != case["expected_assertion_ids"]:
+            raise R2T02ValidationError(f"synthetic_assertion_ids:{case['case_id']}")
+        if int(result["assertion_count"]) != len(ledger):
+            raise R2T02ValidationError(f"synthetic_assertion_count:{case['case_id']}")
+        if int(result["passed_assertion_count"]) != sum(replayed):
+            raise R2T02ValidationError(f"synthetic_passed_count:{case['case_id']}")
+        replayed_status = "passed" if replayed and all(replayed) else "failed"
+        if (
+            result["status"] != replayed_status
+            or result["status"] != case["expected_status"]
+        ):
+            raise R2T02ValidationError(f"synthetic_status:{case['case_id']}")
+    # Independently recompute the primary K=3 assertion from its raw fixture.
+    first = cases[0]
+    streak = 0
+    independent_confirmed = []
+    for state in first["fixture"]["raw_states"][:4]:
+        streak = streak + 1 if state is True else 0
+        independent_confirmed.append(streak >= 3)
+    first_ledger = json.loads(by_id["S01"]["assertion_ledger"])
+    if first_ledger[0]["observed"] != independent_confirmed:
+        raise R2T02ValidationError("synthetic_independent_replay:S01")
+    return cases, results
+
+
+def _canonical_hash(value: Any) -> str:
+    payload = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _validate_forbidden(output_dir: Path, forbidden: list[str]) -> list[str]:

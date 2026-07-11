@@ -17,6 +17,12 @@ class MetricDictionaryTest(unittest.TestCase):
         self.assertTrue(all(required <= set(x) for x in rows))
         self.assertIn("confirmed_event_coverage", {x["metric_id"] for x in rows})
         self.assertGreaterEqual(len(rows), 38)
+        serialized = str(rows)
+        self.assertNotIn("metric-defined", serialized)
+        self.assertNotIn("contract_defined", serialized)
+        self.assertNotIn("registry_defined", serialized)
+        self.assertGreater(len({row["deduplication_key"] for row in rows}), 5)
+        self.assertGreater(len({row["open_event_policy"] for row in rows}), 5)
 
 
 if __name__ == "__main__":

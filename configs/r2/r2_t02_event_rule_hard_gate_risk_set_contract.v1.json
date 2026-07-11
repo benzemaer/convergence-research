@@ -4,6 +4,10 @@
   "task_subclass": "event_rule_metric_hard_gate_and_risk_set_contract",
   "contract_version": "r2_t02_event_rule_contract.v1",
   "selection_path_not_independently_confirmed": true,
+  "metric_definition_source": {
+    "path": "configs/r2/r2_t02_metric_dictionary.v1.json",
+    "sha256": "374e442208c8a73a42256b6409ad376917776d22b1f44cd43e9bb89305c92ef5"
+  },
   "upstream": {
     "run_id": "R2-T01-20260712T0020Z",
     "reviewed_pr_head_commit": "22b2edcfdb728864ade14fed33c8a0f92d53f250",
