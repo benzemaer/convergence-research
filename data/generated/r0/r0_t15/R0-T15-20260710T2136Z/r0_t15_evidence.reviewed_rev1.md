@@ -7,9 +7,7 @@ revision_id=R0-T15-REV1
 execution_code_commit=b7cd0c2a3d4d3dbe3867246712c68107ea604c96
 revision_code_commit=da902266d804944de086de5c9e4123a99f9ec318
 task_class=formal_materialization_bridge
-prior_external_review_comment_id=4941872279
-external_rereview_comment_id=4943245857
-reviewed_pr_head_commit=3210c35a6a5a5679792bfd455969e78664fc5e13
+external_review_comment_id=4941872279
 ```
 
 ## 执行事实与修订范围
@@ -23,15 +21,15 @@ reviewed_pr_head_commit=3210c35a6a5a5679792bfd455969e78664fc5e13
 ## REV1 门禁边界
 
 ```text
-R0_q_vector_materialization_status=final_gate_passed_pending_merge
+R0_q_vector_materialization_status=author_revision_complete_pending_rereview
 R0_q_vector_materialization_request_status=approved
 engineering_validator_status=passed
 author_result_analysis_status=passed
 anomaly_resolution_status=passed
 author_revision_status=completed
-independent_review_status=passed
-repository_final_gate_status=passed
-goal_internal_continuation_gate_status=closed_pending_repository_merge
+independent_review_status=pending_rereview
+repository_final_gate_status=pending
+goal_internal_continuation_gate_status=closed_pending_external_rereview
 goal_internal_continuation_allowed=false
 goal_internal_t14_02_authorized=false
 repository_t14_02_gate_passed=false
@@ -43,16 +41,4 @@ external_direct_duckdb_byte_review_performed=false
 formal_task_completed=false
 ```
 
-REV1 外部复审已通过，repository final gate 也已通过，但 #88 merge 尚未发生。因此本提交仍不完成 R0-T15、不推进 README 到 R1-T14-02，也不授权 #89 继续使用旧依赖。
-
-## 外部复审与 final gate 事实
-
-```text
-external_review_status=passed
-external_rereview_comment_id=4943245857
-reviewed_result_package_sha256=078cb456c21ef995bcb8e052191ef948d5ea5129e82f7549eef5ed4b3ab917b0
-reviewed_handoff_sha256=438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3
-repository_merge_status=pending
-```
-
-被复审的 REV1 package、analysis 与 evidence 已按原字节归档。canonical handoff 未修改；本 PASS 不包含外部 DuckDB byte-for-byte 复核，也不自动恢复旧 #89。
+REV1 是等待 external rereview 的 author revision，不替代独立审阅、不完成 #88、不推进 README 到 R1-T14-02，也不授权 #89 继续使用旧依赖。

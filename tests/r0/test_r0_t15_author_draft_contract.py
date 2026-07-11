@@ -22,7 +22,7 @@ def load_json(name: str) -> dict[str, object]:
     return json.loads((RUN_DIR / name).read_text(encoding="utf-8"))
 
 
-class R0T15AuthorRevisionContractTests(unittest.TestCase):
+class R0T15FinalGateContractTests(unittest.TestCase):
     def test_original_author_draft_bytes_are_archived(self) -> None:
         expected = {
             "r0_t15_result_package.author_draft_v1.json": (
@@ -48,15 +48,18 @@ class R0T15AuthorRevisionContractTests(unittest.TestCase):
         self.assertEqual(old_package["status"], "author_draft_complete")
         self.assertEqual(old_package["independent_review_status"], "not_started")
 
-    def test_author_revision_keeps_every_downstream_gate_closed(self) -> None:
+    def test_final_gate_passes_but_keeps_every_downstream_gate_closed(self) -> None:
         package = load_json("r0_t15_result_package.json")
-        self.assertEqual(package["status"], "author_revision_complete")
+        self.assertEqual(
+            package["status"], "review_passed_final_gate_passed_pending_merge"
+        )
         self.assertEqual(
             package["R0_q_vector_materialization_status"],
-            "author_revision_complete_pending_rereview",
+            "final_gate_passed_pending_merge",
         )
-        self.assertEqual(package["independent_review_status"], "pending_rereview")
-        self.assertEqual(package["repository_final_gate_status"], "pending")
+        self.assertEqual(package["independent_review_status"], "passed")
+        self.assertEqual(package["repository_final_gate_status"], "passed")
+        self.assertEqual(package["repository_merge_status"], "pending")
         self.assertFalse(package["R1-T14-02_allowed_to_start"])
         self.assertFalse(package["R1-T10_allowed_to_start"])
         self.assertFalse(package["R2_allowed_to_start"])
@@ -66,7 +69,7 @@ class R0T15AuthorRevisionContractTests(unittest.TestCase):
         gate = package["gate_status"]
         self.assertEqual(
             gate["goal_internal_continuation_gate_status"],
-            "closed_pending_external_rereview",
+            "closed_pending_repository_merge",
         )
         self.assertFalse(gate["goal_internal_continuation_allowed"])
         self.assertFalse(gate["goal_internal_t14_02_authorized"])
@@ -146,9 +149,9 @@ class R0T15AuthorRevisionContractTests(unittest.TestCase):
             )
         )
 
-    def test_revision_validator_result_binds_current_package(self) -> None:
+    def test_revision_validator_result_binds_reviewed_package_archive(self) -> None:
         result = load_json("r0_t15_author_revision_package_validation_result.json")
-        package_path = RUN_DIR / "r0_t15_result_package.json"
+        package_path = RUN_DIR / "r0_t15_result_package.reviewed_rev1.json"
         self.assertEqual(result["status"], "passed")
         self.assertEqual(result["error_count"], 0)
         self.assertEqual(
@@ -157,6 +160,37 @@ class R0T15AuthorRevisionContractTests(unittest.TestCase):
         )
         self.assertFalse(result["goal_internal_continuation_allowed"])
         self.assertFalse(result["R1-T14-02_allowed_to_start"])
+
+    def test_external_review_and_final_validator_bind_reviewed_head(self) -> None:
+        review = load_json("r0_t15_external_review.json")
+        final = load_json("r0_t15_final_gate_validation_result.json")
+        package = load_json("r0_t15_result_package.json")
+        self.assertEqual(review["external_review_status"], "passed")
+        self.assertEqual(review["review_comment_id"], 4943245857)
+        self.assertEqual(
+            review["reviewed_pr_head_commit"],
+            "3210c35a6a5a5679792bfd455969e78664fc5e13",
+        )
+        self.assertFalse(review["external_direct_duckdb_byte_review_performed"])
+        self.assertEqual(review["independent_byte_validation_status"], "not_performed")
+        self.assertEqual(review["blocking_findings"], [])
+        self.assertEqual(final["status"], "passed")
+        self.assertEqual(final["validation_mode"], "final_package")
+        self.assertEqual(final["error_count"], 0)
+        self.assertEqual(
+            final["result_package_sha256"],
+            hashlib.sha256(
+                (RUN_DIR / "r0_t15_result_package.json").read_bytes()
+            ).hexdigest(),
+        )
+        self.assertEqual(
+            package["reviewed_author_revision_package_sha256"],
+            "078cb456c21ef995bcb8e052191ef948d5ea5129e82f7549eef5ed4b3ab917b0",
+        )
+        self.assertEqual(
+            package["handoff_manifest_sha256"],
+            "438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3",
+        )
 
     def test_mutated_revision_lineage_and_attestation_fail_closed(self) -> None:
         package = load_json("r0_t15_result_package.json")
@@ -190,13 +224,14 @@ class R0T15AuthorRevisionContractTests(unittest.TestCase):
         )
         self.assertIn("local_duckdb_attestation_semantics_invalid", errors)
 
-    def test_analysis_preserves_rereview_and_byte_access_boundaries(self) -> None:
+    def test_analysis_preserves_final_gate_and_byte_access_boundaries(self) -> None:
         text = (
             ROOT
             / "docs/experiments/r0/R0-T15_层级q向量正式物化与R1-T14-02交接_result_analysis.md"
         ).read_text(encoding="utf-8")
         for marker in (
-            "independent_review_status=pending_rereview",
+            "independent_review_status=passed",
+            "repository_final_gate_status=passed",
             "external_direct_duckdb_byte_review_performed=false",
             "goal_internal_continuation_allowed=false",
             "R1-T14-02_allowed_to_start=false",

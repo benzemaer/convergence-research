@@ -4,7 +4,7 @@
 
 原 formal materialization run `R0-T15-20260710T2136Z` 继续绑定 execution commit `b7cd0c2a3d4d3dbe3867246712c68107ea604c96`、v1 execution config、原 request binding、artifact manifest、candidate registry 与四张 DuckDB。外部审阅评论 `4941872279` 没有发现 vector、row count 或数值守恒错误，但判定 canonical handoff 仍携带 Windows CRLF runtime 哈希，未绑定仓库中的 LF manifest/registry 字节，因此结论为 NEEDS REVISION。
 
-`R0-T15-REV1` 是 post-run lineage/handoff revision，不是新运行，不重算或覆盖 DuckDB，也不改写 execution summary、request binding、artifact manifest、candidate registry 或 v1 config。REV1 revision commit 为 `da902266d804944de086de5c9e4123a99f9ec318`；旧 handoff、package、analysis 与 evidence 按原字节归档，新的 canonical handoff/package 已由外部复审评论 `4943245857` 在 reviewed HEAD `3210c35a6a5a5679792bfd455969e78664fc5e13` 上判定 PASS。repository final gate 通过但 PR 尚未合并时仍必须保持 `independent_review_status=passed`、`repository_final_gate_status=passed`、`R1-T14-02_allowed_to_start=false`、`R1-T10_allowed_to_start=false`、`R2_allowed_to_start=false`、`formal_task_completed=false` 与 `selection_path_not_independently_confirmed=true`。
+`R0-T15-REV1` 是 post-run lineage/handoff revision，不是新运行，不重算或覆盖 DuckDB，也不改写 execution summary、request binding、artifact manifest、candidate registry 或 v1 config。REV1 revision commit 为 `da902266d804944de086de5c9e4123a99f9ec318`；旧 handoff、package、analysis 与 evidence 按原字节归档，新的 canonical handoff/package 等待外部重新审阅。当前必须保持 `independent_review_status=pending_rereview`、`repository_final_gate_status=pending`、`R1-T14-02_allowed_to_start=false`、`R1-T10_allowed_to_start=false`、`R2_allowed_to_start=false`、`formal_task_completed=false` 与 `selection_path_not_independently_confirmed=true`。
 
 ## 2. 执行时 lineage 与 post-run final authorization
 
@@ -42,16 +42,16 @@ W120/W250 shared baseline 的 S_PCT/S_PCVT 在 raw days、confirmed days、valid
 
 直接事实是原 R0-T15 四库继续逐字匹配 manifest，registry/row/schema/PK/parent-child/duration conservation 均无退化，且 stale handoff 的 CRLF→LF 根因已定位并由新 cross-file validator 捕获。有限推断是这些结果可以作为等待重新审阅的 R0-T15 revision candidate。
 
-仍不能声称外部 reviewer 已直接验证 1.8GB DuckDB 字节。外部 reviewer 已对 committed REV1 lineage 给出 PASS，repository final gate validator 也已通过；但 #88 merge 尚未发生，因此仍不能启动 R1-T14-02。更不能据此声称 T/V q-vector 优于 shared q、构成冻结状态、具有独立 confirmation、预测能力或交易价值。
+当前不能声称外部 reviewer 已直接验证 1.8GB DuckDB 字节，不能声称 #88 已通过 repository final gate，也不能启动 R1-T14-02。更不能据此声称 T/V q-vector 优于 shared q、构成冻结状态、具有独立 confirmation、预测能力或交易价值。
 
 ## 7. REV1 gate 状态
 
 ```text
-R0_q_vector_materialization_status=final_gate_passed_pending_merge
+R0_q_vector_materialization_status=author_revision_complete_pending_rereview
 R0_q_vector_materialization_request_status=approved
-independent_review_status=passed
-repository_final_gate_status=passed
-goal_internal_continuation_gate_status=closed_pending_repository_merge
+independent_review_status=pending_rereview
+repository_final_gate_status=pending
+goal_internal_continuation_gate_status=closed_pending_external_rereview
 goal_internal_continuation_allowed=false
 goal_internal_t14_02_authorized=false
 repository_t14_02_gate_passed=false
@@ -63,8 +63,4 @@ external_direct_duckdb_byte_review_performed=false
 formal_task_completed=false
 ```
 
-外部 reviewer 已对 REV1 给出 PASS，repository final gate validator 也已通过。本 final-gate commit 只将 README 标记为 `final_gate_passed_pending_merge`；在 #88 合并前不授权 R1-T14-02，不触碰 #89 的 authoritative dependency，也不把旧 #89 结果作为当前 evidence。
-
-## 8. 外部复审记录与 merge 边界
-
-外部复审评论 `4943245857` 绑定 reviewed HEAD `3210c35a6a5a5679792bfd455969e78664fc5e13`、REV1 package `078cb456...` 与 handoff `438d2f09...`，结论为 PASS，blocking findings 为空。复审没有直接读取四张 local-only DuckDB，因此 `external_direct_duckdb_byte_review_performed=false` 与 `independent_byte_validation_status=not_performed` 继续保留。被复审的 package、analysis 与 evidence 已按原字节归档；canonical handoff 不作修改。repository final gate 的作用域仅到 #88 merge candidate，不会提前打开 R1-T14-02、R1-T10 或 R2。
+只有外部 reviewer 对 REV1 handoff/package、cross-file validator 与本地字节审查边界重新给出 PASS 后，才可建立 #88 repository final gate。此前不更新 README 到 R1-T14-02，不触碰 #89 的 authoritative dependency，也不把旧 #89 结果作为当前 evidence。

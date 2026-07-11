@@ -31,7 +31,7 @@ R1-T14-02_status: blocked_pending_R0
 R0_q_vector_materialization_request_status: approved
 R0_q_vector_materialization_task_id: R0-T15
 R0_q_vector_materialization_allowed_to_start: true
-R0_q_vector_materialization_status: revision_pending_external_rereview
+R0_q_vector_materialization_status: final_gate_passed_pending_merge
 R1-T05_allowed_to_start: true
 R1-T06_allowed_to_start: true
 R1-T07_allowed_to_start: true

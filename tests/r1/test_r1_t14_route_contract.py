@@ -148,7 +148,7 @@ class R1T14RouteContractTest(unittest.TestCase):
         self.assertIn("R0_q_vector_materialization_task_id: R0-T15", current)
         self.assertIn("R0_q_vector_materialization_allowed_to_start: true", current)
         self.assertIn(
-            "R0_q_vector_materialization_status: revision_pending_external_rereview",
+            "R0_q_vector_materialization_status: final_gate_passed_pending_merge",
             current,
         )
         self.assertIn("R1-T14-01_allowed_to_start: true", current)

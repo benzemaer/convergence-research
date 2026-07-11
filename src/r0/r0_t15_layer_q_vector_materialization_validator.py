@@ -28,9 +28,20 @@ def validate_r0_t15_layer_q_vector_materialization(
     run_dir: str | Path,
     require_author_package: bool = False,
     require_author_revision: bool = False,
+    require_final_package: bool = False,
     verify_local_duckdb: bool = True,
 ) -> dict[str, Any]:
-    if require_author_package and require_author_revision:
+    if (
+        sum(
+            bool(value)
+            for value in (
+                require_author_package,
+                require_author_revision,
+                require_final_package,
+            )
+        )
+        > 1
+    ):
         raise ValueError("author package modes are mutually exclusive")
     run_dir = Path(run_dir)
     errors: list[str] = []
@@ -45,7 +56,7 @@ def validate_r0_t15_layer_q_vector_materialization(
         "r0_t15_final_gate_validation_result.json",
         "r0_t15_execution_summary.json",
     ]
-    if require_author_revision:
+    if require_author_revision or require_final_package:
         required.extend(
             [
                 "r0_t15_author_revision.json",
@@ -53,6 +64,15 @@ def validate_r0_t15_layer_q_vector_materialization(
                 "r0_t15_result_analysis.md",
                 "r0_t15_evidence.md",
                 "r0_t15_result_package.json",
+            ]
+        )
+    if require_final_package:
+        required.extend(
+            [
+                "r0_t15_external_review.json",
+                "r0_t15_result_package.reviewed_rev1.json",
+                "r0_t15_result_analysis.reviewed_rev1.md",
+                "r0_t15_evidence.reviewed_rev1.md",
             ]
         )
     if verify_local_duckdb:
@@ -66,6 +86,7 @@ def validate_r0_t15_layer_q_vector_materialization(
             errors,
             require_author_package=require_author_package,
             require_author_revision=require_author_revision,
+            require_final_package=require_final_package,
         )
 
     binding = _load_json(run_dir / "r0_t15_request_binding.json")
@@ -104,7 +125,7 @@ def validate_r0_t15_layer_q_vector_materialization(
         errors.append("anomaly_scan_not_passed")
     if schema.get("status") != "passed" or schema.get("primary_key_status") != "passed":
         errors.append("schema_validation_not_passed")
-    if (
+    if not require_final_package and (
         execution_gate.get("status") != "pending_external_review"
         or execution_gate.get("formal_task_completed") is not False
     ):
@@ -118,19 +139,21 @@ def validate_r0_t15_layer_q_vector_materialization(
 
     if require_author_package:
         _validate_legacy_author_package(run_dir, errors)
-    if require_author_revision:
+    if require_author_revision or require_final_package:
         _validate_author_revision(
             run_dir,
             manifest,
             handoff,
             errors,
             verify_local_duckdb=verify_local_duckdb,
+            final_package=require_final_package,
         )
     return _finish(
         run_dir,
         errors,
         require_author_package=require_author_package,
         require_author_revision=require_author_revision,
+        require_final_package=require_final_package,
     )
 
 
@@ -216,6 +239,7 @@ def _validate_author_revision(
     errors: list[str],
     *,
     verify_local_duckdb: bool,
+    final_package: bool = False,
 ) -> None:
     package_path = run_dir / "r0_t15_result_package.json"
     package = _load_json(package_path)
@@ -224,11 +248,19 @@ def _validate_author_revision(
     attestation = _load_json(attestation_path)
 
     expected_status = {
-        "status": "author_revision_complete",
-        "R0_q_vector_materialization_status": "author_revision_complete_pending_rereview",
+        "status": (
+            "review_passed_final_gate_passed_pending_merge"
+            if final_package
+            else "author_revision_complete"
+        ),
+        "R0_q_vector_materialization_status": (
+            "final_gate_passed_pending_merge"
+            if final_package
+            else "author_revision_complete_pending_rereview"
+        ),
         "R0_q_vector_materialization_request_status": "approved",
-        "independent_review_status": "pending_rereview",
-        "repository_final_gate_status": "pending",
+        "independent_review_status": "passed" if final_package else "pending_rereview",
+        "repository_final_gate_status": "passed" if final_package else "pending",
         "R1-T14-02_allowed_to_start": False,
         "R1-T10_allowed_to_start": False,
         "R2_allowed_to_start": False,
@@ -241,16 +273,30 @@ def _validate_author_revision(
         if package.get(key) != expected:
             errors.append(f"author_revision_package_field_mismatch:{key}")
     gate = package.get("gate_status", {})
-    for key, expected in {
+    expected_gate = {
         "engineering_validator_status": "passed",
         "author_result_analysis_status": "passed",
         "anomaly_resolution_status": "passed",
         "author_revision_status": "completed",
-        "goal_internal_continuation_gate_status": "closed_pending_external_rereview",
+        "goal_internal_continuation_gate_status": (
+            "closed_pending_repository_merge"
+            if final_package
+            else "closed_pending_external_rereview"
+        ),
         "goal_internal_continuation_allowed": False,
         "goal_internal_t14_02_authorized": False,
         "repository_t14_02_gate_passed": False,
-    }.items():
+    }
+    if final_package:
+        expected_gate.update(
+            {
+                "independent_review_status": "passed",
+                "external_review_status": "passed",
+                "repository_final_gate_status": "passed",
+                "repository_merge_status": "pending",
+            }
+        )
+    for key, expected in expected_gate.items():
         if gate.get(key) != expected:
             errors.append(f"author_revision_gate_field_mismatch:{key}")
 
@@ -297,7 +343,14 @@ def _validate_author_revision(
 
     _validate_upstream_final_binding(package, handoff, revision, errors)
     _validate_execution_binding(package, handoff, revision, errors)
-    _validate_revision_record(run_dir, package, handoff, revision, errors)
+    _validate_revision_record(
+        run_dir,
+        package,
+        handoff,
+        revision,
+        errors,
+        final_package=final_package,
+    )
     _validate_revision_commit(package, errors)
     _validate_revision_config(package, handoff, revision, errors)
     _validate_archives(package, errors)
@@ -310,7 +363,11 @@ def _validate_author_revision(
         errors,
         verify_local_duckdb=verify_local_duckdb,
     )
-    _validate_revision_documents(package, errors)
+    if final_package:
+        _validate_external_review(run_dir, package, errors)
+        _validate_final_documents(package, errors)
+    else:
+        _validate_revision_documents(package, errors)
 
 
 def _validate_upstream_final_binding(
@@ -387,6 +444,8 @@ def _validate_revision_record(
     handoff: Mapping[str, Any],
     revision: Mapping[str, Any],
     errors: list[str],
+    *,
+    final_package: bool = False,
 ) -> None:
     manifest_path = run_dir / "r0_t15_artifact_manifest.json"
     registry_path = run_dir / "r0_t15_candidate_registry.csv"
@@ -452,7 +511,18 @@ def _validate_revision_record(
     ]
     if revision.get("review_history") != expected_history:
         errors.append("revision_review_history_invalid")
-    if package.get("review_history") != expected_history:
+    expected_package_history = expected_history
+    if final_package:
+        expected_package_history = expected_history + [
+            {
+                "pr_number": 88,
+                "comment_id": 4943245857,
+                "outcome": "passed",
+                "blocking_findings": [],
+                "reviewed_pr_head_commit": ("3210c35a6a5a5679792bfd455969e78664fc5e13"),
+            }
+        ]
+    if package.get("review_history") != expected_package_history:
         errors.append("package_review_history_invalid")
     if handoff.get("review_history") != expected_history:
         errors.append("handoff_review_history_invalid")
@@ -626,6 +696,18 @@ def _validate_committed_artifacts(
             }
         )
     required_paths.discard(None)
+    if package.get("status") == "review_passed_final_gate_passed_pending_merge":
+        required_paths.update(
+            {
+                package.get("external_review_record_path"),
+                package.get("external_review_markdown_path"),
+                package.get("reviewed_author_revision_package_path"),
+                package.get("reviewed_result_analysis_path"),
+                package.get("reviewed_formal_evidence_path"),
+                package.get("readme_path"),
+            }
+        )
+        required_paths.discard(None)
     if not required_paths.issubset(set(paths)):
         errors.append("package_committed_artifact_missing_or_duplicate")
     for artifact in artifacts:
@@ -752,6 +834,179 @@ def _validate_revision_documents(package: Mapping[str, Any], errors: list[str]) 
         errors.append("revision_evidence_run_copy_hash_mismatch")
 
 
+def _validate_external_review(
+    run_dir: Path, package: Mapping[str, Any], errors: list[str]
+) -> None:
+    review_path = run_dir / "r0_t15_external_review.json"
+    reviewed_package_path = run_dir / "r0_t15_result_package.reviewed_rev1.json"
+    reviewed_analysis_path = run_dir / "r0_t15_result_analysis.reviewed_rev1.md"
+    reviewed_evidence_path = run_dir / "r0_t15_evidence.reviewed_rev1.md"
+    review = _load_json(review_path)
+    expected = {
+        "task_id": "R0-T15",
+        "revision_id": "R0-T15-REV1",
+        "external_review_status": "passed",
+        "independent_review_status": "passed",
+        "reviewer_identity": "benzemaer",
+        "reviewer_role": "independent_materialization_reviewer",
+        "implementation_actor": "codex",
+        "independence_attestation": True,
+        "review_comment_id": 4943245857,
+        "review_source": (
+            "https://github.com/benzemaer/convergence-research/"
+            "pull/88#issuecomment-4943245857"
+        ),
+        "reviewed_pr_head_commit": ("3210c35a6a5a5679792bfd455969e78664fc5e13"),
+        "reviewed_result_package_sha256": (
+            "078cb456c21ef995bcb8e052191ef948d5ea5129e82f7549eef5ed4b3ab917b0"
+        ),
+        "reviewed_handoff_sha256": (
+            "438d2f09ee7a853547a037521ba4ca133bd18bf1fa5dfef91f97db5f670393c3"
+        ),
+        "reviewed_artifact_manifest_sha256": (
+            "664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51"
+        ),
+        "reviewed_candidate_registry_sha256": (
+            "02fdaf1b94780ef42115a9109ae9f1fd6b90a6e019925a5067ad1bac96d4944f"
+        ),
+        "external_direct_duckdb_byte_review_performed": False,
+        "independent_byte_validation_status": "not_performed",
+        "blocking_findings": [],
+        "downstream_gate_recommendation": True,
+        "downstream_gate_scope": "R0-T15_repository_final_gate_only",
+    }
+    for key, value in expected.items():
+        if review.get(key) != value:
+            errors.append(f"external_review_field_mismatch:{key}")
+    if review.get("reviewer_identity") == review.get("implementation_actor"):
+        errors.append("external_review_not_independent")
+    if review.get("closed_prior_blockers") != [
+        "stale_handoff_artifact_manifest_hash",
+        "stale_handoff_candidate_registry_hash",
+    ]:
+        errors.append("external_review_closed_blockers_invalid")
+    reviewed_refs = {
+        "reviewed_handoff": run_dir / "r0_t15_authorized_handoff_manifest.json",
+        "reviewed_artifact_manifest": run_dir / "r0_t15_artifact_manifest.json",
+        "reviewed_candidate_registry": run_dir / "r0_t15_candidate_registry.csv",
+        "reviewed_author_revision": run_dir / "r0_t15_author_revision.json",
+        "reviewed_local_duckdb_attestation": (
+            run_dir / "r0_t15_local_duckdb_attestation.json"
+        ),
+        "reviewed_author_revision_validation": (
+            run_dir / "r0_t15_author_revision_package_validation_result.json"
+        ),
+    }
+    for prefix, path in reviewed_refs.items():
+        if review.get(f"{prefix}_path") != _rel(path):
+            errors.append(f"external_review_reference_path_mismatch:{prefix}")
+        if not path.is_file():
+            errors.append(f"external_review_reference_missing:{prefix}")
+        elif review.get(f"{prefix}_sha256") != sha256_file(path):
+            errors.append(f"external_review_reference_hash_mismatch:{prefix}")
+    for path, expected_sha, label in (
+        (
+            reviewed_package_path,
+            expected["reviewed_result_package_sha256"],
+            "reviewed_package",
+        ),
+        (
+            reviewed_analysis_path,
+            "13d6bcd192ef05ecd227278f9e51452ddcedd91469c05badfd983af8ee8aef1f",
+            "reviewed_analysis",
+        ),
+        (
+            reviewed_evidence_path,
+            "3b6848a197c4a7e36909f1badebdeeea87fdfba9fe84c3aa4026363532801c84",
+            "reviewed_evidence",
+        ),
+    ):
+        if not path.is_file():
+            errors.append(f"external_review_{label}_missing")
+        elif sha256_file(path) != expected_sha:
+            errors.append(f"external_review_{label}_hash_mismatch")
+    if review.get("reviewed_result_analysis_sha256") != sha256_file(
+        reviewed_analysis_path
+    ):
+        errors.append("external_review_reviewed_analysis_hash_mismatch")
+    revision_validation_path = reviewed_refs["reviewed_author_revision_validation"]
+    if revision_validation_path.is_file():
+        revision_validation = _load_json(revision_validation_path)
+        if revision_validation.get("status") != "passed":
+            errors.append("external_review_author_revision_validation_not_passed")
+        if revision_validation.get("result_package_sha256") != sha256_file(
+            reviewed_package_path
+        ):
+            errors.append(
+                "external_review_author_revision_validation_package_hash_mismatch"
+            )
+    refs = {
+        "external_review_record": review_path,
+        "reviewed_author_revision_package": reviewed_package_path,
+        "reviewed_result_analysis": reviewed_analysis_path,
+        "reviewed_formal_evidence": reviewed_evidence_path,
+    }
+    for prefix, path in refs.items():
+        if package.get(f"{prefix}_path") != _rel(path):
+            errors.append(f"final_package_reference_path_mismatch:{prefix}")
+        if package.get(f"{prefix}_sha256") != sha256_file(path):
+            errors.append(f"final_package_reference_hash_mismatch:{prefix}")
+    markdown_path = _resolve_repo_path(
+        package.get("external_review_markdown_path"),
+        errors,
+        "external_review_markdown",
+    )
+    if markdown_path is None or not markdown_path.is_file():
+        errors.append("external_review_markdown_missing")
+    elif sha256_file(markdown_path) != package.get("external_review_markdown_sha256"):
+        errors.append("external_review_markdown_hash_mismatch")
+
+
+def _validate_final_documents(package: Mapping[str, Any], errors: list[str]) -> None:
+    markers = (
+        "independent_review_status=passed",
+        "repository_final_gate_status=passed",
+        "external_direct_duckdb_byte_review_performed=false",
+        "R1-T14-02_allowed_to_start=false",
+        "R1-T10_allowed_to_start=false",
+        "R2_allowed_to_start=false",
+        "formal_task_completed=false",
+        "selection_path_not_independently_confirmed=true",
+    )
+    for label, prefix in (
+        ("analysis", "result_analysis"),
+        ("evidence", "formal_evidence"),
+    ):
+        path = _resolve_repo_path(package.get(f"{prefix}_path"), errors, label)
+        text = path.read_text(encoding="utf-8") if path and path.is_file() else ""
+        for marker in markers:
+            if marker not in text:
+                errors.append(f"final_{label}_marker_missing:{marker}")
+    if package.get("result_analysis_sha256") != package.get(
+        "run_copy_result_analysis_sha256"
+    ):
+        errors.append("final_analysis_run_copy_hash_mismatch")
+    if package.get("formal_evidence_sha256") != package.get(
+        "run_copy_formal_evidence_sha256"
+    ):
+        errors.append("final_evidence_run_copy_hash_mismatch")
+    readme_path = _resolve_repo_path(package.get("readme_path"), errors, "readme")
+    if readme_path is None or not readme_path.is_file():
+        errors.append("final_readme_missing")
+        return
+    if sha256_file(readme_path) != package.get("readme_sha256"):
+        errors.append("final_readme_hash_mismatch")
+    readme = readme_path.read_text(encoding="utf-8")
+    for marker in (
+        "R0_q_vector_materialization_status: final_gate_passed_pending_merge",
+        "R1-T14-02_allowed_to_start: false",
+        "R1-T10_allowed_to_start: false",
+        "R2_allowed_to_start: false",
+    ):
+        if marker not in readme:
+            errors.append(f"final_readme_marker_missing:{marker}")
+
+
 def _check_ref(
     payload: Mapping[str, Any], prefix: str, errors: list[str], label: str
 ) -> None:
@@ -786,9 +1041,12 @@ def _finish(
     *,
     require_author_package: bool,
     require_author_revision: bool,
+    require_final_package: bool,
 ) -> dict[str, Any]:
     mode = (
-        "author_revision"
+        "final_package"
+        if require_final_package
+        else "author_revision"
         if require_author_revision
         else "author_package"
         if require_author_package
@@ -800,10 +1058,17 @@ def _finish(
         "status": "passed" if not errors else "failed",
         "error_count": len(errors),
         "errors": errors,
-        "independent_review_status": "pending_rereview"
-        if require_author_revision
-        else "not_started",
-        "repository_final_gate_status": "pending",
+        "independent_review_status": (
+            "passed"
+            if require_final_package
+            else "pending_rereview"
+            if require_author_revision
+            else "not_started"
+        ),
+        "repository_final_gate_status": (
+            "passed" if require_final_package and not errors else "pending"
+        ),
+        "repository_merge_status": "pending",
         "goal_internal_continuation_allowed": False,
         "R1-T14-02_allowed_to_start": False,
         "R1-T10_allowed_to_start": False,
@@ -811,7 +1076,7 @@ def _finish(
         "selection_path_not_independently_confirmed": True,
         "formal_task_completed": False,
     }
-    if require_author_revision:
+    if require_author_revision or require_final_package:
         package_path = run_dir / "r0_t15_result_package.json"
         result["result_package_path"] = _rel(package_path)
         result["result_package_sha256"] = (
@@ -821,6 +1086,7 @@ def _finish(
         "engineering": "r0_t15_engineering_validation_result.json",
         "author_package": "r0_t15_author_draft_package_validation_result.json",
         "author_revision": "r0_t15_author_revision_package_validation_result.json",
+        "final_package": "r0_t15_final_gate_validation_result.json",
     }[mode]
     write_json_atomic(run_dir / filename, result)
     return result
