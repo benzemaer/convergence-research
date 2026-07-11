@@ -8,6 +8,17 @@
     "path": "configs/r2/r2_t02_metric_dictionary.v1.json",
     "sha256": "374e442208c8a73a42256b6409ad376917776d22b1f44cd43e9bb89305c92ef5"
   },
+  "trading_calendar_or_expected_key_binding": {
+    "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
+    "sha256": "310393bf78d58eaf76fa5a02aeb18cfa069c3e917ba1526c014167f9dca00d46",
+    "source_run_id": "R0-T15-20260710T2136Z",
+    "schema_version": "r0_t15_daily_confirmation_results.v1",
+    "primary_key": ["formal_vector_id", "security_id", "trading_date"],
+    "date_field": "trading_date",
+    "index_field": "derived_row_number_by_trading_date_within_route_security",
+    "attestation_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_local_duckdb_attestation.json",
+    "attestation_sha256": "b0d081dfc5718385801b5dd9bd3b931f2fee1faa21bf1f1e832cd566f45fbfb3"
+  },
   "upstream": {
     "run_id": "R2-T01-20260712T0020Z",
     "reviewed_pr_head_commit": "22b2edcfdb728864ade14fed33c8a0f92d53f250",
@@ -32,7 +43,7 @@
     "K": 3, "d_grid": [1, 2, 3], "d_operator": ">=", "g_grid": [0, 1, 2],
     "gap_count_unit": "eligible_trading_days", "confirmation_backfill": false,
     "trading_row_completeness_key": "expected_trade_index",
-    "trading_row_completeness_policy": "required_contiguous_authorized_calendar_index_per_route_security_fail_closed",
+    "trading_row_completeness_policy": "observed_keys_and_date_index_mapping_must_equal_independent_R0_T15_authoritative_expected_key_registry_including_boundaries",
     "hard_break_states": ["unknown", "blocked", "ineligible", "missing_trading_row"],
     "event_identity_fields": ["contract_version", "route_id", "security_id", "d", "g", "first_qualified_interval_confirmed_start_date"],
     "year_assignment": "year_of_first_event_qualification_time",

@@ -2,8 +2,7 @@ name: Quality
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -50,10 +49,22 @@ jobs:
       - name: Validate governance configurations
         run: python scripts/validate_configs.py
 
+      - name: Run unit fast tests
+        if: github.event_name == 'pull_request'
+        run: python scripts/run_unittest_profile.py --profile unit-fast -v
+
+      - name: Run stage R2 tests
+        if: github.event_name == 'pull_request'
+        run: python scripts/run_unittest_profile.py --profile stage-r2 -v
+
       - name: Run PR fast tests
         if: github.event_name == 'pull_request'
         run: python scripts/run_unittest_profile.py --profile pr-fast -v
 
-      - name: Run full tests
-        if: github.event_name != 'pull_request'
+      - name: Run routine regression tests
+        if: github.event_name == 'pull_request'
+        run: python scripts/run_unittest_profile.py --profile regression-lite -v
+
+      - name: Run premerge full tests
+        if: github.event_name == 'workflow_dispatch' || github.event.action == 'ready_for_review'
         run: python scripts/run_unittest_profile.py --profile full -v

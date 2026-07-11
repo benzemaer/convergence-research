@@ -123,9 +123,43 @@ def _build_suite(profile: dict[str, Any]) -> unittest.TestSuite:
                 pattern=item.get("pattern", "test*.py"),
             )
         )
+    excluded = {
+        _canonical_test_path(value) for value in profile.get("exclude_files", [])
+    }
+    if excluded:
+        suite = _filter_suite(suite, excluded)
     if suite.countTestCases() == 0:
         raise ValueError("unittest profile selected zero tests")
     return suite
+
+
+def _canonical_test_path(value: str) -> str:
+    path = (ROOT / value).resolve()
+    try:
+        relative = path.relative_to(ROOT).as_posix()
+    except ValueError as exc:
+        raise ValueError(f"excluded test file is outside repository: {value}") from exc
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    return relative
+
+
+def _filter_suite(
+    suite: unittest.TestSuite, excluded_files: set[str]
+) -> unittest.TestSuite:
+    filtered = unittest.TestSuite()
+    for test in _flatten_suite(suite):
+        if _test_file(test) not in excluded_files:
+            filtered.addTest(test)
+    return filtered
+
+
+def _flatten_suite(suite: unittest.TestSuite):
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            yield from _flatten_suite(item)
+        else:
+            yield item
 
 
 def _load_tests_from_file(
@@ -133,7 +167,8 @@ def _load_tests_from_file(
 ) -> unittest.TestSuite:
     if not path.exists():
         raise FileNotFoundError(path)
-    module_name = "_unittest_profile_" + "_".join(path.with_suffix("").parts[-4:])
+    relative = path.resolve().relative_to((ROOT / "tests").resolve())
+    module_name = ".".join(relative.with_suffix("").parts)
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load test file: {path}")

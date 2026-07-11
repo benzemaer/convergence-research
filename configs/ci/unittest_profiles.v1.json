@@ -129,6 +129,26 @@
           "pattern": "test*.py"
         }
       ]
+    },
+    "regression-lite": {
+      "discover": [
+        {
+          "start_dir": "tests",
+          "pattern": "test*.py"
+        }
+      ],
+      "exclude_files": [
+        "tests/r0/test_r0_t10_score_materializer.py",
+        "tests/r0/test_r0_t10_score_materialization_validator.py",
+        "tests/r0/test_r0_t10_full_grid_materializer.py"
+      ]
+    },
+    "r0-heavy-premerge": {
+      "files": [
+        "tests/r0/test_r0_t10_score_materializer.py",
+        "tests/r0/test_r0_t10_score_materialization_validator.py",
+        "tests/r0/test_r0_t10_full_grid_materializer.py"
+      ]
     }
   }
 }

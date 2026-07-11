@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import math
+import tempfile
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from datetime import datetime
@@ -22,9 +23,30 @@ class R2T02ContractError(RuntimeError):
     pass
 
 
-def confirm_k3_without_backfill(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def validate_canonical_contract_artifacts(
+    output_dir: Path,
+    expected_hashes: dict[str, str],
+    *,
+    expected_input_hash: str,
+    validate_synthetic: bool = False,
+) -> None:
+    del validate_synthetic
+    for name, digest in expected_hashes.items():
+        if sha256_file(output_dir / name) != digest:
+            raise R2T02ContractError(f"committed_artifact_mismatch:{name}")
+    if sha256_file(output_dir / "upstream_package.json") != expected_input_hash:
+        raise R2T02ContractError("input_chain_hash_mismatch:upstream_package")
+    for name in expected_hashes:
+        payload = json.loads((output_dir / name).read_text(encoding="utf-8"))
+        if _contains_field(payload, "future_return"):
+            raise R2T02ContractError(f"forbidden_output_field:{name}:future_return")
+
+
+def confirm_k3_without_backfill(
+    rows: list[dict[str, Any]], expected_key_registry: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     _require_unique(rows)
-    _require_complete_trading_rows(rows)
+    validate_trading_row_completeness(rows, expected_key_registry)
     streaks: dict[tuple[str, str], int] = defaultdict(int)
     out: list[dict[str, Any]] = []
     for row in _sorted(rows):
@@ -101,12 +123,13 @@ def group_qualified_intervals_by_g(
     rows: list[dict[str, Any]],
     g: int,
     *,
+    expected_key_registry: list[dict[str, Any]],
     contract_version: str = "r2_t02_event_rule_contract.v1",
 ) -> list[dict[str, Any]]:
     if g not in (0, 1, 2):
         raise R2T02ContractError("invalid_g")
     _require_unique(rows)
-    _require_complete_trading_rows(rows)
+    validate_trading_row_completeness(rows, expected_key_registry)
     by_key: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     row_map = {
         (str(r["route_id"]), str(r["security_id"]), str(r["trade_date"])): r
@@ -853,12 +876,21 @@ def build_contract_artifacts(output_dir: Path) -> dict[str, Any]:
             "future_merge_before_finalization",
             "event_id_exposure_deduplication",
         ],
+        "authoritative_expected_key_binding": config[
+            "trading_calendar_or_expected_key_binding"
+        ],
+        "binding_reuse_policy": (
+            "R2-T03_must_consume_identical_binding_without_reinterpretation"
+        ),
     }
     cases, results = _synthetic_cases()
     input_binding = {
         "task_id": "R2-T02",
         "status": "passed",
         "upstream": config["upstream"],
+        "trading_calendar_or_expected_key_binding": config[
+            "trading_calendar_or_expected_key_binding"
+        ],
         "config_path": _rel(CONFIG),
         "config_sha256": sha256_file(CONFIG),
         "selection_path_not_independently_confirmed": True,
@@ -963,7 +995,8 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         }
 
     base = _synthetic_rows([True, True, True, True, False, True, True, True, False])
-    confirmed = confirm_k3_without_backfill(base)
+    base_registry = _expected_registry(base)
+    confirmed = confirm_k3_without_backfill(base, base_registry)
     intervals = build_confirmed_intervals(confirmed)
     fixture: dict[str, Any] = {"raw_states": [row["raw_state"] for row in base]}
     if name == "k3_no_backfill":
@@ -982,7 +1015,10 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         return {"quality": quality}, [
             check(
                 "break_resets_streak",
-                any(r["confirmed_state"] for r in confirm_k3_without_backfill(rows)),
+                any(
+                    r["confirmed_state"]
+                    for r in confirm_k3_without_backfill(rows, _expected_registry(rows))
+                ),
                 False,
             )
         ]
@@ -1016,7 +1052,12 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
             build_confirmed_intervals(bridge_rows), 2
         )
         zones = {
-            g: group_qualified_intervals_by_g(bridge_qualified, bridge_rows, g)
+            g: group_qualified_intervals_by_g(
+                bridge_qualified,
+                bridge_rows,
+                g,
+                expected_key_registry=_expected_registry(bridge_rows),
+            )
             for g in (0, 1, 2)
         }
         observed = {
@@ -1049,15 +1090,25 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         qualified = qualify_intervals_by_d(
             build_confirmed_intervals(hard_break_rows), 1
         )
-        zone = group_qualified_intervals_by_g(qualified, hard_break_rows, 2)[0]
+        zone = group_qualified_intervals_by_g(
+            qualified,
+            hard_break_rows,
+            2,
+            expected_key_registry=_expected_registry(hard_break_rows),
+        )[0]
         missing_rows = _synthetic_rows([True, True, True])
-        missing_rows[2]["expected_trade_index"] = 4
+        expected_registry = _expected_registry(missing_rows)
+        del missing_rows[1]
         try:
-            confirm_k3_without_backfill(missing_rows)
+            confirm_k3_without_backfill(missing_rows, expected_registry)
             missing_error = None
         except R2T02ContractError as exc:
             missing_error = str(exc)
-        return {"quality": "blocked"}, [
+        return {
+            "quality": "blocked",
+            "observed_rows": missing_rows,
+            "expected_key_registry": expected_registry,
+        }, [
             check("hard_break_status", zone["event_status"], "closed"),
             check(
                 "hard_break_reason",
@@ -1067,7 +1118,7 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
             check(
                 "missing_row_error",
                 missing_error,
-                "missing_expected_trading_row:r:s",
+                "missing_expected_trading_row",
             ),
         ]
     if name == "calendar_days_excluded":
@@ -1075,7 +1126,9 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         weekend_rows[0]["trade_date"] = "2026-01-09"
         weekend_rows[1]["trade_date"] = "2026-01-12"
         weekend_rows[2]["trade_date"] = "2026-01-13"
-        result = confirm_k3_without_backfill(weekend_rows)
+        result = confirm_k3_without_backfill(
+            weekend_rows, _expected_registry(weekend_rows)
+        )
         return {"dates": [row["trade_date"] for row in weekend_rows]}, [
             check("weekend_not_a_row", result[-1]["confirmed_state"], True)
         ]
@@ -1084,7 +1137,12 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
             [True, True, False, True, False, True, True, False, False, False]
         )
         qualified = qualify_intervals_by_d(build_confirmed_intervals(blocking_rows), 2)
-        zones = group_qualified_intervals_by_g(qualified, blocking_rows, 2)
+        zones = group_qualified_intervals_by_g(
+            qualified,
+            blocking_rows,
+            2,
+            expected_key_registry=_expected_registry(blocking_rows),
+        )
         return {"confirmed_states": [r["confirmed_state"] for r in blocking_rows]}, [
             check("two_outer_zones", len(zones), 2),
             check(
@@ -1101,7 +1159,12 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
             build_confirmed_intervals(bridge_rows), 2
         )
         zones = derive_event_availability_times(
-            group_qualified_intervals_by_g(bridge_qualified, bridge_rows, 1)
+            group_qualified_intervals_by_g(
+                bridge_qualified,
+                bridge_rows,
+                1,
+                expected_key_registry=_expected_registry(bridge_rows),
+            )
         )
         bridges = [
             m
@@ -1120,7 +1183,12 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
     if name == "failed_interval_finalizes":
         failed_rows = _manual_confirmed_rows([True, True, False, True, False])
         qualified = qualify_intervals_by_d(build_confirmed_intervals(failed_rows), 2)
-        zone = group_qualified_intervals_by_g(qualified, failed_rows, 2)[0]
+        zone = group_qualified_intervals_by_g(
+            qualified,
+            failed_rows,
+            2,
+            expected_key_registry=_expected_registry(failed_rows),
+        )[0]
         return {"confirmed_states": [r["confirmed_state"] for r in failed_rows]}, [
             check("failed_interval_status", zone["event_status"], "closed"),
             check(
@@ -1137,7 +1205,12 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
     if name == "open_interval":
         open_rows = _manual_confirmed_rows([True, True, False, False])
         qualified = qualify_intervals_by_d(build_confirmed_intervals(open_rows), 2)
-        zone = group_qualified_intervals_by_g(qualified, open_rows, 2)[0]
+        zone = group_qualified_intervals_by_g(
+            qualified,
+            open_rows,
+            2,
+            expected_key_registry=_expected_registry(open_rows),
+        )[0]
         return {"confirmed_states": [r["confirmed_state"] for r in open_rows]}, [
             check("open_status", zone["event_status"], "open"),
             check("open_finalization", zone["zone_finalization_time"], None),
@@ -1151,7 +1224,12 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         open_rows = _manual_confirmed_rows([True, True])
         open_intervals = build_confirmed_intervals(open_rows)
         open_qualified = qualify_intervals_by_d(open_intervals, 1)
-        zones = group_qualified_intervals_by_g(open_qualified, open_rows, 2)
+        zones = group_qualified_intervals_by_g(
+            open_qualified,
+            open_rows,
+            2,
+            expected_key_registry=_expected_registry(open_rows),
+        )
         metrics = compute_event_geometry_metrics(
             open_intervals, open_qualified, zones, len(open_rows)
         )
@@ -1164,7 +1242,11 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
             check(
                 "separate_security_intervals",
                 len(
-                    build_confirmed_intervals(confirm_k3_without_backfill(base + other))
+                    build_confirmed_intervals(
+                        confirm_k3_without_backfill(
+                            base + other, _expected_registry(base + other)
+                        )
+                    )
                 ),
                 4,
             )
@@ -1173,13 +1255,13 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         return fixture, [
             check(
                 "sort_stable",
-                confirm_k3_without_backfill(list(reversed(base))),
+                confirm_k3_without_backfill(list(reversed(base)), base_registry),
                 confirmed,
             )
         ]
     if name == "duplicate_key_fail_closed":
         try:
-            confirm_k3_without_backfill(base + [dict(base[0])])
+            confirm_k3_without_backfill(base + [dict(base[0])], base_registry)
             error = None
         except R2T02ContractError as exc:
             error = str(exc)
@@ -1261,18 +1343,7 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         "input_chain_mutation_detected",
         "forbidden_field_detected",
     }:
-        error_codes = {
-            "sidecar_mutation_detected": "committed_artifact_mismatch:sidecar",
-            "contract_hash_mutation_detected": "committed_artifact_mismatch:contract",
-            "input_chain_mutation_detected": "input_chain_hash_mismatch:final_package",
-            "forbidden_field_detected": "forbidden_output_field:future_return",
-        }
-        fixture = {
-            "mutation_target": name,
-            "single_mutation": True,
-            "legal_fixture_status": "passed",
-        }
-        return fixture, [check(name, error_codes[name], error_codes[name])]
+        return _execute_mutation_case(name, check)
     if name == "double_rebuild_hash_equal":
         value = {"contract": "v1", "grid": [1, 2, 3]}
         return value, [
@@ -1307,11 +1378,106 @@ def _manual_confirmed_rows(states: list[bool]) -> list[dict[str, Any]]:
     return rows
 
 
+def _expected_registry(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[(str(row["route_id"]), str(row["security_id"]))].append(row)
+    registry = []
+    for (route_id, security_id), items in sorted(grouped.items()):
+        ordered = sorted(items, key=lambda item: str(item["trade_date"]))
+        first = 1
+        last = len(ordered)
+        registry.extend(
+            {
+                "route_id": route_id,
+                "security_id": security_id,
+                "trade_date": str(item["trade_date"]),
+                "expected_trade_index": index,
+                "expected_first_index": first,
+                "expected_last_index": last,
+            }
+            for index, item in enumerate(ordered, first)
+        )
+    return registry
+
+
 def _canonical_hash(value: Any) -> str:
     payload = json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
     return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _contains_field(value: Any, field: str) -> bool:
+    if isinstance(value, dict):
+        return field in value or any(
+            _contains_field(item, field) for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(_contains_field(item, field) for item in value)
+    return False
+
+
+def _execute_mutation_case(
+    name: str, check
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    expected_codes = {
+        "sidecar_mutation_detected": "committed_artifact_mismatch:sidecar.json",
+        "contract_hash_mutation_detected": "committed_artifact_mismatch:contract.json",
+        "input_chain_mutation_detected": "input_chain_hash_mismatch:upstream_package",
+        "forbidden_field_detected": "forbidden_output_field:payload.json:future_return",
+    }
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        baseline = {
+            "sidecar.json": {"rows": [{"id": "a"}, {"id": "b"}]},
+            "contract.json": {"contract_version": "v1", "K": 3},
+            "payload.json": {"allowed_metric": 1},
+        }
+        for artifact, payload in baseline.items():
+            write_json_atomic(root / artifact, payload)
+        write_json_atomic(root / "upstream_package.json", {"status": "passed"})
+        hashes = {artifact: sha256_file(root / artifact) for artifact in baseline}
+        input_hash = sha256_file(root / "upstream_package.json")
+        validate_canonical_contract_artifacts(
+            root, hashes, expected_input_hash=input_hash, validate_synthetic=False
+        )
+        target = {
+            "sidecar_mutation_detected": "sidecar.json",
+            "contract_hash_mutation_detected": "contract.json",
+            "input_chain_mutation_detected": "upstream_package.json",
+            "forbidden_field_detected": "payload.json",
+        }[name]
+        before_hash = sha256_file(root / target)
+        payload = json.loads((root / target).read_text(encoding="utf-8"))
+        if name == "sidecar_mutation_detected":
+            payload["rows"].reverse()
+        elif name == "contract_hash_mutation_detected":
+            payload["K"] = 4
+        elif name == "input_chain_mutation_detected":
+            payload["status"] = "mutated"
+        else:
+            payload["future_return"] = 0.1
+        write_json_atomic(root / target, payload)
+        if name == "forbidden_field_detected":
+            hashes[target] = sha256_file(root / target)
+        after_hash = sha256_file(root / target)
+        try:
+            validate_canonical_contract_artifacts(
+                root, hashes, expected_input_hash=input_hash, validate_synthetic=False
+            )
+            actual_error = None
+        except R2T02ContractError as exc:
+            actual_error = str(exc)
+    fixture = {
+        "mutation_target": target,
+        "mutation_description": name,
+        "baseline_validation_status": "passed",
+        "before_sha256": before_hash,
+        "after_sha256": after_hash,
+        "actual_error_code": actual_error,
+    }
+    return fixture, [check(name, actual_error, expected_codes[name])]
 
 
 def _validate_upstream(config: dict[str, Any]) -> None:
@@ -1338,6 +1504,16 @@ def _validate_upstream(config: dict[str, Any]) -> None:
     for key, value in expected.items():
         if package.get(key) != value:
             raise R2T02ContractError(f"upstream_gate_field:{key}")
+    binding = config["trading_calendar_or_expected_key_binding"]
+    attestation_path = ROOT / binding["attestation_path"]
+    if sha256_file(attestation_path) != binding["attestation_sha256"]:
+        raise R2T02ContractError("expected_key_attestation_hash_mismatch")
+    attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
+    daily = attestation["outputs"]["daily_confirmation"]
+    if daily["path"] != binding["path"] or daily["actual_sha256"] != binding["sha256"]:
+        raise R2T02ContractError("expected_key_artifact_binding_mismatch")
+    if not attestation["checks"]["all_primary_keys_unique"]:
+        raise R2T02ContractError("expected_key_primary_key_not_unique")
 
 
 def _finish_interval(value: dict[str, Any]) -> dict[str, Any]:
@@ -1457,8 +1633,14 @@ def _timestamp(value: str) -> float:
 def _maximum_lexicographic_matching(
     candidates: list[tuple[int, float, str, str]],
 ) -> int:
+    return len(_maximum_lexicographic_matching_pairs(candidates))
+
+
+def _maximum_lexicographic_matching_pairs(
+    candidates: list[tuple[int, float, str, str]],
+) -> set[tuple[str, str]]:
     if not candidates:
-        return 0
+        return set()
     source, sink = "@source", "@sink"
     graph: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
@@ -1522,7 +1704,14 @@ def _maximum_lexicographic_matching(
             edge["reverse"]["capacity"] += 1
             node = previous_node[node]
         flow += 1
-    return flow
+    if flow == 0:
+        return set()
+    pairs = set()
+    for left_id in left_ids:
+        for edge in graph[f"L:{left_id}"]:
+            if edge["to"].startswith("R:") and edge["capacity"] == 0:
+                pairs.add((left_id, edge["to"][2:]))
+    return pairs
 
 
 def _require_unique(rows: list[dict[str, Any]]) -> None:
@@ -1531,17 +1720,51 @@ def _require_unique(rows: list[dict[str, Any]]) -> None:
         raise R2T02ContractError("duplicate_primary_key")
 
 
-def _require_complete_trading_rows(rows: list[dict[str, Any]]) -> None:
-    by_key: dict[tuple[str, str], list[int]] = defaultdict(list)
-    for row in rows:
-        index = row.get("expected_trade_index")
+def validate_trading_row_completeness(
+    rows: list[dict[str, Any]], expected_key_registry: list[dict[str, Any]]
+) -> None:
+    expected_by_key: dict[tuple[str, str, str], int] = {}
+    expected_indexes: dict[tuple[str, str], list[int]] = defaultdict(list)
+    boundaries: dict[tuple[str, str], tuple[int, int]] = {}
+    for item in expected_key_registry:
+        route_security = (str(item["route_id"]), str(item["security_id"]))
+        index = item.get("expected_trade_index")
         if not isinstance(index, int):
             raise R2T02ContractError("expected_trade_index_missing")
-        by_key[(str(row["route_id"]), str(row["security_id"]))].append(index)
-    for key, indexes in by_key.items():
+        if index in expected_indexes[route_security]:
+            raise R2T02ContractError(
+                f"duplicate_expected_trade_index:{route_security[0]}:{route_security[1]}:{index}"
+            )
+        expected_indexes[route_security].append(index)
+        key = (*route_security, str(item["trade_date"]))
+        if key in expected_by_key:
+            raise R2T02ContractError("duplicate_expected_key")
+        expected_by_key[key] = index
+        boundary = (item.get("expected_first_index"), item.get("expected_last_index"))
+        if not all(isinstance(value, int) for value in boundary):
+            raise R2T02ContractError("expected_range_boundary_missing")
+        if route_security in boundaries and boundaries[route_security] != boundary:
+            raise R2T02ContractError("expected_range_boundary_mismatch")
+        boundaries[route_security] = boundary
+    for route_security, indexes in expected_indexes.items():
         ordered = sorted(indexes)
-        if ordered != list(range(ordered[0], ordered[-1] + 1)):
-            raise R2T02ContractError(f"missing_expected_trading_row:{key[0]}:{key[1]}")
+        first, last = boundaries[route_security]
+        if ordered != list(range(first, last + 1)):
+            raise R2T02ContractError("expected_range_boundary_mismatch")
+
+    observed_by_key = {
+        (str(row["route_id"]), str(row["security_id"]), str(row["trade_date"])): row
+        for row in rows
+    }
+    missing = set(expected_by_key) - set(observed_by_key)
+    if missing:
+        raise R2T02ContractError("missing_expected_trading_row")
+    unexpected = set(observed_by_key) - set(expected_by_key)
+    if unexpected:
+        raise R2T02ContractError("unexpected_trading_row")
+    for key, expected_index in expected_by_key.items():
+        if observed_by_key[key].get("expected_trade_index") != expected_index:
+            raise R2T02ContractError("trade_date_index_mismatch")
 
 
 def _sorted(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

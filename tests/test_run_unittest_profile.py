@@ -63,6 +63,52 @@ class UnittestProfileRunnerTest(unittest.TestCase):
         }
         self.assertTrue(discovered)
 
+    def test_routine_and_heavy_profiles_partition_full_test_ids(self):
+        runner = _load_runner()
+        profiles = runner._load_profiles(PROFILE_PATH)
+        heavy_files = {
+            "tests/r0/test_r0_t10_score_materializer.py",
+            "tests/r0/test_r0_t10_score_materialization_validator.py",
+            "tests/r0/test_r0_t10_full_grid_materializer.py",
+        }
+
+        ids = {
+            name: [test.id() for test in _flatten(runner._build_suite(profiles[name]))]
+            for name in (
+                "full",
+                "regression-lite",
+                "r0-heavy-premerge",
+                "unit-fast",
+                "pr-fast",
+            )
+        }
+        for name, test_ids in ids.items():
+            self.assertEqual(len(test_ids), len(set(test_ids)), name)
+        self.assertEqual(
+            set(ids["full"]),
+            set(ids["regression-lite"]) | set(ids["r0-heavy-premerge"]),
+        )
+        self.assertTrue(
+            set(ids["regression-lite"]).isdisjoint(ids["r0-heavy-premerge"])
+        )
+        self.assertEqual(
+            len(ids["full"]),
+            len(ids["regression-lite"]) + len(ids["r0-heavy-premerge"]),
+        )
+
+        self.assertEqual(set(profiles["r0-heavy-premerge"]["files"]), heavy_files)
+        for profile_name in ("unit-fast", "pr-fast", "regression-lite"):
+            suite_files = {
+                runner._test_file(test)
+                for test in _flatten(runner._build_suite(profiles[profile_name]))
+            }
+            self.assertTrue(heavy_files.isdisjoint(suite_files), profile_name)
+        full_files = {
+            runner._test_file(test)
+            for test in _flatten(runner._build_suite(profiles["full"]))
+        }
+        self.assertTrue(heavy_files.issubset(full_files))
+
     def test_heavy_tests_are_split_without_losing_full_coverage(self):
         runner = _load_runner()
         profiles = runner._load_profiles(PROFILE_PATH)

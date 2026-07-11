@@ -6,7 +6,7 @@
 
 ## 事件规则
 
-`K=3`：同一路线、证券内连续三个 eligible、valid、raw-true 交易行后，仅第三行起 confirmed，不回填前两行。unknown、blocked、ineligible 和缺失交易行均重置计数。正式输入必须绑定授权交易日历派生的 `expected_trade_index`，并在每个 route/security 内验证索引连续；预期交易行缺失时 fail closed，禁止确认 streak 或 gap bridge 跨越缺行。confirmed interval 是 maximal consecutive confirmed-true trading rows。
+`K=3`：同一路线、证券内连续三个 eligible、valid、raw-true 交易行后，仅第三行起 confirmed，不回填前两行。unknown、blocked、ineligible 和缺失交易行均重置计数。正式输入绑定 R0-T15 daily-confirmation key universe 及其 committed local-byte attestation；`expected_trade_index` 按每个 route/security 的授权 `trading_date` 顺序派生，不信任 observed row 自报。observed key set、日期-index 映射、首尾边界、唯一性必须与独立 expected-key registry 完全一致，否则 fail closed，禁止 confirmation streak 或 gap bridge 跨越缺行。confirmed interval 是 maximal consecutive confirmed-true trading rows。
 
 `d in {1,2,3}` 且比较符为 `>=`。第 d 个 confirmed 日收盘后取得资格。资格成立后可在 retrospective geometry 中包含该 interval 的较早 confirmed 日，但其 membership availability 不早于 qualification time。
 

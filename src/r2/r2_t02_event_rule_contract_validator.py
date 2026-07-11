@@ -183,6 +183,12 @@ def _independent_rebuild(config: dict[str, Any], output_dir: Path) -> dict[str, 
             "future_merge_before_finalization",
             "event_id_exposure_deduplication",
         ],
+        "authoritative_expected_key_binding": config[
+            "trading_calendar_or_expected_key_binding"
+        ],
+        "binding_reuse_policy": (
+            "R2-T03_must_consume_identical_binding_without_reinterpretation"
+        ),
     }
     labels = [
         "k3_no_backfill",
@@ -228,6 +234,9 @@ def _independent_rebuild(config: dict[str, Any], output_dir: Path) -> dict[str, 
         "task_id": "R2-T02",
         "status": "passed",
         "upstream": config["upstream"],
+        "trading_calendar_or_expected_key_binding": config[
+            "trading_calendar_or_expected_key_binding"
+        ],
         "config_path": (
             "configs/r2/r2_t02_event_rule_hard_gate_risk_set_contract.v1.json"
         ),
@@ -285,6 +294,23 @@ def _validate_input_chain(config: dict[str, Any]) -> list[str]:
         != "passed"
     ):
         errors.append("input_chain_review_not_passed")
+    binding = config["trading_calendar_or_expected_key_binding"]
+    attestation_path = ROOT / binding["attestation_path"]
+    if (
+        not attestation_path.is_file()
+        or sha256_file(attestation_path) != binding["attestation_sha256"]
+    ):
+        errors.append("expected_key_attestation_hash_mismatch")
+    else:
+        attestation = _json(attestation_path)
+        daily = attestation.get("outputs", {}).get("daily_confirmation", {})
+        if (
+            daily.get("path") != binding["path"]
+            or daily.get("actual_sha256") != binding["sha256"]
+        ):
+            errors.append("expected_key_artifact_binding_mismatch")
+        if not attestation.get("checks", {}).get("all_primary_keys_unique"):
+            errors.append("expected_key_primary_key_not_unique")
     return errors
 
 
@@ -340,11 +366,12 @@ def _independent_replay_synthetic(
     first_ledger = json.loads(by_id["S01"]["assertion_ledger"])
     if first_ledger[0]["observed"] != independent_confirmed:
         raise R2T02ValidationError("synthetic_independent_replay:S01")
+    completeness_error = _independent_completeness_error(cases[10]["fixture"])
     independent_expected = {
         "S11": {
             "hard_break_status": "closed",
             "hard_break_reason": "hard_break_observed",
-            "missing_row_error": "missing_expected_trading_row:r:s",
+            "missing_row_error": completeness_error,
         },
         "S14": {"bridge_not_backfilled": True},
         "S15": {
@@ -366,15 +393,8 @@ def _independent_replay_synthetic(
         },
         "S31": {"unqualified_confirmed_is_risk": "passed"},
         "S32": {"zone_does_not_expand_risk": "passed"},
-        "S33": {"sidecar_mutation_detected": "committed_artifact_mismatch:sidecar"},
-        "S34": {
-            "contract_hash_mutation_detected": "committed_artifact_mismatch:contract"
-        },
-        "S35": {
-            "input_chain_mutation_detected": "input_chain_hash_mismatch:final_package"
-        },
-        "S36": {"forbidden_field_detected": "forbidden_output_field:future_return"},
     }
+    independent_expected.update(_independent_mutation_replay())
     for case_id, expected_by_assertion in independent_expected.items():
         ledger = json.loads(by_id[case_id]["assertion_ledger"])
         actual = {item["assertion_id"]: item["observed"] for item in ledger}
@@ -382,6 +402,97 @@ def _independent_replay_synthetic(
         if actual != expected_by_assertion or declared != expected_by_assertion:
             raise R2T02ValidationError(f"synthetic_independent_replay:{case_id}")
     return cases, results
+
+
+def _independent_completeness_error(fixture: dict[str, Any]) -> str | None:
+    expected = {
+        (item["route_id"], item["security_id"], item["trade_date"]): item[
+            "expected_trade_index"
+        ]
+        for item in fixture["expected_key_registry"]
+    }
+    observed = {
+        (item["route_id"], item["security_id"], item["trade_date"]): item
+        for item in fixture["observed_rows"]
+    }
+    if set(expected) - set(observed):
+        return "missing_expected_trading_row"
+    if set(observed) - set(expected):
+        return "unexpected_trading_row"
+    if any(
+        observed[key].get("expected_trade_index") != index
+        for key, index in expected.items()
+    ):
+        return "trade_date_index_mismatch"
+    return None
+
+
+def _independent_mutation_replay() -> dict[str, dict[str, str]]:
+    cases = {
+        "S33": ("sidecar_mutation_detected", "sidecar.json"),
+        "S34": ("contract_hash_mutation_detected", "contract.json"),
+        "S35": ("input_chain_mutation_detected", "upstream_package.json"),
+        "S36": ("forbidden_field_detected", "payload.json"),
+    }
+    replay = {}
+    for case_id, (assertion_id, target) in cases.items():
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            baseline = {
+                "sidecar.json": {"rows": [{"id": "a"}, {"id": "b"}]},
+                "contract.json": {"contract_version": "v1", "K": 3},
+                "payload.json": {"allowed_metric": 1},
+            }
+            for artifact, payload in baseline.items():
+                write_json_atomic(root / artifact, payload)
+            write_json_atomic(root / "upstream_package.json", {"status": "passed"})
+            hashes = {artifact: sha256_file(root / artifact) for artifact in baseline}
+            input_hash = sha256_file(root / "upstream_package.json")
+            _independent_validate_fixture(root, hashes, input_hash)
+            payload = _json(root / target)
+            if case_id == "S33":
+                payload["rows"].reverse()
+            elif case_id == "S34":
+                payload["K"] = 4
+            elif case_id == "S35":
+                payload["status"] = "mutated"
+            else:
+                payload["future_return"] = 0.1
+                write_json_atomic(root / target, payload)
+                hashes[target] = sha256_file(root / target)
+            write_json_atomic(root / target, payload)
+            try:
+                _independent_validate_fixture(root, hashes, input_hash)
+                error = "mutation_not_detected"
+            except R2T02ValidationError as exc:
+                error = str(exc)
+        replay[case_id] = {assertion_id: error}
+    return replay
+
+
+def _independent_validate_fixture(
+    root: Path, expected_hashes: dict[str, str], expected_input_hash: str
+) -> None:
+    for artifact, digest in expected_hashes.items():
+        if sha256_file(root / artifact) != digest:
+            raise R2T02ValidationError(f"committed_artifact_mismatch:{artifact}")
+    if sha256_file(root / "upstream_package.json") != expected_input_hash:
+        raise R2T02ValidationError("input_chain_hash_mismatch:upstream_package")
+    for artifact in expected_hashes:
+        if _independent_contains_field(_json(root / artifact), "future_return"):
+            raise R2T02ValidationError(
+                f"forbidden_output_field:{artifact}:future_return"
+            )
+
+
+def _independent_contains_field(value: Any, field: str) -> bool:
+    if isinstance(value, dict):
+        return field in value or any(
+            _independent_contains_field(item, field) for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(_independent_contains_field(item, field) for item in value)
+    return False
 
 
 def _canonical_hash(value: Any) -> str:
