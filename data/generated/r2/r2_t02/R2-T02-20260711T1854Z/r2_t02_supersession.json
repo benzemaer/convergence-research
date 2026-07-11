@@ -1,0 +1,12 @@
+{
+  "task_id": "R2-T02",
+  "run_id": "R2-T02-20260711T1854Z",
+  "status": "superseded",
+  "superseded_by_run_id": "R2-T02-20260711T1917Z",
+  "superseding_result_package_sha256": "1ac7c20635f9222017dedde9cffb5ad8404428563709c7ec5b0facec6016b241",
+  "superseding_validation_sha256": "ccc401b23a9c2b2486b84a839a601971b834092f001d5ff21526ec10ba5d9c96",
+  "reason": "PR_93_review_4678589611_required_missing_trading_row_guards_executable_synthetic_replay_quality_aware_risk_sets_and_global_event_matching",
+  "current_evidence_eligible": false,
+  "formal_input_eligible": false,
+  "R2-T03_allowed_to_start": false
+}
