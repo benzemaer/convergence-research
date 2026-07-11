@@ -6,7 +6,7 @@
   "selection_path_not_independently_confirmed": true,
   "metric_definition_source": {
     "path": "configs/r2/r2_t02_metric_dictionary.v2.json",
-    "sha256": "76f5bb15192f62e8d8768d56858e07b58ba94f5ec5dec880579ae70620baf191"
+    "sha256": "eb174aa4c249397a01b4dbd836e14cdfff7c98872e133affee1ed7d17a983cf9"
   },
   "trading_calendar_or_expected_key_binding": {
     "path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
