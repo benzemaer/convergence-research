@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R1
-current_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验
-next_planned_task: R1-T10 R1 验收门禁与 R2 交接矩阵
+current_task: R1-T10 R1 验收门禁与 R2 交接矩阵
+next_planned_task: R2-T01 参数候选收敛
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
@@ -27,9 +27,9 @@ R1-T07 completed via PR #83
 R1-T08 completed via PR #84
 R1-T09 completed via PR #85
 R1-T14-01_decision_status: q_vector_materialization_request
-R1-T14-02_status: revision_pending_external_rereview
-R1-T14-02_scientific_review_status: needs_revision
-R1-T14-02_independent_review_status: needs_revision
+R1-T14-02_status: completed
+R1-T14-02_scientific_review_status: passed
+R1-T14-02_independent_review_status: passed
 R0_q_vector_materialization_request_status: fulfilled
 R0_q_vector_materialization_task_id: R0-T15
 R0_q_vector_materialization_allowed_to_start: false
@@ -40,8 +40,8 @@ R1-T07_allowed_to_start: true
 R1-T08_allowed_to_start: true
 R1-T09_allowed_to_start: true
 R1-T14-01_allowed_to_start: true
-R1-T14-02_allowed_to_start: true
-R1-T10_allowed_to_start: false
+R1-T14-02_allowed_to_start: false
+R1-T10_allowed_to_start: true
 R1-T11_allowed_to_start: false
 R1-T12_allowed_to_start: false
 R1-T13_allowed_to_start: false

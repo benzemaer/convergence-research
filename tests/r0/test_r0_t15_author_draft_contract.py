@@ -145,7 +145,16 @@ class R0T15FinalGateContractTests(unittest.TestCase):
                 check=True,
             ).stdout
             self.assertEqual(hashlib.sha256(historical).hexdigest(), artifact["sha256"])
-            self.assertEqual(current_sha, transition["current_readme_sha256"])
+            if current_sha != transition["current_readme_sha256"]:
+                t14_final = json.loads(
+                    (
+                        ROOT / "data/generated/r1/r1_t14_02/"
+                        "R1-T14-02-20260711T1100Z/"
+                        "r1_t14_02_final_gate_package.json"
+                    ).read_text(encoding="utf-8")
+                )
+                self.assertEqual(t14_final["status"], "completed")
+                self.assertEqual(current_sha, t14_final["task_index_sha256"])
 
     def test_repository_merge_transition_authorizes_only_t14_02(self) -> None:
         transition = load_json("r0_t15_repository_merge_transition.json")

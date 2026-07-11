@@ -1,0 +1,59 @@
+{
+  "alternative_explanations": [
+    "当前 same-sample 结构分离仍可能受阈值 mechanics、共同市场 regime、横截面 pooling 与同一样本 discovery path 影响。",
+    "family-adjusted p 仅控制冻结的 T14-02 family，不校正 T14-01 discovery path。",
+    "结果不构成 best q、final winner、独立确认、因果机制、预测能力或交易优势证据。"
+  ],
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "downstream_gate_scope": "R1-T10_only",
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "(1-4567/12480)/(1-2941/12480)",
+      "metric": "W120 V=.30 confirmed selectivity_retained",
+      "value": 0.8295418807002831
+    },
+    {
+      "calculation": "(1-3723/12480)/(1-2941/12480)",
+      "metric": "W120 V=.25 confirmed selectivity_retained",
+      "value": 0.9180207568927561
+    },
+    {
+      "calculation": "(1-3591/10854)/(1-2143/10854)",
+      "metric": "W250 V=.30 confirmed selectivity_retained",
+      "value": 0.8337733899667088
+    },
+    {
+      "calculation": "(1-2808/10854)/(1-2143/10854)",
+      "metric": "W250 V=.25 confirmed selectivity_retained",
+      "value": 0.9236597405579154
+    }
+  ],
+  "nonblocking_findings": [
+    "selection_path_not_independently_confirmed must remain true permanently",
+    "V center security-level negative Delta shares 13.9241% and 18.1934% remain mandatory warnings"
+  ],
+  "review_comment_id": 4945024905,
+  "review_source": "https://github.com/benzemaer/convergence-research/pull/89#issuecomment-4945024905",
+  "reviewed_analysis_sha256": "ffc117e6b0184c78f726ed63759ad0ffca5702712e212d34d0846be3f6ea51ac",
+  "reviewed_author_package_sha256": "cb5c6c454f7023059ea237c32d574aca13e5b82343ba6ee36e6839711a13eb25",
+  "reviewed_candidate_decision_matrix_sha256": "a7a65b23582f820d7a7e959db97cb441a668aa917abbd3f880716d18c1a9a466",
+  "reviewed_candidate_registry_sha256": "d5bd0d247b2c31e3dfe561a218fbc4a9f989edfa7b7b49aab07360b5201dcf5a",
+  "reviewed_code_commit": "96bf8f0acbfb265d0a242c2d700a54e5ef294b1e",
+  "reviewed_config_sha256": "8b2797f4516c0103ee4467fd6a874fcbea626c00f69489ca85da84311ed6f9ce",
+  "reviewed_execution_commit": "96bf8f0acbfb265d0a242c2d700a54e5ef294b1e",
+  "reviewed_existence_profile_sha256": "762e533f950d6e26ba4bdfd526c232d5694e221a9496bf4ff3351abd80efb2ed",
+  "reviewed_family_max_sha256": "16a3a6782cc6b8f3f2646127f73e67a633525b5c755f573992c630d49895419c",
+  "reviewed_multiplicity_sha256": "3ac955d1ac0dd2778c97fba8ba5978f372639f4f9e8929c0ad282cdf339fe179",
+  "reviewed_null_results_sha256": "88758396d80c82f94c2e0dda40bb1705559f53ca945f307ed8e5e26ca7e964c8",
+  "reviewed_pr_head_commit": "c6bd78ce7f97271de83739d8196097116463a23a",
+  "reviewed_result_package_sha256": "cb5c6c454f7023059ea237c32d574aca13e5b82343ba6ee36e6839711a13eb25",
+  "reviewed_run_id": "R1-T14-02-20260711T1100Z",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed",
+  "selection_path_not_independently_confirmed": true,
+  "task_id": "R1-T14-02"
+}
