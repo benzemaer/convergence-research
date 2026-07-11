@@ -6,7 +6,7 @@
 
 ## 事件规则
 
-`K=3`：同一路线、证券内连续三个 eligible、valid、raw-true 交易行后，仅第三行起 confirmed，不回填前两行。unknown、blocked、ineligible 和缺失交易行均重置计数。confirmed interval 是 maximal consecutive confirmed-true trading rows。
+`K=3`：同一路线、证券内连续三个 eligible、valid、raw-true 交易行后，仅第三行起 confirmed，不回填前两行。unknown、blocked、ineligible 和缺失交易行均重置计数。正式输入必须绑定授权交易日历派生的 `expected_trade_index`，并在每个 route/security 内验证索引连续；预期交易行缺失时 fail closed，禁止确认 streak 或 gap bridge 跨越缺行。confirmed interval 是 maximal consecutive confirmed-true trading rows。
 
 `d in {1,2,3}` 且比较符为 `>=`。第 d 个 confirmed 日收盘后取得资格。资格成立后可在 retrospective geometry 中包含该 interval 的较早 confirmed 日，但其 membership availability 不早于 qualification time。
 
@@ -30,7 +30,7 @@ shared-q strict core 必须在 common eligible keys 上是 paired primary 的 co
 
 ## R3 Risk Set
 
-`risk_set_eligible=true` 当且仅当 `confirmed_state` 显式为 true 且该行在 evaluation time 已可见。unknown、blocked、null 和 bridged false days 均不得进入风险集。`event_zone_member` 不能扩张风险集；尚未取得 d 资格的 confirmed day 仍可进入风险集。T02 不定义 release、outcome、control、cooldown 或交易信号。
+`risk_set_eligible=true` 当且仅当 `confirmed_state` 显式为 true、`eligible=true`、`quality_state=valid` 且该行在 evaluation time 已可见。unknown、blocked、null、ineligible 和 bridged false days 均不得进入风险集；`confirmed_state=true` 与 invalid quality 或 ineligible 的组合属于输入矛盾并 fail closed。`event_zone_member` 不能扩张风险集；尚未取得 d 资格的 confirmed day 仍可进入风险集。T02 不定义 release、outcome、control、cooldown 或交易信号。
 
 ## Gate 状态
 

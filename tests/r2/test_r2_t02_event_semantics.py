@@ -1,6 +1,7 @@
 import unittest
 
 from src.r2.r2_t02_event_rule_contract import (
+    R2T02ContractError,
     build_confirmed_intervals,
     compute_event_geometry_metrics,
     compute_window_overlap_metrics,
@@ -17,6 +18,7 @@ def rows(states, qualities=None):
             "route_id": "r",
             "security_id": "s",
             "trade_date": f"2026-01-{i:02d}",
+            "expected_trade_index": i,
             "available_time": f"2026-01-{i:02d}T16:00:00+08:00",
             "eligible": q not in ("ineligible",),
             "quality_state": q,
@@ -36,6 +38,23 @@ class EventSemanticsTest(unittest.TestCase):
             rows([True, True, True, True], ["valid", "unknown", "valid", "valid"])
         )
         self.assertFalse(any(x["confirmed_state"] for x in out))
+
+    def test_missing_expected_trading_row_fails_confirmation_and_grouping(self):
+        incomplete = rows([True, True, True, True])
+        del incomplete[1]
+        with self.assertRaisesRegex(
+            R2T02ContractError, "missing_expected_trading_row:r:s"
+        ):
+            confirm_k3_without_backfill(incomplete)
+        complete = rows([False, False, False])
+        for item, state in zip(complete, [True, False, True]):
+            item["confirmed_state"] = state
+        intervals = qualify_intervals_by_d(build_confirmed_intervals(complete), 1)
+        del complete[1]
+        with self.assertRaisesRegex(
+            R2T02ContractError, "missing_expected_trading_row:r:s"
+        ):
+            group_qualified_intervals_by_g(intervals, complete, 0)
 
     def test_d_uses_greater_equal(self):
         confirmed = rows([True] * 6)
@@ -103,6 +122,24 @@ class EventSemanticsTest(unittest.TestCase):
         self.assertEqual(metrics["W120_only_confirmed_days"], 1)
         self.assertEqual(metrics["W250_only_confirmed_days"], 1)
         self.assertEqual(metrics["confirmed_day_jaccard"], 1 / 3)
+
+    def test_event_matching_is_global_not_greedy(self):
+        def zone(event_id, dates, hour):
+            return {
+                "event_id": event_id,
+                "security_id": "s",
+                "first_qualification_time": f"2026-01-01T{hour:02d}:00:00+08:00",
+                "intervals": [{"confirmed_dates": dates}],
+            }
+
+        a = [f"A{i}" for i in range(10)]
+        b = [f"B{i}" for i in range(9)]
+        c = [f"C{i}" for i in range(9)]
+        left = [zone("L1", a + c, 10), zone("L2", b, 11)]
+        right = [zone("R1", a + b, 10), zone("R2", c, 11)]
+        metrics = compute_window_overlap_metrics(set(), set(), left, right)
+        self.assertEqual(metrics["overlapping_event_count"], 3)
+        self.assertEqual(metrics["matched_event_count"], 2)
 
 
 if __name__ == "__main__":

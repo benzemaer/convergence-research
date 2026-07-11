@@ -31,10 +31,13 @@
   "event_rule": {
     "K": 3, "d_grid": [1, 2, 3], "d_operator": ">=", "g_grid": [0, 1, 2],
     "gap_count_unit": "eligible_trading_days", "confirmation_backfill": false,
+    "trading_row_completeness_key": "expected_trade_index",
+    "trading_row_completeness_policy": "required_contiguous_authorized_calendar_index_per_route_security_fail_closed",
     "hard_break_states": ["unknown", "blocked", "ineligible", "missing_trading_row"],
     "event_identity_fields": ["contract_version", "route_id", "security_id", "d", "g", "first_qualified_interval_confirmed_start_date"],
     "year_assignment": "year_of_first_event_qualification_time",
-    "open_event_policy": "observed_to_date_no_fabricated_finalization"
+    "open_event_policy": "observed_to_date_no_fabricated_finalization",
+    "matched_event_algorithm": "global_lexicographic_bipartite_matching_max_cardinality_then_total_overlap_then_min_total_qualification_distance"
   },
   "denominator_scopes": {
     "own_eligible": "route_eligible_security_trade_date_keys",

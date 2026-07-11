@@ -163,7 +163,7 @@ def _independent_rebuild(config: dict[str, Any], output_dir: Path) -> dict[str, 
     risk = {
         "task_id": "R2-T02",
         "eligibility_rule": (
-            "confirmed_state_is_true_and_row_available_at_evaluation_time"
+            "confirmed_true_and_available_and_eligible_and_quality_valid"
         ),
         "guards": [
             "risk_true_implies_confirmed_true",
@@ -172,6 +172,8 @@ def _independent_rebuild(config: dict[str, Any], output_dir: Path) -> dict[str, 
             "bridge_implies_zone_member",
             "zone_member_does_not_imply_risk",
             "confirmed_does_not_require_zone_member",
+            "risk_true_implies_eligible_true",
+            "confirmed_invalid_quality_is_contradiction",
         ],
         "prohibited_uses": [
             "retrospective_zone_as_exposure",
@@ -338,6 +340,47 @@ def _independent_replay_synthetic(
     first_ledger = json.loads(by_id["S01"]["assertion_ledger"])
     if first_ledger[0]["observed"] != independent_confirmed:
         raise R2T02ValidationError("synthetic_independent_replay:S01")
+    independent_expected = {
+        "S11": {
+            "hard_break_status": "closed",
+            "hard_break_reason": "hard_break_observed",
+            "missing_row_error": "missing_expected_trading_row:r:s",
+        },
+        "S14": {"bridge_not_backfilled": True},
+        "S15": {
+            "failed_interval_status": "closed",
+            "failed_interval_reason": "intervening_interval_failed_d",
+            "failed_interval_time": "2026-01-05T18:00:00+08:00",
+        },
+        "S16": {
+            "open_status": "open",
+            "open_finalization": None,
+            "open_reason": "sample_end_within_gap_tolerance",
+        },
+        "S21": {"own_denominator": 2},
+        "S22": {"common_exact_intersection": [["s", "2"]]},
+        "S23": {"cross_state_common_forbidden": "common_denominator_cross_state_line"},
+        "S30": {
+            "bridge_not_risk": "passed",
+            "invalid_quality_confirmed_fails": "failed",
+        },
+        "S31": {"unqualified_confirmed_is_risk": "passed"},
+        "S32": {"zone_does_not_expand_risk": "passed"},
+        "S33": {"sidecar_mutation_detected": "committed_artifact_mismatch:sidecar"},
+        "S34": {
+            "contract_hash_mutation_detected": "committed_artifact_mismatch:contract"
+        },
+        "S35": {
+            "input_chain_mutation_detected": "input_chain_hash_mismatch:final_package"
+        },
+        "S36": {"forbidden_field_detected": "forbidden_output_field:future_return"},
+    }
+    for case_id, expected_by_assertion in independent_expected.items():
+        ledger = json.loads(by_id[case_id]["assertion_ledger"])
+        actual = {item["assertion_id"]: item["observed"] for item in ledger}
+        declared = {item["assertion_id"]: item["expected"] for item in ledger}
+        if actual != expected_by_assertion or declared != expected_by_assertion:
+            raise R2T02ValidationError(f"synthetic_independent_replay:{case_id}")
     return cases, results
 
 

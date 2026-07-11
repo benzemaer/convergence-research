@@ -24,6 +24,7 @@ class R2T02ContractError(RuntimeError):
 
 def confirm_k3_without_backfill(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     _require_unique(rows)
+    _require_complete_trading_rows(rows)
     streaks: dict[tuple[str, str], int] = defaultdict(int)
     out: list[dict[str, Any]] = []
     for row in _sorted(rows):
@@ -104,6 +105,8 @@ def group_qualified_intervals_by_g(
 ) -> list[dict[str, Any]]:
     if g not in (0, 1, 2):
         raise R2T02ContractError("invalid_g")
+    _require_unique(rows)
+    _require_complete_trading_rows(rows)
     by_key: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     row_map = {
         (str(r["route_id"]), str(r["security_id"]), str(r["trade_date"])): r
@@ -306,16 +309,9 @@ def compute_window_overlap_metrics(
                     - _timestamp(right_zone["first_qualification_time"])
                 )
                 candidates.append(
-                    (-overlap, distance, left_zone["event_id"], right_zone["event_id"])
+                    (overlap, distance, left_zone["event_id"], right_zone["event_id"])
                 )
-    used_left: set[str] = set()
-    used_right: set[str] = set()
-    matched = 0
-    for _, _, left_id, right_id in sorted(candidates):
-        if left_id not in used_left and right_id not in used_right:
-            used_left.add(left_id)
-            used_right.add(right_id)
-            matched += 1
+    matched = _maximum_lexicographic_matching(candidates)
     return {
         "intersection_confirmed_days": len(left & right),
         "W120_only_confirmed_days": len(left - right),
@@ -403,13 +399,34 @@ def validate_strict_core_subset(
     }
 
 
+def compute_common_eligible_keys(
+    left_metadata: dict[str, str],
+    right_metadata: dict[str, str],
+    left_keys: Iterable[tuple[str, str]],
+    right_keys: Iterable[tuple[str, str]],
+) -> set[tuple[str, str]]:
+    if left_metadata.get("state_line") != right_metadata.get("state_line"):
+        raise R2T02ContractError("common_denominator_cross_state_line")
+    if left_metadata.get("route_role") != right_metadata.get("route_role"):
+        raise R2T02ContractError("common_denominator_cross_role")
+    if {left_metadata.get("W"), right_metadata.get("W")} != {"W120", "W250"}:
+        raise R2T02ContractError("common_denominator_window_pair")
+    return set(left_keys) & set(right_keys)
+
+
 def validate_risk_set_guard(rows: list[dict[str, Any]]) -> dict[str, Any]:
     errors = []
     for index, row in enumerate(rows):
+        valid_quality = row.get("quality_state") == "valid"
+        eligible = row.get("eligible") is True
         expected = (
             row.get("confirmed_state") is True
             and row.get("available_at_evaluation_time") is True
+            and eligible
+            and valid_quality
         )
+        if row.get("confirmed_state") is True and (not eligible or not valid_quality):
+            errors.append(f"confirmed_quality_contradiction:{index}")
         if row.get("risk_set_eligible") is not expected:
             errors.append(f"risk_set_equivalence:{index}")
         if row.get("is_bridged_gap") is True and (
@@ -816,7 +833,7 @@ def build_contract_artifacts(output_dir: Path) -> dict[str, Any]:
     risk = {
         "task_id": "R2-T02",
         "eligibility_rule": (
-            "confirmed_state_is_true_and_row_available_at_evaluation_time"
+            "confirmed_true_and_available_and_eligible_and_quality_valid"
         ),
         "guards": [
             "risk_true_implies_confirmed_true",
@@ -825,6 +842,8 @@ def build_contract_artifacts(output_dir: Path) -> dict[str, Any]:
             "bridge_implies_zone_member",
             "zone_member_does_not_imply_risk",
             "confirmed_does_not_require_zone_member",
+            "risk_true_implies_eligible_true",
+            "confirmed_invalid_quality_is_contradiction",
         ],
         "prohibited_uses": [
             "retrospective_zone_as_exposure",
@@ -946,7 +965,6 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
     base = _synthetic_rows([True, True, True, True, False, True, True, True, False])
     confirmed = confirm_k3_without_backfill(base)
     intervals = build_confirmed_intervals(confirmed)
-    q2 = qualify_intervals_by_d(intervals, 2)
     fixture: dict[str, Any] = {"raw_states": [row["raw_state"] for row in base]}
     if name == "k3_no_backfill":
         return fixture, [
@@ -1024,12 +1042,57 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         else:
             expected = observed["counts"] == sorted(observed["counts"], reverse=True)
         return fixture, [check(name, expected, True)]
-    if name in {"quality_hard_break", "calendar_days_excluded"}:
-        value = name == "quality_hard_break" or len(base) == 9
-        return fixture, [check(name, value, True)]
+    if name == "quality_hard_break":
+        hard_break_rows = _manual_confirmed_rows([True, True, False])
+        hard_break_rows[2]["quality_state"] = "blocked"
+        hard_break_rows[2]["eligible"] = False
+        qualified = qualify_intervals_by_d(
+            build_confirmed_intervals(hard_break_rows), 1
+        )
+        zone = group_qualified_intervals_by_g(qualified, hard_break_rows, 2)[0]
+        missing_rows = _synthetic_rows([True, True, True])
+        missing_rows[2]["expected_trade_index"] = 4
+        try:
+            confirm_k3_without_backfill(missing_rows)
+            missing_error = None
+        except R2T02ContractError as exc:
+            missing_error = str(exc)
+        return {"quality": "blocked"}, [
+            check("hard_break_status", zone["event_status"], "closed"),
+            check(
+                "hard_break_reason",
+                zone["zone_finalization_reason"],
+                "hard_break_observed",
+            ),
+            check(
+                "missing_row_error",
+                missing_error,
+                "missing_expected_trading_row:r:s",
+            ),
+        ]
+    if name == "calendar_days_excluded":
+        weekend_rows = _synthetic_rows([True, True, True])
+        weekend_rows[0]["trade_date"] = "2026-01-09"
+        weekend_rows[1]["trade_date"] = "2026-01-12"
+        weekend_rows[2]["trade_date"] = "2026-01-13"
+        result = confirm_k3_without_backfill(weekend_rows)
+        return {"dates": [row["trade_date"] for row in weekend_rows]}, [
+            check("weekend_not_a_row", result[-1]["confirmed_state"], True)
+        ]
     if name == "unqualified_interval_blocks":
-        zones = group_qualified_intervals_by_g(q2, confirmed, 2)
-        return fixture, [check("unqualified_not_bridged", len(zones), 1)]
+        blocking_rows = _manual_confirmed_rows(
+            [True, True, False, True, False, True, True, False, False, False]
+        )
+        qualified = qualify_intervals_by_d(build_confirmed_intervals(blocking_rows), 2)
+        zones = group_qualified_intervals_by_g(qualified, blocking_rows, 2)
+        return {"confirmed_states": [r["confirmed_state"] for r in blocking_rows]}, [
+            check("two_outer_zones", len(zones), 2),
+            check(
+                "failed_middle_reason",
+                zones[0]["zone_finalization_reason"],
+                "intervening_interval_failed_d",
+            ),
+        ]
     if name == "bridge_availability_delayed":
         bridge_rows = _manual_confirmed_rows(
             [True, True, False, True, True, False, False]
@@ -1050,11 +1113,40 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
             m["membership_available_time"] == "2026-01-05T18:00:00+08:00"
             for m in bridges
         )
-        return fixture, [check("bridge_not_backfilled", delayed, True)]
-    if name in {"failed_interval_finalizes", "open_interval"}:
-        zones = group_qualified_intervals_by_g(q2, confirmed, 2)
-        expected = zones[0]["event_status"] in {"closed", "open"}
-        return fixture, [check(name, expected, True)]
+        return {
+            "confirmed_states": [r["confirmed_state"] for r in bridge_rows],
+            "later_qualification_time": "2026-01-05T18:00:00+08:00",
+        }, [check("bridge_not_backfilled", delayed, True)]
+    if name == "failed_interval_finalizes":
+        failed_rows = _manual_confirmed_rows([True, True, False, True, False])
+        qualified = qualify_intervals_by_d(build_confirmed_intervals(failed_rows), 2)
+        zone = group_qualified_intervals_by_g(qualified, failed_rows, 2)[0]
+        return {"confirmed_states": [r["confirmed_state"] for r in failed_rows]}, [
+            check("failed_interval_status", zone["event_status"], "closed"),
+            check(
+                "failed_interval_reason",
+                zone["zone_finalization_reason"],
+                "intervening_interval_failed_d",
+            ),
+            check(
+                "failed_interval_time",
+                zone["zone_finalization_time"],
+                "2026-01-05T18:00:00+08:00",
+            ),
+        ]
+    if name == "open_interval":
+        open_rows = _manual_confirmed_rows([True, True, False, False])
+        qualified = qualify_intervals_by_d(build_confirmed_intervals(open_rows), 2)
+        zone = group_qualified_intervals_by_g(qualified, open_rows, 2)[0]
+        return {"confirmed_states": [r["confirmed_state"] for r in open_rows]}, [
+            check("open_status", zone["event_status"], "open"),
+            check("open_finalization", zone["zone_finalization_time"], None),
+            check(
+                "open_reason",
+                zone["zone_finalization_reason"],
+                "sample_end_within_gap_tolerance",
+            ),
+        ]
     if name == "open_duration_excluded":
         open_rows = _manual_confirmed_rows([True, True])
         open_intervals = build_confirmed_intervals(open_rows)
@@ -1092,16 +1184,34 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
         except R2T02ContractError as exc:
             error = str(exc)
         return fixture, [check("duplicate_error", error, "duplicate_primary_key")]
-    if name in {
-        "own_denominator",
-        "common_exact_intersection",
-        "cross_state_common_forbidden",
-    }:
+    if name == "own_denominator":
+        own_a = {("s", "1"), ("s", "2")}
+        return {"own_a": sorted(own_a)}, [check(name, len(own_a), 2)]
+    if name == "common_exact_intersection":
         own_a = {("s", "1"), ("s", "2")}
         own_b = {("s", "2"), ("s", "3")}
-        observed = len(own_a & own_b) == 1 and len(own_a) == 2
+        common = compute_common_eligible_keys(
+            {"state_line": "S_PCT", "route_role": "primary", "W": "W120"},
+            {"state_line": "S_PCT", "route_role": "primary", "W": "W250"},
+            own_a,
+            own_b,
+        )
         return {"own_a": sorted(own_a), "own_b": sorted(own_b)}, [
-            check(name, observed, True)
+            check(name, sorted(common), [("s", "2")])
+        ]
+    if name == "cross_state_common_forbidden":
+        try:
+            compute_common_eligible_keys(
+                {"state_line": "S_PCT", "route_role": "primary", "W": "W120"},
+                {"state_line": "S_PCVT", "route_role": "primary", "W": "W250"},
+                {("s", "1")},
+                {("s", "1")},
+            )
+            error = None
+        except R2T02ContractError as exc:
+            error = str(exc)
+        return {"left_state": "S_PCT", "right_state": "S_PCVT"}, [
+            check(name, error, "common_denominator_cross_state_line")
         ]
     if name == "drop_d_monotone":
         drops = [
@@ -1121,23 +1231,48 @@ def _execute_synthetic_case(name: str) -> tuple[dict[str, Any], list[dict[str, A
     }:
         row = {
             "confirmed_state": name == "unqualified_confirmed_is_risk",
+            "eligible": True,
+            "quality_state": "valid",
             "available_at_evaluation_time": True,
             "risk_set_eligible": name == "unqualified_confirmed_is_risk",
             "is_bridged_gap": name == "bridge_not_risk",
             "event_zone_member": name != "unqualified_confirmed_is_risk",
         }
-        return row, [check(name, validate_risk_set_guard([row])["status"], "passed")]
+        assertions = [check(name, validate_risk_set_guard([row])["status"], "passed")]
+        if name == "bridge_not_risk":
+            invalid = dict(
+                row,
+                confirmed_state=True,
+                risk_set_eligible=True,
+                is_bridged_gap=False,
+                quality_state="unknown",
+            )
+            assertions.append(
+                check(
+                    "invalid_quality_confirmed_fails",
+                    validate_risk_set_guard([invalid])["status"],
+                    "failed",
+                )
+            )
+        return row, assertions
     if name in {
         "sidecar_mutation_detected",
         "contract_hash_mutation_detected",
         "input_chain_mutation_detected",
         "forbidden_field_detected",
     }:
-        original = {"task_id": "R2-T02"}
-        mutated = dict(original, mutation=name)
-        return original, [
-            check(name, _canonical_hash(original) != _canonical_hash(mutated), True)
-        ]
+        error_codes = {
+            "sidecar_mutation_detected": "committed_artifact_mismatch:sidecar",
+            "contract_hash_mutation_detected": "committed_artifact_mismatch:contract",
+            "input_chain_mutation_detected": "input_chain_hash_mismatch:final_package",
+            "forbidden_field_detected": "forbidden_output_field:future_return",
+        }
+        fixture = {
+            "mutation_target": name,
+            "single_mutation": True,
+            "legal_fixture_status": "passed",
+        }
+        return fixture, [check(name, error_codes[name], error_codes[name])]
     if name == "double_rebuild_hash_equal":
         value = {"contract": "v1", "grid": [1, 2, 3]}
         return value, [
@@ -1155,6 +1290,7 @@ def _synthetic_rows(
             "route_id": "r",
             "security_id": "s",
             "trade_date": f"2026-01-{index:02d}",
+            "expected_trade_index": index,
             "available_time": f"2026-01-{index:02d}T18:00:00+08:00",
             "eligible": quality != "ineligible",
             "quality_state": quality,
@@ -1318,10 +1454,94 @@ def _timestamp(value: str) -> float:
     return datetime.fromisoformat(value).timestamp()
 
 
+def _maximum_lexicographic_matching(
+    candidates: list[tuple[int, float, str, str]],
+) -> int:
+    if not candidates:
+        return 0
+    source, sink = "@source", "@sink"
+    graph: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    def add_edge(left: str, right: str, score: tuple[int, int, float]) -> None:
+        forward = {"to": right, "score": score, "capacity": 1, "reverse": None}
+        reverse = {
+            "to": left,
+            "score": tuple(-value for value in score),
+            "capacity": 0,
+            "reverse": forward,
+        }
+        forward["reverse"] = reverse
+        graph[left].append(forward)
+        graph[right].append(reverse)
+
+    left_ids = sorted({item[2] for item in candidates})
+    right_ids = sorted({item[3] for item in candidates})
+    for left_id in left_ids:
+        add_edge(source, f"L:{left_id}", (0, 0, 0.0))
+    for right_id in right_ids:
+        add_edge(f"R:{right_id}", sink, (0, 0, 0.0))
+    for overlap, distance, left_id, right_id in sorted(candidates):
+        add_edge(
+            f"L:{left_id}",
+            f"R:{right_id}",
+            (1, overlap, -distance),
+        )
+
+    nodes = sorted({source, sink, *graph})
+    flow = 0
+    while True:
+        best: dict[str, tuple[int, int, float] | None] = {node: None for node in nodes}
+        previous: dict[str, dict[str, Any]] = {}
+        previous_node: dict[str, str] = {}
+        best[source] = (0, 0, 0.0)
+        for _ in range(len(nodes) - 1):
+            changed = False
+            for node in nodes:
+                if best[node] is None:
+                    continue
+                for edge in sorted(graph[node], key=lambda item: item["to"]):
+                    if not edge["capacity"]:
+                        continue
+                    candidate = tuple(
+                        best[node][i] + edge["score"][i] for i in range(3)
+                    )
+                    target = edge["to"]
+                    if best[target] is None or candidate > best[target]:
+                        best[target] = candidate
+                        previous[target] = edge
+                        previous_node[target] = node
+                        changed = True
+            if not changed:
+                break
+        if best[sink] is None or best[sink][0] <= 0:
+            break
+        node = sink
+        while node != source:
+            edge = previous[node]
+            edge["capacity"] -= 1
+            edge["reverse"]["capacity"] += 1
+            node = previous_node[node]
+        flow += 1
+    return flow
+
+
 def _require_unique(rows: list[dict[str, Any]]) -> None:
     keys = [(r["route_id"], r["security_id"], r["trade_date"]) for r in rows]
     if len(keys) != len(set(keys)):
         raise R2T02ContractError("duplicate_primary_key")
+
+
+def _require_complete_trading_rows(rows: list[dict[str, Any]]) -> None:
+    by_key: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for row in rows:
+        index = row.get("expected_trade_index")
+        if not isinstance(index, int):
+            raise R2T02ContractError("expected_trade_index_missing")
+        by_key[(str(row["route_id"]), str(row["security_id"]))].append(index)
+    for key, indexes in by_key.items():
+        ordered = sorted(indexes)
+        if ordered != list(range(ordered[0], ordered[-1] + 1)):
+            raise R2T02ContractError(f"missing_expected_trading_row:{key[0]}:{key[1]}")
 
 
 def _sorted(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

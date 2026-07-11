@@ -8,7 +8,7 @@ from src.r0.upstream_artifact_io import sha256_file, write_json_atomic
 from src.r2.r2_t02_event_rule_contract_validator import validate_contract
 
 ROOT = Path(__file__).resolve().parents[2]
-PREVIOUS_RUN_ID = "R2-T02-20260711T1818Z"
+PREVIOUS_RUN_ID = "R2-T02-20260711T1854Z"
 METRIC_CONFIG = ROOT / "configs/r2/r2_t02_metric_dictionary.v1.json"
 ARTIFACTS = [
     "r2_t02_input_binding.json",
