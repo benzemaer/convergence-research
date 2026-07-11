@@ -69,17 +69,14 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R1-T13_allowed_to_start: false", current)
         self.assertIn("R2_allowed_to_start: true", current)
         self.assertIn("R2-T01_allowed_to_start: true", current)
-        self.assertIn(
-            "R2-T01_status: author_analysis_complete_pending_independent_review",
-            current,
-        )
-        self.assertIn("R2-T01_scientific_review_status: pending", current)
-        self.assertIn("R2-T02_allowed_to_start: false", current)
+        self.assertIn("R2-T01_status: completed", current)
+        self.assertIn("R2-T01_scientific_review_status: passed", current)
+        self.assertIn("R2-T01_independent_review_status: passed", current)
+        self.assertIn("R2-T02_allowed_to_start: true", current)
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn(
-            "状态：R2-T01 author analysis complete pending independent "
-            "scientific review",
+            "状态：R2-T01 已通过独立科学审阅与 final gate",
             text,
         )
 

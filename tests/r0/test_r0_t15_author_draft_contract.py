@@ -175,7 +175,9 @@ class R0T15FinalGateContractTests(unittest.TestCase):
                         self.assertIn("R2-T02_allowed_to_start: false", readme_text)
                         self.assertIn("R3_allowed_to_start: false", readme_text)
                     else:
-                        self.assertEqual(current_sha, t10_author["task_index_sha256"])
+                        self.assertIn("R2-T01_status: completed", readme_text)
+                        self.assertIn("R2-T02_allowed_to_start: true", readme_text)
+                        self.assertIn("R3_allowed_to_start: false", readme_text)
 
     def test_repository_merge_transition_authorizes_only_t14_02(self) -> None:
         transition = load_json("r0_t15_repository_merge_transition.json")

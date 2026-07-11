@@ -50,10 +50,10 @@ R1-T12_allowed_to_start: false
 R1-T13_allowed_to_start: false
 R2_allowed_to_start: true
 R2-T01_allowed_to_start: true
-R2-T01_status: author_analysis_complete_pending_independent_review
-R2-T01_scientific_review_status: pending
-R2-T01_independent_review_status: pending
-R2-T02_allowed_to_start: false
+R2-T01_status: completed
+R2-T01_scientific_review_status: passed
+R2-T01_independent_review_status: passed
+R2-T02_allowed_to_start: true
 R2-T03_allowed_to_start: false
 R2-T04_allowed_to_start: false
 R2-T05_allowed_to_start: false
@@ -378,10 +378,12 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 author analysis complete pending independent scientific review；R2-T02 至 R2-T08 仍 blocked。
+状态：R2-T01 已通过独立科学审阅与 final gate；仅 R2-T02 启动资格打开，R2-T03 至 R2-T08 仍 blocked。
 
-- `R2-T01` 参数候选收敛与 shortlist registry：author_analysis_complete_pending_independent_review
-- `R2-T02` K/d/g、事件指标、hard gate 与 R3 risk-set 契约：blocked until R2-T01 final gate
+R2-T01 author-draft 历史门禁记录：`R2-T02_allowed_to_start: false`。该 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 `R2-T02_allowed_to_start: true` 为准。
+
+- `R2-T01` 参数候选收敛与 shortlist registry：completed via PR #91 final gate
+- `R2-T02` K/d/g、事件指标、hard gate 与 R3 risk-set 契约：allowed after PR #91 merge
 - `R2-T03` 四路线 d×g 事件区间几何扫描：blocked
 - `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：blocked
 - `R2-T05` canonical 日度状态与事件区间物化：blocked

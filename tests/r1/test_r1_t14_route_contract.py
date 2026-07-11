@@ -156,8 +156,8 @@ class R1T14RouteContractTest(unittest.TestCase):
             "R0_q_vector_materialization_status: completed",
             current,
         )
-        self.assertIn("R2-T01_scientific_review_status: pending", current)
-        self.assertIn("R2-T02_allowed_to_start: false", current)
+        self.assertIn("R2-T01_scientific_review_status: passed", current)
+        self.assertIn("R2-T02_allowed_to_start: true", current)
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("R1-T14-01_allowed_to_start: true", current)
         self.assertIn("R1-T14-02_allowed_to_start: false", current)
