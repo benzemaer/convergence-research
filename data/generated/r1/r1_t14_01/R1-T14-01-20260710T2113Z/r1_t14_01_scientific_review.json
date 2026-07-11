@@ -1,0 +1,78 @@
+{
+  "alternative_explanations": [
+    "响应可能由阈值 mechanics、共同市场 regime、横截面 pooling、有效样本构成和同一样本选择共同解释。",
+    "P 是 baseline 漏斗最大 attrition 层而 T 对 PCT existence 与 fragmentation 最敏感，两者回答不同问题，不构成矛盾。",
+    "本次同样本诊断不证明 best q、因果结构、预测能力或交易优势。"
+  ],
+  "anomaly_review": "32 项 shared-q baseline reconciliation 均为零；34 个配置未出现全零、全一、全 NULL、parent-child violation 或同 W availability 漂移，confirmed interval duration 与 confirmed-state days 守恒。",
+  "baseline_challenger_review": "四个 center 均按预注册 robust envelope 与冻结 tie-break 产生。T=.25 胜过数值更大的 T=.30 是因为更接近 baseline；T=.30 被保留为 neighbor。V=.30 通过 material advantage 与 selectivity guard，V=.25 仅保留为 neighbor。",
+  "blocking_findings": [],
+  "downstream_gate_recommendation": true,
+  "downstream_gate_scope": "R0-T15_only",
+  "implementation_actor": "codex",
+  "independence_attestation": true,
+  "independent_recomputations": [
+    {
+      "calculation": "0.0127775573 - 0.0077867042",
+      "metric": "W120 T=.25 PCT coverage increment",
+      "robust_envelope": 0.0035404568,
+      "value": 0.0049908531
+    },
+    {
+      "metric": "W120 T=.25 affected Delta increment",
+      "robust_envelope": 0.0113126232,
+      "value_approx": 0.0364
+    },
+    {
+      "metric": "W250 T=.25 PCT coverage increment",
+      "robust_envelope": 0.0032723888,
+      "value": 0.0049705022
+    },
+    {
+      "metric": "W250 T=.25 affected Delta increment",
+      "robust_envelope": 0.0249046109,
+      "value_approx": 0.0346
+    },
+    {
+      "metric": "W120 V=.30 PCVT coverage increment",
+      "robust_envelope": 0.0005587317,
+      "value": 0.0010151765
+    },
+    {
+      "metric": "W120 V=.30 affected Delta increment",
+      "robust_envelope": 0.0417269879,
+      "value_approx": 0.0552
+    },
+    {
+      "metric": "W250 V=.30 PCVT coverage increment",
+      "robust_envelope": 0.0006860976,
+      "value": 0.000963172
+    },
+    {
+      "metric": "W250 V=.30 affected Delta increment",
+      "robust_envelope": 0.0416973977,
+      "value_approx": 0.0687
+    },
+    {
+      "metric": "W120/W250 V=.30 selectivity_retained",
+      "threshold": 0.5,
+      "values_approx": [0.8105, 0.8107]
+    }
+  ],
+  "nonblocking_findings": [
+    "config_protocol_version_is_task_schema_label_R1.v0.3_while_stage_protocol_is_R1.v0.4",
+    "T14-01_minimal_common_valid_denominator_differs_from_T14-02_state_specific_short_circuit_denominator"
+  ],
+  "parameter_response_review": "实际网格为 W={120,250}、K=3、Q={.10,.15,.20,.25,.30} 的 34 个 OFAT vector×W；未执行 Q^4、连续搜索、W500、K2/K5 或未来标签选择。四个 center 的 pooled 与 security median Delta 同向，所有可计算年度 Delta 为正，LOYO Delta 与 Lift-excess 无方向翻转。",
+  "review_comment_id": 4941866339,
+  "review_source": "https://github.com/benzemaer/convergence-research/pull/87#issuecomment-4941866339",
+  "reviewed_analysis_sha256": "edc804be74d4a2780b3ebce061e56c38bead7e9d3739c39db474bd5554e530da",
+  "reviewed_code_commit": "9b7ff557e7bf5f01f0984b7d89f9e51b3ba8778b",
+  "reviewed_config_sha256": "6875136a31f9d738734e4fe9bd8cd971ac308956f638e90439de883e09e588ef",
+  "reviewed_decision_sha256": "7ee17192ae32c71d6ee839af93993b4b7f841738dbc0a17e9078ac1d1408fb33",
+  "reviewed_pr_head_commit": "2e2cc2931a4c3ff1ab427966bc78f79a0f69c151",
+  "reviewed_summary_sha256": "b5667bcbec83b0adc29efddf9d1a123d78b67644e6b419c5143820afc69f8fe6",
+  "reviewer_identity": "benzemaer",
+  "reviewer_role": "independent_scientific_reviewer",
+  "scientific_review_status": "passed"
+}

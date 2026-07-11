@@ -2098,6 +2098,179 @@ def build_author_draft_result_package(
     return package
 
 
+def finalize_reviewed_result_package(
+    *,
+    run_dir: str | Path,
+    review_record_path: str | Path,
+    review_markdown_path: str | Path,
+    evidence_path: str | Path,
+    readme_path: str | Path,
+) -> dict[str, Any]:
+    """Bind an external scientific review and open only the R0-T15 gate."""
+    run_dir = Path(run_dir)
+    review_record_path = Path(review_record_path)
+    review_markdown_path = Path(review_markdown_path)
+    evidence_path = Path(evidence_path)
+    readme_path = Path(readme_path)
+    package_path = run_dir / "r1_t14_01_result_package.json"
+    summary_path = run_dir / "r1_t14_01_diagnostic_summary.json"
+    decision_path = run_dir / "r1_t14_01_materialization_request.json"
+    package = _load_json(package_path)
+    review = _load_json(review_record_path)
+    for prefix in (
+        "config",
+        "engineering_validation_result",
+        "anomaly_scan",
+        "decision",
+        "result_analysis",
+    ):
+        _require_package_path_hash(package, prefix)
+    analysis_path_value = package.get("result_analysis_path")
+    if not analysis_path_value:
+        raise R1T1401Error("reviewed_analysis_path_missing")
+    analysis_path = ROOT / analysis_path_value
+    if not analysis_path.is_file():
+        raise R1T1401Error("reviewed_analysis_missing")
+    analysis_sha256 = sha256_file(analysis_path)
+    if package.get("result_analysis_sha256") != analysis_sha256:
+        raise R1T1401Error("reviewed_analysis_package_hash_mismatch")
+    if package.get("decision") != "q_vector_materialization_request":
+        raise R1T1401Error("final_gate_requires_materialization_request")
+    if not decision_path.is_file() or not summary_path.is_file():
+        raise R1T1401Error("reviewed_author_artifact_missing")
+    if review.get("scientific_review_status") != "passed":
+        raise R1T1401Error("scientific_review_not_passed")
+    if review.get("independence_attestation") is not True:
+        raise R1T1401Error("scientific_review_not_independent")
+    if review.get("reviewer_identity") != "benzemaer":
+        raise R1T1401Error("scientific_reviewer_identity_invalid")
+    if review.get("reviewer_role") != "independent_scientific_reviewer":
+        raise R1T1401Error("scientific_reviewer_role_invalid")
+    if review.get("blocking_findings") != []:
+        raise R1T1401Error("scientific_review_has_blocking_findings")
+    if review.get("downstream_gate_recommendation") is not True:
+        raise R1T1401Error("scientific_review_does_not_recommend_downstream")
+    expected_review_bindings = {
+        "reviewed_code_commit": package.get("code_commit"),
+        "reviewed_summary_sha256": sha256_file(summary_path),
+        "reviewed_analysis_sha256": analysis_sha256,
+        "reviewed_config_sha256": package.get("config_sha256"),
+        "reviewed_decision_sha256": sha256_file(decision_path),
+        "reviewed_pr_head_commit": "2e2cc2931a4c3ff1ab427966bc78f79a0f69c151",
+        "implementation_actor": "codex",
+    }
+    for key, expected in expected_review_bindings.items():
+        if review.get(key) != expected:
+            raise R1T1401Error(f"scientific_review_binding_mismatch:{key}")
+    if str(review.get("review_comment_id")) != "4941866339":
+        raise R1T1401Error("scientific_review_source_comment_mismatch")
+    if review.get("review_source") != (
+        "https://github.com/benzemaer/convergence-research/"
+        "pull/87#issuecomment-4941866339"
+    ):
+        raise R1T1401Error("scientific_review_source_url_mismatch")
+    if not review_markdown_path.is_file() or not evidence_path.is_file():
+        raise R1T1401Error("final_gate_document_missing")
+    readme_text = _readme_current_stage_block(readme_path.read_text(encoding="utf-8"))
+    for marker in (
+        "current_stage: R0",
+        "current_task: R0-T15 正式 q-vector 物化",
+        "next_planned_task: R1-T14-02 层级 q-vector R0 物化接收与正式结构复验",
+        "R1-T14-01_decision_status: q_vector_materialization_request",
+        "R0_q_vector_materialization_request_status: approved",
+        "R0_q_vector_materialization_task_id: R0-T15",
+        "R0_q_vector_materialization_allowed_to_start: true",
+        "R0_q_vector_materialization_status: authorized",
+        "R1-T14-02_status: blocked_pending_R0",
+        "R1-T14-02_allowed_to_start: false",
+        "R1-T10_allowed_to_start: false",
+        "R2_allowed_to_start: false",
+    ):
+        if marker not in readme_text:
+            raise R1T1401Error(f"readme_final_gate_marker_missing:{marker}")
+    evidence_text = evidence_path.read_text(encoding="utf-8")
+    for marker in (
+        "scientific_review_status=passed",
+        "reviewer_identity=benzemaer",
+        "independence_attestation=true",
+        "repository_final_gate_status=passed",
+        "R0_q_vector_materialization_allowed_to_start=true",
+        "R1-T14-02_allowed_to_start=false",
+        "formal_task_completed=true",
+    ):
+        if marker not in evidence_text:
+            raise R1T1401Error(f"evidence_final_gate_marker_missing:{marker}")
+
+    package.update(
+        {
+            "implementation_actor": "codex",
+            "diagnostic_summary_path": _rel(summary_path),
+            "diagnostic_summary_sha256": sha256_file(summary_path),
+            "scientific_review_record_path": _rel(review_record_path),
+            "scientific_review_record_sha256": sha256_file(review_record_path),
+            "scientific_review_md_path": _rel(review_markdown_path),
+            "scientific_review_md_sha256": sha256_file(review_markdown_path),
+            "scientific_review_source": review.get("review_source"),
+            "reviewed_pr_head_commit": review.get("reviewed_pr_head_commit"),
+            "formal_evidence_sha256": sha256_file(evidence_path),
+            "readme_sha256": sha256_file(readme_path),
+            "expected_current_stage": "R0",
+            "expected_current_task": "R0-T15 正式 q-vector 物化",
+            "expected_next_planned_task": (
+                "R1-T14-02 层级 q-vector R0 物化接收与正式结构复验"
+            ),
+            "expected_downstream_gate_marker": "R1-T14-02_allowed_to_start: false",
+            "R0_q_vector_materialization_task_id": "R0-T15",
+            "R0_q_vector_materialization_request_status": "approved",
+            "R0_q_vector_materialization_status": "authorized",
+            "R0_q_vector_materialization_allowed_to_start": True,
+            "R1-T14-02_allowed_to_start": False,
+            "R1-T10_allowed_to_start": False,
+            "R2_allowed_to_start": False,
+            "selection_path_not_independently_confirmed": True,
+            "downstream_gate_scope": "R0-T15_only",
+            "downstream_gate_allowed": True,
+            "formal_task_completed": True,
+            "scientific_review_status": "passed",
+            "reviewer_identity": review["reviewer_identity"],
+            "independence_attestation": True,
+            "blocking_findings": [],
+            "status": "completed",
+        }
+    )
+    package["gate_status"].update(
+        {
+            "result_artifact_status": "passed",
+            "scientific_review_status": "passed",
+            "review_phase": "independent_review_complete",
+            "independent_review_status": "completed",
+            "repository_final_gate_status": "passed",
+            "readme_gate_updated": True,
+        }
+    )
+    write_json_atomic(package_path, package)
+    return package
+
+
+def _readme_current_stage_block(text: str) -> str:
+    try:
+        return text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
+    except IndexError as exc:
+        raise R1T1401Error("readme_current_stage_block_missing") from exc
+
+
+def _require_package_path_hash(package: Mapping[str, Any], prefix: str) -> None:
+    path_value = package.get(f"{prefix}_path")
+    expected_sha256 = package.get(f"{prefix}_sha256")
+    if not path_value or not expected_sha256:
+        raise R1T1401Error(f"{prefix}_binding_missing")
+    path = ROOT / str(path_value)
+    if not path.is_file():
+        raise R1T1401Error(f"{prefix}_missing")
+    if sha256_file(path) != expected_sha256:
+        raise R1T1401Error(f"{prefix}_hash_mismatch")
+
+
 def _artifact_record(path: Path, role: str) -> dict[str, Any]:
     if not path.is_file():
         raise R1T1401Error(f"required_artifact_missing:{path}")
