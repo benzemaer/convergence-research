@@ -272,6 +272,8 @@ def _check_final_input_chain(
         "independent_review_status"
     ):
         raise R2T01Error("input_independent_review_status_binding_check")
+    if final_gate.get("scientific_review_record_sha256") != sha256_file(review_path):
+        raise R2T01Error("input_scientific_review_file_sha_check")
     matrix_sha = config["inputs"]["expected_sha256"]["decision_matrix"]
     if (
         handoff.get("matrix_sha256") != matrix_sha
@@ -280,13 +282,20 @@ def _check_final_input_chain(
         raise R2T01Error("input_handoff_matrix_sha_check")
     if handoff.get("row_count") != len(rows):
         raise R2T01Error("input_handoff_matrix_cardinality_check")
-    if (
-        reviewed.get("committed_artifacts", {})
-        .get(paths["decision_matrix_path"], {})
-        .get("sha256")
-        != matrix_sha
-    ):
-        raise R2T01Error("input_reviewed_package_matrix_sha_check")
+    committed = reviewed.get("committed_artifacts", {})
+    reviewed_bindings = {
+        "decision_matrix": "decision_matrix_path",
+        "handoff_manifest": "handoff_manifest_path",
+        "candidate_registry": "candidate_registry_path",
+        "warning_registry": "warning_registry_path",
+        "decision_recomputation": "decision_recomputation_path",
+        "upstream_reconciliation": "upstream_reconciliation_path",
+    }
+    for label, path_key in reviewed_bindings.items():
+        rel_path = paths[path_key]
+        actual_sha = sha256_file(ROOT / rel_path)
+        if committed.get(rel_path, {}).get("sha256") != actual_sha:
+            raise R2T01Error(f"input_reviewed_package_{label}_sha_check")
     expected_head = final_gate.get("reviewed_pr_head_commit")
     if expected_head and not _is_ancestor(expected_head, current_commit(ROOT), ROOT):
         raise R2T01Error("input_pr90_merge_lineage_check")

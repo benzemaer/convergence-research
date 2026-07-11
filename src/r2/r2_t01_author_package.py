@@ -22,6 +22,23 @@ def build_author_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, An
     diagnostic = _load_json(output_dir / "r2_t01_diagnostic_summary.json")
     anomaly = _load_json(output_dir / "r2_t01_anomaly_scan.json")
     engineering = _load_json(output_dir / "r2_t01_engineering_validation_result.json")
+    anomaly["deterministic_output_check"] = engineering.get(
+        "deterministic_output_check", "failed"
+    )
+    anomaly["canonical_determinism_proof"] = {
+        "actual_normalized_hashes": engineering.get(
+            "canonical_normalized_output_hashes", {}
+        ),
+        "independent_rebuild_1_hashes": engineering.get(
+            "independent_rebuild_1_hashes", {}
+        ),
+        "independent_rebuild_2_hashes": engineering.get(
+            "independent_rebuild_2_hashes", {}
+        ),
+    }
+    if anomaly["deterministic_output_check"] != "passed":
+        raise RuntimeError("deterministic_output_check")
+    dump_json(output_dir / "r2_t01_anomaly_scan.json", anomaly)
     registry = _read_csv(output_dir / "r2_t01_shortlist_registry.csv")
     primary = _read_csv(output_dir / "r2_t01_primary_shortlist.csv")
     audit = _read_csv(output_dir / "r2_t01_role_assignment_audit.csv")

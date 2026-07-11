@@ -1,5 +1,6 @@
 import csv
 import inspect
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,6 +25,16 @@ class R2T01Validator(unittest.TestCase):
     def _mutate(self, fn, expected_error: str):
         out = self._fixture()
         path = out / "r2_t01_shortlist_registry.csv"
+        rows = _read(path)
+        fn(rows)
+        _write(path, rows)
+        with self.assertRaises(RuntimeError) as ctx:
+            validate_output(out, CONFIG)
+        self.assertIn(expected_error, str(ctx.exception))
+
+    def _mutate_sidecar(self, name: str, fn, expected_error: str):
+        out = self._fixture()
+        path = out / name
         rows = _read(path)
         fn(rows)
         _write(path, rows)
@@ -142,6 +153,99 @@ class R2T01Validator(unittest.TestCase):
             row["state_line"] = "S_PCVT"
 
         self._mutate(mutate, "field_mismatch:shared_S_PCT_W250:state_line")
+
+    def test_disposition_sidecar_mutation_fails(self):
+        self._mutate_sidecar(
+            "r2_t01_candidate_disposition_registry.csv",
+            lambda rows: rows[0].__setitem__("candidate_role", "excluded"),
+            "committed_artifact_mismatch:r2_t01_candidate_disposition_registry.csv",
+        )
+
+    def test_audit_sidecar_mutation_fails(self):
+        self._mutate_sidecar(
+            "r2_t01_role_assignment_audit.csv",
+            lambda rows: rows[0].__setitem__("assignment_status", "failed"),
+            "committed_artifact_mismatch:r2_t01_role_assignment_audit.csv",
+        )
+
+    def test_reconciliation_sidecar_mutation_fails(self):
+        self._mutate_sidecar(
+            "r2_t01_source_reconciliation.csv",
+            lambda rows: rows[0].__setitem__("source_artifact_hash_check", "failed"),
+            "committed_artifact_mismatch:r2_t01_source_reconciliation.csv",
+        )
+
+    def test_evidence_sidecar_mutation_fails(self):
+        self._mutate_sidecar(
+            "r2_t01_evidence_snapshot.csv",
+            lambda rows: rows[0].__setitem__("eligible_days", "1"),
+            "committed_artifact_mismatch:r2_t01_evidence_snapshot.csv",
+        )
+
+    def test_canonical_order_mutation_fails_determinism(self):
+        def reverse(rows):
+            rows.reverse()
+
+        self._mutate_sidecar(
+            "r2_t01_candidate_disposition_registry.csv",
+            reverse,
+            "committed_artifact_order:r2_t01_candidate_disposition_registry.csv",
+        )
+
+    def test_committed_input_binding_mutation_fails(self):
+        out = self._fixture()
+        path = out / "r2_t01_input_binding.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["input_artifacts"]["warning_registry_path"]["sha256"] = "0" * 64
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaises(RuntimeError) as ctx:
+            validate_output(out, CONFIG)
+        self.assertIn(
+            "committed_input_binding_artifact:warning_registry_path",
+            str(ctx.exception),
+        )
+
+    def test_validator_rechecks_scientific_review_file_sha(self):
+        out = self._fixture()
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+            review = json.loads(
+                (ROOT / cfg["inputs"]["scientific_review_path"]).read_text(
+                    encoding="utf-8"
+                )
+            )
+            review["review_comment_id"] = 1
+            review_path = Path(tmp) / "review.json"
+            review_path.write_text(json.dumps(review), encoding="utf-8")
+            cfg["inputs"]["scientific_review_path"] = str(
+                review_path.relative_to(ROOT)
+            ).replace("\\", "/")
+            cfg_path = Path(tmp) / "config.json"
+            cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+            with self.assertRaises(RuntimeError) as ctx:
+                validate_output(out, cfg_path)
+        self.assertIn("input_scientific_review_file_sha_check", str(ctx.exception))
+
+    def test_validator_rechecks_handoff_file_binding(self):
+        out = self._fixture()
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
+            handoff = json.loads(
+                (ROOT / cfg["inputs"]["handoff_manifest_path"]).read_text(
+                    encoding="utf-8"
+                )
+            )
+            handoff["row_count"] = 11
+            handoff_path = Path(tmp) / "handoff.json"
+            handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
+            cfg["inputs"]["handoff_manifest_path"] = str(
+                handoff_path.relative_to(ROOT)
+            ).replace("\\", "/")
+            cfg_path = Path(tmp) / "config.json"
+            cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+            with self.assertRaises(RuntimeError) as ctx:
+                validate_output(out, cfg_path)
+        self.assertIn("input_handoff_matrix_cardinality_check", str(ctx.exception))
 
 
 def _read(path: Path) -> list[dict[str, str]]:
