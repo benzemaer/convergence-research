@@ -146,7 +146,9 @@ class R1T14RouteContractTest(unittest.TestCase):
         self.assertIn(
             "R1-T14-01_decision_status: q_vector_materialization_request", current
         )
-        self.assertIn("R1-T14-02_status: authorized", current)
+        self.assertIn("R1-T14-02_status: revision_pending_external_rereview", current)
+        self.assertIn("R1-T14-02_scientific_review_status: needs_revision", current)
+        self.assertIn("R1-T14-02_independent_review_status: needs_revision", current)
         self.assertIn("R0_q_vector_materialization_request_status: fulfilled", current)
         self.assertIn("R0_q_vector_materialization_task_id: R0-T15", current)
         self.assertIn("R0_q_vector_materialization_allowed_to_start: false", current)
