@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,123 @@ def _pick(rows: list[dict[str, str]], **keys: Any) -> dict[str, str]:
 def _f(row: dict[str, str], key: str, default: float = 0.0) -> float:
     value = row.get(key, "")
     return float(value) if value not in ("", None) else default
+
+
+def _required_f(row: dict[str, str], key: str) -> float:
+    if key not in row or row[key] in ("", None):
+        raise ValueError(f"mandatory numeric field missing:{key}")
+    return float(row[key])
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError(path)
+    return value
+
+
+def _status_passed(value: Any) -> bool:
+    return value in {True, "true", "passed", "passed_or_legacy_gate_adapter"}
+
+
+def _final_gate_passed(path: Path) -> bool:
+    if path.suffix != ".json":
+        return path.is_file()
+    value = _load_json(path)
+    return (
+        value.get("status") == "passed"
+        and int(value.get("error_count", 0)) == 0
+        and not value.get("errors")
+    )
+
+
+def _package_current(path: Path) -> bool:
+    package = _load_json(path)
+    return package.get("superseded") is not True
+
+
+def _row_gate_passed(value: Any) -> bool:
+    return str(value) in {
+        "passed",
+        "passed_with_warning",
+        "secondary_descriptive_evidence",
+        "not_revalidated_for_q_vector_secondary_only",
+        "shared_parameter_baseline",
+        "requires_R2_parsimony_decision",
+        "family_max_adjusted_passed",
+        "pre_registered_family",
+        "not_applicable",
+        "complexity_not_justified",
+    }
+
+
+def expected_handoff_status(row: dict[str, Any]) -> tuple[str, str]:
+    hard_gates = [
+        "input_gate_status",
+        "existence_status",
+        "intra_layer_status",
+        "inter_layer_increment_status",
+        "global_null_status",
+        "nested_increment_null_status",
+        "year_stability_status",
+        "identity_status",
+        "interval_geometry_status",
+        "neighborhood_status",
+        "complexity_status",
+        "multiplicity_status",
+    ]
+    failed = [gate for gate in hard_gates if not _row_gate_passed(row.get(gate))]
+    if failed:
+        return "blocked_return_to_R0", ";".join(failed)
+    if row.get("archetype") == "shared_q":
+        return "freeze_candidate", ""
+    if (
+        row.get("request_role") == "immediate_neighbor"
+        and float(row.get("qV", 0)) == 0.25
+    ):
+        if row.get("complexity_status") == "complexity_not_justified":
+            return "do_not_freeze", ""
+        return "blocked_return_to_R0", "v25_neighbor_without_complexity_rejection"
+    if row.get("request_role") in {"center", "immediate_neighbor"}:
+        return "review_candidate", ""
+    return "blocked_return_to_R0", "unknown_candidate_role"
+
+
+def _validate_rate_identity(row: dict[str, Any]) -> None:
+    target = float(row["target_marginal"])
+    retention = float(row["retention"])
+    lift = float(row["association_lift"])
+    delta = float(row["absolute_increment"])
+    if target <= 0:
+        raise ValueError(f"nonpositive_target_marginal:{row['handoff_row_id']}")
+    if abs(retention - lift * target) > 1e-10:
+        raise ValueError(f"retention_lift_identity:{row['handoff_row_id']}")
+    if abs(delta - (retention - target)) > 1e-10:
+        raise ValueError(f"delta_identity:{row['handoff_row_id']}")
+
+
+def _merge_commit_for_pr(root: Path, pr_number: int) -> str:
+    result = subprocess.run(
+        [
+            "git",
+            "log",
+            "--format=%H",
+            "--merges",
+            "--all",
+            "--grep",
+            f"#{pr_number}",
+            "-n",
+            "1",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    commit = result.stdout.strip()
+    if not commit:
+        raise ValueError(f"merge_commit_not_found:#{pr_number}")
+    return commit
 
 
 def _base_row(
@@ -153,7 +271,7 @@ def _base_row(
         "median_duration": _f(profile, "median_duration"),
         "affected_transition_path": step,
         "retention": _f(layer, "retention"),
-        "target_marginal": _f(layer, "target_marginal_rate"),
+        "target_marginal": _required_f(layer, "target_marginal_rate"),
         "association_lift": _f(layer, "lift"),
         "absolute_increment": _f(layer, "delta"),
         "global_joint_lift": _f(global_null, "observed_null_ratio"),
@@ -168,7 +286,17 @@ def _base_row(
         "warning_codes": warnings,
         "overall_handoff_status": "freeze_candidate",
         "required_R2_decision": "choose_window_and_state_version_without_R1_winner",
-        "source_artifact_refs": ["R1-T04", "R1-T06", "R1-T08", "R1-T09"],
+        "source_artifact_refs": [
+            "R1-T01",
+            "R1-T02",
+            "R1-T03",
+            "R1-T04",
+            "R1-T05",
+            "R1-T06",
+            "R1-T07",
+            "R1-T08",
+            "R1-T09",
+        ],
         "source_artifact_hashes": {},
     }
 
@@ -202,19 +330,14 @@ def _q_rows(root: Path) -> list[dict[str, Any]]:
             group_id="ALL",
         )
         iv = _pick(intervals, formal_vector_id=d["formal_vector_id"], state_line=state)
-        globals_ = [
-            x
-            for x in nulls
-            if x["formal_vector_id"] == d["formal_vector_id"]
-            and "GLOBAL" in x["family_id"]
-        ]
-        nesteds = [
-            x
-            for x in nulls
-            if x["formal_vector_id"] == d["formal_vector_id"]
-            and "GLOBAL" not in x["family_id"]
-        ]
-        g, n = globals_[0], nesteds[0]
+        global_family = "F1_GLOBAL_PCT" if state == "S_PCT" else "F2_GLOBAL_PCVT"
+        nested_family = "F4_T_GIVEN_PC" if state == "S_PCT" else "F5_V_GIVEN_PCT"
+        g = _pick(
+            nulls, formal_vector_id=d["formal_vector_id"], family_id=global_family
+        )
+        n = _pick(
+            nulls, formal_vector_id=d["formal_vector_id"], family_id=nested_family
+        )
         is_t = float(d["qT"]) > 0.2
         is_v25 = state == "S_PCVT" and float(d["qV"]) == 0.25
         status = "do_not_freeze" if is_v25 else "review_candidate"
@@ -295,7 +418,7 @@ def _q_rows(root: Path) -> list[dict[str, Any]]:
                 "median_duration": _f(iv, "duration_median"),
                 "affected_transition_path": il.get("step_id", ""),
                 "retention": _f(il, "retention"),
-                "target_marginal": _f(il, "target_marginal_rate"),
+                "target_marginal": _required_f(il, "target_marginal"),
                 "association_lift": _f(il, "lift"),
                 "absolute_increment": _f(il, "delta"),
                 "global_joint_lift": _f(g, "joint_lift"),
@@ -409,6 +532,20 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         ]
         if missing:
             raise FileNotFoundError(f"{task} adapter missing: {missing}")
+        package_value = _load_json(pp) if pp.suffix == ".json" else {}
+        final_value = _load_json(fp) if fp.suffix == ".json" else {}
+        repository_gate = "passed" if _final_gate_passed(fp) else "failed"
+        scientific_status = str(
+            package_value.get("scientific_review_status")
+            or final_value.get("scientific_review_status")
+            or "passed_or_legacy_gate_adapter"
+        )
+        formal_completed = bool(
+            package_value.get("formal_task_completed")
+            or final_value.get("formal_task_completed")
+            or cls in {"protocol_lock", "lineage_audit", "grid_profile"}
+        )
+        superseded = bool(package_value.get("superseded", False))
         upstream.append(
             {
                 "task_id": task,
@@ -428,13 +565,21 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
                 "scientific_review_sha256": sha256(review),
                 "final_gate_validation_path": final,
                 "final_gate_validation_sha256": sha256(fp),
-                "reviewed_commit": "legacy_adapter_or_bound_in_final_gate",
-                "merge_commit": "repository_main_history",
-                "status": "completed",
-                "scientific_review_status": "passed_or_legacy_gate_adapter",
-                "repository_final_gate_status": "passed",
-                "formal_task_completed": "true",
-                "superseded": "false",
+                "reviewed_commit": str(
+                    final_value.get("reviewed_pr_head_commit")
+                    or package_value.get("reviewed_pr_head_commit")
+                    or package_value.get("code_commit")
+                    or "legacy_adapter"
+                ),
+                "merge_commit": str(
+                    package_value.get("upstream_binding", {}).get("merge_commit")
+                    or "repository_main_history"
+                ),
+                "status": str(package_value.get("status") or "completed"),
+                "scientific_review_status": scientific_status,
+                "repository_final_gate_status": repository_gate,
+                "formal_task_completed": str(formal_completed).lower(),
+                "superseded": str(superseded).lower(),
             }
         )
     write_csv(output / "r1_t10_upstream_evidence_registry.csv", upstream)
@@ -444,11 +589,19 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
             {
                 "task_id": r["task_id"],
                 "package_unique": "true",
-                "non_superseded": "true",
+                "non_superseded": str(r["superseded"] == "false").lower(),
                 "hashes_match": "true",
-                "scientific_gate": "passed",
-                "repository_gate": "passed",
-                "reconciliation_status": "passed",
+                "scientific_gate": r["scientific_review_status"],
+                "repository_gate": r["repository_final_gate_status"],
+                "formal_task_completed": r["formal_task_completed"],
+                "reconciliation_status": "passed"
+                if (
+                    r["superseded"] == "false"
+                    and _status_passed(r["scientific_review_status"])
+                    and r["repository_final_gate_status"] == "passed"
+                    and r["formal_task_completed"] == "true"
+                )
+                else "failed",
             }
             for r in upstream
         ],
@@ -474,16 +627,9 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         for s in ("S_PCT", "S_PCVT")
         for w in (250, 120)
     ] + _q_rows(root)
-    source_paths = {
-        "R1-T04": "data/generated/r1/r1_t04/R1-T04-20260710T0835Z/r1_t04_state_line_profile.csv",  # noqa: E501
-        "R1-T06": "data/generated/r1/r1_t06/R1-T06-20260710T1216Z/r1_t06_layer_step_profile.csv",  # noqa: E501
-        "R1-T08": "data/generated/r1/r1_t08/R1-T08-20260710T1629Z/r1_t08_null_model_results.csv",  # noqa: E501
-        "R1-T09": "data/generated/r1/r1_t09/R1-T09-20260710T1825Z/r1_t09_year_concentration_summary.csv",  # noqa: E501
-        "R1-T14-01": "data/generated/r1/r1_t14_01/R1-T14-01-20260710T2113Z/r1_t14_01_result_package.json",  # noqa: E501
-        "R0-T15": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_result_package.json",  # noqa: E501
-        "R1-T14-02": "data/generated/r1/r1_t14_02/R1-T14-02-20260711T1100Z/r1_t14_02_result_package.json",  # noqa: E501
-    }
+    source_paths = {r["task_id"]: r["result_package_path"] for r in upstream}
     for row in matrix:
+        _validate_rate_identity(row)
         row["source_artifact_hashes"] = {
             task: {
                 "path": source_paths[task],
@@ -500,7 +646,20 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
             x["qV"],
         )
     )
+    recomputation = []
+    for row in matrix:
+        expected_status, reason = expected_handoff_status(row)
+        actual_status = row["overall_handoff_status"]
+        recomputation.append(
+            {
+                "handoff_row_id": row["handoff_row_id"],
+                "expected_status": expected_status,
+                "actual_status": actual_status,
+                "mismatch_reason": "" if expected_status == actual_status else reason,
+            }
+        )
     write_csv(output / "r1_t10_r2_decision_matrix.csv", matrix)
+    write_csv(output / "r1_t10_decision_recomputation.csv", recomputation)
     write_csv(
         output / "r1_t10_candidate_registry.csv",
         [
@@ -615,12 +774,22 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
         "duplicate_candidate_count": 0,
         "orphan_parent_count": 0,
         "parent_child_violation_count": 0,
-        "decision_status_mismatch_count": 0,
+        "decision_status_mismatch_count": sum(
+            r["expected_status"] != r["actual_status"] for r in recomputation
+        ),
         "selection_path_flag_missing_count": 0,
         "warning_loss_count": 0,
         "required_R2_decision_missing_count": 0,
         "optional_task_trigger_unresolved_count": 0,
-        "status": "passed",
+        "status": "passed"
+        if all(
+            (
+                len(matrix) == 12,
+                len({r["handoff_row_id"] for r in matrix}) == 12,
+                all(r["expected_status"] == r["actual_status"] for r in recomputation),
+            )
+        )
+        else "failed",
     }
     dump(output / "r1_t10_anomaly_scan.json", anomaly)
     checklist = []
@@ -682,7 +851,35 @@ def build(root: Path, output: Path, run_id: str) -> dict[str, Any]:
                 output / "r1_t10_upstream_evidence_registry.csv"
             ),
             "source_hash_mismatch_count": 0,
-            "superseded_source_count": 0,
+            "superseded_source_count": sum(
+                r["superseded"] != "false" for r in upstream
+            ),
+        },
+    )
+    t14_final_package = _load_json(
+        root
+        / "data/generated/r1/r1_t14_02/R1-T14-02-20260711T1100Z"
+        / "r1_t14_02_final_gate_package.json"
+    )
+    dump(
+        output / "r1_t10_readme_transition_artifact.json",
+        {
+            "run_id": run_id,
+            "transition_scope": "R1-T14-02_completed_to_R1-T10_author_draft",
+            "t14_02_final_task_index_path": t14_final_package["task_index_path"],
+            "t14_02_final_task_index_sha256": t14_final_package["task_index_sha256"],
+            "t14_02_merge_commit": _merge_commit_for_pr(root, 89),
+            "current_task_index_path": "docs/tasks/README.md",
+            "current_task_index_sha256": sha256(root / "docs/tasks/README.md"),
+            "allowed_field_changes": [
+                "current_task",
+                "R1-T10_status",
+                "R1-T10_scientific_review_status",
+                "R1-T10_independent_review_status",
+                "R2_allowed_to_start",
+            ],
+            "R2_allowed_to_start": False,
+            "repository_final_gate_status": "pending",
         },
     )
     dump(

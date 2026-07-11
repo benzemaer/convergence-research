@@ -38,7 +38,7 @@ def build_author_package(root: Path) -> dict:
         "status": "author_draft_complete",
         "review_phase": "author_analysis_complete",
         "scientific_review_status": "pending",
-        "independent_review_status": "not_started",
+        "independent_review_status": "pending_external_rereview",
         "repository_final_gate_status": "pending",
         "formal_task_completed": False,
         "downstream_gate_allowed": False,
