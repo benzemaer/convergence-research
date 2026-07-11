@@ -39,6 +39,7 @@ The R3 guard is confirmed-only at evaluation time. Bridged false days and retros
 The 37 committed synthetic cases cover confirmation, qualification, grouping, availability, open events, denominator scopes, monotonic responses, strict-core subset, risk-set guards, mutation failures, input lineage, forbidden fields, and double-rebuild determinism. The independent validator rebuilt all seven canonical contract artifacts twice and matched normalized hashes. No unresolved ambiguity was detected. Scientific review remains pending and R2-T03 remains closed.
 """,
         encoding="utf-8",
+        newline="\n",
     )
     anomaly = {
         "task_id": "R2-T02",
@@ -108,6 +109,7 @@ The 37 committed synthetic cases cover confirmation, qualification, grouping, av
 `R2-T03_allowed_to_start`: false
 """,
         encoding="utf-8",
+        newline="\n",
     )
     package = {
         "task_id": "R2-T02",

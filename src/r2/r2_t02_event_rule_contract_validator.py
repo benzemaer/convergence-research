@@ -362,7 +362,9 @@ def _write_rebuild(directory: Path, artifacts: dict[str, Any]) -> dict[str, str]
         path = directory / name
         if name.endswith(".csv"):
             with path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.DictWriter(handle, fieldnames=list(value[0]))
+                writer = csv.DictWriter(
+                    handle, fieldnames=list(value[0]), lineterminator="\n"
+                )
                 writer.writeheader()
                 writer.writerows(value)
         else:
