@@ -9,15 +9,22 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from scripts.run_unittest_profile import _build_suite, _load_profiles, _suite_test_ids
+
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2/r2_t02_premerge_full_evidence.schema.json"
 PROFILE_CONFIG = ROOT / "configs/ci/unittest_profiles.v1.json"
 FORMAL_SURFACE = [
+    ".github/workflows/quality.yml",
     "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v1.json",
+    "schemas/r2/r2_t02_premerge_full_evidence.schema.json",
+    "scripts/run_unittest_profile.py",
+    "scripts/r2/build_r2_t02_premerge_full_evidence.py",
+    "scripts/r2/validate_r2_t02_committed_artifacts.py",
+    "src/r2/r2_t02_committed_artifact_validator.py",
     "src/r2/r2_t02_protocol_freeze.py",
     "src/r2/r2_t02_independent_validator.py",
     "src/r2/r2_t02_premerge_full_evidence.py",
-    "schemas/r2/r2_t02_premerge_full_evidence.schema.json",
 ]
 
 
@@ -29,7 +36,14 @@ def build_evidence(
     root: Path = ROOT,
 ) -> dict[str, Any]:
     profile_result = _load_json(profile_result_path)
-    profiles = _load_json(root / "configs/ci/unittest_profiles.v1.json")["profiles"]
+    profiles = _load_profiles(root / "configs/ci/unittest_profiles.v1.json")
+    full_test_ids = sorted(_suite_test_ids(_build_suite(profiles["full"])))
+    heavy_test_ids = sorted(
+        _suite_test_ids(_build_suite(profiles["r0-heavy-premerge"]))
+    )
+    runner_test_ids = sorted(profile_result.get("test_ids", []))
+    full_collection_hash = _collection_sha256(full_test_ids)
+    heavy_collection_hash = _collection_sha256(heavy_test_ids)
     heavy_files = sorted(profiles["r0-heavy-premerge"].get("files", []))
     payload = {
         "task_id": "R2-T02",
@@ -49,6 +63,9 @@ def build_evidence(
         "test_count": profile_result["test_count"],
         "unique_test_count": profile_result["unique_test_count"],
         "test_collection_sha256": profile_result["test_collection_sha256"],
+        "independent_full_collection_sha256": full_collection_hash,
+        "runner_test_ids_match_current_full": runner_test_ids == full_test_ids,
+        "full_test_ids": full_test_ids,
         "failure_count": profile_result["failure_count"],
         "error_count": profile_result["error_count"],
         "skipped_count": profile_result["skipped_count"],
@@ -56,8 +73,12 @@ def build_evidence(
         "heavy_profile": "r0-heavy-premerge",
         "heavy_test_file_set": heavy_files,
         "heavy_test_count": len(heavy_files),
+        "heavy_test_ids": heavy_test_ids,
+        "heavy_test_collection_sha256": heavy_collection_hash,
+        "heavy_subset_of_full": set(heavy_test_ids).issubset(full_test_ids),
         "completed_at_utc": profile_result["completed_at_utc"],
         "formal_surface_sha256": _formal_surface_sha256(root),
+        "formal_surface_git_blob_sha256": _formal_surface_git_blob_sha256(root),
     }
     _validate(payload, root)
     if payload["tested_head_sha"] != payload["reviewed_head_sha"]:
@@ -84,6 +105,15 @@ def validate_final_gate(
         errors.append("full_profile_not_passed")
     if payload["failure_count"] != 0 or payload["error_count"] != 0:
         errors.append("full_profile_failures_or_errors")
+    if not payload["runner_test_ids_match_current_full"]:
+        errors.append("runner_test_ids_do_not_match_current_full")
+    if (
+        payload["test_collection_sha256"]
+        != payload["independent_full_collection_sha256"]
+    ):
+        errors.append("full_collection_hash_mismatch")
+    if not payload["heavy_subset_of_full"]:
+        errors.append("heavy_tests_not_subset_of_full")
     if errors:
         raise ValueError(",".join(errors))
 
@@ -127,6 +157,24 @@ def _formal_surface_sha256(root: Path) -> str:
         digest.update(path.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def _formal_surface_git_blob_sha256(root: Path) -> str:
+    import subprocess
+
+    digest = hashlib.sha256()
+    head = _git_sha(root)
+    for rel in sorted(FORMAL_SURFACE):
+        blob = subprocess.check_output(["git", "show", f"{head}:{rel}"], cwd=root)
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(blob)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _collection_sha256(test_ids: list[str]) -> str:
+    return hashlib.sha256("\n".join(sorted(test_ids)).encode("utf-8")).hexdigest()
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -23,7 +23,13 @@
         "event_zone",
         "event_zone_membership_daily",
         "transition_profile",
-        "strict_core_window_comparison"
+        "strict_core_window_comparison",
+        "atomic_baseline_profile",
+        "d_qualification_profile",
+        "dg_event_zone_profile",
+        "transition_aggregate_profile",
+        "strict_core_shell_profile",
+        "window_overlap_comparison"
       ],
       "properties": {
         "atomic_confirmed_daily": {"$ref": "#/$defs/table_contract"},
@@ -31,7 +37,13 @@
         "event_zone": {"$ref": "#/$defs/table_contract"},
         "event_zone_membership_daily": {"$ref": "#/$defs/table_contract"},
         "transition_profile": {"$ref": "#/$defs/table_contract"},
-        "strict_core_window_comparison": {"$ref": "#/$defs/table_contract"}
+        "strict_core_window_comparison": {"$ref": "#/$defs/table_contract"},
+        "atomic_baseline_profile": {"$ref": "#/$defs/table_contract"},
+        "d_qualification_profile": {"$ref": "#/$defs/table_contract"},
+        "dg_event_zone_profile": {"$ref": "#/$defs/table_contract"},
+        "transition_aggregate_profile": {"$ref": "#/$defs/table_contract"},
+        "strict_core_shell_profile": {"$ref": "#/$defs/table_contract"},
+        "window_overlap_comparison": {"$ref": "#/$defs/table_contract"}
       }
     }
   },

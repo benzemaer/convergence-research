@@ -1,7 +1,7 @@
 {
   "task_id": "R2-T02",
   "superseded_run_id": "R2-T02-20260712T0700Z",
-  "replacement_run_id": "R2-T02-20260712T0800Z",
+  "replacement_run_id": "R2-T02-20260712T0900Z",
   "status": "superseded",
   "superseded_at": "2026-07-12T08:00:00Z",
   "supersession_reason_codes": [

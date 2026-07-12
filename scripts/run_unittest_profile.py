@@ -144,6 +144,7 @@ def _write_profile_result(
         "skipped_count": len(result.skipped),
         "elapsed_seconds": round(elapsed, 6),
         "completed_at_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "test_ids": sorted(test_ids),
         "test_files": sorted(result.file_test_counts),
         "file_test_counts": dict(sorted(result.file_test_counts.items())),
     }
