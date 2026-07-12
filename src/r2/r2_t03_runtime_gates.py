@@ -83,7 +83,20 @@ def validate_runtime_gates(
 
 
 def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
-    specs = [
+    specs = _structural_check_specs()
+    output = []
+    for check_id, scope, sql, threshold, rule in specs:
+        value = con.execute(sql).fetchone()[0]
+        passed = value > threshold if rule == ">0" else value == threshold
+        output.append(
+            _row(check_id, scope, "", value, rule, passed, True, "direct_sql")
+        )
+    output.extend(_transition_closure_checks(con))
+    return output
+
+
+def _structural_check_specs() -> list[tuple[str, str, str, int, str]]:
+    return [
         (
             "duplicate_primary_key",
             "route_daily",
@@ -270,7 +283,14 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
         (
             "unqualified_reentry_unfinalized",
             "global",
-            "SELECT count(*) FROM reentry_attempt WHERE outcome NOT IN ('unqualified_reentry','quality_break','right_censored_reentry')",
+            """SELECT count(*) FROM reentry_attempt r LEFT JOIN (
+              SELECT candidate_cell_id,security_id,entity_id,
+               arg_max(to_state,transition_ordinal) terminal_state
+              FROM transition_entity_ledger WHERE entity_kind='reentry' GROUP BY 1,2,3) t
+              ON t.candidate_cell_id=r.candidate_cell_id AND t.security_id=r.security_id
+             AND t.entity_id=r.reentry_attempt_id
+              WHERE r.outcome NOT IN ('unqualified_reentry','quality_break','right_censored_reentry')
+                 OR t.terminal_state NOT IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED')""",
             0,
             "=0",
         ),
@@ -284,7 +304,7 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
         (
             "raw_false_gap_days_exceed_g",
             "global",
-            "SELECT count(*) FROM event_zone e JOIN cell_registry c USING(candidate_cell_id) WHERE e.max_raw_false_gap_days>c.g AND e.status='RIGHT_CENSORED'",
+            "SELECT count(*) FROM event_zone e JOIN cell_registry c USING(candidate_cell_id) WHERE e.max_raw_false_gap_days>c.g",
             0,
             "=0",
         ),
@@ -312,7 +332,11 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
         (
             "event_zone_revision_regression",
             "global",
-            "SELECT count(*) FROM event_zone_membership_daily WHERE zone_revision_as_of<0",
+            """SELECT count(*) FROM (
+              SELECT zone_revision_as_of,
+               lag(zone_revision_as_of) OVER(PARTITION BY candidate_cell_id,security_id,scan_event_id ORDER BY trade_date) prior_revision
+              FROM event_zone_membership_daily)
+              WHERE zone_revision_as_of<0 OR zone_revision_as_of<prior_revision""",
             0,
             "=0",
         ),
@@ -333,20 +357,16 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
         (
             "forbidden_output_field",
             "global",
-            "SELECT count(*) FROM pragma_table_info('route_daily') WHERE name ILIKE '%future%' OR name ILIKE '%return%'",
+            """SELECT count(*) FROM information_schema.columns
+            WHERE table_schema='main' AND (
+              column_name ILIKE '%future%' OR column_name ILIKE '%return%'
+              OR column_name ILIKE '%precision%' OR column_name ILIKE '%recall%'
+              OR column_name ILIKE '%winner%' OR column_name ILIKE '%selected_d%'
+              OR column_name ILIKE '%selected_g%')""",
             0,
             "=0",
         ),
     ]
-    output = []
-    for check_id, scope, sql, threshold, rule in specs:
-        value = con.execute(sql).fetchone()[0]
-        passed = value > threshold if rule == ">0" else value == threshold
-        output.append(
-            _row(check_id, scope, "", value, rule, passed, True, "direct_sql")
-        )
-    output.extend(_transition_closure_checks(con))
-    return output
 
 
 def _binding_checks(output_dir: Path) -> list[dict[str, Any]]:

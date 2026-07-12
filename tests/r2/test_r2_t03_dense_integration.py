@@ -29,7 +29,7 @@ class R2T03DenseIntegrationTest(unittest.TestCase):
             "INSERT INTO cell_registry VALUES ('c','r','primary','S_PCT',120,3,.2,.2,.25,.2,1,0)"
         )
         con.execute(
-            """CREATE TABLE route_source_daily(route_id VARCHAR,security_id VARCHAR,
+            """CREATE TABLE route_dense_input(route_id VARCHAR,security_id VARCHAR,
             trade_date DATE,available_time TIMESTAMPTZ,eligible BOOLEAN,quality_state VARCHAR,
             raw_state BOOLEAN,confirmed_state BOOLEAN,confirmed_start_date DATE,
             confirmation_time TIMESTAMPTZ,state_risk_set_eligible BOOLEAN,
@@ -39,7 +39,7 @@ class R2T03DenseIntegrationTest(unittest.TestCase):
         for index, date in enumerate(dates):
             empty = index == 3
             con.execute(
-                "INSERT INTO route_source_daily VALUES ('r','S',?,?::TIMESTAMPTZ,?,?,?,?,NULL,NULL,false,?,?)",
+                "INSERT INTO route_dense_input VALUES ('r','S',?,?::TIMESTAMPTZ,?,?,?,?,NULL,NULL,false,?,?)",
                 [
                     date,
                     f"{date}T15:00:00+08:00",
@@ -93,11 +93,9 @@ class R2T03DenseIntegrationTest(unittest.TestCase):
         con = duckdb.connect()
         _create_output_schema(con)
         con.execute(
-            "CREATE TABLE route_source_daily(route_id VARCHAR,security_id VARCHAR,trade_date DATE,source_row_present BOOLEAN)"
+            "CREATE TABLE route_dense_input(route_id VARCHAR,security_id VARCHAR,trade_date DATE,source_row_present BOOLEAN)"
         )
-        con.execute(
-            "INSERT INTO route_source_daily VALUES ('r','S','2026-01-04',false)"
-        )
+        con.execute("INSERT INTO route_dense_input VALUES ('r','S','2026-01-04',false)")
         con.execute(
             """CREATE TABLE authorized_upstream_interval(route_id VARCHAR,security_id VARCHAR,
             upstream_source_interval_id VARCHAR,raw_start_date DATE,confirmed_start_date DATE,
@@ -125,11 +123,9 @@ class R2T03DenseIntegrationTest(unittest.TestCase):
         con = duckdb.connect()
         _create_output_schema(con)
         con.execute(
-            "CREATE TABLE route_source_daily(route_id VARCHAR,security_id VARCHAR,trade_date DATE,source_row_present BOOLEAN)"
+            "CREATE TABLE route_dense_input(route_id VARCHAR,security_id VARCHAR,trade_date DATE,source_row_present BOOLEAN)"
         )
-        con.execute(
-            "INSERT INTO route_source_daily VALUES ('r','S','2026-01-04',false)"
-        )
+        con.execute("INSERT INTO route_dense_input VALUES ('r','S','2026-01-04',false)")
         con.execute(
             """CREATE TABLE authorized_upstream_interval(route_id VARCHAR,security_id VARCHAR,
             upstream_source_interval_id VARCHAR,raw_start_date DATE,confirmed_start_date DATE,

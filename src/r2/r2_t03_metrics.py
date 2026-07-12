@@ -232,6 +232,8 @@ def deterministic_window_comparison(
     comparison_events: Mapping[str, set[ExactKey]],
     primary_event_spans: Mapping[str, set[ExactKey]] | None = None,
     comparison_event_spans: Mapping[str, set[ExactKey]] | None = None,
+    primary_components: Mapping[str, set[ExactKey]] | None = None,
+    comparison_components: Mapping[str, set[ExactKey]] | None = None,
 ) -> dict[str, int | float | None]:
     """Frozen exact-key daily comparison and deterministic greedy 1:1 event match."""
     intersection = primary_confirmed & comparison_confirmed
@@ -261,6 +263,24 @@ def deterministic_window_comparison(
             continue
         matched_primary.add(primary_id)
         matched_comparison.add(comparison_id)
+    primary_component_map = primary_components or {}
+    comparison_component_map = comparison_components or {}
+    overlapping_components = {
+        primary_id
+        for primary_id, primary_span in primary_component_map.items()
+        if any(
+            _date_spans_overlap(primary_span, comparison_span)
+            for comparison_span in comparison_component_map.values()
+        )
+    }
+    overlapping_comparison_components = {
+        comparison_id
+        for comparison_id, comparison_span in comparison_component_map.items()
+        if any(
+            _date_spans_overlap(comparison_span, primary_span)
+            for primary_span in primary_component_map.values()
+        )
+    }
     return {
         "intersection_confirmed_days": len(intersection),
         "W120_only_confirmed_days": len(primary_confirmed - comparison_confirmed),
@@ -274,6 +294,13 @@ def deterministic_window_comparison(
         # Frozen wording is "events with overlapping zone spans": count primary events,
         # never many-to-many pairs.
         "overlapping_event_count": len(overlapping_primary),
+        "W120_only_event_count": len(primary_events) - len(matched_primary),
+        "W250_only_event_count": len(comparison_events) - len(matched_comparison),
+        "component_overlap_count": len(overlapping_components),
+        "W120_only_component_count": len(primary_component_map)
+        - len(overlapping_components),
+        "W250_only_component_count": len(comparison_component_map)
+        - len(overlapping_comparison_components),
     }
 
 
@@ -304,6 +331,17 @@ def create_metric_tables(con: duckdb.DuckDBPyConnection) -> None:
         )
     if "zone_revision" not in event_columns:
         con.execute("ALTER TABLE event_zone ADD COLUMN zone_revision INTEGER DEFAULT 0")
+    membership_columns = {
+        row[1]
+        for row in con.execute(
+            "PRAGMA table_info('event_zone_membership_daily')"
+        ).fetchall()
+    }
+    for column in ("prequalification_member", "unqualified_reentry_member"):
+        if column not in membership_columns:
+            con.execute(
+                f"ALTER TABLE event_zone_membership_daily ADD COLUMN {column} BOOLEAN DEFAULT false"
+            )
     con.execute(_CORE_PROFILE_SQL)
     _create_strict_core_profile(con)
     _create_window_profile(con)
@@ -342,6 +380,7 @@ def _create_strict_core_profile(con: duckdb.DuckDBPyConnection) -> None:
 
 def _create_window_profile(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("DROP TABLE IF EXISTS window_overlap_comparison")
+    con.execute("DROP TABLE IF EXISTS window_supplemental_source")
     con.execute(
         """CREATE TABLE window_overlap_comparison(
         primary_candidate_cell_id VARCHAR, comparison_candidate_cell_id VARCHAR,
@@ -350,6 +389,13 @@ def _create_window_profile(con: duckdb.DuckDBPyConnection) -> None:
         confirmed_day_jaccard DOUBLE, W120_own_eligible_days BIGINT,
         W250_own_eligible_days BIGINT, common_eligible_days BIGINT,
         matched_event_count BIGINT, overlapping_event_count BIGINT)"""
+    )
+    con.execute(
+        """CREATE TABLE window_supplemental_source(
+        primary_candidate_cell_id VARCHAR,comparison_candidate_cell_id VARCHAR,
+        W120_only_event_count BIGINT,W250_only_event_count BIGINT,
+        component_overlap_count BIGINT,W120_only_component_count BIGINT,
+        W250_only_component_count BIGINT)"""
     )
     for primary, comparison in con.execute(
         "SELECT primary_candidate_cell_id,comparison_candidate_cell_id FROM window_pairs ORDER BY 1,2"
@@ -363,10 +409,16 @@ def _create_window_profile(con: duckdb.DuckDBPyConnection) -> None:
             comparison_events=_event_key_sets(con, comparison),
             primary_event_spans=_event_span_sets(con, primary),
             comparison_event_spans=_event_span_sets(con, comparison),
+            primary_components=_component_span_sets(con, primary),
+            comparison_components=_component_span_sets(con, comparison),
         )
         con.execute(
             "INSERT INTO window_overlap_comparison VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            [primary, comparison, *value.values()],
+            [primary, comparison, *list(value.values())[:10]],
+        )
+        con.execute(
+            "INSERT INTO window_supplemental_source VALUES (?,?,?,?,?,?,?)",
+            [primary, comparison, *list(value.values())[10:]],
         )
 
 
@@ -384,6 +436,35 @@ def _event_key_sets(
     for event_id, security, trade_date in rows:
         output.setdefault(event_id, set()).add((security, trade_date))
     return output
+
+
+def _component_span_sets(
+    con: duckdb.DuckDBPyConnection, cell: str
+) -> dict[str, set[ExactKey]]:
+    output: dict[str, set[ExactKey]] = {}
+    if not _table_exists(con, "qualified_component"):
+        return output
+    rows = con.execute(
+        """SELECT q.component_id,m.security_id,CAST(m.trade_date AS VARCHAR)
+        FROM qualified_component q JOIN event_zone_membership_daily m
+          ON m.candidate_cell_id=q.candidate_cell_id AND m.security_id=q.security_id
+         AND m.trade_date BETWEEN q.start_date AND q.end_date
+        WHERE q.candidate_cell_id=? AND q.qualified AND m.confirmed_state
+        ORDER BY 1,2,3""",
+        [cell],
+    ).fetchall()
+    for component_id, security, trade_date in rows:
+        output.setdefault(component_id, set()).add((security, trade_date))
+    return output
+
+
+def _table_exists(con: duckdb.DuckDBPyConnection, table: str) -> bool:
+    return bool(
+        con.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name=?",
+            [table],
+        ).fetchone()[0]
+    )
 
 
 def _event_span_sets(
@@ -657,7 +738,7 @@ WITH ranked AS (
  max(confirmed_day_count) FILTER(WHERE rn=ceil(.90*n)) atomic_duration_q90,
  max(confirmed_day_count) FILTER(WHERE rn=ceil(.95*n)) atomic_duration_q95,
  count(*) FILTER(WHERE confirmed_day_count=1) atomic_singleton_count,
- count(*) FILTER(WHERE source_geometry_affected)::DOUBLE/nullif(count(*),0) atomic_fragment_rate,
+ count(*) FILTER(WHERE confirmed_day_count=1)::DOUBLE/nullif(count(*),0) atomic_fragment_rate,
  count(*) FILTER(WHERE termination_reason='natural_state_exit') natural_exit_count,
  count(*) FILTER(WHERE termination_reason='quality_interruption') quality_interruption_count,
  count(*) FILTER(WHERE termination_reason='sample_end_censoring') right_censored_atomic_count
@@ -665,80 +746,209 @@ FROM ranked GROUP BY 1;
 
 CREATE TABLE component_diagnostic_profile AS
 WITH base AS (
- SELECT c.candidate_cell_id,q.*,l.normally_ended,l.censor_status,
-   row_number() OVER(PARTITION BY c.candidate_cell_id ORDER BY q.confirmed_day_count,q.component_id) rn,
-   count(*) OVER(PARTITION BY c.candidate_cell_id) n
+ SELECT c.candidate_cell_id,c.d,q.*,l.normally_ended,l.censor_status,
+   (c.d-1)::INTEGER qualification_delay_observations
  FROM cell_registry c JOIN qualified_component q USING(candidate_cell_id)
  JOIN component_source_lineage l USING(candidate_cell_id,security_id,component_id)
-) SELECT candidate_cell_id,
- count(*) FILTER(WHERE qualified) qualified_component_count,
- count(*) FILTER(WHERE NOT qualified) unqualified_component_count,
- count(*) FILTER(WHERE qualified)::DOUBLE/nullif(count(*),0) component_qualification_rate,
- sum(confirmed_day_count) FILTER(WHERE qualified) qualified_confirmed_day_count,
- count(*) FILTER(WHERE censor_status='right_censored') prequalification_right_censored_count,
- avg(confirmed_day_count) FILTER(WHERE qualified) qualification_delay_observations_mean,
- median(confirmed_day_count) FILTER(WHERE qualified) qualification_delay_observations_median,
- max(confirmed_day_count) FILTER(WHERE qualified AND rn=ceil(.90*n)) qualification_delay_observations_q90,
- max(confirmed_day_count) FILTER(WHERE qualified AND rn=ceil(.95*n)) qualification_delay_observations_q95
-FROM base GROUP BY 1;
+), ranked AS (
+ SELECT *,row_number() OVER(PARTITION BY candidate_cell_id ORDER BY qualification_delay_observations,component_id) rn,
+   count(*) OVER(PARTITION BY candidate_cell_id) n FROM base WHERE qualified
+), member AS (
+ SELECT candidate_cell_id,
+  count(*) FILTER(WHERE confirmed_state AND retrospective_component_member) retrospective_days,
+  count(*) FILTER(WHERE confirmed_state AND component_qualified_as_of) asof_days,
+  count(*) FILTER(WHERE confirmed_state AND prequalification_member) prequalification_days
+ FROM event_zone_membership_daily GROUP BY 1
+), reentry AS (
+ SELECT candidate_cell_id,count(*) unqualified_reentry_count FROM reentry_attempt
+ WHERE outcome='unqualified_reentry' GROUP BY 1
+) SELECT b.candidate_cell_id,
+ count(*) FILTER(WHERE b.qualified) qualified_component_count,
+ count(*) FILTER(WHERE NOT b.qualified) unqualified_component_count,
+ count(*) FILTER(WHERE b.qualified)::DOUBLE/nullif(count(*),0) component_qualification_rate,
+ sum(b.confirmed_day_count) FILTER(WHERE b.qualified) qualified_confirmed_day_count,
+ coalesce(m.retrospective_days,0) retrospective_qualified_confirmed_day_count,
+ coalesce(m.asof_days,0) asof_qualified_confirmed_day_count,
+ coalesce(m.prequalification_days,0) prequalification_confirmed_day_count,
+ count(*) FILTER(WHERE b.censor_status='right_censored') prequalification_right_censored_count,
+ avg(b.qualification_delay_observations) FILTER(WHERE b.qualified) qualification_delay_observations_mean,
+ median(b.qualification_delay_observations) FILTER(WHERE b.qualified) qualification_delay_observations_median,
+ max(r.qualification_delay_observations) FILTER(WHERE r.rn=ceil(.90*r.n)) qualification_delay_observations_q90,
+ max(r.qualification_delay_observations) FILTER(WHERE r.rn=ceil(.95*r.n)) qualification_delay_observations_q95,
+ coalesce(x.unqualified_reentry_count,0) unqualified_reentry_count,
+ coalesce(x.unqualified_reentry_count,0)::DOUBLE/nullif(count(*) FILTER(WHERE NOT b.qualified),0) unqualified_reentry_rate
+FROM base b LEFT JOIN ranked r USING(candidate_cell_id,security_id,component_id)
+LEFT JOIN member m USING(candidate_cell_id) LEFT JOIN reentry x USING(candidate_cell_id)
+GROUP BY b.candidate_cell_id,m.retrospective_days,m.asof_days,m.prequalification_days,x.unqualified_reentry_count;
 
 CREATE TABLE event_zone_diagnostic_profile AS
 WITH ranked AS (
- SELECT e.*,row_number() OVER(PARTITION BY candidate_cell_id ORDER BY zone_span_days,scan_event_id) rn,
+ SELECT e.*,
+ row_number() OVER(PARTITION BY candidate_cell_id ORDER BY zone_span_days,scan_event_id) duration_rn,
+ row_number() OVER(PARTITION BY candidate_cell_id ORDER BY component_count,scan_event_id) component_rn,
+ row_number() OVER(PARTITION BY candidate_cell_id ORDER BY bridge_count,scan_event_id) bridge_rn,
  count(*) OVER(PARTITION BY candidate_cell_id) n
  FROM event_zone e
-) SELECT candidate_cell_id,
+), security_ranked AS (
+ SELECT candidate_cell_id,security_id,count(*) event_count,
+  row_number() OVER(PARTITION BY candidate_cell_id ORDER BY count(*),security_id) rn,
+  count(*) OVER(PARTITION BY candidate_cell_id) n
+ FROM event_zone GROUP BY 1,2
+), security_profile AS (
+ SELECT candidate_cell_id,avg(event_count) events_per_security_mean,
+  median(event_count) events_per_security_median,
+  max(event_count) FILTER(WHERE rn=ceil(.90*n)) events_per_security_q90,
+  max(event_count) events_per_security_max FROM security_ranked GROUP BY 1
+), year_count AS (
+ SELECT e.candidate_cell_id,year(q.start_date) event_year,count(*) year_events
+ FROM event_zone e JOIN qualified_component q
+  ON q.candidate_cell_id=e.candidate_cell_id AND q.security_id=e.security_id
+ AND q.component_id=e.first_component_id GROUP BY 1,2
+), year_profile AS (
+ SELECT candidate_cell_id,count(*) nonzero_years,
+  sum(year_events)::DOUBLE/nullif(count(*),0) events_per_year,
+  max(year_events)::DOUBLE/nullif(sum(year_events),0) max_year_share
+ FROM year_count GROUP BY 1
+) SELECT r.candidate_cell_id,
  count(*) qualified_event_count,
- count(*) FILTER(WHERE status='FINALIZED') natural_finalized_zone_count,
- count(*) FILTER(WHERE status='FINALIZED_WITH_QUALITY_BREAK') quality_break_zone_count,
- count(*) FILTER(WHERE status='RIGHT_CENSORED') right_censored_zone_count,
- avg(component_count) component_count_mean,median(component_count) component_count_median,
- max(component_count) FILTER(WHERE rn=ceil(.90*n)) component_count_q90,
- max(component_count) FILTER(WHERE rn=ceil(.95*n)) component_count_q95,max(component_count) component_count_max,
- avg(bridge_count) bridge_count_mean,median(bridge_count) bridge_count_median,
- max(bridge_count) FILTER(WHERE rn=ceil(.90*n)) bridge_count_q90,
- max(bridge_count) FILTER(WHERE rn=ceil(.95*n)) bridge_count_q95,max(bridge_count) bridge_count_max,
- sum(zone_span_days) zone_span_days_sum,avg(zone_span_days) duration_mean,
- median(zone_span_days) duration_median,max(zone_span_days) FILTER(WHERE rn=ceil(.90*n)) duration_q90,
- max(zone_span_days) FILTER(WHERE rn=ceil(.95*n)) duration_q95,max(zone_span_days) max_zone_span,
- sum(confirmed_day_count)::DOUBLE/nullif(sum(zone_span_days),0) confirmed_density,
- sum(bridge_count) bridged_gap_count,sum(bridged_day_count) bridged_day_count,
- sum(raw_false_bridged_day_count) raw_false_bridged_day_count,
- sum(preconfirmation_gap_day_count) preconfirmation_gap_day_count,
- sum(total_nonconfirmed_gap_day_count) total_nonconfirmed_gap_day_count,
- sum(bridged_day_count)::DOUBLE/nullif(sum(zone_span_days),0) bridged_day_ratio,
- sum(raw_false_bridged_day_count)::DOUBLE/nullif(sum(zone_span_days),0) raw_false_bridged_day_ratio,
- sum(total_nonconfirmed_gap_day_count)::DOUBLE/nullif(sum(zone_span_days),0) nonconfirmed_gap_ratio,
- max(max_total_gap_span_days) max_single_gap,
- count(*) FILTER(WHERE component_count>1)::DOUBLE/nullif(count(*),0) merge_ratio,
- sum(zone_revision) zone_revision_count,
- max(confirmed_day_count)::DOUBLE/nullif(sum(confirmed_day_count),0) top_zone_confirmed_day_share,
- count(*) FILTER(WHERE status='RIGHT_CENSORED')::DOUBLE/nullif(count(*),0) open_event_ratio
-FROM ranked GROUP BY 1;
+ count(*) FILTER(WHERE r.status='FINALIZED') natural_finalized_zone_count,
+ count(*) FILTER(WHERE r.status='FINALIZED_WITH_QUALITY_BREAK') quality_break_zone_count,
+ count(*) FILTER(WHERE r.status='RIGHT_CENSORED') right_censored_zone_count,
+ avg(r.component_count) component_count_mean,median(r.component_count) component_count_median,
+ max(r.component_count) FILTER(WHERE r.component_rn=ceil(.90*r.n)) component_count_q90,
+ max(r.component_count) FILTER(WHERE r.component_rn=ceil(.95*r.n)) component_count_q95,max(r.component_count) component_count_max,
+ avg(r.bridge_count) bridge_count_mean,median(r.bridge_count) bridge_count_median,
+ max(r.bridge_count) FILTER(WHERE r.bridge_rn=ceil(.90*r.n)) bridge_count_q90,
+ max(r.bridge_count) FILTER(WHERE r.bridge_rn=ceil(.95*r.n)) bridge_count_q95,max(r.bridge_count) bridge_count_max,
+ sum(r.zone_span_days) zone_span_days_sum,avg(r.zone_span_days) duration_mean,
+ median(r.zone_span_days) duration_median,max(r.zone_span_days) FILTER(WHERE r.duration_rn=ceil(.90*r.n)) duration_q90,
+ max(r.zone_span_days) FILTER(WHERE r.duration_rn=ceil(.95*r.n)) duration_q95,max(r.zone_span_days) max_zone_span,
+ sum(r.confirmed_day_count)::DOUBLE/nullif(sum(r.zone_span_days),0) confirmed_density,
+ sum(r.bridge_count) bridged_gap_count,sum(r.bridged_day_count) bridged_day_count,
+ sum(r.raw_false_bridged_day_count) raw_false_bridged_day_count,
+ sum(r.preconfirmation_gap_day_count) preconfirmation_gap_day_count,
+ sum(r.total_nonconfirmed_gap_day_count) total_nonconfirmed_gap_day_count,
+ sum(r.bridged_day_count)::DOUBLE/nullif(sum(r.zone_span_days),0) bridged_day_ratio,
+ sum(r.raw_false_bridged_day_count)::DOUBLE/nullif(sum(r.zone_span_days),0) raw_false_bridged_day_ratio,
+ sum(r.total_nonconfirmed_gap_day_count)::DOUBLE/nullif(sum(r.zone_span_days),0) nonconfirmed_gap_ratio,
+ max(r.max_raw_false_gap_days) max_single_gap,
+ count(*) FILTER(WHERE r.component_count>1)::DOUBLE/nullif(count(*),0) merge_ratio,
+ sum(r.zone_revision) zone_revision_count,
+ max(r.confirmed_day_count)::DOUBLE/nullif(sum(r.confirmed_day_count),0) top_zone_confirmed_day_share,
+ count(*) FILTER(WHERE r.status='RIGHT_CENSORED')::DOUBLE/nullif(count(*),0) open_event_ratio,
+ max(r.zone_span_days)::DOUBLE/nullif(sum(r.zone_span_days),0) mega_zone_concentration,
+ p.active_zone_count,p.gap_pending_zone_count,p.reentry_pending_zone_count,
+ p.confirmed_event_coverage,
+ sum(r.zone_span_days)::DOUBLE/nullif(ab.eligible_days,0) zone_span_coverage,
+ s.events_per_security_mean,s.events_per_security_median,
+ s.events_per_security_q90,s.events_per_security_max,
+ y.events_per_year,y.nonzero_years,y.max_year_share,
+ max(r.zone_span_days) FILTER(WHERE r.duration_rn=ceil(.95*r.n))::DOUBLE/
+   nullif(a.atomic_duration_q95,0) duration_q95_ratio
+FROM ranked r JOIN cell_registry c USING(candidate_cell_id)
+JOIN atomic_interval_diagnostic_profile a USING(route_id)
+JOIN dg_event_zone_profile p USING(candidate_cell_id)
+JOIN atomic_baseline_profile ab USING(candidate_cell_id)
+LEFT JOIN security_profile s USING(candidate_cell_id)
+LEFT JOIN year_profile y USING(candidate_cell_id)
+GROUP BY r.candidate_cell_id,p.active_zone_count,p.gap_pending_zone_count,
+ p.reentry_pending_zone_count,p.confirmed_event_coverage,a.atomic_duration_q95,
+ ab.eligible_days,s.events_per_security_mean,s.events_per_security_median,
+ s.events_per_security_q90,s.events_per_security_max,y.events_per_year,y.nonzero_years,y.max_year_share;
+
+INSERT INTO event_zone_diagnostic_profile BY NAME
+SELECT c.candidate_cell_id,0::BIGINT qualified_event_count,
+ 0::BIGINT natural_finalized_zone_count,0::BIGINT quality_break_zone_count,
+ 0::BIGINT right_censored_zone_count,0::BIGINT bridged_gap_count,
+ 0::BIGINT bridged_day_count,0::BIGINT raw_false_bridged_day_count,
+ 0::BIGINT preconfirmation_gap_day_count,0::BIGINT total_nonconfirmed_gap_day_count,
+ 0::BIGINT zone_span_days_sum,p.active_zone_count,p.gap_pending_zone_count,
+ p.reentry_pending_zone_count,p.confirmed_event_coverage,0::DOUBLE zone_span_coverage,
+ 0::DOUBLE events_per_security_mean,0::DOUBLE events_per_security_median,
+ 0::BIGINT events_per_security_q90,0::BIGINT events_per_security_max,
+ 0::DOUBLE events_per_year,0::BIGINT nonzero_years,NULL::DOUBLE max_year_share
+FROM cell_registry c JOIN dg_event_zone_profile p USING(candidate_cell_id)
+WHERE NOT EXISTS(SELECT 1 FROM event_zone_diagnostic_profile e
+                 WHERE e.candidate_cell_id=c.candidate_cell_id);
 
 CREATE TABLE strict_core_diagnostic_profile AS
-SELECT *,strict_core_confirmed_day_share expansion_shell_confirmed_day_share,
- shell_only_event_count::DOUBLE/nullif(strict_core_event_count+shell_only_event_count,0) shell_only_zone_ratio
-FROM strict_core_shell_profile;
+SELECT b.*,b.shell_only_confirmed_day_share expansion_shell_confirmed_day_share,
+ b.shell_only_event_count::DOUBLE/nullif(b.strict_core_event_count+b.shell_only_event_count,0) shell_only_zone_ratio,
+ (SELECT count(*) FROM qualified_component q WHERE q.candidate_cell_id=b.sidecar_candidate_cell_id AND q.qualified)
+   strict_core_qualified_component_count,
+ (SELECT count(*) FROM qualified_component q WHERE q.candidate_cell_id=b.sidecar_candidate_cell_id AND q.qualified)::DOUBLE/nullif(
+   (SELECT count(*) FROM qualified_component q WHERE q.candidate_cell_id=b.primary_candidate_cell_id AND q.qualified),0)
+   strict_core_qualified_component_share,
+ (SELECT count(*) FROM qualified_component p
+   WHERE p.candidate_cell_id=b.primary_candidate_cell_id AND p.qualified AND NOT EXISTS(
+    SELECT 1 FROM qualified_component s WHERE s.candidate_cell_id=b.sidecar_candidate_cell_id
+     AND s.qualified AND s.security_id=p.security_id
+     AND s.start_date<=p.end_date AND p.start_date<=s.end_date)) shell_only_qualified_component_count,
+ b.strict_core_confirmed_day_count::DOUBLE/nullif(
+   (SELECT sum(zone_span_days) FROM event_zone e WHERE e.candidate_cell_id=b.sidecar_candidate_cell_id),0)
+   strict_core_confirmed_density
+FROM strict_core_shell_profile b;
 
 CREATE TABLE window_diagnostic_profile AS
-SELECT *,intersection_confirmed_days::DOUBLE/nullif(W120_own_eligible_days,0) W120_own_overlap_rate,
+SELECT w.*,s.W120_only_event_count,s.W250_only_event_count,s.component_overlap_count,
+ s.W120_only_component_count,s.W250_only_component_count,
+ intersection_confirmed_days::DOUBLE/nullif(W120_own_eligible_days,0) W120_own_overlap_rate,
  intersection_confirmed_days::DOUBLE/nullif(W250_own_eligible_days,0) W250_own_overlap_rate,
  intersection_confirmed_days::DOUBLE/nullif(common_eligible_days,0) common_overlap_rate,
  matched_event_count::DOUBLE/nullif(matched_event_count+overlapping_event_count,0) event_match_rate
-FROM window_overlap_comparison;
+FROM window_overlap_comparison w JOIN window_supplemental_source s
+ USING(primary_candidate_cell_id,comparison_candidate_cell_id);
 
 CREATE TABLE parameter_invariant_profile AS
-SELECT 'g_event_count_nonincreasing' check_id,ca.route_id||':d='||ca.d "scope",
- count(*) FILTER(WHERE b.qualified_event_count>a.qualified_event_count) observed_violations,
- '=0' expected_rule
-FROM dg_event_zone_profile a JOIN cell_registry ca USING(candidate_cell_id)
-JOIN cell_registry cb ON cb.route_id=ca.route_id AND cb.d=ca.d AND cb.g=ca.g+1
-JOIN dg_event_zone_profile b ON b.candidate_cell_id=cb.candidate_cell_id GROUP BY 1,2
-UNION ALL
-SELECT 'd_component_nonincreasing',ca.route_id||':g='||ca.g,
- count(*) FILTER(WHERE b.qualified_component_count>a.qualified_component_count),'=0'
-FROM d_qualification_profile a JOIN cell_registry ca USING(candidate_cell_id)
-JOIN cell_registry cb ON cb.route_id=ca.route_id AND cb.g=ca.g AND cb.d=ca.d+1
-JOIN d_qualification_profile b ON b.candidate_cell_id=cb.candidate_cell_id GROUP BY 1,2;
+WITH gp AS (
+ SELECT ca.route_id,ca.d,a.candidate_cell_id left_id,b.candidate_cell_id right_id,
+  a.qualified_event_count event_a,b.qualified_event_count event_b,
+  ea.bridged_gap_count bridge_a,eb.bridged_gap_count bridge_b,
+  ea.bridged_day_count bridge_days_a,eb.bridged_day_count bridge_days_b,
+  ea.zone_span_days_sum span_a,eb.zone_span_days_sum span_b,
+  aa.confirmed_state_days confirmed_a,ab.confirmed_state_days confirmed_b,
+  da.retrospective_qualified_confirmed_day_count retrospective_a,
+  db.retrospective_qualified_confirmed_day_count retrospective_b,
+  da.asof_qualified_confirmed_day_count asof_a,db.asof_qualified_confirmed_day_count asof_b
+ FROM dg_event_zone_profile a JOIN cell_registry ca USING(candidate_cell_id)
+ JOIN cell_registry cb ON cb.route_id=ca.route_id AND cb.d=ca.d AND cb.g=ca.g+1
+ JOIN dg_event_zone_profile b ON b.candidate_cell_id=cb.candidate_cell_id
+ JOIN event_zone_diagnostic_profile ea ON ea.candidate_cell_id=a.candidate_cell_id
+ JOIN event_zone_diagnostic_profile eb ON eb.candidate_cell_id=b.candidate_cell_id
+ JOIN atomic_baseline_profile aa ON aa.candidate_cell_id=a.candidate_cell_id
+ JOIN atomic_baseline_profile ab ON ab.candidate_cell_id=b.candidate_cell_id
+ JOIN component_diagnostic_profile da ON da.candidate_cell_id=a.candidate_cell_id
+ JOIN component_diagnostic_profile db ON db.candidate_cell_id=b.candidate_cell_id
+), dp AS (
+ SELECT ca.route_id,ca.g,
+  a.qualified_component_count component_a,b.qualified_component_count component_b,
+  da.retrospective_qualified_confirmed_day_count retrospective_a,
+  db.retrospective_qualified_confirmed_day_count retrospective_b,
+  da.asof_qualified_confirmed_day_count asof_a,db.asof_qualified_confirmed_day_count asof_b,
+  da.qualification_delay_observations_mean delay_a,
+  db.qualification_delay_observations_mean delay_b
+ FROM d_qualification_profile a JOIN cell_registry ca USING(candidate_cell_id)
+ JOIN cell_registry cb ON cb.route_id=ca.route_id AND cb.g=ca.g AND cb.d=ca.d+1
+ JOIN d_qualification_profile b ON b.candidate_cell_id=cb.candidate_cell_id
+ JOIN component_diagnostic_profile da ON da.candidate_cell_id=a.candidate_cell_id
+ JOIN component_diagnostic_profile db ON db.candidate_cell_id=b.candidate_cell_id
+), g0 AS (
+ SELECT c.route_id,c.d,p.qualified_event_count,q.qualified_component_count,
+  e.bridged_gap_count,e.bridged_day_count
+ FROM cell_registry c JOIN dg_event_zone_profile p USING(candidate_cell_id)
+ JOIN d_qualification_profile q USING(candidate_cell_id)
+ JOIN event_zone_diagnostic_profile e USING(candidate_cell_id) WHERE c.g=0
+)
+SELECT 'g_event_count_nonincreasing' check_id,route_id||':d='||d "scope",count(*) FILTER(WHERE event_b>event_a) observed_violations,'=0' expected_rule FROM gp GROUP BY 1,2
+UNION ALL SELECT 'g_bridge_count_nondecreasing',route_id||':d='||d,count(*) FILTER(WHERE bridge_b<bridge_a),'=0' FROM gp GROUP BY 1,2
+UNION ALL SELECT 'g_bridged_days_nondecreasing',route_id||':d='||d,count(*) FILTER(WHERE bridge_days_b<bridge_days_a),'=0' FROM gp GROUP BY 1,2
+UNION ALL SELECT 'g_zone_coverage_nondecreasing',route_id||':d='||d,count(*) FILTER(WHERE span_b<span_a),'=0' FROM gp GROUP BY 1,2
+UNION ALL SELECT 'g_confirmed_days_invariant',route_id||':d='||d,count(*) FILTER(WHERE confirmed_b<>confirmed_a),'=0' FROM gp GROUP BY 1,2
+UNION ALL SELECT 'g_retrospective_days_invariant',route_id||':d='||d,count(*) FILTER(WHERE retrospective_b<>retrospective_a),'=0' FROM gp GROUP BY 1,2
+UNION ALL SELECT 'g_asof_days_invariant',route_id||':d='||d,count(*) FILTER(WHERE asof_b<>asof_a),'=0' FROM gp GROUP BY 1,2
+UNION ALL SELECT 'd_component_nonincreasing',route_id||':g='||g,count(*) FILTER(WHERE component_b>component_a),'=0' FROM dp GROUP BY 1,2
+UNION ALL SELECT 'd_retrospective_days_nonincreasing',route_id||':g='||g,count(*) FILTER(WHERE retrospective_b>retrospective_a),'=0' FROM dp GROUP BY 1,2
+UNION ALL SELECT 'd_asof_days_nonincreasing',route_id||':g='||g,count(*) FILTER(WHERE asof_b>asof_a),'=0' FROM dp GROUP BY 1,2
+UNION ALL SELECT 'd_qualification_delay_nondecreasing',route_id||':g='||g,count(*) FILTER(WHERE delay_b<delay_a),'=0' FROM dp GROUP BY 1,2
+UNION ALL SELECT 'g_zero_identity',route_id||':d='||d,count(*) FILTER(WHERE qualified_event_count<>qualified_component_count OR bridged_gap_count<>0 OR bridged_day_count<>0),'=0' FROM g0 GROUP BY 1,2;
 """

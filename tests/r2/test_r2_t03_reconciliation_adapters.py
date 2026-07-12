@@ -453,12 +453,15 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
             )
             self.assertEqual(
                 con.execute(
-                    "SELECT eligible,quality_state,raw_state FROM route_source_daily WHERE trade_date=DATE '2026-01-03'"
+                    "SELECT eligible,quality_state,raw_state FROM route_dense_input WHERE trade_date=DATE '2026-01-03'"
                 ).fetchone(),
                 (False, "expected_empty", None),
             )
             self.assertEqual(
-                con.execute("SELECT count(*) FROM route_source_daily").fetchone()[0], 2
+                con.execute("SELECT count(*) FROM route_source_daily").fetchone()[0], 1
+            )
+            self.assertEqual(
+                con.execute("SELECT count(*) FROM route_dense_input").fetchone()[0], 2
             )
             con.close()
 

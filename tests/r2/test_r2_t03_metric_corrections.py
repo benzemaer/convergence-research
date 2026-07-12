@@ -6,6 +6,7 @@ import unittest
 import duckdb
 
 from src.r2.r2_t03_metrics import (
+    _DIAGNOSTIC_PROFILE_SQL,
     METRIC_BINDINGS,
     create_metric_tables,
     nearest_order_statistic,
@@ -163,8 +164,84 @@ class R2T03MetricCorrectionTest(unittest.TestCase):
                 nonzero_years,max_year_share,duration_q95_ratio FROM metric_results"""
             ).fetchone()
             self.assertEqual(metric, (2, 1, 0.8, 0.5, 0.2, 0.5, 0.5, 2, 0.5, 0.6))
+            atomic = con.execute(
+                """SELECT atomic_singleton_count,atomic_confirmed_interval_count,
+                atomic_fragment_rate FROM atomic_interval_diagnostic_profile"""
+            ).fetchone()
+            self.assertEqual(atomic, (1, 3, 1 / 3))
+            component = con.execute(
+                """SELECT qualification_delay_observations_mean,
+                qualification_delay_observations_median,
+                qualification_delay_observations_q90,
+                qualification_delay_observations_q95
+                FROM component_diagnostic_profile"""
+            ).fetchone()
+            self.assertEqual(component, (1.0, 1.0, 1, 1))
+            event = con.execute(
+                """SELECT component_count_q90,component_count_q95,
+                bridge_count_q90,bridge_count_q95,max_single_gap
+                FROM event_zone_diagnostic_profile"""
+            ).fetchone()
+            self.assertEqual(event, (2, 2, 4, 4, 1))
         finally:
             con.close()
+
+    def test_complete_parameter_invariant_surface_executes(self) -> None:
+        con = duckdb.connect(":memory:")
+        con.execute(
+            """CREATE TABLE cell_registry(candidate_cell_id VARCHAR,route_id VARCHAR,d INTEGER,g INTEGER);
+            CREATE TABLE dg_event_zone_profile(candidate_cell_id VARCHAR,qualified_event_count INTEGER);
+            CREATE TABLE event_zone_diagnostic_profile(candidate_cell_id VARCHAR,bridged_gap_count INTEGER,
+              bridged_day_count INTEGER,zone_span_days_sum INTEGER);
+            CREATE TABLE atomic_baseline_profile(candidate_cell_id VARCHAR,confirmed_state_days INTEGER);
+            CREATE TABLE component_diagnostic_profile(candidate_cell_id VARCHAR,
+              retrospective_qualified_confirmed_day_count INTEGER,
+              asof_qualified_confirmed_day_count INTEGER,
+              qualification_delay_observations_mean DOUBLE);
+            CREATE TABLE d_qualification_profile(candidate_cell_id VARCHAR,qualified_component_count INTEGER);"""
+        )
+        for d in (1, 2, 3):
+            for g in (0, 1, 2):
+                cell = f"c_{d}_{g}"
+                con.execute(
+                    "INSERT INTO cell_registry VALUES (?,'r',?,?)", [cell, d, g]
+                )
+                con.execute(
+                    "INSERT INTO dg_event_zone_profile VALUES (?,?)",
+                    [cell, 20 - d - g],
+                )
+                con.execute(
+                    "INSERT INTO event_zone_diagnostic_profile VALUES (?,?,?,?)",
+                    [cell, g, g, 100 + g],
+                )
+                con.execute(
+                    "INSERT INTO atomic_baseline_profile VALUES (?,100)", [cell]
+                )
+                con.execute(
+                    "INSERT INTO component_diagnostic_profile VALUES (?,?,?,?)",
+                    [cell, 50 - d, 40 - d, float(d - 1)],
+                )
+                con.execute(
+                    "INSERT INTO d_qualification_profile VALUES (?,?)",
+                    [cell, 20 - d],
+                )
+        parameter_sql = (
+            "CREATE TABLE parameter_invariant_profile AS"
+            + _DIAGNOSTIC_PROFILE_SQL.split(
+                "CREATE TABLE parameter_invariant_profile AS", 1
+            )[1]
+        )
+        con.execute(parameter_sql)
+        rows = con.execute(
+            "SELECT DISTINCT check_id FROM parameter_invariant_profile ORDER BY 1"
+        ).fetchall()
+        self.assertEqual(len(rows), 12)
+        self.assertEqual(
+            con.execute(
+                "SELECT sum(observed_violations) FROM parameter_invariant_profile"
+            ).fetchone()[0],
+            0,
+        )
 
 
 def _component(count, qualified, reason, normally_ended, censor_status):

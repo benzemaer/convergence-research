@@ -46,6 +46,25 @@ def validate_main() -> int:
     summary = json.loads(
         (args.output_dir / "r2_t03_experiment_summary.json").read_text(encoding="utf-8")
     )
+    comparison_payload = {
+        "execution_commit": summary["execution_commit"],
+        "config_sha256": summary["config_sha256"],
+        "database_fingerprint": summary["database_fingerprint"],
+        "runtime_gate_results_sha256": _sha(
+            args.output_dir / "r2_t03_runtime_gate_results.csv"
+        ),
+        "runtime_validation_canonical_sha256": _normalized_json_sha(
+            args.output_dir / "r2_t03_runtime_gate_validation.json"
+        ),
+        "independent_recalculation_sha256": _sha(
+            args.output_dir / "r2_t03_independent_recalculation.csv"
+        ),
+        "independent_validation_canonical_sha256": _normalized_json_sha(
+            args.output_dir / "r2_t03_independent_validation.json"
+        ),
+        "source_readiness_sha256": summary["source_readiness_sha256"],
+        "input_binding_sha256": summary["input_binding_sha256"],
+    }
     post = {
         "task_id": "R2-T03",
         "run_id": args.output_dir.name,
@@ -66,6 +85,8 @@ def validate_main() -> int:
         ),
         "source_readiness_sha256": summary["source_readiness_sha256"],
         "input_binding_sha256": summary["input_binding_sha256"],
+        "comparison_fingerprint": _post_comparison_fingerprint(comparison_payload),
+        "comparison_payload": comparison_payload,
     }
     write_json(args.output_dir / "r2_t03_post_validation_fingerprint.json", post)
     if summary.get("baseline_only"):
@@ -81,9 +102,18 @@ def validate_main() -> int:
             "source_readiness_sha256",
             "input_binding_sha256",
             "database_fingerprint",
-            "post_validation_fingerprint",
+            "post_validation_comparison_fingerprint",
         ]
-        formal = {**summary, "post_validation_fingerprint": post}
+        formal = {
+            **summary,
+            "post_validation_comparison_fingerprint": post["comparison_fingerprint"],
+        }
+        baseline = {
+            **baseline,
+            "post_validation_comparison_fingerprint": baseline.get(
+                "post_validation_fingerprint", {}
+            ).get("comparison_fingerprint"),
+        }
         for field in required:
             if baseline.get(field) != formal.get(field):
                 raise RuntimeError(f"single_worker_baseline_{field}_mismatch")
@@ -92,6 +122,22 @@ def validate_main() -> int:
 
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _normalized_json_sha(path: Path) -> str:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    for key in ("run_id", "database_path", "output_dir"):
+        value.pop(key, None)
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _post_comparison_fingerprint(payload: dict[str, object]) -> str:
+    """Hash only run-invariant validation content for baseline/formal equality."""
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def analyze_main() -> int:

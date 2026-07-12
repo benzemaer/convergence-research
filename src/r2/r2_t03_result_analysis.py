@@ -194,6 +194,16 @@ def _anomaly_scan(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "transition_closure": "SELECT count(*) FROM (SELECT e.scan_event_id FROM event_zone e LEFT JOIN transition_entity_ledger t ON t.candidate_cell_id=e.candidate_cell_id AND t.security_id=e.security_id AND t.entity_id=e.scan_event_id AND t.to_state IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED') GROUP BY e.candidate_cell_id,e.security_id,e.scan_event_id HAVING count(t.entity_id)<>1)",
         "event_overlap_within_cell_security": "SELECT count(*) FROM event_zone a JOIN event_zone b ON a.candidate_cell_id=b.candidate_cell_id AND a.security_id=b.security_id AND a.scan_event_id<b.scan_event_id JOIN qualified_component qa ON qa.candidate_cell_id=a.candidate_cell_id AND qa.security_id=a.security_id AND qa.component_id=a.first_component_id JOIN qualified_component qb ON qb.candidate_cell_id=b.candidate_cell_id AND qb.security_id=b.security_id AND qb.component_id=b.first_component_id WHERE qa.start_date<=qb.end_date AND qb.start_date<=qa.end_date",
         "pending_status_timeline_gap": "SELECT count(*) FROM event_zone_membership_daily WHERE event_zone_member AND zone_status_as_of IS NULL",
+        "bridge_gap_domination": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE coalesce(nonconfirmed_gap_ratio,0)>.5 OR coalesce(bridged_day_ratio,0)>.5",
+        "mega_zone_concentration": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE coalesce(mega_zone_concentration,0)>.5",
+        "max_zone_span_extreme": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE coalesce(max_zone_span,0)>250",
+        "top_zone_confirmed_day_concentration": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE coalesce(top_zone_confirmed_day_share,0)>.5",
+        "duration_order_of_magnitude_shift": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE duration_q95_ratio>10 OR duration_q95_ratio<.1",
+        "right_censor_concentration": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE right_censored_zone_count::DOUBLE/nullif(qualified_event_count,0)>.5",
+        "quality_break_concentration": "SELECT count(*) FROM event_zone_diagnostic_profile WHERE quality_break_zone_count::DOUBLE/nullif(qualified_event_count,0)>.5",
+        "upstream_confirmed_day_conservation": "SELECT count(*) FROM (SELECT q.candidate_cell_id,sum(q.confirmed_day_count) component_days,a.confirmed_state_days FROM qualified_component q JOIN atomic_baseline_profile a USING(candidate_cell_id) GROUP BY 1,3 HAVING component_days<>confirmed_state_days)",
+        "window_own_common_denominator_mismatch": "SELECT count(*) FROM window_overlap_comparison WHERE intersection_confirmed_days>W120_own_eligible_days OR intersection_confirmed_days>W250_own_eligible_days OR common_eligible_days>least(W120_own_eligible_days,W250_own_eligible_days)",
+        "asof_backfill": "SELECT count(*) FROM event_zone_membership_daily WHERE component_qualified_as_of AND membership_available_time<available_time",
     }
     observed = {name: con.execute(sql).fetchone()[0] for name, sql in queries.items()}
     engineering_ids = {
@@ -205,11 +215,21 @@ def _anomaly_scan(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "transition_closure",
         "event_overlap_within_cell_security",
         "pending_status_timeline_gap",
+        "upstream_confirmed_day_conservation",
+        "window_own_common_denominator_mismatch",
+        "asof_backfill",
     }
     scientific_ids = {
         "zero_event_cells",
         "one_event_cells",
         "parameter_nonresponsive_groups",
+        "bridge_gap_domination",
+        "mega_zone_concentration",
+        "max_zone_span_extreme",
+        "top_zone_confirmed_day_concentration",
+        "duration_order_of_magnitude_shift",
+        "right_censor_concentration",
+        "quality_break_concentration",
     }
     engineering = [name for name in engineering_ids if observed[name]]
     scientific = [name for name in scientific_ids if observed[name]]

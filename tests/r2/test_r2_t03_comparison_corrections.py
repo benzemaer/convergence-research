@@ -7,6 +7,7 @@ import unittest
 import duckdb
 
 from src.r2.r2_t03_metrics import (
+    _DIAGNOSTIC_PROFILE_SQL,
     _create_strict_core_profile,
     _create_window_profile,
     deterministic_window_comparison,
@@ -194,6 +195,14 @@ class R2T03WindowComparisonTest(unittest.TestCase):
                 ('s','s1','S1','2026-01-02',true,true,true),
                 ('w','w1','S1','2026-01-02',true,true,true),
                 ('w','w1','S1','2026-01-03',true,true,true);
+                CREATE TABLE qualified_component(candidate_cell_id VARCHAR,security_id VARCHAR,
+                component_id VARCHAR,start_date DATE,end_date DATE,qualified BOOLEAN);
+                INSERT INTO qualified_component VALUES
+                ('p','S1','pc1','2026-01-01','2026-01-02',true),
+                ('s','S1','sc1','2026-01-02','2026-01-02',true),
+                ('w','S1','wc1','2026-01-02','2026-01-03',true);
+                CREATE TABLE event_zone(candidate_cell_id VARCHAR,zone_span_days INTEGER);
+                INSERT INTO event_zone VALUES ('p',2),('s',1),('w',2);
                 CREATE VIEW strict_pairs AS SELECT 'p' primary_candidate_cell_id,'s' sidecar_candidate_cell_id;
                 CREATE VIEW window_pairs AS SELECT 'p' primary_candidate_cell_id,'w' comparison_candidate_cell_id;"""
             )
@@ -205,6 +214,20 @@ class R2T03WindowComparisonTest(unittest.TestCase):
                 FROM strict_core_shell_profile"""
             ).fetchone()
             self.assertEqual(strict, (1, 1, 0, "passed"))
+            strict_diagnostic_sql = (
+                "CREATE TABLE strict_core_diagnostic_profile AS"
+                + _DIAGNOSTIC_PROFILE_SQL.split(
+                    "CREATE TABLE strict_core_diagnostic_profile AS", 1
+                )[1].split("CREATE TABLE window_diagnostic_profile AS", 1)[0]
+            )
+            con.execute(strict_diagnostic_sql)
+            strict_extra = con.execute(
+                """SELECT strict_core_qualified_component_count,
+                strict_core_qualified_component_share,
+                shell_only_qualified_component_count,strict_core_confirmed_density
+                FROM strict_core_diagnostic_profile"""
+            ).fetchone()
+            self.assertEqual(strict_extra, (1, 1.0, 0, 1.0))
             window = con.execute(
                 """SELECT intersection_confirmed_days,W120_only_confirmed_days,
                 W250_only_confirmed_days,union_confirmed_days,confirmed_day_jaccard,
@@ -212,6 +235,12 @@ class R2T03WindowComparisonTest(unittest.TestCase):
                 FROM window_overlap_comparison"""
             ).fetchone()
             self.assertEqual(window, (1, 1, 1, 3, 1 / 3, 1, 1))
+            window_components = con.execute(
+                """SELECT W120_only_event_count,W250_only_event_count,
+                component_overlap_count,W120_only_component_count,
+                W250_only_component_count FROM window_supplemental_source"""
+            ).fetchone()
+            self.assertEqual(window_components, (0, 0, 1, 0, 0))
         finally:
             con.close()
 

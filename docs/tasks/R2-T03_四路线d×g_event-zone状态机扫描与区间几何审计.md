@@ -120,3 +120,17 @@ R0-T15 closed interval 现在只使用 `last_observed_date` 当日 decision row 
 event terminal reason 现由携带 `scan_event_id` 的实际 terminal ledger 绑定；component quality interruption 使用冻结的 `COMPONENT_FORMING→UNQUALIFIED_CLOSED` tuple。三层 supplemental diagnostics、strict-core/window diagnostics、runtime structural detectors、全部 parameter invariants、source-level independent dense reconstruction、完整 database/post-validation fingerprint、result analysis/anomaly 分类及 large-DuckDB committed validation 均进入 successor 实现。formal source paths 和 T02/R0/D2 actual input bindings已闭合，非空 run directory fail closed。
 
 这是 final implementation correction for E2E-01..E2E-09，不表示 implementation review、baseline、72 cells 或 scientific review 已通过。本轮未运行 successor baseline，未运行真实 d×g/72-cell scan，未创建新的正式 run 目录，未修改历史 `R2-T03-20260712T1205Z` artifacts；`R2-T04_allowed_to_start=false`、`R3_allowed_to_start=false`。
+
+## 12. Implementation review 六项封闭修订
+
+HEAD `6c075d5a...` 的 implementation review 结论为 needs revision，successor baseline 继续禁止。本轮不改写已静态通过的 dense/source interval lineage、terminal/transition closure与binding/manifest/committed-validation设计，只修正审阅列出的六项。
+
+事实链现明确分为三张表：`route_source_daily` 永远保持13,846,152条R0 sparse rows；`route_dense_input` 由 expected keys、sparse source和独立物化的D2 `expected_empty_status` left join得到14,008,528条raw rows；`route_daily`只保存 dense input完成一次K=3 replay后的canonical facts。adapter-only实际复核得到 `route_source_daily=13,846,152`、`route_dense_input=14,008,528`、dense expected-empty=162,376、sparse source中的expected-empty=0。Independent oracle不读取production `route_dense_input`，而是从sparse source、expected keys和D2 status自行生成dense raw timeline。
+
+Supplemental diagnostics已修正：`atomic_fragment_rate=singleton_count/atomic_interval_count`；qualification delay采用明确的交易观察间隔 `d-1`；component、bridge、duration分别独立排序计算nearest-order q90/q95；`max_single_gap`读取raw-false gap。Strict-core补齐component count/share、shell-only components、density，expansion-shell share绑定shell share；window补齐component overlap以及W120/W250-only component/event counts。
+
+`parameter_invariant_profile`现执行12类冻结不变量，包括g方向的event/bridge/bridged-days/zone-coverage/confirmed/retrospective/as-of、d方向的component/retrospective/as-of/delay及完整g=0 identity。Runtime detector同时扩展为所有zone的raw-false bound、revision时间序列回退、全main output字段扫描及reentry terminal ledger闭合。Independent validator新增三层diagnostics、pending states、strict/window components、12项parameter invariants及独立affected/unaffected/termination-only source-lineage policy复算。
+
+Post-validation保留run ID作为metadata，但baseline/formal equality只比较排除run-specific path与run ID的canonical comparison fingerprint。Anomaly scan消费新增diagnostics并覆盖bridge/gap domination、mega-zone、max span、top-zone share、duration数量级、right-censor/quality-break集中度、confirmed-day conservation、W denominator与as-of backfill；科学调查项不伪装成工程运行失败。
+
+本节仍是implementation-correction-only；未运行successor baseline、真实candidate cell或72-cell scan，未创建formal run目录，未修改历史1205Z artifacts。`implementation_review_status=needs_revision`、`successor_single_worker_baseline_allowed=false`、`successor_formal_scan_allowed=false`、`R2-T04_allowed_to_start=false`、`R3_allowed_to_start=false`。

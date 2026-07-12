@@ -15,6 +15,47 @@ class R2T03IndependentValidationError(RuntimeError):
     pass
 
 
+def _independent_dense_input(
+    sparse_rows: Sequence[Mapping[str, Any]],
+    expected_dates: Sequence[str],
+    expected_empty_status: Mapping[str, str],
+    *,
+    security_id: str,
+) -> list[dict[str, Any]]:
+    """Construct dense raw input independently from sparse source and D2 status."""
+    sparse = {str(row["trade_date"]): dict(row) for row in sparse_rows}
+    if len(sparse) != len(sparse_rows):
+        raise R2T03IndependentValidationError("oracle_duplicate_sparse_daily_key")
+    dense = []
+    for trade_date in expected_dates:
+        if trade_date in sparse:
+            dense.append(sparse[trade_date])
+            continue
+        reason = expected_empty_status.get(trade_date)
+        if reason not in {"suspended", "listing_pause"}:
+            raise R2T03IndependentValidationError(
+                f"oracle_unclassified_expected_empty:{security_id}:{trade_date}:{reason}"
+            )
+        dense.append(
+            {
+                "security_id": security_id,
+                "trade_date": trade_date,
+                "eligible": False,
+                "quality_state": "expected_empty",
+                "raw_state": None,
+                "available_time": f"{trade_date}T15:00:00+08:00",
+                "expected_empty_reason": reason,
+                "source_row_present": False,
+            }
+        )
+    unexpected = set(sparse) - set(expected_dates)
+    if unexpected:
+        raise R2T03IndependentValidationError(
+            f"oracle_sparse_row_outside_expected:{sorted(unexpected)[0]}"
+        )
+    return dense
+
+
 def source_timeline_oracle(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -154,6 +195,8 @@ def source_timeline_oracle(
                     if component["termination_reason"] == "quality_interruption"
                     else "FINALIZED"
                 )
+                if open_zone["status"] == "RIGHT_CENSORED":
+                    open_zone["censor_prior_state"] = "REENTRY_PENDING_QUALIFICATION"
                 zones.append(open_zone)
                 transition_counts["event_terminal"] += 1
                 open_zone = None
@@ -181,6 +224,9 @@ def source_timeline_oracle(
             open_zone["preconfirmation_gap_day_count"] += len(preconfirmation)
             open_zone["total_nonconfirmed_gap_day_count"] += len(raw_false) + len(
                 preconfirmation
+            )
+            open_zone["max_raw_false_gap_days"] = max(
+                open_zone["max_raw_false_gap_days"], len(raw_false)
             )
             open_zone["zone_span_days"] += len(gap) + component["confirmed_day_count"]
             open_zone["confirmed_keys"].update(_component_keys(component, timeline))
@@ -210,6 +256,14 @@ def source_timeline_oracle(
             if trailing_decision == "raw_false_gap_exceeds_g"
             else "RIGHT_CENSORED"
         )
+        if open_zone["status"] == "RIGHT_CENSORED":
+            open_zone["censor_prior_state"] = (
+                "REENTRY_PENDING_QUALIFICATION"
+                if previous.get("qualified") is False
+                else "GAP_PENDING"
+                if trailing
+                else "QUALIFIED_ACTIVE"
+            )
         zones.append(open_zone)
         transition_counts["event_terminal"] += 1
 
@@ -321,6 +375,9 @@ def independent_strict_core_oracle(
     strict_events: Mapping[str, set[tuple[str, str]]],
     primary_days: set[tuple[str, str]],
     strict_days: set[tuple[str, str]],
+    primary_components: Mapping[str, set[tuple[str, str]]] | None = None,
+    strict_components: Mapping[str, set[tuple[str, str]]] | None = None,
+    strict_spans: Mapping[str, set[tuple[str, str]]] | None = None,
 ) -> dict[str, Any]:
     strict_keys = primary_days & strict_days
     strict_component_keys = (
@@ -333,6 +390,13 @@ def independent_strict_core_oracle(
         sum(bool(values & primary) for primary in primary_events.values()) > 1
         for values in strict_events.values()
     )
+    primary_component_map = primary_components or {}
+    strict_component_map = strict_components or {}
+    shell_only_components = sum(
+        not any(values & strict for strict in strict_component_map.values())
+        for values in primary_component_map.values()
+    )
+    strict_span_count = sum(len(values) for values in (strict_spans or {}).values())
     return {
         "strict_core_confirmed_day_count": len(strict_keys),
         "strict_core_confirmed_day_share": _oracle_ratio(
@@ -348,6 +412,14 @@ def independent_strict_core_oracle(
         "strict_core_subset_status": (
             "passed" if strict_days <= primary_days and not crossing else "failed"
         ),
+        "strict_core_qualified_component_count": len(strict_component_map),
+        "strict_core_qualified_component_share": _oracle_ratio(
+            len(strict_component_map), len(primary_component_map)
+        ),
+        "shell_only_qualified_component_count": shell_only_components,
+        "strict_core_confirmed_density": _oracle_ratio(
+            len(strict_days), strict_span_count
+        ),
     }
 
 
@@ -360,6 +432,8 @@ def independent_window_oracle(
     comparison_events: Mapping[str, set[tuple[str, str]]],
     primary_event_spans: Mapping[str, set[tuple[str, str]]] | None = None,
     comparison_event_spans: Mapping[str, set[tuple[str, str]]] | None = None,
+    primary_components: Mapping[str, set[tuple[str, str]]] | None = None,
+    comparison_components: Mapping[str, set[tuple[str, str]]] | None = None,
 ) -> dict[str, Any]:
     intersection, union = primary_days & comparison_days, primary_days | comparison_days
     candidate_pairs = []
@@ -391,6 +465,18 @@ def independent_window_oracle(
         if primary_id not in used_primary and comparison_id not in used_comparison:
             used_primary.add(primary_id)
             used_comparison.add(comparison_id)
+    primary_component_map = primary_components or {}
+    comparison_component_map = comparison_components or {}
+    overlapping_components = {
+        key
+        for key, values in primary_component_map.items()
+        if any(values & comparison for comparison in comparison_component_map.values())
+    }
+    overlapping_comparison = {
+        key
+        for key, values in comparison_component_map.items()
+        if any(values & primary for primary in primary_component_map.values())
+    }
     return {
         "intersection_confirmed_days": len(intersection),
         "W120_only_confirmed_days": len(primary_days - comparison_days),
@@ -402,6 +488,13 @@ def independent_window_oracle(
         "common_eligible_days": len(primary_eligible & comparison_eligible),
         "matched_event_count": len(used_primary),
         "overlapping_event_count": len(overlapping_primary),
+        "W120_only_event_count": len(primary_events) - len(used_primary),
+        "W250_only_event_count": len(comparison_events) - len(used_comparison),
+        "component_overlap_count": len(overlapping_components),
+        "W120_only_component_count": len(primary_component_map)
+        - len(overlapping_components),
+        "W250_only_component_count": len(comparison_component_map)
+        - len(overlapping_comparison),
     }
 
 
@@ -418,7 +511,7 @@ def compare_oracle_metric_targets(
 def validate_independently(
     database: Path, output_dir: Path, *, root: Path = ROOT
 ) -> dict[str, Any]:
-    """Formal interface: rebuild from route_daily/expected keys, then compare outputs."""
+    """Rebuild from sparse source, expected keys, and D2 status; compare targets."""
     con = duckdb.connect(str(database), read_only=True)
     rows: list[dict[str, Any]] = []
     failures: list[str] = []
@@ -447,9 +540,13 @@ def validate_independently(
                 "unqualified_reentry": 0,
                 "qualified_components": 0,
                 "unqualified_components": 0,
+                "all_unqualified_components": 0,
+                "prequalification_right_censored": 0,
             }
             event_spans: list[int] = []
             atomic_spans: list[int] = []
+            atomic_reasons: list[str] = []
+            cell_zones: list[dict[str, Any]] = []
             year_counts: dict[str, int] = {}
             transition_expected = {
                 key: 0
@@ -466,6 +563,7 @@ def validate_independently(
             cell_eligible: set[tuple[str, str]] = set()
             cell_events: dict[str, set[tuple[str, str]]] = {}
             cell_spans: dict[str, set[tuple[str, str]]] = {}
+            cell_components: dict[str, set[tuple[str, str]]] = {}
             securities = con.execute(
                 "SELECT DISTINCT security_id FROM expected_route_key WHERE route_id=? ORDER BY 1",
                 [route_id],
@@ -497,6 +595,17 @@ def validate_independently(
                         [route_id, security_id],
                     ).fetchall()
                 ]
+                statuses = {
+                    row[0]: row[1]
+                    for row in con.execute(
+                        """SELECT CAST(trade_date AS VARCHAR),expected_empty_reason
+                        FROM expected_empty_status WHERE security_id=?""",
+                        [security_id],
+                    ).fetchall()
+                }
+                source = _independent_dense_input(
+                    source, expected, statuses, security_id=security_id
+                )
                 oracle = source_timeline_oracle(
                     source, expected_dates=expected, d=d, g=g
                 )
@@ -535,8 +644,21 @@ def validate_independently(
                 aggregate["unqualified_components"] += oracle[
                     "unqualified_component_count"
                 ]
+                aggregate["all_unqualified_components"] += sum(
+                    not component["qualified"] for component in oracle["components"]
+                )
+                aggregate["prequalification_right_censored"] += sum(
+                    not component["qualified"]
+                    and component["termination_reason"] == "sample_end_censoring"
+                    for component in oracle["components"]
+                )
                 event_spans.extend(oracle["event_spans"])
                 atomic_spans.extend(oracle["atomic_spans"])
+                atomic_reasons.extend(
+                    str(item["termination_reason"])
+                    for item in oracle["atomic_intervals"]
+                )
+                cell_zones.extend(oracle["zones"])
                 for year in oracle["event_years"]:
                     year_counts[year] = year_counts.get(year, 0) + 1
                 for key in transition_expected:
@@ -547,11 +669,31 @@ def validate_independently(
                     event_id = f"{security_id}|{zone['scan_event_id']}"
                     cell_events[event_id] = set(zone["confirmed_keys"])
                     cell_spans[event_id] = set(zone["span_keys"])
+                for component in oracle["components"]:
+                    if component["qualified"]:
+                        component_id = (
+                            f"{security_id}|{component['start']}|{component['end']}"
+                        )
+                        cell_components[component_id] = _component_keys(
+                            component, oracle["timeline"]
+                        )
             cell_oracles[cell_id] = {
                 "confirmed": cell_confirmed,
                 "eligible": cell_eligible,
                 "events": cell_events,
                 "spans": cell_spans,
+                "components": cell_components,
+                "route_id": route_id,
+                "d": d,
+                "g": g,
+                "bridge_count": sum(int(zone["bridge_count"]) for zone in cell_zones),
+                "bridged_days": sum(
+                    int(zone["total_nonconfirmed_gap_day_count"]) for zone in cell_zones
+                ),
+                "zone_span_days": sum(
+                    int(zone["zone_span_days"]) for zone in cell_zones
+                ),
+                "asof_count": aggregate["asof"],
             }
             expected_values = {
                 "qualified_event_count": aggregate["events"],
@@ -621,7 +763,20 @@ def validate_independently(
             _append_transition_comparisons(
                 con, cell_id, transition_expected, rows, failures
             )
+            _append_diagnostic_comparisons(
+                con,
+                cell_id,
+                route_id,
+                d,
+                aggregate,
+                atomic_spans,
+                atomic_reasons,
+                cell_zones,
+                rows,
+                failures,
+            )
         _append_source_comparison_checks(con, cell_oracles, rows, failures)
+        _append_parameter_invariant_comparisons(con, cell_oracles, rows, failures)
     finally:
         con.close()
     write_csv(
@@ -644,7 +799,7 @@ def validate_independently(
         "failures": failures[:100],
         "oracle_source_tables": [
             "route_source_daily",
-            "expected_route_key",
+            "expected_empty_status",
             "expected_route_key",
             "authorized_upstream_interval",
             "cell_registry",
@@ -668,15 +823,18 @@ def _new_oracle_zone(
 ) -> dict[str, Any]:
     return {
         "scan_event_id": f"oracle_event_{ordinal:03d}",
+        "security_id": str(timeline[int(component["start"])]["security_id"]),
         "component_count": 1,
         "bridge_count": 0,
         "raw_false_bridged_day_count": 0,
         "preconfirmation_gap_day_count": 0,
         "total_nonconfirmed_gap_day_count": 0,
+        "max_raw_false_gap_days": 0,
         "zone_span_days": int(component["confirmed_day_count"]),
         "confirmed_keys": _component_keys(component, timeline),
         "span_keys": _component_keys(component, timeline),
         "status": "QUALIFIED_ACTIVE",
+        "censor_prior_state": None,
         "start_year": str(timeline[int(component["start"])]["trade_date"])[:4],
     }
 
@@ -717,6 +875,9 @@ def _append_source_comparison_checks(
             right["events"],
             left["confirmed"],
             right["confirmed"],
+            left["components"],
+            right["components"],
+            right["spans"],
         )
         observed = con.execute(
             """SELECT strict_core_confirmed_day_count,strict_core_confirmed_day_share,
@@ -727,7 +888,42 @@ def _append_source_comparison_checks(
             [primary, sidecar],
         ).fetchone()
         _append_comparisons(
-            f"{primary}|{sidecar}", independent, observed, rows, failures
+            f"{primary}|{sidecar}",
+            {key: independent[key] for key in list(independent)[:8]},
+            observed,
+            rows,
+            failures,
+        )
+        expansion_shell = con.execute(
+            """SELECT expansion_shell_confirmed_day_share,
+            strict_core_qualified_component_count,strict_core_qualified_component_share,
+            shell_only_qualified_component_count,strict_core_confirmed_density
+            FROM strict_core_diagnostic_profile
+            WHERE primary_candidate_cell_id=? AND sidecar_candidate_cell_id=?""",
+            [primary, sidecar],
+        ).fetchone()
+        _append_comparisons(
+            f"{primary}|{sidecar}",
+            {
+                "expansion_shell_confirmed_day_share": independent[
+                    "shell_only_confirmed_day_share"
+                ],
+                "strict_core_qualified_component_count": independent[
+                    "strict_core_qualified_component_count"
+                ],
+                "strict_core_qualified_component_share": independent[
+                    "strict_core_qualified_component_share"
+                ],
+                "shell_only_qualified_component_count": independent[
+                    "shell_only_qualified_component_count"
+                ],
+                "strict_core_confirmed_density": independent[
+                    "strict_core_confirmed_density"
+                ],
+            },
+            expansion_shell,
+            rows,
+            failures,
         )
     window_pairs = con.execute(
         """SELECT a.candidate_cell_id,b.candidate_cell_id
@@ -746,6 +942,8 @@ def _append_source_comparison_checks(
             right["events"],
             left["spans"],
             right["spans"],
+            left["components"],
+            right["components"],
         )
         observed = con.execute(
             """SELECT intersection_confirmed_days,W120_only_confirmed_days,
@@ -756,8 +954,362 @@ def _append_source_comparison_checks(
             [primary, comparison],
         ).fetchone()
         _append_comparisons(
-            f"{primary}|{comparison}", independent, observed, rows, failures
+            f"{primary}|{comparison}",
+            {key: independent[key] for key in list(independent)[:10]},
+            observed,
+            rows,
+            failures,
         )
+        supplemental = con.execute(
+            """SELECT W120_only_event_count,W250_only_event_count,
+            component_overlap_count,W120_only_component_count,W250_only_component_count
+            FROM window_diagnostic_profile WHERE primary_candidate_cell_id=?
+             AND comparison_candidate_cell_id=?""",
+            [primary, comparison],
+        ).fetchone()
+        _append_comparisons(
+            f"{primary}|{comparison}",
+            {key: independent[key] for key in list(independent)[10:]},
+            supplemental,
+            rows,
+            failures,
+        )
+
+
+def _append_parameter_invariant_comparisons(
+    con: duckdb.DuckDBPyConnection,
+    cells: Mapping[str, Mapping[str, Any]],
+    rows: list[dict[str, Any]],
+    failures: list[str],
+) -> None:
+    expected: dict[tuple[str, str], int] = {}
+
+    def add(check_id: str, scope: str, violated: bool) -> None:
+        expected[(check_id, scope)] = expected.get((check_id, scope), 0) + int(violated)
+
+    values = list(cells.values())
+    for left in values:
+        g_right = next(
+            (
+                value
+                for value in values
+                if value["route_id"] == left["route_id"]
+                and value["d"] == left["d"]
+                and value["g"] == left["g"] + 1
+            ),
+            None,
+        )
+        if g_right is not None:
+            scope = f"{left['route_id']}:d={left['d']}"
+            add(
+                "g_event_count_nonincreasing",
+                scope,
+                len(g_right["events"]) > len(left["events"]),
+            )
+            add(
+                "g_bridge_count_nondecreasing",
+                scope,
+                g_right["bridge_count"] < left["bridge_count"],
+            )
+            add(
+                "g_bridged_days_nondecreasing",
+                scope,
+                g_right["bridged_days"] < left["bridged_days"],
+            )
+            add(
+                "g_zone_coverage_nondecreasing",
+                scope,
+                g_right["zone_span_days"] < left["zone_span_days"],
+            )
+            add(
+                "g_confirmed_days_invariant",
+                scope,
+                len(g_right["confirmed"]) != len(left["confirmed"]),
+            )
+            add(
+                "g_retrospective_days_invariant",
+                scope,
+                sum(len(value) for value in g_right["events"].values())
+                != sum(len(value) for value in left["events"].values()),
+            )
+            add(
+                "g_asof_days_invariant",
+                scope,
+                g_right["asof_count"] != left["asof_count"],
+            )
+        d_right = next(
+            (
+                value
+                for value in values
+                if value["route_id"] == left["route_id"]
+                and value["g"] == left["g"]
+                and value["d"] == left["d"] + 1
+            ),
+            None,
+        )
+        if d_right is not None:
+            scope = f"{left['route_id']}:g={left['g']}"
+            add(
+                "d_component_nonincreasing",
+                scope,
+                len(d_right["components"]) > len(left["components"]),
+            )
+            add(
+                "d_retrospective_days_nonincreasing",
+                scope,
+                sum(len(value) for value in d_right["events"].values())
+                > sum(len(value) for value in left["events"].values()),
+            )
+            add(
+                "d_asof_days_nonincreasing",
+                scope,
+                d_right["asof_count"] > left["asof_count"],
+            )
+            add(
+                "d_qualification_delay_nondecreasing",
+                scope,
+                (d_right["d"] - 1) < (left["d"] - 1),
+            )
+        if left["g"] == 0:
+            scope = f"{left['route_id']}:d={left['d']}"
+            add(
+                "g_zero_identity",
+                scope,
+                len(left["events"]) != len(left["components"])
+                or left["bridge_count"] != 0
+                or left["bridged_days"] != 0,
+            )
+    observed = {
+        (check_id, scope): int(violations)
+        for check_id, scope, violations in con.execute(
+            "SELECT check_id,scope,observed_violations FROM parameter_invariant_profile"
+        ).fetchall()
+    }
+    for key, value in sorted(expected.items()):
+        _append_comparisons(
+            key[1],
+            {f"parameter_invariant:{key[0]}": value},
+            [observed.get(key)],
+            rows,
+            failures,
+        )
+
+
+def _append_diagnostic_comparisons(
+    con: duckdb.DuckDBPyConnection,
+    cell_id: str,
+    route_id: str,
+    d: int,
+    aggregate: Mapping[str, int],
+    atomic_spans: Sequence[int],
+    atomic_reasons: Sequence[str],
+    zones: Sequence[Mapping[str, Any]],
+    rows: list[dict[str, Any]],
+    failures: list[str],
+) -> None:
+    atomic_expected = {
+        "atomic_diag_interval_count": len(atomic_spans),
+        "atomic_diag_duration_mean": _oracle_mean(atomic_spans),
+        "atomic_diag_duration_median": _oracle_median(atomic_spans),
+        "atomic_diag_duration_q90": _oracle_nearest(atomic_spans, 0.90),
+        "atomic_diag_duration_q95": _oracle_nearest(atomic_spans, 0.95),
+        "atomic_diag_singleton_count": sum(value == 1 for value in atomic_spans),
+        "atomic_diag_fragment_rate": _oracle_ratio(
+            sum(value == 1 for value in atomic_spans), len(atomic_spans)
+        ),
+        "atomic_diag_natural_exit_count": atomic_reasons.count("natural_state_exit"),
+        "atomic_diag_quality_interruption_count": atomic_reasons.count(
+            "quality_interruption"
+        ),
+        "atomic_diag_right_censored_count": atomic_reasons.count(
+            "sample_end_censoring"
+        ),
+    }
+    atomic_observed = con.execute(
+        """SELECT atomic_confirmed_interval_count,atomic_duration_mean,
+        atomic_duration_median,atomic_duration_q90,atomic_duration_q95,
+        atomic_singleton_count,atomic_fragment_rate,natural_exit_count,
+        quality_interruption_count,right_censored_atomic_count
+        FROM atomic_interval_diagnostic_profile WHERE route_id=?""",
+        [route_id],
+    ).fetchone()
+    _append_comparisons(cell_id, atomic_expected, atomic_observed, rows, failures)
+
+    component_expected = {
+        "component_diag_qualified_count": aggregate["qualified_components"],
+        "component_diag_unqualified_count": aggregate["all_unqualified_components"],
+        "component_diag_qualification_rate": _oracle_ratio(
+            aggregate["qualified_components"],
+            aggregate["qualified_components"] + aggregate["all_unqualified_components"],
+        ),
+        "component_diag_qualified_days": aggregate["qualified"],
+        "component_diag_retrospective_days": aggregate["qualified"],
+        "component_diag_asof_days": aggregate["asof"],
+        "component_diag_prequalification_days": aggregate["qualified"]
+        - aggregate["asof"],
+        "component_diag_prequalification_right_censored": aggregate[
+            "prequalification_right_censored"
+        ],
+        "component_diag_delay_mean": float(d - 1)
+        if aggregate["qualified_components"]
+        else None,
+        "component_diag_delay_median": float(d - 1)
+        if aggregate["qualified_components"]
+        else None,
+        "component_diag_delay_q90": d - 1
+        if aggregate["qualified_components"]
+        else None,
+        "component_diag_delay_q95": d - 1
+        if aggregate["qualified_components"]
+        else None,
+        "component_diag_unqualified_reentry_count": aggregate["unqualified_reentry"],
+        "component_diag_unqualified_reentry_rate": _oracle_ratio(
+            aggregate["unqualified_reentry"],
+            aggregate["all_unqualified_components"],
+        ),
+    }
+    component_observed = con.execute(
+        """SELECT qualified_component_count,unqualified_component_count,
+        component_qualification_rate,qualified_confirmed_day_count,
+        retrospective_qualified_confirmed_day_count,
+        asof_qualified_confirmed_day_count,prequalification_confirmed_day_count,
+        prequalification_right_censored_count,
+        qualification_delay_observations_mean,qualification_delay_observations_median,
+        qualification_delay_observations_q90,qualification_delay_observations_q95,
+        unqualified_reentry_count,unqualified_reentry_rate FROM component_diagnostic_profile
+        WHERE candidate_cell_id=?""",
+        [cell_id],
+    ).fetchone()
+    _append_comparisons(cell_id, component_expected, component_observed, rows, failures)
+
+    component_counts = [int(zone["component_count"]) for zone in zones]
+    bridge_counts = [int(zone["bridge_count"]) for zone in zones]
+    durations = [int(zone["zone_span_days"]) for zone in zones]
+    confirmed_counts = [len(zone["confirmed_keys"]) for zone in zones]
+    security_counts: dict[str, int] = {}
+    year_counts: dict[str, int] = {}
+    for zone in zones:
+        security_counts[str(zone["security_id"])] = (
+            security_counts.get(str(zone["security_id"]), 0) + 1
+        )
+        year_counts[str(zone["start_year"])] = (
+            year_counts.get(str(zone["start_year"]), 0) + 1
+        )
+    security_values = list(security_counts.values())
+    total_span = sum(durations)
+    total_confirmed = sum(confirmed_counts)
+    raw_false_days = sum(int(zone["raw_false_bridged_day_count"]) for zone in zones)
+    preconfirmation_days = sum(
+        int(zone["preconfirmation_gap_day_count"]) for zone in zones
+    )
+    total_gap_days = sum(
+        int(zone["total_nonconfirmed_gap_day_count"]) for zone in zones
+    )
+    event_expected = {
+        "event_diag_count": len(zones),
+        "event_diag_natural_count": sum(
+            zone["status"] == "FINALIZED" for zone in zones
+        ),
+        "event_diag_quality_count": sum(
+            zone["status"] == "FINALIZED_WITH_QUALITY_BREAK" for zone in zones
+        ),
+        "event_diag_right_censored_count": sum(
+            zone["status"] == "RIGHT_CENSORED" for zone in zones
+        ),
+        "event_diag_component_q90": _oracle_nearest(component_counts, 0.90),
+        "event_diag_component_q95": _oracle_nearest(component_counts, 0.95),
+        "event_diag_component_mean": _oracle_mean(component_counts),
+        "event_diag_component_median": _oracle_median(component_counts),
+        "event_diag_component_max": max(component_counts, default=None),
+        "event_diag_bridge_q90": _oracle_nearest(bridge_counts, 0.90),
+        "event_diag_bridge_q95": _oracle_nearest(bridge_counts, 0.95),
+        "event_diag_bridge_mean": _oracle_mean(bridge_counts),
+        "event_diag_bridge_median": _oracle_median(bridge_counts),
+        "event_diag_bridge_max": max(bridge_counts, default=None),
+        "event_diag_duration_q90": _oracle_nearest(durations, 0.90),
+        "event_diag_duration_q95": _oracle_nearest(durations, 0.95),
+        "event_diag_zone_span_sum": total_span,
+        "event_diag_zone_span_coverage": _oracle_ratio(
+            total_span, aggregate["eligible"]
+        ),
+        "event_diag_duration_mean": _oracle_mean(durations),
+        "event_diag_duration_median": _oracle_median(durations),
+        "event_diag_max_zone_span": max(durations, default=None),
+        "event_diag_duration_q95_ratio": _oracle_ratio(
+            _oracle_nearest(durations, 0.95), _oracle_nearest(atomic_spans, 0.95)
+        ),
+        "event_diag_confirmed_density": _oracle_ratio(total_confirmed, total_span),
+        "event_diag_bridge_count": sum(bridge_counts),
+        "event_diag_bridged_days": total_gap_days,
+        "event_diag_raw_false_days": raw_false_days,
+        "event_diag_preconfirmation_days": preconfirmation_days,
+        "event_diag_total_gap_days": total_gap_days,
+        "event_diag_bridged_day_ratio": _oracle_ratio(total_gap_days, total_span),
+        "event_diag_raw_false_ratio": _oracle_ratio(raw_false_days, total_span),
+        "event_diag_nonconfirmed_ratio": _oracle_ratio(total_gap_days, total_span),
+        "event_diag_max_single_gap": max(
+            (int(zone["max_raw_false_gap_days"]) for zone in zones), default=None
+        ),
+        "event_diag_top_zone_share": _oracle_ratio(
+            max(confirmed_counts, default=0), total_confirmed
+        ),
+        "event_diag_merge_ratio": _oracle_ratio(
+            sum(count > 1 for count in component_counts), len(zones)
+        ),
+        "event_diag_revision_count": sum(bridge_counts),
+        "event_diag_mega_zone_concentration": _oracle_ratio(
+            max(durations, default=0), total_span
+        ),
+        "event_diag_open_ratio": _oracle_ratio(
+            sum(zone["status"] == "RIGHT_CENSORED" for zone in zones), len(zones)
+        ),
+        "event_diag_active_pending": sum(
+            zone["status"] == "RIGHT_CENSORED"
+            and zone.get("censor_prior_state") == "QUALIFIED_ACTIVE"
+            for zone in zones
+        ),
+        "event_diag_gap_pending": sum(
+            zone["status"] == "RIGHT_CENSORED"
+            and zone.get("censor_prior_state") == "GAP_PENDING"
+            for zone in zones
+        ),
+        "event_diag_reentry_pending": sum(
+            zone["status"] == "RIGHT_CENSORED"
+            and zone.get("censor_prior_state") == "REENTRY_PENDING_QUALIFICATION"
+            for zone in zones
+        ),
+        "event_diag_confirmed_coverage": _oracle_ratio(
+            aggregate["qualified"], aggregate["eligible"]
+        ),
+        "event_diag_events_per_security_mean": _oracle_mean(security_values),
+        "event_diag_events_per_security_median": _oracle_median(security_values),
+        "event_diag_events_per_security_q90": _oracle_nearest(security_values, 0.90),
+        "event_diag_events_per_security_max": max(security_values, default=0),
+        "event_diag_events_per_year": _oracle_ratio(len(zones), len(year_counts)),
+        "event_diag_nonzero_years": len(year_counts),
+        "event_diag_max_year_share": _oracle_ratio(
+            max(year_counts.values(), default=0), len(zones)
+        ),
+    }
+    event_observed = con.execute(
+        """SELECT qualified_event_count,natural_finalized_zone_count,
+        quality_break_zone_count,right_censored_zone_count,component_count_q90,
+        component_count_q95,component_count_mean,component_count_median,component_count_max,
+        bridge_count_q90,bridge_count_q95,bridge_count_mean,bridge_count_median,bridge_count_max,
+        duration_q90,duration_q95,
+        zone_span_days_sum,zone_span_coverage,duration_mean,duration_median,max_zone_span,
+        duration_q95_ratio,
+        confirmed_density,bridged_gap_count,bridged_day_count,raw_false_bridged_day_count,
+        preconfirmation_gap_day_count,total_nonconfirmed_gap_day_count,bridged_day_ratio,
+        raw_false_bridged_day_ratio,nonconfirmed_gap_ratio,max_single_gap,
+        top_zone_confirmed_day_share,merge_ratio,zone_revision_count,mega_zone_concentration,
+        open_event_ratio,active_zone_count,gap_pending_zone_count,reentry_pending_zone_count,
+        confirmed_event_coverage,events_per_security_mean,events_per_security_median,
+        events_per_security_q90,events_per_security_max,events_per_year,nonzero_years,max_year_share
+        FROM event_zone_diagnostic_profile WHERE candidate_cell_id=?""",
+        [cell_id],
+    ).fetchone()
+    _append_comparisons(cell_id, event_expected, event_observed, rows, failures)
 
 
 def _append_transition_comparisons(
@@ -871,6 +1423,69 @@ def _assert_source_interval_oracle_matches_upstream(
         raise R2T03IndependentValidationError(
             f"dense_sparse_lineage_mismatch:{route_id}:{security_id}"
         )
+    sparse_dates = {
+        row[0]
+        for row in con.execute(
+            """SELECT CAST(trade_date AS VARCHAR) FROM route_source_daily
+            WHERE route_id=? AND security_id=?""",
+            [route_id, security_id],
+        ).fetchall()
+    }
+    empty_dates = set(expected_dates) - sparse_dates
+    sources = con.execute(
+        """SELECT upstream_source_interval_id,CAST(raw_start_date AS VARCHAR),
+        CAST(confirmed_start_date AS VARCHAR),CAST(interval_end_date AS VARCHAR),
+        CAST(last_observed_date AS VARCHAR),confirmed_day_count,
+        normalized_termination_reason FROM authorized_upstream_interval
+        WHERE route_id=? AND security_id=?""",
+        [route_id, security_id],
+    ).fetchall()
+    for (
+        source_id,
+        raw_start,
+        confirmed_start,
+        end,
+        last_observed,
+        count,
+        reason,
+    ) in sources:
+        geometry = any(raw_start <= date <= end for date in empty_dates)
+        termination = any(end < date <= last_observed for date in empty_dates)
+        fragments = con.execute(
+            """SELECT CAST(start_date AS VARCHAR),CAST(end_date AS VARCHAR),
+            confirmed_day_count,termination_reason,source_geometry_affected,
+            source_termination_affected,upstream_source_interval_id
+            FROM route_atomic_interval WHERE route_id=? AND security_id=?
+             AND upstream_source_interval_id=? ORDER BY 1,2""",
+            [route_id, security_id, source_id],
+        ).fetchall()
+        if not geometry and not termination:
+            exact = (confirmed_start, end, int(count), str(reason))
+            facts = [(a, b, int(c), str(d)) for a, b, c, d, *_ in fragments]
+            if facts != [exact]:
+                raise R2T03IndependentValidationError(
+                    f"unaffected_source_interval_not_exact:{route_id}:{security_id}:{source_id}"
+                )
+        for (
+            start,
+            fragment_end,
+            _,
+            _,
+            marked_geometry,
+            marked_termination,
+            retained_id,
+        ) in fragments:
+            if retained_id != source_id or start < raw_start or fragment_end > end:
+                raise R2T03IndependentValidationError(
+                    f"affected_fragment_source_retention_mismatch:{route_id}:{security_id}:{source_id}"
+                )
+            if (
+                bool(marked_geometry) != geometry
+                or bool(marked_termination) != termination
+            ):
+                raise R2T03IndependentValidationError(
+                    f"source_affected_classification_mismatch:{route_id}:{security_id}:{source_id}"
+                )
 
 
 def _assert_oracle_daily_matches_canonical(
@@ -927,6 +1542,20 @@ def _oracle_nearest(values: Sequence[int], q: float) -> int | None:
         return None
     ordered = sorted(values)
     return ordered[max(1, math.ceil(q * len(ordered))) - 1]
+
+
+def _oracle_mean(values: Sequence[int]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _oracle_median(values: Sequence[int]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return float(ordered[middle])
+    return (ordered[middle - 1] + ordered[middle]) / 2
 
 
 def _oracle_ratio(numerator: Any, denominator: Any) -> float | None:

@@ -5,6 +5,7 @@ import unittest
 import src.r2.r2_t03_independent_validator as validator_module
 from src.r2.r2_t03_independent_validator import (
     R2T03IndependentValidationError,
+    _independent_dense_input,
     compare_oracle_metric_targets,
     independent_strict_core_oracle,
     independent_window_oracle,
@@ -13,6 +14,29 @@ from src.r2.r2_t03_independent_validator import (
 
 
 class R2T03SourceOracleTimelineTest(unittest.TestCase):
+    def test_dense_input_is_built_from_sparse_rows_and_d2_status(self) -> None:
+        sparse = [
+            {
+                "security_id": "S1",
+                "trade_date": "2026-01-01",
+                "available_time": "2026-01-01T15:00:00+08:00",
+                "eligible": True,
+                "quality_state": "valid",
+                "raw_state": True,
+                "source_row_present": True,
+            }
+        ]
+        dense = _independent_dense_input(
+            sparse,
+            ["2026-01-01", "2026-01-02"],
+            {"2026-01-02": "suspended"},
+            security_id="S1",
+        )
+        self.assertEqual(len(sparse), 1)
+        self.assertEqual(len(dense), 2)
+        self.assertEqual(dense[1]["quality_state"], "expected_empty")
+        self.assertFalse(dense[1]["source_row_present"])
+
     def oracle(self, raw, *, d=1, g=0, qualities=None):
         qualities = qualities or ["valid"] * len(raw)
         rows = [

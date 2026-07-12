@@ -64,7 +64,7 @@ R2-T03_initial_startup_status: blocked_missing_authoritative_t02_final_gate_bind
 R2-T03_resolution_status: resolved
 R2-T03_startup_status: passed
 R2-T03_resolved_by: r2_t02_repository_final_gate_handoff.json
-R2-T03_status: code_correction_only_pending_implementation_review
+R2-T03_status: needs_revision_six_closed_implementation_corrections_submitted
 R2-T03_historical_run_id: R2-T03-20260712T1205Z
 R2-T03_historical_run_status: author_draft_invalidated_pending_successor_run
 R2-T03_formal_rerun_executed: false
@@ -396,7 +396,7 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate。PR #94 的 exact-head scientific PASS、premerge-full、workflow final-gate consumer、merge ancestry 与 GitHub artifact metadata 已由 immutable post-merge handoff 持久绑定；R2-T02 author package保持不可变。R2-T03 初始 handoff 阻断已解决，但历史 run `R2-T03-20260712T1205Z` 继续标记为 `author_draft_invalidated_pending_successor_run`。当前 PR 已完成 E2E-01..E2E-09 final implementation correction 并等待 implementation review：canonical dense `route_daily`、dense/sparse 两层 lineage reconciliation、ledger terminal binding、完整 diagnostics/detectors/independent validation/fingerprint/analysis/manifest validation 均已实现。adapter-only audit 得到 14 geometry affected、10 termination-only affected、24 all affected、12 eliminated、31,334 dense fragments 与 31,322 unaffected exact intervals。没有执行 successor baseline 或真实 72-cell run。R2-T04 至 R2-T08 继续关闭。
+状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate；PR #94 的结果已由 immutable post-merge handoff 持久绑定，R2-T02 author package保持不可变。R2-T03 历史 run `R2-T03-20260712T1205Z` 继续标记为 `author_draft_invalidated_pending_successor_run`。HEAD `6c075d5a...` 的 implementation review为needs revision；当前修订只封闭其列出的六项：sparse `route_source_daily`与`route_dense_input`分离、diagnostic/strict/window公式、12项parameter invariants和具体detectors、independent diagnostics/lineage policy、run-invariant post-validation comparison及扩展anomaly scan。adapter-only复核为13,846,152 sparse rows、14,008,528 dense rows、162,376 expected-empty且sparse expected-empty为0。没有执行successor baseline或真实72-cell run；R2-T04至R2-T08继续关闭。
 
 R2-T01 author-draft 历史门禁记录：`current_task: R2-T01 参数候选收敛与 shortlist registry`、`next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约`、`R2-T02_allowed_to_start: false`。这些 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 R2-T02 author package 记录为准。
 

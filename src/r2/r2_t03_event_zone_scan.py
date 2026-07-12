@@ -170,6 +170,9 @@ def run_scan(
                     "route_source_daily_row_count": connection.execute(
                         "SELECT count(*) FROM route_source_daily"
                     ).fetchone()[0],
+                    "route_dense_input_row_count": connection.execute(
+                        "SELECT count(*) FROM route_dense_input"
+                    ).fetchone()[0],
                     "canonical_route_daily_row_count": connection.execute(
                         "SELECT count(*) FROM route_daily"
                     ).fetchone()[0],
@@ -640,7 +643,13 @@ def _materialize_authoritative_expected_keys(
         CREATE TABLE expected_route_key AS
         SELECT r.route_id,b.security_id,b.trade_date
         FROM (SELECT DISTINCT route_id FROM cell_registry) r
-        CROSS JOIN base_expected_security_date b"""
+        CROSS JOIN base_expected_security_date b;
+        CREATE TABLE expected_empty_status AS
+        SELECT ts_code::VARCHAR security_id,
+               CAST(strptime(trade_date::VARCHAR,'%Y%m%d') AS DATE) trade_date,
+               trading_status::VARCHAR expected_empty_reason
+        FROM expected_key_source.d2_source_status
+        WHERE trade_date BETWEEN '{contract["date_min"]}' AND '{contract["date_max"]}'"""
     )
     duplicates = con.execute(
         "SELECT count(*)-count(DISTINCT (route_id,security_id,trade_date)) FROM expected_route_key"
@@ -658,30 +667,29 @@ def _materialize_authoritative_expected_keys(
             + ":".join(str(value) for value in unexpected)
         )
     con.execute(
-        """INSERT INTO route_source_daily
+        """CREATE TABLE route_dense_input AS
         SELECT e.route_id,e.security_id,e.trade_date,
-               strftime(e.trade_date,'%Y-%m-%d') || 'T15:00:00+08:00',
-               false,'expected_empty',NULL,false,NULL,NULL,false,
-               CASE s.trading_status WHEN 'suspended' THEN 'suspended'
-                    WHEN 'listing_pause' THEN 'listing_pause'
-                    ELSE error('unclassified_expected_empty:' || coalesce(s.trading_status,'NULL')) END,
-               false
+          coalesce(CAST(r.available_time AS VARCHAR),strftime(e.trade_date,'%Y-%m-%d') || 'T15:00:00+08:00') available_time,
+          coalesce(r.eligible,false) eligible,
+          coalesce(r.quality_state,'expected_empty')::VARCHAR quality_state,
+          r.raw_state,coalesce(r.confirmed_state,false) confirmed_state,
+          r.confirmed_start_date,r.confirmation_time,
+          coalesce(r.state_risk_set_eligible,false) state_risk_set_eligible,
+          CASE WHEN r.trade_date IS NOT NULL THEN NULL
+               WHEN s.expected_empty_reason IN ('suspended','listing_pause') THEN s.expected_empty_reason
+               ELSE error('unclassified_expected_empty:' || coalesce(s.expected_empty_reason,'NULL')) END expected_empty_reason,
+          (r.trade_date IS NOT NULL) source_row_present
         FROM expected_route_key e LEFT JOIN route_source_daily r USING(route_id,security_id,trade_date)
-        LEFT JOIN expected_key_source.d2_source_status s
-          ON s.ts_code=e.security_id AND CAST(strptime(s.trade_date,'%Y%m%d') AS DATE)=e.trade_date
-        WHERE r.trade_date IS NULL"""
+        LEFT JOIN expected_empty_status s USING(security_id,trade_date)"""
     )
-    remaining = con.execute(
-        """SELECT count(*) FROM expected_route_key e LEFT JOIN route_source_daily r
-        USING(route_id,security_id,trade_date) WHERE r.trade_date IS NULL"""
-    ).fetchone()[0]
-    if remaining:
-        raise R2T03Error("dense_expected_surface_materialization_incomplete")
+    con.execute(
+        "CREATE UNIQUE INDEX route_dense_input_pk ON route_dense_input(route_id,security_id,trade_date)"
+    )
     observed = con.execute(
         """SELECT count(*),count(*) FILTER (WHERE NOT source_row_present),
         count(*) FILTER (WHERE expected_empty_reason='suspended'),
         count(*) FILTER (WHERE expected_empty_reason='listing_pause')
-        FROM route_source_daily"""
+        FROM route_dense_input"""
     ).fetchone()
     if contract.get("adapter_id") == "r2_t03_expected_key_adapter.v1" and observed != (
         14008528,
@@ -699,11 +707,11 @@ def _materialize_canonical_daily_and_intervals(
     daily_rows: list[tuple[Any, ...]] = []
     interval_rows: list[tuple[Any, ...]] = []
     for route_id, security_id in con.execute(
-        "SELECT DISTINCT route_id,security_id FROM route_source_daily ORDER BY 1,2"
+        "SELECT DISTINCT route_id,security_id FROM route_dense_input ORDER BY 1,2"
     ).fetchall():
         source = con.execute(
             """SELECT trade_date,CAST(available_time AS VARCHAR),eligible,quality_state,raw_state,
-            expected_empty_reason,source_row_present FROM route_source_daily
+            expected_empty_reason,source_row_present FROM route_dense_input
             WHERE route_id=? AND security_id=? ORDER BY trade_date""",
             [route_id, security_id],
         ).fetchall()
@@ -927,10 +935,10 @@ def _bind_dense_interval_lineage(con: duckdb.DuckDBPyConnection) -> None:
         """CREATE TEMP TABLE dense_lineage AS
         WITH candidates AS (
           SELECT r.route_id,r.security_id,r.interval_id,u.upstream_source_interval_id,
-            EXISTS(SELECT 1 FROM route_source_daily d WHERE d.route_id=u.route_id
+            EXISTS(SELECT 1 FROM route_dense_input d WHERE d.route_id=u.route_id
               AND d.security_id=u.security_id AND NOT d.source_row_present
               AND d.trade_date BETWEEN u.raw_start_date AND u.interval_end_date) geometry_affected,
-            EXISTS(SELECT 1 FROM route_source_daily d WHERE d.route_id=u.route_id
+            EXISTS(SELECT 1 FROM route_dense_input d WHERE d.route_id=u.route_id
               AND d.security_id=u.security_id AND NOT d.source_row_present
               AND d.trade_date>u.interval_end_date AND d.trade_date<=u.last_observed_date) termination_affected
           FROM route_atomic_interval r JOIN authorized_upstream_interval u
@@ -967,6 +975,8 @@ def _bind_dense_interval_lineage(con: duckdb.DuckDBPyConnection) -> None:
 
 def _assert_canonical_daily(con: duckdb.DuckDBPyConnection) -> None:
     checks = {
+        "sparse_source_count": "SELECT count(*)-13846152 FROM route_source_daily",
+        "dense_input_count": "SELECT count(*)-14008528 FROM route_dense_input",
         "row_count": "SELECT (SELECT count(*) FROM route_daily)-(SELECT count(*) FROM expected_route_key)",
         "duplicate_pk": "SELECT count(*)-count(DISTINCT (route_id,security_id,trade_date)) FROM route_daily",
         "route_count": "SELECT count(DISTINCT route_id)-8 FROM route_daily",
@@ -1869,6 +1879,8 @@ def _database_fingerprint(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "route_source_daily",
         "base_expected_security_date",
         "expected_route_key",
+        "expected_empty_status",
+        "route_dense_input",
         "route_daily",
         "authorized_upstream_interval",
         "route_atomic_interval",
@@ -1889,6 +1901,7 @@ def _database_fingerprint(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "strict_core_shell_profile",
         "strict_core_diagnostic_profile",
         "window_overlap_comparison",
+        "window_supplemental_source",
         "window_diagnostic_profile",
         "parameter_response_audit",
         "parameter_invariant_profile",
