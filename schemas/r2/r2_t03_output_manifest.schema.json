@@ -3,7 +3,7 @@
   "title": "R2-T03 output manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["task_id", "run_id", "execution_commit", "artifact_count", "artifacts", "database_tables", "status"],
+  "required": ["task_id", "run_id", "execution_commit", "artifact_count", "artifacts", "large_artifacts", "database_tables", "status"],
   "properties": {
     "task_id": {"const": "R2-T03"},
     "run_id": {"type": "string", "pattern": "^R2-T03-"},
@@ -19,6 +19,21 @@
           "path": {"type": "string"},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "size_bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "large_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size_bytes", "lifecycle"],
+        "properties": {
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size_bytes": {"type": "integer", "minimum": 1},
+          "lifecycle": {"const": "local_large_artifact_not_committed"}
         }
       }
     },

@@ -83,6 +83,21 @@ def validate_committed_artifacts(
     manifest = _json(output_dir / "r2_t03_output_manifest.json")
     failures = []
     bindings = []
+    manifest_rel = repo_rel(output_dir / "r2_t03_output_manifest.json", root)
+    manifest_blob = _git_blob(commit, manifest_rel, root)
+    bindings.append(
+        {
+            "path": manifest_rel,
+            "source_commit": commit,
+            "committed_byte_sha256": hashlib.sha256(manifest_blob).hexdigest(),
+            "working_tree_matches_committed": (
+                (output_dir / "r2_t03_output_manifest.json").read_bytes()
+                == manifest_blob
+            ),
+        }
+    )
+    if not bindings[-1]["working_tree_matches_committed"]:
+        failures.append(f"working_tree:{manifest_rel}")
     for artifact in manifest["artifacts"]:
         path = root / artifact["path"]
         blob = _git_blob(commit, artifact["path"], root)
@@ -204,6 +219,7 @@ def _manifest(
     excluded = {
         "r2_t03_output_manifest.json",
         "r2_t03_committed_artifact_validation.json",
+        "r2_t03_event_zone_scan.duckdb",
     }
     artifacts = []
     for path in sorted(output_dir.iterdir()):
@@ -216,12 +232,22 @@ def _manifest(
                     "size_bytes": len(data),
                 }
             )
+    database = output_dir / "r2_t03_event_zone_scan.duckdb"
+    database_bytes = database.read_bytes()
     return {
         "task_id": "R2-T03",
         "run_id": output_dir.name,
         "execution_commit": execution_commit,
         "artifact_count": len(artifacts),
         "artifacts": artifacts,
+        "large_artifacts": [
+            {
+                "path": repo_rel(database, root),
+                "sha256": hashlib.sha256(database_bytes).hexdigest(),
+                "size_bytes": len(database_bytes),
+                "lifecycle": "local_large_artifact_not_committed",
+            }
+        ],
         "database_tables": tables,
         "status": "passed",
     }
