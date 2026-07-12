@@ -121,12 +121,20 @@ def run_scan(
         _insert_cell_registry(connection, cells)
         _materialize_route_daily(connection, routes, root)
         _create_atomic_daily_view(connection)
-        execution_rows = _execute_routes(
-            connection,
-            routes,
-            cells,
-            heartbeat_interval=int(config["runtime"]["heartbeat_security_interval"]),
-        )
+        connection.execute("BEGIN TRANSACTION")
+        try:
+            execution_rows = _execute_routes(
+                connection,
+                routes,
+                cells,
+                heartbeat_interval=int(
+                    config["runtime"]["heartbeat_security_interval"]
+                ),
+            )
+            connection.execute("COMMIT")
+        except Exception:
+            connection.execute("ROLLBACK")
+            raise
         _create_profiles_and_comparisons(connection)
         _create_atomic_interval_view(connection)
         fingerprint = _database_fingerprint(connection)
