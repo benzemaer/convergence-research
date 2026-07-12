@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "contract_version", "config_path", "base_main_sha", "execution_code_commit", "hash_authority", "worktree_hash_for_lineage_allowed", "source_bindings", "lineage_checks"],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "config_path": {"type": "string"},
+    "base_main_sha": {"type": "string", "minLength": 40, "maxLength": 40},
+    "execution_code_commit": {"type": "string", "minLength": 40, "maxLength": 40},
+    "hash_authority": {"const": "committed_git_blob_only"},
+    "worktree_hash_for_lineage_allowed": {"const": false},
+    "source_bindings": {"type": "array", "minItems": 1},
+    "lineage_checks": {"type": "object"}
+  }
+}

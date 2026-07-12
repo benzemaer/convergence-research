@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registry_json_required_fields", "results_csv_columns", "minimum_case_count", "additionalProperties"],
+  "properties": {
+    "registry_json_required_fields": {"type": "array"},
+    "results_csv_columns": {
+      "const": [
+        "case_id",
+        "fixture_id",
+        "status",
+        "oracle_id",
+        "assertion_count",
+        "expected_reason_code",
+        "observed_reason_code",
+        "error_code",
+        "assertion_ledger_sha256",
+        "transition_count",
+        "atomic_interval_count",
+        "qualified_component_count",
+        "event_zone_count"
+      ]
+    },
+    "minimum_case_count": {"const": 40},
+    "additionalProperties": {"const": false}
+  }
+}

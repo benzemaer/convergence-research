@@ -1,0 +1,20 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T0600Z",
+  "replacement_run_id": "R2-T02-20260712T1500Z",
+  "status": "superseded",
+  "superseded_at": "2026-07-12T07:00:00Z",
+  "supersession_reason_codes": [
+    "package_hashes_included_validation_result_cycle",
+    "committed_artifact_validation_failed"
+  ],
+  "current_evidence_allowed": false,
+  "formal_input_allowed": false,
+  "downstream_gate_allowed": false,
+  "scientific_review_status": "pending",
+  "replacement_scientific_review_status": "pending",
+  "replacement_independent_review_status": "pending",
+  "R2-T03_allowed_to_start": false,
+  "R2-T04_allowed_to_start": false,
+  "R3_allowed_to_start": false
+}

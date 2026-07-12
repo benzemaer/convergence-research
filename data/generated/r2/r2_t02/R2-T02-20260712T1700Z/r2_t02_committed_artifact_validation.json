@@ -1,0 +1,88 @@
+{
+  "artifact_commit": "a34f3f6c5ad0afece49b1c9a237e21eb032e35a2",
+  "artifact_count": 18,
+  "artifact_git_blobs": {
+    "r2_t02_anomaly_scan.json": {
+      "git_blob_sha": "1000a3013d27bd6da042f1710c88b9ae92ae4eaa",
+      "sha256": "323512949c1be9d0c1ed157f325c24c47cb7c758da1df956ade3882ae9403e8f"
+    },
+    "r2_t02_author_stage_scientific_review.json": {
+      "git_blob_sha": "8adeecac4cac8d8b4ae56e44887e79592f14c41d",
+      "sha256": "a2d3bdc49d82e6605dd57c530f3f42a6fb7da963c7399263be69cf8ed832723d"
+    },
+    "r2_t02_confirmed_state_machine_contract.json": {
+      "git_blob_sha": "f38048d48f0de5537049ce07933d28b178daea2e",
+      "sha256": "6c0d5822416e5e8fef6392a8d97703d0ad9b5c46774029e13a363be6feb2d57c"
+    },
+    "r2_t02_event_rule_contract.json": {
+      "git_blob_sha": "028b259a3cf189a9e3352225168b94156be6574f",
+      "sha256": "a24012dc80fab12f4ffc3d0d33e369ad2ad9695a6df9558ea51ad3e4f4503632"
+    },
+    "r2_t02_event_zone_machine_contract.json": {
+      "git_blob_sha": "010b9c8fccedbfdd7d875f7c0244cc4ff83af483",
+      "sha256": "e7d877885b3cfe31bf685803f939cdcf56037d02a46d40314a304435dc1ecaed"
+    },
+    "r2_t02_evidence.md": {
+      "git_blob_sha": "eab5c7264b8d9d2c8872ea30e8cb4b11c06e07b0",
+      "sha256": "902d4549736c4e8db1cd20ea2eb128431758527328611c07071a2cc149c4fc07"
+    },
+    "r2_t02_experiment_summary.json": {
+      "git_blob_sha": "a6de45fa7bf8fce657406e126aef0981c875f3b8",
+      "sha256": "30d75133e1e4d88e699751d8c6768630a92d700a73a54b6a53f94148b9d6946d"
+    },
+    "r2_t02_hard_gate_registry.csv": {
+      "git_blob_sha": "27d9b30c04b1d808cc4d245832b9d04dbf5f43fc",
+      "sha256": "533978218585c510693d4236261b23d7a42834786a699412200e9d5f0d2012f5"
+    },
+    "r2_t02_input_binding.json": {
+      "git_blob_sha": "8a36598a594d72bc7445f85883bedd22e6569b6e",
+      "sha256": "702182acb388db029b192e7804e2dc28052dc05e591d9f98f0d2fa675085468f"
+    },
+    "r2_t02_metric_dictionary.csv": {
+      "git_blob_sha": "5223f91f13b95a6272d32e950892e349b2e842e1",
+      "sha256": "aa56c49dce9484e7031fde9f345cc918bba70cb8b4cdc222e37ea63582cca00c"
+    },
+    "r2_t02_r3_risk_set_contract.json": {
+      "git_blob_sha": "b99cc5a63839cf3cb9f3ae0fac0cfefa2e03ace9",
+      "sha256": "cb19687a112ba5ceba23c09fdd6923814d6159a088bff1dc78a322c8e5d1250f"
+    },
+    "r2_t02_result_analysis.md": {
+      "git_blob_sha": "67bcd3b9919cd25fc44d77b259d1128ed97dd73a",
+      "sha256": "e5e4f27d993b4333c283687f74dd333bd00be6fe462e8dae5431137a1c36f9ac"
+    },
+    "r2_t02_synthetic_case_fixtures.json": {
+      "git_blob_sha": "25b9123a118aefd1f2b507314dd1d2b5acaf212e",
+      "sha256": "e85fa772deb3d19bf76b6f471b92f0801b5d320c32157d1e92f1b6dc03e1bfaf"
+    },
+    "r2_t02_synthetic_case_registry.json": {
+      "git_blob_sha": "b45f21e5891da0387358ac1587a50b090e017a61",
+      "sha256": "92e4eb6d20fb06ea902d514b9879cc617d29f5a66c463e1511c198dbe55591f0"
+    },
+    "r2_t02_synthetic_case_results.csv": {
+      "git_blob_sha": "78e8095a45c9ec7b69c9a91b00a70fcea21d92a7",
+      "sha256": "7748866bdd412c0a3a0eadc69e295addfd0e7d1f7c458af619bf63788eea01ff"
+    },
+    "r2_t02_t03_cell_registry.csv": {
+      "git_blob_sha": "2158804e886d26c5c98fb5aebc59722fe84062ea",
+      "sha256": "7d8f82c189d0c96ba3091ca142d8612e31aeef36ecf20ff9c832009bd41e6ead"
+    },
+    "r2_t02_t03_output_contract.json": {
+      "git_blob_sha": "12e3996b42388bb9a52c7842bdb1d714fa658f81",
+      "sha256": "7587891bd2b705f0f5af90dc3c4faf672c9c8191bd912f92052932c2c7ac4a3c"
+    },
+    "r2_t02_transition_registry.csv": {
+      "git_blob_sha": "a6ce5311155799fd53bb5a727ca389e84f686e5e",
+      "sha256": "e2656afa07244b5fb2219327dda48dc9a6968e61a87c40662fb882208ca5440e"
+    }
+  },
+  "artifact_hash_basis": "committed_git_blob",
+  "errors": [],
+  "package_committed_sha256": "8e0dfc953d146d74c284274254f73bd4d01ba8b88c9c9c643ae398d0391f40ba",
+  "package_git_blob_sha": "f8963a115dedf18843ac12d8894544779b38078a",
+  "package_hash_in_closed_set": true,
+  "package_sha256": "8e0dfc953d146d74c284274254f73bd4d01ba8b88c9c9c643ae398d0391f40ba",
+  "reviewed_pr_head": "a34f3f6c5ad0afece49b1c9a237e21eb032e35a2",
+  "run_id": "R2-T02-20260712T1700Z",
+  "status": "passed",
+  "task_id": "R2-T02"
+}

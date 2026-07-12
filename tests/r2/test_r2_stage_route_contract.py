@@ -12,8 +12,8 @@ class R2StageRouteContract(unittest.TestCase):
         text = (ROOT / "docs/tasks/README.md").read_text(encoding="utf-8")
         for task in (
             "`R2-T01` 参数候选收敛与 shortlist registry",
-            "`R2-T02` K/d/g、事件指标、hard gate 与 R3 risk-set 契约",
-            "`R2-T03` 四路线 d×g 事件区间几何扫描",
+            "`R2-T02` confirmed-state 与 event-zone 双层状态机契约",
+            "`R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计",
             "`R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan",
             "`R2-T05` canonical 日度状态与事件区间物化",
             "`R2-T06` canonical 状态机无前视回放与一致性验收",
@@ -22,8 +22,9 @@ class R2StageRouteContract(unittest.TestCase):
         ):
             self.assertIn(task, text)
 
-    def test_only_t01_is_implemented_and_t02_is_authorized(self):
-        for task in range(2, 9):
+    def test_t02_is_implemented_and_downstream_remains_closed(self):
+        self.assertTrue(list((ROOT / "src/r2").glob("r2_t02*")))
+        for task in range(3, 9):
             self.assertFalse(list((ROOT / "src/r2").glob(f"r2_t{task:02d}*")))
             self.assertFalse((ROOT / f"data/generated/r2/r2_t{task:02d}").exists())
         current = (
@@ -33,6 +34,8 @@ class R2StageRouteContract(unittest.TestCase):
             .split("## 命名与路径规则", 1)[0]
         )
         self.assertIn("R2-T02_allowed_to_start: true", current)
+        self.assertIn("R2-T02_formal_task_completed: false", current)
+        self.assertIn("R2-T03_allowed_to_start: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
 
 

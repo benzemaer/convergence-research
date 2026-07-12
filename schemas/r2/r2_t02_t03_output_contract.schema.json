@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "contract_version", "execution_code_commit", "primary_cell_count", "shared_q_sidecar_cell_count", "registry_row_count", "actual_scan_executed", "execution_status", "forbidden_fields", "table_contracts"],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "run_id": {"type": "string"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "execution_code_commit": {"type": "string"},
+    "primary_cell_count": {"const": 36},
+    "shared_q_sidecar_cell_count": {"const": 36},
+    "registry_row_count": {"const": 72},
+    "actual_scan_executed": {"const": false},
+    "execution_status": {"const": "not_executed_contract_only"},
+    "forbidden_fields": {"type": "array"},
+    "table_contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "atomic_confirmed_daily",
+        "qualified_component",
+        "event_zone",
+        "event_zone_membership_daily",
+        "event_zone_bridge_segment",
+        "transition_profile",
+        "strict_core_window_comparison",
+        "atomic_baseline_profile",
+        "d_qualification_profile",
+        "dg_event_zone_profile",
+        "transition_aggregate_profile",
+        "strict_core_shell_profile",
+        "window_overlap_comparison"
+      ],
+      "properties": {
+        "atomic_confirmed_daily": {"$ref": "#/$defs/table_contract"},
+        "qualified_component": {"$ref": "#/$defs/table_contract"},
+        "event_zone": {"$ref": "#/$defs/table_contract"},
+        "event_zone_membership_daily": {"$ref": "#/$defs/table_contract"},
+        "event_zone_bridge_segment": {"$ref": "#/$defs/table_contract"},
+        "transition_profile": {"$ref": "#/$defs/table_contract"},
+        "strict_core_window_comparison": {"$ref": "#/$defs/table_contract"},
+        "atomic_baseline_profile": {"$ref": "#/$defs/table_contract"},
+        "d_qualification_profile": {"$ref": "#/$defs/table_contract"},
+        "dg_event_zone_profile": {"$ref": "#/$defs/table_contract"},
+        "transition_aggregate_profile": {"$ref": "#/$defs/table_contract"},
+        "strict_core_shell_profile": {"$ref": "#/$defs/table_contract"},
+        "window_overlap_comparison": {"$ref": "#/$defs/table_contract"}
+      }
+    }
+  },
+  "$defs": {
+    "table_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_key", "denominator_scope", "fields", "row_schema"],
+      "properties": {
+        "primary_key": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "denominator_scope": {"type": "string", "minLength": 1},
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "type", "nullable", "enum_values"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "type": {"type": "string", "minLength": 1},
+              "nullable": {"type": "boolean"},
+              "enum_values": {
+                "type": "array",
+                "items": {"type": "string"},
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "row_schema": {
+          "type": "object",
+          "required": ["type", "additionalProperties", "required", "properties"],
+          "properties": {
+            "type": {"const": "object"},
+            "additionalProperties": {"const": false},
+            "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "properties": {"type": "object"}
+          }
+        }
+      }
+    }
+  }
+}

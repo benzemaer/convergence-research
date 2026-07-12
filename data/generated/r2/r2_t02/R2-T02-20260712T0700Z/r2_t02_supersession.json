@@ -1,0 +1,20 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T0700Z",
+  "replacement_run_id": "R2-T02-20260712T1500Z",
+  "status": "superseded",
+  "superseded_at": "2026-07-12T08:00:00Z",
+  "supersession_reason_codes": [
+    "committed_artifact_validator_entrypoint_not_thin",
+    "formal_source_set_revised"
+  ],
+  "current_evidence_allowed": false,
+  "formal_input_allowed": false,
+  "downstream_gate_allowed": false,
+  "scientific_review_status": "pending",
+  "replacement_scientific_review_status": "pending",
+  "replacement_independent_review_status": "pending",
+  "R2-T03_allowed_to_start": false,
+  "R2-T04_allowed_to_start": false,
+  "R3_allowed_to_start": false
+}

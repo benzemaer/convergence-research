@@ -1,0 +1,41 @@
+gate_id,state_line,metric_id,operator,threshold,scope_rule,fail_closed,zero_tolerance
+s_pct_qualified_event_count,S_PCT,qualified_event_count,>=,"max(250,ceil(0.05*upstream_confirmed_interval_count))",state_line_level_not_W_specific,True,False
+s_pct_unique_securities,S_PCT,unique_securities,>=,"max(150,ceil(0.20*upstream_unique_securities))",state_line_level_not_W_specific,True,False
+s_pct_retained_confirmed_day_ratio,S_PCT,retained_confirmed_day_ratio,>=,0.35,state_line_level_not_W_specific,True,False
+s_pct_short_interval_drop_rate,S_PCT,short_interval_drop_rate,<=,0.80,state_line_level_not_W_specific,True,False
+s_pct_bridged_day_ratio,S_PCT,bridged_day_ratio,<=,0.30,state_line_level_not_W_specific,True,False
+s_pct_merge_ratio,S_PCT,merge_ratio,<=,0.70,state_line_level_not_W_specific,True,False
+s_pct_open_event_ratio,S_PCT,open_event_ratio,<=,0.10,state_line_level_not_W_specific,True,False
+s_pct_nonzero_years,S_PCT,nonzero_years,>=,8,state_line_level_not_W_specific,True,False
+s_pct_max_year_share,S_PCT,max_year_share,<=,0.35,state_line_level_not_W_specific,True,False
+s_pct_duration_q95_ratio,S_PCT,duration_q95_ratio,<=,3.0,state_line_level_not_W_specific,True,False
+s_pcvt_qualified_event_count,S_PCVT,qualified_event_count,>=,"max(100,ceil(0.05*upstream_confirmed_interval_count))",state_line_level_not_W_specific,True,False
+s_pcvt_unique_securities,S_PCVT,unique_securities,>=,"max(100,ceil(0.15*upstream_unique_securities))",state_line_level_not_W_specific,True,False
+s_pcvt_retained_confirmed_day_ratio,S_PCVT,retained_confirmed_day_ratio,>=,0.25,state_line_level_not_W_specific,True,False
+s_pcvt_short_interval_drop_rate,S_PCVT,short_interval_drop_rate,<=,0.85,state_line_level_not_W_specific,True,False
+s_pcvt_bridged_day_ratio,S_PCVT,bridged_day_ratio,<=,0.35,state_line_level_not_W_specific,True,False
+s_pcvt_merge_ratio,S_PCVT,merge_ratio,<=,0.75,state_line_level_not_W_specific,True,False
+s_pcvt_open_event_ratio,S_PCVT,open_event_ratio,<=,0.10,state_line_level_not_W_specific,True,False
+s_pcvt_nonzero_years,S_PCVT,nonzero_years,>=,8,state_line_level_not_W_specific,True,False
+s_pcvt_max_year_share,S_PCVT,max_year_share,<=,0.35,state_line_level_not_W_specific,True,False
+s_pcvt_duration_q95_ratio,S_PCVT,duration_q95_ratio,<=,3.0,state_line_level_not_W_specific,True,False
+lineage_mismatch,GLOBAL,lineage_mismatch,==,0 violations,global_zero_tolerance,True,True
+schema_mismatch,GLOBAL,schema_mismatch,==,0 violations,global_zero_tolerance,True,True
+source_hash_mismatch,GLOBAL,source_hash_mismatch,==,0 violations,global_zero_tolerance,True,True
+superseded_input,GLOBAL,superseded_input,==,0 violations,global_zero_tolerance,True,True
+duplicate_primary_key,GLOBAL,duplicate_primary_key,==,0 violations,global_zero_tolerance,True,True
+missing_expected_trading_row,GLOBAL,missing_expected_trading_row,==,0 violations,global_zero_tolerance,True,True
+unknown_bridge,GLOBAL,unknown_bridge,==,0 violations,global_zero_tolerance,True,True
+blocked_bridge,GLOBAL,blocked_bridge,==,0 violations,global_zero_tolerance,True,True
+diagnostic_required_bridge,GLOBAL,diagnostic_required_bridge,==,0 violations,global_zero_tolerance,True,True
+ineligible_bridge,GLOBAL,ineligible_bridge,==,0 violations,global_zero_tolerance,True,True
+confirmed_day_conservation_mismatch,GLOBAL,confirmed_day_conservation_mismatch,==,0 violations,global_zero_tolerance,True,True
+event_overlap_within_same_route_cell_security,GLOBAL,event_overlap_within_same_route_cell_security,==,0 violations,global_zero_tolerance,True,True
+post_merge_short_zone,GLOBAL,post_merge_short_zone,==,0 violations,global_zero_tolerance,True,True
+risk_set_violation,GLOBAL,risk_set_violation,==,0 violations,global_zero_tolerance,True,True
+strict_core_subset_violation,GLOBAL,strict_core_subset_violation,==,0 violations,global_zero_tolerance,True,True
+event_id_instability,GLOBAL,event_id_instability,==,0 violations,global_zero_tolerance,True,True
+availability_backfill,GLOBAL,availability_backfill,==,0 violations,global_zero_tolerance,True,True
+right_censor_misclassified_as_natural_exit,GLOBAL,right_censor_misclassified_as_natural_exit,==,0 violations,global_zero_tolerance,True,True
+prequalification_censor_included_in_drop_denominator,GLOBAL,prequalification_censor_included_in_drop_denominator,==,0 violations,global_zero_tolerance,True,True
+forbidden_output_field,GLOBAL,forbidden_output_field,==,0 violations,global_zero_tolerance,True,True

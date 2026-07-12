@@ -1,0 +1,20 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T1300Z",
+  "replacement_run_id": "R2-T02-20260712T1500Z",
+  "review_id": "4679710606",
+  "reviewed_head": "e276a3aad9865ffa10525268d22d16dde0924233",
+  "supersession_reason_codes": [
+    "metric_registry_requires_exact_callable_per_metric",
+    "zero_tolerance_gates_require_real_violation_detectors",
+    "t03_membership_and_bridge_schema_require_auditable_closure",
+    "synthetic_oracles_and_independent_replay_require_complete_evidence"
+  ],
+  "current_evidence_eligible": false,
+  "formal_input_eligible": false,
+  "downstream_gate_state": {
+    "R2-T03_allowed_to_start": false,
+    "R2-T04_allowed_to_start": false,
+    "R3_allowed_to_start": false
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "task_type", "protocol_version", "base_main_sha", "inputs", "upstream_required_fields", "formal_source_paths", "candidate_contract", "author_stage_gate_state", "expected_artifacts"],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "task_type": {"const": "protocol_freeze"},
+    "protocol_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "base_main_sha": {"type": "string", "minLength": 40, "maxLength": 40},
+    "inputs": {"type": "object"},
+    "upstream_required_fields": {"type": "object"},
+    "formal_source_paths": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "candidate_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_cell_count", "shared_q_sidecar_cell_count", "actual_scan_executed", "execution_status", "d_grid", "g_grid", "K"],
+      "properties": {
+        "primary_cell_count": {"const": 36},
+        "shared_q_sidecar_cell_count": {"const": 36},
+        "actual_scan_executed": {"const": false},
+        "execution_status": {"const": "not_executed_contract_only"},
+        "d_grid": {"const": [1, 2, 3]},
+        "g_grid": {"const": [0, 1, 2]},
+        "K": {"const": 3}
+      }
+    },
+    "author_stage_gate_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scientific_review_status", "independent_review_status", "formal_task_completed", "R2-T03_allowed_to_start", "R2-T04_allowed_to_start", "R3_allowed_to_start"],
+      "properties": {
+        "scientific_review_status": {"const": "pending"},
+        "independent_review_status": {"const": "pending"},
+        "formal_task_completed": {"const": false},
+        "R2-T03_allowed_to_start": {"const": false},
+        "R2-T04_allowed_to_start": {"const": false},
+        "R3_allowed_to_start": {"const": false}
+      }
+    },
+    "expected_artifacts": {"type": "array", "minItems": 19}
+  }
+}
