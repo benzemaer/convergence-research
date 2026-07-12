@@ -17,7 +17,7 @@ def main() -> int:
         "--config",
         type=Path,
         default=ROOT
-        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json",
+        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()

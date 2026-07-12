@@ -8,9 +8,9 @@ from src.r2 import r2_t02_protocol_freeze as r2_t02
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1300Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1400Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -377,7 +377,21 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
             "r2_t02_violation_detector__status_asof_timeline_gap"
         )
         self.assertIsNotNone(detector)
-        self.assertEqual(len(detector([{"status_asof_timeline_gap": True}, {}])), 1)
+        self.assertEqual(
+            len(
+                detector(
+                    [
+                        {
+                            "status_as_of": "GAP_PENDING",
+                            "expected_status_as_of": "FINALIZED",
+                        }
+                    ]
+                )
+            ),
+            1,
+        )
+        with self.assertRaisesRegex(ValueError, "violation_detector_input_missing"):
+            detector([{}])
 
     def test_t03_contract_has_strict_row_schemas_and_integer_profiles(self):
         contracts = r2_t02.t03_table_contracts()
@@ -389,10 +403,64 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         self.assertEqual(profile_fields["qualified_event_count"]["type"], "integer")
         membership = contracts["event_zone_membership_daily"]
         self.assertFalse(membership["row_schema"]["additionalProperties"])
+        membership_names = {row["name"] for row in membership["fields"]}
+        self.assertTrue(
+            {"evaluation_time", "eligible", "quality_state"} <= membership_names
+        )
+        bridge = contracts["event_zone_bridge_segment"]
+        self.assertFalse(bridge["row_schema"]["additionalProperties"])
         status = next(
             row for row in membership["fields"] if row["name"] == "zone_status_as_of"
         )
         self.assertIn("REENTRY_PENDING_QUALIFICATION", status["enum_values"])
+
+    def test_bridge_segment_bounds_are_executable(self):
+        baseline = {
+            "K": 3,
+            "d": 2,
+            "g": 2,
+            "merge_accepted": True,
+            "raw_false_gap_day_count": 2,
+            "preconfirmation_gap_day_count": 4,
+            "total_nonconfirmed_gap_day_count": 6,
+        }
+        self.assertEqual(r2_t02._detect_raw_false_gap_days_exceed_g([baseline]), [])
+        self.assertEqual(r2_t02._detect_preconfirmation_bound([baseline]), [])
+        self.assertEqual(r2_t02._detect_total_gap_bound([baseline]), [])
+        mutation = {
+            **baseline,
+            "preconfirmation_gap_day_count": 5,
+            "total_nonconfirmed_gap_day_count": 7,
+        }
+        self.assertEqual(len(r2_t02._detect_preconfirmation_bound([mutation])), 1)
+        self.assertEqual(len(r2_t02._detect_total_gap_bound([mutation])), 1)
+
+    def test_window_metrics_use_full_exact_keys(self):
+        rows = [
+            {
+                "window": window,
+                "state_line": "primary",
+                "candidate_role": "primary",
+                "security_id": security,
+                "trade_date": date,
+                "confirmed_state": True,
+            }
+            for window, security, date in [
+                ("W120", "S1", "2026-01-01"),
+                ("W120", "S2", "2026-01-01"),
+                ("W250", "S1", "2026-01-01"),
+                ("W250", "S3", "2026-01-01"),
+            ]
+        ]
+        self.assertEqual(
+            r2_t02._metric_evaluator(rows, "intersection_confirmed_days")["value"], 1
+        )
+        self.assertEqual(
+            r2_t02._metric_evaluator(rows, "W120_only_confirmed_days")["value"], 1
+        )
+        self.assertEqual(
+            r2_t02._metric_evaluator(rows, "W250_only_confirmed_days")["value"], 1
+        )
 
     def test_external_github_review_attestation_requires_exact_head_and_pass_marker(
         self,
@@ -419,7 +487,7 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
     def test_premerge_formal_surface_uses_registered_v3_config_sources(self):
         paths = set(premerge._formal_surface_paths(ROOT))
         for required in {
-            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json",
+            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json",
             "docs/stages/R2_参数、事件规则与状态版本冻结.md",
             "schemas/r2/r2_t02_t03_output_contract.schema.json",
             "scripts/validate_text_contract.py",

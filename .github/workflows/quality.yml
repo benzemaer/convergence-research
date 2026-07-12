@@ -156,9 +156,9 @@ jobs:
             --profile-result artifacts/r2_t02_premerge/full_profile_result.json \
             --output artifacts/r2_t02_premerge/r2_t02_premerge_full_evidence.json \
             --reviewed-head-sha "${{ github.event_name == 'workflow_dispatch' && inputs.reviewed_head_sha || github.event.pull_request.head.sha }}" \
-            --author-package data/generated/r2/r2_t02/R2-T02-20260712T1300Z/r2_t02_result_package.json \
-            --committed-artifact-sidecar data/generated/r2/r2_t02/R2-T02-20260712T1300Z/r2_t02_committed_artifact_validation.json \
-            --author-stage-review-record data/generated/r2/r2_t02/R2-T02-20260712T1300Z/r2_t02_author_stage_scientific_review.json \
+            --author-package data/generated/r2/r2_t02/R2-T02-20260712T1400Z/r2_t02_result_package.json \
+            --committed-artifact-sidecar data/generated/r2/r2_t02/R2-T02-20260712T1400Z/r2_t02_committed_artifact_validation.json \
+            --author-stage-review-record data/generated/r2/r2_t02/R2-T02-20260712T1400Z/r2_t02_author_stage_scientific_review.json \
             --github-reviews-json artifacts/r2_t02_premerge/review_pages.json
 
       - name: Consume R2-T02 premerge full evidence final gate
