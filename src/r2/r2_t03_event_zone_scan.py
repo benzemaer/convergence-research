@@ -402,16 +402,24 @@ def _execute_routes(
     }
     for route in routes:
         processed = 0
+        buffers = _new_write_buffers()
         for security_id, rows in _iter_security_timelines(con, route.route_id):
             _process_security(
-                con, route, security_id, rows, cell_by_route[route.route_id], execution
+                route,
+                security_id,
+                rows,
+                cell_by_route[route.route_id],
+                execution,
+                buffers,
             )
             processed += 1
             if processed % heartbeat_interval == 0:
+                _flush_write_buffers(con, buffers)
                 print(
                     f"heartbeat route={route.route_id} securities={processed}",
                     flush=True,
                 )
+        _flush_write_buffers(con, buffers)
         for cell in cell_by_route[route.route_id]:
             execution[cell["candidate_cell_id"]]["status"] = "completed"
     return [execution[key] for key in sorted(execution)]
@@ -450,12 +458,12 @@ def _iter_security_timelines(
 
 
 def _process_security(
-    con: duckdb.DuckDBPyConnection,
     route: RouteSpec,
     security_id: str,
     source_rows: list[tuple[Any, ...]],
     cells: list[dict[str, Any]],
     execution: dict[str, dict[str, Any]],
+    buffers: dict[str, list[tuple[Any, ...]]],
 ) -> None:
     daily = [
         DailyInput(
@@ -498,10 +506,7 @@ def _process_security(
                 interval["termination_reason"],
             )
         )
-    if interval_rows:
-        con.executemany(
-            "INSERT INTO route_atomic_interval VALUES (?,?,?,?,?,?,?)", interval_rows
-        )
+    buffers["route_atomic_interval"].extend(interval_rows)
     for cell in sorted(cells, key=lambda row: row["candidate_cell_id"]):
         cell_id = cell["candidate_cell_id"]
         d, g = int(cell["d"]), int(cell["g"])
@@ -521,32 +526,16 @@ def _process_security(
             )
             for component in components
         ]
-        if component_rows:
-            con.executemany(
-                "INSERT INTO qualified_component VALUES (?,?,?,?,?,?,?,?)",
-                component_rows,
-            )
+        buffers["qualified_component"].extend(component_rows)
         membership_rows, event_rows = _zone_rows(
             route, cell_id, security_id, timeline, zones
         )
-        if event_rows:
-            con.executemany(
-                "INSERT INTO event_zone VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                event_rows,
-            )
-        if membership_rows:
-            con.executemany(
-                "INSERT INTO event_zone_membership_daily VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                membership_rows,
-            )
+        buffers["event_zone"].extend(event_rows)
+        buffers["event_zone_membership_daily"].extend(membership_rows)
         bridge_rows = _bridge_rows(
             route, cell_id, security_id, timeline, components, zones, d, g
         )
-        if bridge_rows:
-            con.executemany(
-                "INSERT INTO event_zone_bridge_segment VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                bridge_rows,
-            )
+        buffers["event_zone_bridge_segment"].extend(bridge_rows)
         transitions = confirmation_ledger + zone_ledger
         transition_rows = [
             (
@@ -560,14 +549,42 @@ def _process_security(
             for ordinal, item in enumerate(transitions, start=1)
             if item["from_state"] != "ANY" and item["to_state"] != "FAIL_CLOSED"
         ]
-        if transition_rows:
-            con.executemany(
-                "INSERT INTO transition_profile VALUES (?,?,?,?,?,?)", transition_rows
-            )
+        buffers["transition_profile"].extend(transition_rows)
         item = execution[cell_id]
         item["security_count"] += 1
         item["component_count"] += len(components)
         item["event_count"] += len(zones)
+
+
+def _new_write_buffers() -> dict[str, list[tuple[Any, ...]]]:
+    return {
+        table: []
+        for table in [
+            "route_atomic_interval",
+            "qualified_component",
+            "event_zone",
+            "event_zone_membership_daily",
+            "event_zone_bridge_segment",
+            "transition_profile",
+        ]
+    }
+
+
+def _flush_write_buffers(
+    con: duckdb.DuckDBPyConnection, buffers: dict[str, list[tuple[Any, ...]]]
+) -> None:
+    placeholders = {
+        "route_atomic_interval": "?,?,?,?,?,?,?",
+        "qualified_component": "?,?,?,?,?,?,?,?",
+        "event_zone": "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
+        "event_zone_membership_daily": "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
+        "event_zone_bridge_segment": "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
+        "transition_profile": "?,?,?,?,?,?",
+    }
+    for table, rows in buffers.items():
+        if rows:
+            con.executemany(f"INSERT INTO {table} VALUES ({placeholders[table]})", rows)
+            rows.clear()
 
 
 def _zone_rows(
