@@ -2287,7 +2287,7 @@ def result_package(
     anomaly: dict[str, Any],
     review: dict[str, Any],
 ) -> dict[str, Any]:
-    artifacts = canonical_output_hashes(output_dir, EXPECTED_ARTIFACTS_WITHOUT_PACKAGE)
+    artifacts = canonical_output_hashes(output_dir, PACKAGE_HASH_ARTIFACTS)
     return {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -2561,4 +2561,10 @@ EXPECTED_ARTIFACTS_WITHOUT_PACKAGE = [
     "r2_t02_result_analysis.md",
     "r2_t02_evidence.md",
     "r2_t02_scientific_review.json",
+]
+
+PACKAGE_HASH_ARTIFACTS = [
+    name
+    for name in EXPECTED_ARTIFACTS_WITHOUT_PACKAGE
+    if name != "r2_t02_contract_validation_result.json"
 ]
