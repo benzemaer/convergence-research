@@ -107,7 +107,10 @@ def _direct_recalculation(con: duckdb.DuckDBPyConnection) -> dict[str, tuple[Any
           GROUP BY 1
         ), member AS (
           SELECT m.candidate_cell_id,
-                 count(*) FILTER (WHERE qualified_event_risk_set_eligible)::DOUBLE /
+                 count(*) FILTER (
+                   WHERE confirmed_state AND retrospective_component_member
+                     AND event_zone_member
+                 )::DOUBLE /
                    nullif(max(a.confirmed_state_days),0) direct_coverage,
                  count(*) FILTER (WHERE is_raw_false_bridge AND event_zone_member) direct_raw_false
           FROM event_zone_membership_daily m
