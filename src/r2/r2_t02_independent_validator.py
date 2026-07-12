@@ -45,6 +45,25 @@ SPECIAL_EVALUATOR_CASES = {
     "double_rebuild_determinism",
 }
 
+CORE_SCIENTIFIC_ORACLE_CASES = {
+    "k3_no_backfill",
+    "d1_exact_qualification",
+    "d2_exact_qualification",
+    "d3_exact_qualification",
+    "g0_no_merge_raw_false_exit",
+    "g1_raw_false_success_merge",
+    "g2_raw_false_success_merge",
+    "raw_true_preconfirmation_does_not_reset_g",
+    "g_plus_one_raw_false_irreversible_final",
+    "quality_break",
+    "reentry_fails_d",
+    "prequalification_right_censor",
+    "bridge_membership_delayed",
+    "confirmed_only_risk_set",
+    "bridge_not_in_risk_set",
+    "event_id_stability",
+}
+
 
 def validate_artifacts(output_dir: Path) -> list[str]:
     output_dir = output_dir.resolve()
@@ -55,6 +74,9 @@ def validate_artifacts(output_dir: Path) -> list[str]:
     result_by_case = {row["case_id"]: row for row in results}
     registry_by_case = {row["case_id"]: row for row in registry.get("cases", [])}
     fixture_by_case = {row["case_id"]: row for row in fixtures.get("fixtures", [])}
+    contract_version = _load_json(output_dir / "r2_t02_t03_output_contract.json")[
+        "contract_version"
+    ]
     if not _isolated_formal_artifact_rebuild_matches(output_dir):
         errors.append("independent_full_artifact_double_rebuild_mismatch")
     errors.extend(_real_protocol_mutation_probe_errors(output_dir))
@@ -71,6 +93,13 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             continue
         if registry_row.get("oracle_id") != f"r2_t02_oracle_{case_id}":
             errors.append(f"independent_oracle_id_mismatch:{case_id}")
+        expected_role = (
+            "core_scientific_oracle"
+            if case_id in CORE_SCIENTIFIC_ORACLE_CASES
+            else "regression_only"
+        )
+        if registry_row.get("evidence_role") != expected_role:
+            errors.append(f"independent_evidence_role_mismatch:{case_id}")
         if result_row.get("expected_reason_code") != expected_reason:
             errors.append(f"independent_expected_reason_mismatch:{case_id}")
         if result_row.get("status") != "passed":
@@ -89,6 +118,12 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             if replay["terminal_reason"] != fixture_row["expected_terminal_reason"]:
                 errors.append(f"independent_fixture_terminal_mismatch:{case_id}")
             errors.extend(_independent_membership_errors(case_id, replay))
+            if case_id in CORE_SCIENTIFIC_ORACLE_CASES:
+                errors.extend(
+                    _independent_core_trace_errors(
+                        case_id, fixture_row, replay, contract_version
+                    )
+                )
         if any(
             item.startswith("default_fixture")
             for item in fixture_row.get("expected_assertion_ids", [])
@@ -96,8 +131,15 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             errors.append(f"independent_generic_assertion_detected:{case_id}")
         if "hand_authored_oracle" not in fixture_row:
             errors.append(f"independent_missing_hand_authored_oracle:{case_id}")
-        elif not (set(fixture_row["hand_authored_oracle"]) - {"d", "g"}):
+        elif case_id in CORE_SCIENTIFIC_ORACLE_CASES and not (
+            set(fixture_row["hand_authored_oracle"]) - {"d", "g"}
+        ):
             errors.append(f"independent_thin_hand_authored_oracle:{case_id}")
+        elif (
+            case_id not in CORE_SCIENTIFIC_ORACLE_CASES
+            and fixture_row["hand_authored_oracle"]
+        ):
+            errors.append(f"independent_regression_case_claims_oracle:{case_id}")
 
     missing_case = result_by_case.get("missing_row_fail_closed")
     if (
@@ -302,7 +344,60 @@ def _independent_fixture_replay(fixture: dict[str, Any]) -> dict[str, Any]:
         "qualified_component_count": sum(1 for item in components if item["qualified"]),
         "event_zone_count": event_zone_count,
         "membership_rows": membership_rows,
+        "timeline": timeline,
+        "components": components,
     }
+
+
+def _independent_core_trace_errors(
+    case_id: str,
+    fixture: dict[str, Any],
+    replay: dict[str, Any],
+    contract_version: str,
+) -> list[str]:
+    errors: list[str] = []
+
+    def mismatch(entity: str, key: str, field: str) -> None:
+        errors.append(
+            f"independent_core_trace_mismatch:{case_id}:{entity}:{key}:{field}"
+        )
+
+    observed_timeline = fixture.get("observed_state_timeline", [])
+    independent_timeline = replay["timeline"]
+    if len(observed_timeline) != len(independent_timeline):
+        mismatch("timeline", "row_count", "row_count")
+    for observed, independent in zip(observed_timeline, independent_timeline):
+        key = observed["trade_date"]
+        for field in ("trade_date", "raw_state", "confirmed_state", "reason_code"):
+            if observed.get(field) != independent.get(field):
+                mismatch("timeline", key, field)
+
+    observed_components = fixture.get("observed_component_ledger", [])
+    independent_components = replay["components"]
+    if len(observed_components) != len(independent_components):
+        mismatch("component", "row_count", "row_count")
+    for ordinal, (observed, independent) in enumerate(
+        zip(observed_components, independent_components), start=1
+    ):
+        for field in ("qualified", "confirmed_day_count", "termination_reason"):
+            if observed.get(field) != independent.get(field):
+                mismatch("component", str(ordinal), field)
+        if independent["qualified"]:
+            qualification_index = independent["start_index"] + int(fixture["d"]) - 1
+            independent_time = independent_timeline[qualification_index][
+                "available_time"
+            ]
+            if observed.get("event_qualification_time") != independent_time:
+                mismatch("component", str(ordinal), "event_qualification_time")
+
+    if len(fixture.get("observed_zone_ledger", [])) != replay["event_zone_count"]:
+        mismatch("zone", "row_count", "event_zone_count")
+    if case_id == "event_id_stability" and fixture.get("observed_zone_ledger"):
+        payload = f"{contract_version}|synthetic_{case_id}|S1|component_001"
+        independent_id = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+        if fixture["observed_zone_ledger"][0].get("scan_event_id") != independent_id:
+            mismatch("zone", "1", "scan_event_id")
+    return errors
 
 
 def _independent_membership_rows(

@@ -299,7 +299,7 @@ CONFIGS = (
     ),
     (
         ROOT / "schemas/r2/r2_t02_protocol_freeze_config.schema.json",
-        ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json",
+        ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json",
     ),
     (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",

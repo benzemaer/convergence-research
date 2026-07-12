@@ -30,7 +30,7 @@ from src.r2.r2_t02_independent_validator import (
 )
 
 TASK_ID = "R2-T02"
-CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v5"
+CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v6"
 K = 3
 D_GRID = (1, 2, 3)
 G_GRID = (0, 1, 2)
@@ -1326,6 +1326,7 @@ def scan_event_id(
 
 SYNTHETIC_RESULT_FIELDS = [
     "case_id",
+    "evidence_role",
     "fixture_id",
     "status",
     "oracle_id",
@@ -1339,6 +1340,25 @@ SYNTHETIC_RESULT_FIELDS = [
     "qualified_component_count",
     "event_zone_count",
 ]
+
+CORE_SCIENTIFIC_ORACLE_CASES = {
+    "k3_no_backfill",
+    "d1_exact_qualification",
+    "d2_exact_qualification",
+    "d3_exact_qualification",
+    "g0_no_merge_raw_false_exit",
+    "g1_raw_false_success_merge",
+    "g2_raw_false_success_merge",
+    "raw_true_preconfirmation_does_not_reset_g",
+    "g_plus_one_raw_false_irreversible_final",
+    "quality_break",
+    "reentry_fails_d",
+    "prequalification_right_censor",
+    "bridge_membership_delayed",
+    "confirmed_only_risk_set",
+    "bridge_not_in_risk_set",
+    "event_id_stability",
+}
 
 STATIC_CASE_ORACLES = {
     "k3_no_backfill": "sample_end_open_zone",
@@ -1468,6 +1488,11 @@ def synthetic_case_payloads() -> tuple[
     results: list[dict[str, Any]] = []
     fixtures: list[dict[str, Any]] = []
     for index, case_id in enumerate(case_ids, start=1):
+        evidence_role = (
+            "core_scientific_oracle"
+            if case_id in CORE_SCIENTIFIC_ORACLE_CASES
+            else "regression_only"
+        )
         fixture_id = f"fixture_{index:03d}_{case_id}"
         d, g = _case_parameters(case_id, index)
         daily_inputs, expected_dates = _fixture_daily_inputs(d, g, index, case_id)
@@ -1512,7 +1537,12 @@ def synthetic_case_payloads() -> tuple[
         hand_authored_oracle = _hand_authored_case_oracle(case_id, d, g)
         assertions.extend(
             _hand_authored_oracle_assertions(
-                case_id, hand_authored_oracle, timeline, components, zones
+                case_id,
+                hand_authored_oracle,
+                timeline,
+                components,
+                zones,
+                event_ledger,
             )
         )
         status = "passed" if all(item["passed"] for item in assertions) else "failed"
@@ -1526,6 +1556,7 @@ def synthetic_case_payloads() -> tuple[
         registry.append(
             {
                 "case_id": case_id,
+                "evidence_role": evidence_role,
                 "fixture_id": fixture_id,
                 "d": d,
                 "g": g,
@@ -1543,7 +1574,7 @@ def synthetic_case_payloads() -> tuple[
                         "qualified_component_count",
                     }
                 ),
-                "has_expected_time_fields": "qualification_row_offset"
+                "has_expected_time_fields": "expected_qualification_time"
                 in hand_authored_oracle,
                 "mutation_case": case_id.endswith("_mutation")
                 or "violation" in case_id,
@@ -1552,6 +1583,7 @@ def synthetic_case_payloads() -> tuple[
         fixtures.append(
             {
                 "case_id": case_id,
+                "evidence_role": evidence_role,
                 "fixture_id": fixture_id,
                 "d": d,
                 "g": g,
@@ -1603,6 +1635,7 @@ def synthetic_case_payloads() -> tuple[
         results.append(
             {
                 "case_id": case_id,
+                "evidence_role": evidence_role,
                 "fixture_id": fixture_id,
                 "status": status,
                 "oracle_id": f"r2_t02_oracle_{case_id}",
@@ -1623,23 +1656,96 @@ def synthetic_case_payloads() -> tuple[
 
 
 def _hand_authored_case_oracle(case_id: str, d: int, g: int) -> dict[str, Any]:
-    oracle: dict[str, Any] = {
-        "d": d,
-        "g": g,
-        "named_semantic_fact": f"static_oracle_for:{case_id}",
+    if case_id not in CORE_SCIENTIFIC_ORACLE_CASES:
+        return {}
+    oracle: dict[str, Any] = {"d": d, "g": g}
+    static_facts: dict[str, dict[str, Any]] = {
+        "k3_no_backfill": {"confirmed_states_prefix": [False, False, True]},
+        "d1_exact_qualification": {
+            "qualified_component_count": 1,
+            "expected_qualification_time": "2026-01-04T15:06:00+08:00",
+        },
+        "d2_exact_qualification": {
+            "qualified_component_count": 1,
+            "expected_qualification_time": "2026-01-05T15:07:00+08:00",
+        },
+        "d3_exact_qualification": {
+            "qualified_component_count": 1,
+            "expected_qualification_time": "2026-01-06T15:08:00+08:00",
+        },
+        "g0_no_merge_raw_false_exit": {
+            "event_zone_count": 2,
+            "first_zone_component_count": 1,
+            "raw_false_bridged_day_count": 0,
+            "expected_finalization_time": "2026-01-05T15:12:00+08:00",
+        },
+        "g1_raw_false_success_merge": {
+            "event_zone_count": 1,
+            "first_zone_component_count": 2,
+            "raw_false_bridged_day_count": 1,
+            "preconfirmation_gap_day_count": 2,
+            "total_nonconfirmed_gap_day_count": 3,
+        },
+        "g2_raw_false_success_merge": {
+            "event_zone_count": 1,
+            "first_zone_component_count": 2,
+            "raw_false_bridged_day_count": 2,
+            "preconfirmation_gap_day_count": 4,
+            "total_nonconfirmed_gap_day_count": 6,
+        },
+        "raw_true_preconfirmation_does_not_reset_g": {
+            "required_reason_codes": ["raw_false_gap_exceeds_g"],
+            "event_zone_count": 2,
+            "expected_finalization_time": "2026-01-08T15:16:00+08:00",
+        },
+        "g_plus_one_raw_false_irreversible_final": {
+            "required_reason_codes": ["raw_false_gap_exceeds_g"],
+            "expected_finalization_time": "2026-01-08T15:17:00+08:00",
+        },
+        "quality_break": {
+            "first_zone_status": "FINALIZED_WITH_QUALITY_BREAK",
+            "expected_finalization_time": "2026-01-06T15:22:00+08:00",
+            "raw_false_bridged_day_count": 0,
+        },
+        "reentry_fails_d": {
+            "event_zone_count": 1,
+            "first_zone_status": "FINALIZED",
+            "required_reason_codes": ["unqualified_reentry_blocks_merge"],
+            "expected_finalization_time": "2026-01-11T15:27:00+08:00",
+        },
+        "prequalification_right_censor": {
+            "qualified_component_count": 0,
+            "event_zone_count": 0,
+            "expected_component_termination_reason": "sample_end_censoring",
+        },
+        "bridge_membership_delayed": {
+            "raw_false_bridged_day_count": 1,
+            "preconfirmation_gap_day_count": 2,
+            "bridge_membership_available_time": "2026-01-08T15:30:00+08:00",
+        },
+        "confirmed_only_risk_set": {
+            "expected_risk_row": {
+                "trade_date": "2026-01-04",
+                "state_risk_set_eligible": True,
+                "qualified_event_risk_set_eligible": True,
+            }
+        },
+        "bridge_not_in_risk_set": {
+            "bridge_rows_both_risk_sets_false": True,
+        },
+        "event_id_stability": {
+            "event_zone_count": 1,
+            "first_zone_component_count": 2,
+            "event_id_relation": "stable_within_successful_merge",
+        },
     }
+    oracle.update(static_facts[case_id])
     if case_id in {
         "d1_exact_qualification",
         "d2_exact_qualification",
         "d3_exact_qualification",
     }:
-        oracle.update(
-            {
-                "qualified_component_count": 1,
-                "qualification_row_offset": d - 1,
-                "required_reason_codes": ["d_qualification"],
-            }
-        )
+        oracle["required_reason_codes"] = ["d_qualification"]
     zone_components = {
         "g0_no_merge_raw_false_exit": 1,
         "g1_raw_false_success_merge": 2,
@@ -1647,16 +1753,8 @@ def _hand_authored_case_oracle(case_id: str, d: int, g: int) -> dict[str, Any]:
         "transitive_a_b_c_merge": 3,
         "multiple_bridge_segments": 3,
     }
-    if case_id in zone_components:
+    if case_id in zone_components and "first_zone_component_count" not in oracle:
         oracle["first_zone_component_count"] = zone_components[case_id]
-    if case_id == "g1_raw_false_success_merge":
-        oracle.update(
-            {"raw_false_bridged_day_count": 1, "preconfirmation_gap_day_count": 2}
-        )
-    if case_id == "g2_raw_false_success_merge":
-        oracle.update(
-            {"raw_false_bridged_day_count": 2, "preconfirmation_gap_day_count": 4}
-        )
     if case_id in {"bridge_membership_delayed", "reentry_reaches_d"}:
         oracle["required_membership_statuses"] = [
             "GAP_PENDING",
@@ -1675,14 +1773,22 @@ def _hand_authored_oracle_assertions(
     timeline: list[dict[str, Any]],
     components: list[dict[str, Any]],
     zones: list[dict[str, Any]],
+    event_ledger: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     assertions: list[dict[str, Any]] = []
-    event_reasons = [
-        row.get("reason_code")
-        for zone in zones
-        for row in zone.get("membership_rows", [])
-    ]
-    del event_reasons
+    if not oracle:
+        return assertions
+    if "confirmed_states_prefix" in oracle:
+        expected = oracle["confirmed_states_prefix"]
+        observed = [row["confirmed_state"] for row in timeline[: len(expected)]]
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_confirmed_prefix",
+                "expected_reason_code": str(expected),
+                "observed_reason_code": str(observed),
+                "passed": observed == expected,
+            }
+        )
     if "qualified_component_count" in oracle:
         qualified = [row for row in components if row["qualified"]]
         observed = len(qualified)
@@ -1695,17 +1801,14 @@ def _hand_authored_oracle_assertions(
             }
         )
         if qualified:
-            offset = int(qualified[0]["confirmed_day_count"] >= 1) * (
-                int(oracle["d"]) - 1
-            )
-            qualification_index = qualified[0]["start_index"] + offset
-            observed_time = timeline[qualification_index]["available_time"]
+            expected_time = oracle.get("expected_qualification_time")
             assertions.append(
                 {
                     "assertion_id": f"{case_id}__static_qualification_time",
-                    "expected_reason_code": observed_time,
+                    "expected_reason_code": str(expected_time),
                     "observed_reason_code": qualified[0]["event_qualification_time"],
-                    "passed": qualified[0]["event_qualification_time"] == observed_time,
+                    "passed": expected_time is None
+                    or qualified[0]["event_qualification_time"] == expected_time,
                 }
             )
     first_zone = zones[0] if zones else {}
@@ -1714,6 +1817,7 @@ def _hand_authored_oracle_assertions(
             "first_zone_component_count",
             "raw_false_bridged_day_count",
             "preconfirmation_gap_day_count",
+            "total_nonconfirmed_gap_day_count",
         }
         & oracle.keys()
     ):
@@ -1725,6 +1829,109 @@ def _hand_authored_oracle_assertions(
                 "expected_reason_code": str(oracle[key]),
                 "observed_reason_code": str(observed),
                 "passed": observed == oracle[key],
+            }
+        )
+    scalar_observations = {
+        "event_zone_count": len(zones),
+        "first_zone_status": first_zone.get("status"),
+        "expected_finalization_time": first_zone.get("zone_finalization_time"),
+        "expected_component_termination_reason": (
+            components[0].get("termination_reason") if components else None
+        ),
+    }
+    for key, observed in scalar_observations.items():
+        if key not in oracle:
+            continue
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_{key}",
+                "expected_reason_code": str(oracle[key]),
+                "observed_reason_code": str(observed),
+                "passed": observed == oracle[key],
+            }
+        )
+    if "required_reason_codes" in oracle:
+        observed_reasons = {row.get("reason_code") for row in event_ledger}
+        expected_reasons = set(oracle["required_reason_codes"])
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_reason_codes",
+                "expected_reason_code": str(sorted(expected_reasons)),
+                "observed_reason_code": str(sorted(observed_reasons)),
+                "passed": expected_reasons.issubset(observed_reasons),
+            }
+        )
+    membership_rows = [row for zone in zones for row in zone.get("membership_rows", [])]
+    if "bridge_membership_available_time" in oracle:
+        bridge_rows = [
+            row
+            for row in membership_rows
+            if row.get("is_raw_false_bridge") or row.get("is_preconfirmation_gap")
+        ]
+        observed_times = {row["membership_available_time"] for row in bridge_rows}
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_bridge_membership_time",
+                "expected_reason_code": oracle["bridge_membership_available_time"],
+                "observed_reason_code": str(sorted(observed_times)),
+                "passed": observed_times
+                == {oracle["bridge_membership_available_time"]},
+            }
+        )
+    if oracle.get("bridge_rows_both_risk_sets_false"):
+        bridge_rows = [
+            row
+            for row in membership_rows
+            if row.get("is_raw_false_bridge") or row.get("is_preconfirmation_gap")
+        ]
+        passed = bool(bridge_rows) and all(
+            row["state_risk_set_eligible"] is False
+            and row["qualified_event_risk_set_eligible"] is False
+            for row in bridge_rows
+        )
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_bridge_risk_sets",
+                "expected_reason_code": "both_false",
+                "observed_reason_code": str(passed),
+                "passed": passed,
+            }
+        )
+    if "expected_risk_row" in oracle:
+        expected = oracle["expected_risk_row"]
+        observed = next(
+            (
+                row
+                for row in membership_rows
+                if row["trade_date"] == expected["trade_date"]
+            ),
+            {},
+        )
+        passed = all(observed.get(key) == value for key, value in expected.items())
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_risk_row",
+                "expected_reason_code": str(expected),
+                "observed_reason_code": str(observed),
+                "passed": passed,
+            }
+        )
+    if "event_id_relation" in oracle:
+        ids = [zone.get("scan_event_id") for zone in zones]
+        independently_expected_id = hashlib.sha256(
+            (f"{CONTRACT_VERSION}|synthetic_{case_id}|S1|component_001").encode()
+        ).hexdigest()[:32]
+        passed = (
+            len(ids) == 1
+            and zones[0].get("component_count", 0) > 1
+            and ids[0] == independently_expected_id
+        )
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_event_id_relation",
+                "expected_reason_code": oracle["event_id_relation"],
+                "observed_reason_code": str(ids),
+                "passed": bool(passed),
             }
         )
     if "required_membership_statuses" in oracle:
@@ -1773,7 +1980,7 @@ def _case_parameters(case_id: str, index: int) -> tuple[int, int]:
         "zone_membership_not_in_risk_set": (1, 2),
         "own_denominator": (1, 0),
         "common_exact_intersection": (1, 0),
-        "event_id_stability": (1, 0),
+        "event_id_stability": (1, 1),
         "candidate_cell_isolation": (1, 0),
         "security_isolation": (1, 0),
     }
@@ -2398,7 +2605,9 @@ def _fixture_daily_inputs(
         ),
         "own_denominator": [True, True, True, False] + [False] * 8,
         "common_exact_intersection": [True, True, True, False] + [False] * 8,
-        "event_id_stability": [True, True, True, False] + [False] * 8,
+        "event_id_stability": (
+            [True, True, True, False, True, True, True, False] + [False] * 4
+        ),
         "candidate_cell_isolation": [True, True, True, False] + [False] * 8,
         "security_isolation": [True, True, True, False] + [False] * 8,
     }
@@ -3353,6 +3562,7 @@ def transition_rows() -> list[dict[str, Any]]:
 
 METRIC_FIELDS = [
     "metric_id",
+    "implementation_stage",
     "entity_level",
     "exact_numerator_or_aggregation",
     "exact_denominator",
@@ -3371,6 +3581,19 @@ METRIC_FIELDS = [
     "null_policy",
     "availability_basis",
 ]
+
+REFERENCE_EXECUTABLE_METRICS = {
+    "qualified_event_count",
+    "unique_securities",
+    "retained_confirmed_day_ratio",
+    "short_interval_drop_rate",
+    "bridged_day_ratio",
+    "merge_ratio",
+    "open_event_ratio",
+    "nonzero_years",
+    "max_year_share",
+    "duration_q95_ratio",
+}
 
 
 def metric_dictionary_rows() -> list[dict[str, Any]]:
@@ -3761,6 +3984,11 @@ def metric_dictionary_rows() -> list[dict[str, Any]]:
         rows.append(
             {
                 "metric_id": metric_id,
+                "implementation_stage": (
+                    "r2_t02_reference_executable"
+                    if metric_id in REFERENCE_EXECUTABLE_METRICS
+                    else "r2_t03_runtime_required"
+                ),
                 "entity_level": level,
                 "exact_numerator_or_aggregation": numerator,
                 "exact_denominator": denominator,
@@ -3803,6 +4031,7 @@ HARD_GATE_METRICS = {
 
 HARD_GATE_FIELDS = [
     "gate_id",
+    "implementation_stage",
     "state_line",
     "metric_id",
     "operator",
@@ -3816,6 +4045,22 @@ HARD_GATE_FIELDS = [
     "fail_closed",
     "zero_tolerance",
 ]
+
+REFERENCE_EXECUTABLE_STRUCTURE_GATES = {
+    "missing_expected_trading_row",
+    "unknown_bridge",
+    "blocked_bridge",
+    "diagnostic_required_bridge",
+    "ineligible_bridge",
+    "raw_false_gap_days_exceed_g",
+    "preconfirmation_days_exceed_k_minus_one_bound",
+    "total_nonconfirmed_gap_days_exceed_k_bound",
+    "risk_set_violation",
+    "availability_backfill",
+    "event_id_instability",
+    "transition_closure_violation",
+    "duplicate_primary_key",
+}
 
 
 def hard_gate_rows() -> list[dict[str, Any]]:
@@ -3863,6 +4108,7 @@ def hard_gate_rows() -> list[dict[str, Any]]:
             rows.append(
                 {
                     "gate_id": f"{state_line.lower()}_{metric_id}",
+                    "implementation_stage": "r2_t02_reference_executable",
                     "state_line": state_line,
                     "metric_id": metric_id,
                     "operator": operators[metric_id],
@@ -3912,6 +4158,11 @@ def hard_gate_rows() -> list[dict[str, Any]]:
         rows.append(
             {
                 "gate_id": gate,
+                "implementation_stage": (
+                    "r2_t02_reference_executable"
+                    if gate in REFERENCE_EXECUTABLE_STRUCTURE_GATES
+                    else "r2_t03_runtime_required"
+                ),
                 "state_line": "GLOBAL",
                 "metric_id": gate,
                 "operator": "==",
@@ -3938,6 +4189,18 @@ def experiment_summary(
     cells: list[dict[str, Any]],
     synthetic_results: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    metrics = metric_dictionary_rows()
+    gates = hard_gate_rows()
+    deferred_metrics = sorted(
+        row["metric_id"]
+        for row in metrics
+        if row["implementation_stage"] == "r2_t03_runtime_required"
+    )
+    deferred_gates = sorted(
+        row["gate_id"]
+        for row in gates
+        if row["implementation_stage"] == "r2_t03_runtime_required"
+    )
     return {
         "task_id": TASK_ID,
         "run_id": run_id,
@@ -3951,6 +4214,12 @@ def experiment_summary(
         ),
         "registry_row_count": len(cells),
         "synthetic_case_count": len(synthetic_results),
+        "reference_executable_metric_count": len(metrics) - len(deferred_metrics),
+        "runtime_deferred_metric_count": len(deferred_metrics),
+        "reference_executable_gate_count": len(gates) - len(deferred_gates),
+        "runtime_deferred_gate_count": len(deferred_gates),
+        "runtime_deferred_metric_ids": deferred_metrics,
+        "runtime_deferred_gate_ids": deferred_gates,
         "all_synthetic_cases_passed": all(
             row["status"] == "passed" for row in synthetic_results
         ),
@@ -4779,6 +5048,11 @@ def _zero_tolerance_gate_evaluator(gate_id: str, rows: list[dict[str, Any]]) -> 
 def _detect_raw_false_gap_days_exceed_g(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    _require_fields(
+        rows,
+        "raw_false_gap_days_exceed_g",
+        ("raw_false_gap_day_count", "g", "merge_accepted"),
+    )
     return [
         row
         for row in rows
@@ -4789,6 +5063,16 @@ def _detect_raw_false_gap_days_exceed_g(
 
 
 def _detect_preconfirmation_bound(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _require_fields(
+        rows,
+        "preconfirmation_days_exceed_k_minus_one_bound",
+        (
+            "preconfirmation_gap_day_count",
+            "raw_false_gap_day_count",
+            "K",
+            "merge_accepted",
+        ),
+    )
     return [
         row
         for row in rows
@@ -4800,6 +5084,9 @@ def _detect_preconfirmation_bound(rows: list[dict[str, Any]]) -> list[dict[str, 
 
 
 def _detect_availability_backfill(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _require_fields(
+        rows, "availability_backfill", ("membership_available_time", "available_time")
+    )
     return [
         row
         for row in rows
@@ -4808,6 +5095,17 @@ def _detect_availability_backfill(rows: list[dict[str, Any]]) -> list[dict[str, 
 
 
 def _detect_risk_set_violation(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _require_fields(
+        rows,
+        "risk_set_violation",
+        (
+            "qualified_event_risk_set_eligible",
+            "state_risk_set_eligible",
+            "component_qualified_as_of",
+            "event_zone_member",
+            "unqualified_reentry_member",
+        ),
+    )
     return [
         row
         for row in rows
@@ -4843,6 +5141,18 @@ def _detect_revision_regression(rows: list[dict[str, Any]]) -> list[dict[str, An
 
 
 def _detect_total_gap_bound(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _require_fields(
+        rows,
+        "total_nonconfirmed_gap_days_exceed_k_bound",
+        (
+            "raw_false_gap_day_count",
+            "preconfirmation_gap_day_count",
+            "total_nonconfirmed_gap_day_count",
+            "K",
+            "g",
+            "merge_accepted",
+        ),
+    )
     violations = []
     for row in rows:
         raw_false = int(row.get("raw_false_gap_day_count", 0))
@@ -4929,6 +5239,27 @@ def _comparison_detector(gate_id: str, left: str, right: str):
     return lambda rows: _detect_inequality(rows, gate_id, left, right)
 
 
+def _bridge_quality_detector(gate_id: str, quality_state: str):
+    def detect(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        _require_fields(rows, gate_id, ("quality_state", "merge_accepted"))
+        return [
+            row
+            for row in rows
+            if row["quality_state"] == quality_state and row["merge_accepted"] is True
+        ]
+
+    return detect
+
+
+def _ineligible_bridge_detector(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    _require_fields(rows, "ineligible_bridge", ("eligible", "merge_accepted"))
+    return [
+        row
+        for row in rows
+        if row["eligible"] is False and row["merge_accepted"] is True
+    ]
+
+
 VIOLATION_DETECTOR_REGISTRY = {
     "r2_t02_violation_detector__lineage_mismatch": _comparison_detector(
         "lineage_mismatch", "lineage_sha256", "expected_lineage_sha256"
@@ -4948,27 +5279,16 @@ VIOLATION_DETECTOR_REGISTRY = {
         "observed_trading_row_count",
         "expected_trading_row_count",
     ),
-    "r2_t02_violation_detector__unknown_bridge": lambda rows: [
-        row
-        for row in rows
-        if row.get("quality_state") == "unknown" and row.get("merge_accepted") is True
-    ],
-    "r2_t02_violation_detector__blocked_bridge": lambda rows: [
-        row
-        for row in rows
-        if row.get("quality_state") == "blocked" and row.get("merge_accepted") is True
-    ],
-    "r2_t02_violation_detector__diagnostic_required_bridge": lambda rows: [
-        row
-        for row in rows
-        if row.get("quality_state") == "diagnostic_required"
-        and row.get("merge_accepted") is True
-    ],
-    "r2_t02_violation_detector__ineligible_bridge": lambda rows: [
-        row
-        for row in rows
-        if row.get("eligible") is False and row.get("merge_accepted") is True
-    ],
+    "r2_t02_violation_detector__unknown_bridge": _bridge_quality_detector(
+        "unknown_bridge", "unknown"
+    ),
+    "r2_t02_violation_detector__blocked_bridge": _bridge_quality_detector(
+        "blocked_bridge", "blocked"
+    ),
+    "r2_t02_violation_detector__diagnostic_required_bridge": _bridge_quality_detector(
+        "diagnostic_required_bridge", "diagnostic_required"
+    ),
+    "r2_t02_violation_detector__ineligible_bridge": _ineligible_bridge_detector,
     "r2_t02_violation_detector__confirmed_day_conservation_mismatch": _comparison_detector(
         "confirmed_day_conservation_mismatch",
         "zone_confirmed_day_count",
@@ -5195,9 +5515,10 @@ def _metric_ratio_parts(rows: list[dict[str, Any]], metric_id: str) -> tuple[Any
             eligible_valid,
         )
     if metric_id == "retained_confirmed_day_ratio":
+        _require_metric_fields(rows, metric_id, ("confirmed_day_count", "qualified"))
         return (
-            _sum_numeric(rows, "confirmed_day_count", "retained_confirmed_day_count"),
-            _sum_numeric(rows, "upstream_confirmed_day_count", "confirmed_day_count"),
+            sum(row["confirmed_day_count"] for row in rows if row["qualified"] is True),
+            sum(row["confirmed_day_count"] for row in rows),
         )
     if metric_id == "component_qualification_rate":
         qualified = sum(1 for row in rows if row.get("qualified") is True)
@@ -5224,17 +5545,17 @@ def _metric_ratio_parts(rows: list[dict[str, Any]], metric_id: str) -> tuple[Any
         )
         return (numerator, denominator)
     if metric_id == "short_interval_drop_rate":
+        _require_metric_fields(
+            rows,
+            metric_id,
+            ("termination_reason", "confirmed_day_count", "d"),
+        )
         denominator_rows = [
-            row
-            for row in rows
-            if row.get("termination_reason") != "sample_end_censoring"
+            row for row in rows if row["termination_reason"] == "natural_state_exit"
         ]
-        short_rows = []
-        for row in denominator_rows:
-            confirmed_days = _to_float_or_none(row.get("confirmed_day_count")) or 0
-            d_value = _to_float_or_none(row.get("d")) or 0
-            if row.get("qualified") is False or confirmed_days < d_value:
-                short_rows.append(row)
+        short_rows = [
+            row for row in denominator_rows if row["confirmed_day_count"] < row["d"]
+        ]
         return (
             len(short_rows),
             len(denominator_rows),
@@ -5489,7 +5810,7 @@ def main(argv: list[str] | None = None) -> int:
         "--config",
         type=Path,
         default=ROOT
-        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json",
+        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true")

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2/r2_t02_premerge_full_evidence.schema.json"
 PROFILE_CONFIG = ROOT / "configs/ci/unittest_profiles.v1.json"
 FORMAL_CONFIG = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json"
 )
 
 

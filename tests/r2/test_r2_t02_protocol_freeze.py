@@ -3,14 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from src.r2 import r2_t02_independent_validator as independent
 from src.r2 import r2_t02_premerge_full_evidence as premerge
 from src.r2 import r2_t02_protocol_freeze as r2_t02
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1400Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1500Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -229,11 +230,48 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         self.assertEqual(ledger[-1]["reason_code"], "raw_false_gap_exceeds_g")
 
     def test_synthetic_registry_is_actual_replay_not_empty(self):
-        registry, results = r2_t02.synthetic_case_artifacts()
+        registry, results, fixtures = r2_t02.synthetic_case_payloads()
         self.assertGreaterEqual(len(registry), 40)
         self.assertEqual(len(registry), len(results))
         self.assertTrue(all(row["status"] == "passed" for row in results))
         self.assertTrue(all(int(row["transition_count"]) > 0 for row in results))
+        by_case = {row["case_id"]: row for row in fixtures}
+        self.assertEqual(
+            {
+                case_id
+                for case_id, row in by_case.items()
+                if row["evidence_role"] == "core_scientific_oracle"
+            },
+            r2_t02.CORE_SCIENTIFIC_ORACLE_CASES,
+        )
+        for case_id, row in by_case.items():
+            with self.subTest(case_id=case_id):
+                if case_id in r2_t02.CORE_SCIENTIFIC_ORACLE_CASES:
+                    self.assertTrue(set(row["hand_authored_oracle"]) - {"d", "g"})
+                    self.assertNotIn("named_semantic_fact", row["hand_authored_oracle"])
+                else:
+                    self.assertEqual(row["evidence_role"], "regression_only")
+                    self.assertEqual(row["hand_authored_oracle"], {})
+
+    def test_independent_core_trace_detects_observed_mutation(self):
+        _, _, fixtures = r2_t02.synthetic_case_payloads()
+        fixture = next(row for row in fixtures if row["case_id"] == "k3_no_backfill")
+        replay = independent._independent_fixture_replay(fixture)
+        self.assertEqual(
+            independent._independent_core_trace_errors(
+                "k3_no_backfill", fixture, replay, r2_t02.CONTRACT_VERSION
+            ),
+            [],
+        )
+        mutated = json.loads(json.dumps(fixture))
+        mutated["observed_state_timeline"][2]["confirmed_state"] = False
+        errors = independent._independent_core_trace_errors(
+            "k3_no_backfill", mutated, replay, r2_t02.CONTRACT_VERSION
+        )
+        self.assertIn(
+            "independent_core_trace_mismatch:k3_no_backfill:timeline:2026-01-04:confirmed_state",
+            errors,
+        )
 
     def test_metric_and_hard_gate_evaluators_have_pass_fail_semantics(self):
         zone_rows = [
@@ -269,12 +307,6 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         self.assertEqual(
             r2_t02._metric_evaluator(zone_rows, "qualified_event_count")["value"], 2
         )
-        self.assertEqual(
-            r2_t02._metric_evaluator(zone_rows, "retained_confirmed_day_ratio")[
-                "value"
-            ],
-            0.5,
-        )
         self.assertAlmostEqual(
             r2_t02._metric_evaluator(zone_rows, "bridged_day_ratio")["value"],
             2 / 15,
@@ -296,6 +328,66 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         self.assertFalse(
             r2_t02._zero_tolerance_evaluator(["raw_false_gap_days_exceed_g"])
         )
+
+    def test_hard_gate_component_population_metrics_are_exact_and_fail_closed(self):
+        retained_rows = [
+            {"confirmed_day_count": 7, "qualified": True},
+            {"confirmed_day_count": 3, "qualified": False},
+        ]
+        retained = r2_t02._metric_evaluator(
+            retained_rows, "retained_confirmed_day_ratio"
+        )
+        self.assertEqual((retained["numerator"], retained["denominator"]), (7, 10))
+        self.assertEqual(retained["value"], 0.7)
+        all_unqualified = r2_t02._metric_evaluator(
+            [{"confirmed_day_count": 4, "qualified": False}],
+            "retained_confirmed_day_ratio",
+        )
+        self.assertEqual(all_unqualified["value"], 0)
+        empty_retained = r2_t02._metric_evaluator([], "retained_confirmed_day_ratio")
+        self.assertIsNone(empty_retained["value"])
+        self.assertEqual(empty_retained["null_reason"], "zero_denominator")
+
+        exit_rows = [
+            {
+                "termination_reason": "natural_state_exit",
+                "confirmed_day_count": 1,
+                "d": 2,
+            },
+            {
+                "termination_reason": "natural_state_exit",
+                "confirmed_day_count": 3,
+                "d": 2,
+            },
+            {
+                "termination_reason": "quality_interruption",
+                "confirmed_day_count": 1,
+                "d": 2,
+            },
+            {
+                "termination_reason": "sample_end_censoring",
+                "confirmed_day_count": 1,
+                "d": 2,
+            },
+        ]
+        drop = r2_t02._metric_evaluator(exit_rows, "short_interval_drop_rate")
+        self.assertEqual((drop["numerator"], drop["denominator"]), (1, 2))
+        self.assertEqual(drop["value"], 0.5)
+        no_normal_exit = r2_t02._metric_evaluator(
+            exit_rows[2:], "short_interval_drop_rate"
+        )
+        self.assertIsNone(no_normal_exit["value"])
+        self.assertEqual(no_normal_exit["null_reason"], "zero_denominator")
+        self.assertFalse(r2_t02._hard_gate_evaluator(None, ">=", 0.25))
+        for metric_id, row in [
+            ("retained_confirmed_day_ratio", {"confirmed_day_count": 1}),
+            ("short_interval_drop_rate", {"confirmed_day_count": 1, "d": 2}),
+        ]:
+            with self.subTest(metric_id=metric_id):
+                with self.assertRaisesRegex(
+                    ValueError, f"metric_required_input_missing:{metric_id}"
+                ):
+                    r2_t02._metric_evaluator([row], metric_id)
 
     def test_metric_counts_denominators_and_nearest_order_q95_are_exact(self):
         rows = [
@@ -393,6 +485,33 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "violation_detector_input_missing"):
             detector([{}])
 
+    def test_metric_and_gate_implementation_stage_partition_is_complete(self):
+        metrics = r2_t02.metric_dictionary_rows()
+        gates = r2_t02.hard_gate_rows()
+        allowed = {
+            "r2_t02_reference_executable",
+            "r2_t03_runtime_required",
+        }
+        self.assertEqual(len(metrics), 78)
+        self.assertTrue(all(row["implementation_stage"] in allowed for row in metrics))
+        self.assertTrue(all(row["implementation_stage"] in allowed for row in gates))
+        reference_metrics = {
+            row["metric_id"]
+            for row in metrics
+            if row["implementation_stage"] == "r2_t02_reference_executable"
+        }
+        self.assertEqual(reference_metrics, r2_t02.REFERENCE_EXECUTABLE_METRICS)
+        reference_structure_gates = {
+            row["gate_id"]
+            for row in gates
+            if row["zero_tolerance"] is True
+            and row["implementation_stage"] == "r2_t02_reference_executable"
+        }
+        self.assertEqual(
+            reference_structure_gates,
+            r2_t02.REFERENCE_EXECUTABLE_STRUCTURE_GATES,
+        )
+
     def test_t03_contract_has_strict_row_schemas_and_integer_profiles(self):
         contracts = r2_t02.t03_table_contracts()
         profile_fields = {
@@ -434,6 +553,119 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         }
         self.assertEqual(len(r2_t02._detect_preconfirmation_bound([mutation])), 1)
         self.assertEqual(len(r2_t02._detect_total_gap_bound([mutation])), 1)
+
+    def test_reference_structure_detectors_have_baseline_mutation_and_missing_input(
+        self,
+    ):
+        fixtures = {
+            "missing_expected_trading_row": (
+                {"observed_trading_row_count": 2, "expected_trading_row_count": 2},
+                {"observed_trading_row_count": 1, "expected_trading_row_count": 2},
+            ),
+            "unknown_bridge": (
+                {"quality_state": "valid", "merge_accepted": True},
+                {"quality_state": "unknown", "merge_accepted": True},
+            ),
+            "blocked_bridge": (
+                {"quality_state": "valid", "merge_accepted": True},
+                {"quality_state": "blocked", "merge_accepted": True},
+            ),
+            "diagnostic_required_bridge": (
+                {"quality_state": "valid", "merge_accepted": True},
+                {"quality_state": "diagnostic_required", "merge_accepted": True},
+            ),
+            "ineligible_bridge": (
+                {"eligible": True, "merge_accepted": True},
+                {"eligible": False, "merge_accepted": True},
+            ),
+            "raw_false_gap_days_exceed_g": (
+                {"raw_false_gap_day_count": 1, "g": 1, "merge_accepted": True},
+                {"raw_false_gap_day_count": 2, "g": 1, "merge_accepted": True},
+            ),
+            "preconfirmation_days_exceed_k_minus_one_bound": (
+                {
+                    "preconfirmation_gap_day_count": 2,
+                    "raw_false_gap_day_count": 1,
+                    "K": 3,
+                    "merge_accepted": True,
+                },
+                {
+                    "preconfirmation_gap_day_count": 3,
+                    "raw_false_gap_day_count": 1,
+                    "K": 3,
+                    "merge_accepted": True,
+                },
+            ),
+            "total_nonconfirmed_gap_days_exceed_k_bound": (
+                {
+                    "raw_false_gap_day_count": 1,
+                    "preconfirmation_gap_day_count": 2,
+                    "total_nonconfirmed_gap_day_count": 3,
+                    "K": 3,
+                    "g": 1,
+                    "merge_accepted": True,
+                },
+                {
+                    "raw_false_gap_day_count": 1,
+                    "preconfirmation_gap_day_count": 2,
+                    "total_nonconfirmed_gap_day_count": 4,
+                    "K": 3,
+                    "g": 1,
+                    "merge_accepted": True,
+                },
+            ),
+            "risk_set_violation": (
+                {
+                    "qualified_event_risk_set_eligible": True,
+                    "state_risk_set_eligible": True,
+                    "component_qualified_as_of": True,
+                    "event_zone_member": True,
+                    "unqualified_reentry_member": False,
+                },
+                {
+                    "qualified_event_risk_set_eligible": True,
+                    "state_risk_set_eligible": False,
+                    "component_qualified_as_of": True,
+                    "event_zone_member": True,
+                    "unqualified_reentry_member": False,
+                },
+            ),
+            "availability_backfill": (
+                {
+                    "membership_available_time": "2026-01-02T15:00:00+08:00",
+                    "available_time": "2026-01-02T15:00:00+08:00",
+                },
+                {
+                    "membership_available_time": "2026-01-01T15:00:00+08:00",
+                    "available_time": "2026-01-02T15:00:00+08:00",
+                },
+            ),
+            "event_id_instability": (
+                {"scan_event_id": "a", "recomputed_scan_event_id": "a"},
+                {"scan_event_id": "a", "recomputed_scan_event_id": "b"},
+            ),
+            "transition_closure_violation": (
+                {"transition_to_state": "A", "next_transition_from_state": "A"},
+                {"transition_to_state": "A", "next_transition_from_state": "B"},
+            ),
+            "duplicate_primary_key": ({"primary_key": ["a"]}, {"primary_key": ["a"]}),
+        }
+        for gate_id, (baseline, mutation) in fixtures.items():
+            detector = r2_t02.resolve_violation_detector(
+                f"r2_t02_violation_detector__{gate_id}"
+            )
+            with self.subTest(gate_id=gate_id):
+                self.assertIsNotNone(detector)
+                baseline_rows = [baseline]
+                mutation_rows = [mutation]
+                if gate_id == "duplicate_primary_key":
+                    mutation_rows = [baseline, mutation]
+                self.assertEqual(detector(baseline_rows), [])
+                self.assertGreaterEqual(len(detector(mutation_rows)), 1)
+                with self.assertRaisesRegex(
+                    ValueError, f"violation_detector_input_missing:{gate_id}"
+                ):
+                    detector([{}])
 
     def test_window_metrics_use_full_exact_keys(self):
         rows = [
@@ -487,7 +719,7 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
     def test_premerge_formal_surface_uses_registered_v3_config_sources(self):
         paths = set(premerge._formal_surface_paths(ROOT))
         for required in {
-            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v5.json",
+            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json",
             "docs/stages/R2_参数、事件规则与状态版本冻结.md",
             "schemas/r2/r2_t02_t03_output_contract.schema.json",
             "scripts/validate_text_contract.py",
