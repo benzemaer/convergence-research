@@ -16,7 +16,7 @@ SCHEMA_PATH = ROOT / "schemas/r2/r2_t02_premerge_full_evidence.schema.json"
 PROFILE_CONFIG = ROOT / "configs/ci/unittest_profiles.v1.json"
 FORMAL_SURFACE = [
     ".github/workflows/quality.yml",
-    "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v1.json",
+    "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v2.json",
     "schemas/r2/r2_t02_premerge_full_evidence.schema.json",
     "scripts/run_unittest_profile.py",
     "scripts/r2/build_r2_t02_premerge_full_evidence.py",
@@ -150,6 +150,36 @@ def validate_final_gate(
             errors.append(f"{key}_binding_missing")
         elif not (root / payload[f"{key}_path"]).is_file():
             errors.append(f"{key}_file_missing")
+        elif _sha_optional(root / payload[f"{key}_path"]) != payload[f"{key}_sha256"]:
+            errors.append(f"{key}_sha_mismatch")
+    if not errors:
+        author = _load_json(root / payload["author_package_path"])
+        sidecar = _load_json(root / payload["committed_artifact_sidecar_path"])
+        review = _load_json(root / payload["scientific_review_record_path"])
+        if author.get("run_id") != sidecar.get("run_id"):
+            errors.append("author_sidecar_run_id_mismatch")
+        if sidecar.get("status") != "passed":
+            errors.append("committed_sidecar_not_passed")
+        if sidecar.get("package_committed_sha256") != payload["author_package_sha256"]:
+            errors.append("sidecar_package_hash_mismatch")
+        if review.get("scientific_review_status") != "passed":
+            errors.append("scientific_review_not_passed")
+        if review.get("independent_review_status") != "passed":
+            errors.append("independent_review_not_passed")
+        reviewed_head = review.get("reviewed_head") or review.get("reviewed_pr_head")
+        if reviewed_head and reviewed_head != payload["tested_head_sha"]:
+            errors.append("scientific_review_head_mismatch")
+        if author.get("repository_final_gate_status") != "pending":
+            errors.append("author_package_final_gate_not_pending")
+        artifact_commit = sidecar.get("artifact_commit", "")
+        if not artifact_commit or not _is_ancestor(
+            artifact_commit, payload["tested_head_sha"], root
+        ):
+            errors.append("artifact_commit_not_reviewed_head_ancestor")
+        elif not _formal_surface_unchanged_between(
+            artifact_commit, payload["tested_head_sha"], root
+        ):
+            errors.append("formal_surface_changed_after_artifact_commit")
     if errors:
         raise ValueError(",".join(errors))
 
@@ -222,6 +252,30 @@ def _formal_surface_git_blob_sha256(root: Path) -> str:
         digest.update(blob)
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def _is_ancestor(ancestor: str, descendant: str, root: Path) -> bool:
+    import subprocess
+
+    return (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", ancestor, descendant], cwd=root
+        ).returncode
+        == 0
+    )
+
+
+def _formal_surface_unchanged_between(left: str, right: str, root: Path) -> bool:
+    import subprocess
+
+    for rel in FORMAL_SURFACE:
+        left_blob = subprocess.check_output(["git", "show", f"{left}:{rel}"], cwd=root)
+        right_blob = subprocess.check_output(
+            ["git", "show", f"{right}:{rel}"], cwd=root
+        )
+        if left_blob != right_blob:
+            return False
+    return True
 
 
 def _collection_sha256(test_ids: list[str]) -> str:

@@ -139,13 +139,19 @@ jobs:
           python scripts/r2/build_r2_t02_premerge_full_evidence.py \
             --profile-result artifacts/r2_t02_premerge/full_profile_result.json \
             --output artifacts/r2_t02_premerge/r2_t02_premerge_full_evidence.json \
-            --reviewed-head-sha "${{ github.event_name == 'workflow_dispatch' && inputs.reviewed_head_sha || github.event.pull_request.head.sha }}"
+            --reviewed-head-sha "${{ github.event_name == 'workflow_dispatch' && inputs.reviewed_head_sha || github.event.pull_request.head.sha }}" \
+            --author-package data/generated/r2/r2_t02/R2-T02-20260712T1100Z/r2_t02_result_package.json \
+            --committed-artifact-sidecar data/generated/r2/r2_t02/R2-T02-20260712T1100Z/r2_t02_committed_artifact_validation.json \
+            --scientific-review-record data/generated/r2/r2_t02/R2-T02-20260712T1100Z/r2_t02_scientific_review.json
 
       - name: Consume R2-T02 premerge full evidence final gate
         run: |
           python scripts/r2/build_r2_t02_premerge_full_evidence.py \
             --final-gate-validate artifacts/r2_t02_premerge/r2_t02_premerge_full_evidence.json \
-            --reviewed-head-sha "${{ github.event_name == 'workflow_dispatch' && inputs.reviewed_head_sha || github.event.pull_request.head.sha }}"
+            --reviewed-head-sha "${{ github.event_name == 'workflow_dispatch' && inputs.reviewed_head_sha || github.event.pull_request.head.sha }}" \
+            --expected-repository "${{ github.repository }}" \
+            --expected-pr-number "${{ github.event_name == 'pull_request' && github.event.pull_request.number || 0 }}" \
+            --expected-workflow "${{ github.workflow }}"
 
       - name: Upload R2-T02 premerge full evidence
         uses: actions/upload-artifact@v4

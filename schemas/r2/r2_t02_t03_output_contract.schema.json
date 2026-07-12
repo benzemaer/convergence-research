@@ -6,7 +6,7 @@
   "properties": {
     "task_id": {"const": "R2-T02"},
     "run_id": {"type": "string"},
-    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v2"},
     "execution_code_commit": {"type": "string"},
     "primary_cell_count": {"const": 36},
     "shared_q_sidecar_cell_count": {"const": 36},

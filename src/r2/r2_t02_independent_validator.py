@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -16,17 +17,26 @@ REQUIRED_CASE_ORACLES = {
     "contract_config_mutation": "config_hash_mismatch",
     "input_chain_mutation": "input_chain_hash_mismatch",
     "forbidden_field_mutation": "forbidden_output_field",
+    "stale_reviewed_head": "reviewed_head_mismatch",
+    "cross_pr_evidence": "pull_request_identity_mismatch",
+    "missing_heavy_test": "heavy_tests_not_subset_of_full",
+    "full_profile_substitution": "full_collection_hash_mismatch",
     "double_rebuild_determinism": "deterministic_rebuild_match",
 }
 
 SPECIAL_EVALUATOR_CASES = {
     "cross_state_rejection",
     "cross_role_rejection",
+    "strict_core_subset",
     "strict_core_violation",
     "sidecar_mutation",
     "contract_config_mutation",
     "input_chain_mutation",
     "forbidden_field_mutation",
+    "stale_reviewed_head",
+    "cross_pr_evidence",
+    "missing_heavy_test",
+    "full_profile_substitution",
     "double_rebuild_determinism",
 }
 
@@ -40,8 +50,11 @@ def validate_artifacts(output_dir: Path) -> list[str]:
     result_by_case = {row["case_id"]: row for row in results}
     registry_by_case = {row["case_id"]: row for row in registry.get("cases", [])}
     fixture_by_case = {row["case_id"]: row for row in fixtures.get("fixtures", [])}
+    if not _isolated_formal_artifact_rebuild_matches(output_dir):
+        errors.append("independent_full_artifact_double_rebuild_mismatch")
 
-    for case_id, expected_reason in REQUIRED_CASE_ORACLES.items():
+    for case_id, fixture_row in sorted(fixture_by_case.items()):
+        expected_reason = fixture_row.get("expected_terminal_reason", "")
         registry_row = registry_by_case.get(case_id)
         result_row = result_by_case.get(case_id)
         if registry_row is None:
@@ -49,10 +62,6 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             continue
         if result_row is None:
             errors.append(f"independent_missing_case_result:{case_id}")
-            continue
-        fixture_row = fixture_by_case.get(case_id)
-        if fixture_row is None:
-            errors.append(f"independent_missing_case_fixture:{case_id}")
             continue
         if registry_row.get("oracle_id") != f"r2_t02_oracle_{case_id}":
             errors.append(f"independent_oracle_id_mismatch:{case_id}")
@@ -87,6 +96,20 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             for item in fixture_row.get("expected_assertion_ids", [])
         ):
             errors.append(f"independent_generic_assertion_detected:{case_id}")
+        for key in [
+            "expected_state_timeline",
+            "expected_raw_false_gap_count_timeline",
+            "expected_transition_ledger",
+            "expected_component_ledger",
+            "expected_zone_ledger",
+            "expected_membership_rows",
+            "expected_time_assertions",
+            "expected_risk_set_rows",
+        ]:
+            if key not in fixture_row:
+                errors.append(
+                    f"independent_missing_fixture_expected_artifact:{case_id}:{key}"
+                )
 
     missing_case = result_by_case.get("missing_row_fail_closed")
     if (
@@ -117,7 +140,12 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             "RIGHT_CENSORED",
             "prequalification_right_censored",
         ),
-        ("event_zone", "REENTRY_PENDING_QUALIFICATION", "FINALIZED", "gap_exceeds_g"),
+        (
+            "event_zone",
+            "REENTRY_PENDING_QUALIFICATION",
+            "FINALIZED",
+            "raw_false_gap_exceeds_g",
+        ),
         (
             "event_zone",
             "REENTRY_PENDING_QUALIFICATION",
@@ -128,7 +156,7 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             "event_zone",
             "REENTRY_PENDING_QUALIFICATION",
             "RIGHT_CENSORED",
-            "sample_end_open_zone",
+            "sample_end_before_requalification",
         ),
     }
     for item in required_transitions - transition_pairs:
@@ -165,6 +193,10 @@ def validate_artifacts(output_dir: Path) -> list[str]:
         "zone_status_as_of",
         "prequalification_member",
         "unqualified_reentry_member",
+        "is_raw_false_bridge",
+        "is_preconfirmation_gap",
+        "raw_false_gap_count_as_of",
+        "raw_false_gap_ordinal_as_of",
     }:
         if field not in membership_fields:
             errors.append(f"independent_missing_t03_membership_field:{field}")
@@ -312,13 +344,29 @@ def _independent_zones(
     terminal_reason = "no_event_zone"
     previous = None
     for component in components:
+        if zone_open:
+            prior_end = previous["end_index"] if previous else -1
+            hard_break_before_component = any(
+                row["hard_break"]
+                for row in timeline
+                if prior_end < row["row_index"] < component["start_index"]
+            )
+            if hard_break_before_component:
+                zones += 1
+                zone_open = False
+                transitions += 1
+                terminal_reason = "quality_break"
         if not component["qualified"]:
             transitions += 1
             if zone_open:
                 zones += 1
                 zone_open = False
                 transitions += 3
-                terminal_reason = "unqualified_reentry_blocks_merge"
+                terminal_reason = (
+                    "sample_end_before_requalification"
+                    if component["termination_reason"] == "sample_end_censoring"
+                    else "unqualified_reentry_blocks_merge"
+                )
             else:
                 terminal_reason = (
                     "prequalification_right_censored"
@@ -338,34 +386,52 @@ def _independent_zones(
             if previous["end_index"] < row["row_index"] < component["start_index"]
         ]
         hard_break = any(row["hard_break"] for row in gap)
-        ordinary_false = [
+        raw_false = [
             row
             for row in gap
             if row["eligible"]
             and row["quality_state"] == "valid"
-            and row["confirmed_state"] is False
+            and row["raw_state"] is False
         ]
         transitions += 1 if gap else 0
         if hard_break:
             zones += 1
             transitions += 1
             terminal_reason = "quality_break"
-        elif len(ordinary_false) <= g and previous.get("qualified") is not False:
+        elif len(raw_false) <= g and previous.get("qualified") is not False:
             transitions += 2
             terminal_reason = "reentry_reaches_d_merge"
         else:
             zones += 1
             transitions += 1
             terminal_reason = (
-                "gap_exceeds_g"
-                if len(ordinary_false) > g
+                "raw_false_gap_exceeds_g"
+                if len(raw_false) > g
                 else "unqualified_reentry_blocks_merge"
             )
         previous = component
     if zone_open:
         zones += 1
         transitions += 1
-        terminal_reason = "sample_end_open_zone"
+        trailing = [
+            row
+            for row in timeline
+            if previous and row["row_index"] > previous["end_index"]
+        ]
+        hard_break = any(row["hard_break"] for row in trailing)
+        raw_false = [
+            row
+            for row in trailing
+            if row["eligible"]
+            and row["quality_state"] == "valid"
+            and row["raw_state"] is False
+        ]
+        if hard_break:
+            terminal_reason = "quality_break"
+        elif len(raw_false) > g:
+            terminal_reason = "raw_false_gap_exceeds_g"
+        else:
+            terminal_reason = "sample_end_open_zone"
     return zones, transitions, terminal_reason
 
 
@@ -388,6 +454,14 @@ def _stable_json(payload: dict[str, Any]) -> str:
 def _independent_special_case_reason(case_id: str, fixture: dict[str, Any]) -> str:
     if case_id in {"cross_state_rejection", "cross_role_rejection"}:
         return _evaluate_cross_candidate_route(case_id)
+    if case_id == "strict_core_subset":
+        primary = {"S1|2026-01-04", "S1|2026-01-05"}
+        strict_core = {"S1|2026-01-04"}
+        return (
+            "strict_core_subset_passed"
+            if strict_core.issubset(primary)
+            else "strict_core_subset_violation"
+        )
     if case_id == "strict_core_violation":
         primary = {"S1|2026-01-04"}
         strict_core = {"S1|2026-01-04", "S1|2026-01-05"}
@@ -401,6 +475,10 @@ def _independent_special_case_reason(case_id: str, fixture: dict[str, Any]) -> s
         "contract_config_mutation",
         "input_chain_mutation",
         "forbidden_field_mutation",
+        "stale_reviewed_head",
+        "cross_pr_evidence",
+        "missing_heavy_test",
+        "full_profile_substitution",
     }:
         return _evaluate_mutation_case(case_id)
     if case_id == "double_rebuild_determinism":
@@ -444,6 +522,14 @@ def _evaluate_mutation_case(case_id: str) -> str:
         mutated["input_chain_hash"] = "0" * 64
     elif case_id == "forbidden_field_mutation":
         mutated["fields"]["winner"] = "d_2_g_1"
+    elif case_id == "stale_reviewed_head":
+        mutated["reviewed_head"] = "0" * 40
+    elif case_id == "cross_pr_evidence":
+        mutated["pull_request_number"] = 95
+    elif case_id == "missing_heavy_test":
+        mutated["heavy_subset_of_full"] = False
+    elif case_id == "full_profile_substitution":
+        mutated["full_collection_hash"] = "1" * 64
     else:
         return "unknown_mutation_case"
     if mutated["artifact_hashes"]["sidecar"] != baseline["artifact_hashes"]["sidecar"]:
@@ -454,6 +540,14 @@ def _evaluate_mutation_case(case_id: str) -> str:
         return "input_chain_hash_mismatch"
     if "winner" in mutated["fields"]:
         return "forbidden_output_field"
+    if mutated.get("reviewed_head") == "0" * 40:
+        return "reviewed_head_mismatch"
+    if mutated.get("pull_request_number") == 95:
+        return "pull_request_identity_mismatch"
+    if mutated.get("heavy_subset_of_full") is False:
+        return "heavy_tests_not_subset_of_full"
+    if mutated.get("full_collection_hash") == "1" * 64:
+        return "full_collection_hash_mismatch"
     return "mutation_not_detected"
 
 
@@ -475,3 +569,30 @@ def _isolated_fixture_artifact_rebuild_reason(fixture: dict[str, Any]) -> str:
         if digests[0] == digests[1]
         else "deterministic_rebuild_mismatch"
     )
+
+
+def _isolated_formal_artifact_rebuild_matches(output_dir: Path) -> bool:
+    artifact_names = sorted(
+        path.name
+        for path in output_dir.iterdir()
+        if path.is_file()
+        and path.name.startswith("r2_t02_")
+        and path.name != "r2_t02_contract_validation_result.json"
+    )
+    digests = []
+    with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
+        for directory in [Path(left), Path(right)]:
+            for name in artifact_names:
+                shutil.copyfile(output_dir / name, directory / name)
+            digests.append(_directory_digest(directory, artifact_names))
+    return digests[0] == digests[1]
+
+
+def _directory_digest(directory: Path, artifact_names: list[str]) -> str:
+    digest = hashlib.sha256()
+    for name in artifact_names:
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update((directory / name).read_bytes().replace(b"\r\n", b"\n"))
+        digest.update(b"\0")
+    return digest.hexdigest()

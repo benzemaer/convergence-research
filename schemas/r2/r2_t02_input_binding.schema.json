@@ -5,7 +5,7 @@
   "required": ["task_id", "contract_version", "config_path", "base_main_sha", "execution_code_commit", "hash_authority", "worktree_hash_for_lineage_allowed", "source_bindings", "lineage_checks"],
   "properties": {
     "task_id": {"const": "R2-T02"},
-    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v2"},
     "config_path": {"type": "string"},
     "base_main_sha": {"type": "string", "minLength": 40, "maxLength": 40},
     "execution_code_commit": {"type": "string", "minLength": 40, "maxLength": 40},

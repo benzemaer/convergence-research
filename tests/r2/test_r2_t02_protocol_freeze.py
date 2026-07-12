@@ -6,9 +6,9 @@ from src.r2 import r2_t02_protocol_freeze as r2_t02
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v1.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v2.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1000Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1100Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -70,12 +70,97 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         with self.assertRaises(r2_t02.MissingExpectedRowError):
             r2_t02.replay_confirmation(rows, ["2026-01-02", "2026-01-03"])
 
+    def test_k3_g0_does_not_merge_after_raw_false_exit(self):
+        timeline, intervals, _components, zones, ledger = self._run_rows(
+            [True, True, True, False, True, True, True], d=1, g=0
+        )
+        self.assertEqual(len(zones), 2)
+        self.assertEqual(zones[0]["component_count"], 1)
+        self.assertEqual(
+            zones[0]["zone_finalization_time"], timeline[3]["available_time"]
+        )
+        self.assertIn("raw_false_gap_exceeds_g", [row["reason_code"] for row in ledger])
+        self.assertEqual(len(intervals), 2)
+
+    def test_k3_g1_merges_one_raw_false_and_two_preconfirmation_rows(self):
+        _timeline, _intervals, _components, zones, _ledger = self._run_rows(
+            [True, True, True, False, True, True, True], d=1, g=1
+        )
+        zone = zones[0]
+        members = zone["membership_rows"]
+        self.assertEqual(zone["component_count"], 2)
+        self.assertEqual(zone["raw_false_bridged_day_count"], 1)
+        self.assertEqual(zone["preconfirmation_gap_day_count"], 2)
+        self.assertEqual(zone["total_nonconfirmed_gap_day_count"], 3)
+        self.assertEqual(sum(row["is_raw_false_bridge"] for row in members), 1)
+        self.assertEqual(sum(row["is_preconfirmation_gap"] for row in members), 2)
+        self.assertFalse(
+            any(
+                row["is_bridged_gap"]
+                for row in members
+                if row["is_preconfirmation_gap"]
+            )
+        )
+
+    def test_raw_true_preconfirmation_does_not_reset_raw_false_g(self):
+        timeline, _intervals, _components, zones, _ledger = self._run_rows(
+            [True, True, True, False, True, True, False, True, True, True],
+            d=1,
+            g=1,
+        )
+        self.assertEqual(
+            zones[0]["zone_finalization_time"], timeline[6]["available_time"]
+        )
+        _timeline, _intervals, _components, g2_zones, _ledger = self._run_rows(
+            [True, True, True, False, True, True, False, True, True, True],
+            d=1,
+            g=2,
+        )
+        self.assertEqual(g2_zones[0]["component_count"], 2)
+        self.assertEqual(g2_zones[0]["raw_false_bridged_day_count"], 2)
+        self.assertEqual(g2_zones[0]["preconfirmation_gap_day_count"], 4)
+
+    def test_unqualified_reentry_state_risk_independent_of_event_membership(self):
+        _timeline, _intervals, _components, zones, _ledger = self._run_rows(
+            [True, True, True, True, True, False, True, True, True, False],
+            d=3,
+            g=2,
+        )
+        members = [row for zone in zones for row in zone["membership_rows"]]
+        unqualified = [row for row in members if row["unqualified_reentry_member"]]
+        self.assertTrue(unqualified)
+        self.assertTrue(any(row["state_risk_set_eligible"] for row in unqualified))
+        self.assertFalse(
+            any(row["qualified_event_risk_set_eligible"] for row in unqualified)
+        )
+        self.assertFalse(any(row["event_zone_member"] for row in unqualified))
+
     def test_synthetic_registry_is_actual_replay_not_empty(self):
         registry, results = r2_t02.synthetic_case_artifacts()
         self.assertGreaterEqual(len(registry), 40)
         self.assertEqual(len(registry), len(results))
         self.assertTrue(all(row["status"] == "passed" for row in results))
         self.assertTrue(all(int(row["transition_count"]) > 0 for row in results))
+
+    def _run_rows(self, raw_values, *, d, g):
+        dates = [f"2026-01-{day:02d}" for day in range(2, 2 + len(raw_values))]
+        rows = [
+            r2_t02.DailyInput(
+                "S1",
+                date,
+                f"{date}T15:00:00+08:00",
+                True,
+                "valid",
+                raw,
+            )
+            for date, raw in zip(dates, raw_values)
+        ]
+        timeline, _ledger = r2_t02.replay_confirmation(rows, dates)
+        intervals = r2_t02.atomic_intervals(timeline)
+        components, zones, event_ledger = r2_t02.group_event_zones(
+            timeline, intervals, d, g, candidate_cell_id="test_cell"
+        )
+        return timeline, intervals, components, zones, event_ledger
 
     def test_generated_package_if_present_keeps_downstream_closed(self):
         if not RUN_DIR.is_dir():
