@@ -33,6 +33,9 @@ def build_evidence(
     output_path: Path,
     *,
     reviewed_head_sha: str,
+    author_package_path: Path | None = None,
+    committed_artifact_sidecar_path: Path | None = None,
+    scientific_review_record_path: Path | None = None,
     root: Path = ROOT,
 ) -> dict[str, Any]:
     profile_result = _load_json(profile_result_path)
@@ -79,6 +82,18 @@ def build_evidence(
         "completed_at_utc": profile_result["completed_at_utc"],
         "formal_surface_sha256": _formal_surface_sha256(root),
         "formal_surface_git_blob_sha256": _formal_surface_git_blob_sha256(root),
+        "author_package_path": _rel_optional(author_package_path, root),
+        "author_package_sha256": _sha_optional(author_package_path),
+        "committed_artifact_sidecar_path": _rel_optional(
+            committed_artifact_sidecar_path, root
+        ),
+        "committed_artifact_sidecar_sha256": _sha_optional(
+            committed_artifact_sidecar_path
+        ),
+        "scientific_review_record_path": _rel_optional(
+            scientific_review_record_path, root
+        ),
+        "scientific_review_record_sha256": _sha_optional(scientific_review_record_path),
     }
     _validate(payload, root)
     if payload["tested_head_sha"] != payload["reviewed_head_sha"]:
@@ -92,7 +107,13 @@ def build_evidence(
 
 
 def validate_final_gate(
-    evidence_path: Path, *, reviewed_head_sha: str, root: Path = ROOT
+    evidence_path: Path,
+    *,
+    reviewed_head_sha: str,
+    expected_repository: str = "",
+    expected_pr_number: int = 0,
+    expected_workflow: str = "",
+    root: Path = ROOT,
 ) -> None:
     payload = _load_json(evidence_path)
     _validate(payload, root)
@@ -101,6 +122,12 @@ def validate_final_gate(
         errors.append("reviewed_head_mismatch")
     if payload["tested_head_sha"] != payload["reviewed_head_sha"]:
         errors.append("tested_reviewed_head_mismatch")
+    if expected_repository and payload["repository"] != expected_repository:
+        errors.append("repository_identity_mismatch")
+    if expected_pr_number and payload["pull_request_number"] != expected_pr_number:
+        errors.append("pull_request_identity_mismatch")
+    if expected_workflow and payload["workflow_name"] != expected_workflow:
+        errors.append("workflow_identity_mismatch")
     if payload["status"] != "passed":
         errors.append("full_profile_not_passed")
     if payload["failure_count"] != 0 or payload["error_count"] != 0:
@@ -114,6 +141,15 @@ def validate_final_gate(
         errors.append("full_collection_hash_mismatch")
     if not payload["heavy_subset_of_full"]:
         errors.append("heavy_tests_not_subset_of_full")
+    for key in [
+        "author_package",
+        "committed_artifact_sidecar",
+        "scientific_review_record",
+    ]:
+        if not payload.get(f"{key}_path") or not payload.get(f"{key}_sha256"):
+            errors.append(f"{key}_binding_missing")
+        elif not (root / payload[f"{key}_path"]).is_file():
+            errors.append(f"{key}_file_missing")
     if errors:
         raise ValueError(",".join(errors))
 
@@ -146,6 +182,21 @@ def _git_sha(root: Path) -> str:
     return subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip()
+
+
+def _rel_optional(path: Path | None, root: Path) -> str:
+    if path is None:
+        return ""
+    try:
+        return str(path.resolve().relative_to(root.resolve())).replace("\\", "/")
+    except ValueError:
+        return str(path)
+
+
+def _sha_optional(path: Path | None) -> str:
+    if path is None or not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _formal_surface_sha256(root: Path) -> str:
@@ -185,10 +236,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--reviewed-head-sha", required=True)
     parser.add_argument("--final-gate-validate", type=Path)
+    parser.add_argument("--author-package", type=Path)
+    parser.add_argument("--committed-artifact-sidecar", type=Path)
+    parser.add_argument("--scientific-review-record", type=Path)
+    parser.add_argument("--expected-repository", default="")
+    parser.add_argument("--expected-pr-number", type=int, default=0)
+    parser.add_argument("--expected-workflow", default="")
     args = parser.parse_args(argv)
     if args.final_gate_validate:
         validate_final_gate(
-            args.final_gate_validate, reviewed_head_sha=args.reviewed_head_sha
+            args.final_gate_validate,
+            reviewed_head_sha=args.reviewed_head_sha,
+            expected_repository=args.expected_repository,
+            expected_pr_number=args.expected_pr_number,
+            expected_workflow=args.expected_workflow,
         )
         return 0
     if not args.profile_result or not args.output:
@@ -197,7 +258,12 @@ def main(argv: list[str] | None = None) -> int:
             "--final-gate-validate is used"
         )
     build_evidence(
-        args.profile_result, args.output, reviewed_head_sha=args.reviewed_head_sha
+        args.profile_result,
+        args.output,
+        reviewed_head_sha=args.reviewed_head_sha,
+        author_package_path=args.author_package,
+        committed_artifact_sidecar_path=args.committed_artifact_sidecar,
+        scientific_review_record_path=args.scientific_review_record,
     )
     return 0
 

@@ -22,6 +22,22 @@ def validate_committed_artifacts(
     )
     errors = []
     artifact_git_blobs = {}
+    package_rel = f"{repo_rel(output_dir, root)}/r2_t02_result_package.json"
+    try:
+        package_committed_bytes = subprocess.check_output(
+            ["git", "show", f"{commit}:{package_rel}"],
+            cwd=root,
+        )
+        package_git_blob_sha = subprocess.check_output(
+            ["git", "rev-parse", f"{commit}:{package_rel}"],
+            cwd=root,
+            text=True,
+        ).strip()
+        package_committed_sha256 = sha256_bytes(package_committed_bytes)
+    except subprocess.CalledProcessError:
+        errors.append("missing_committed_artifact:r2_t02_result_package.json")
+        package_git_blob_sha = ""
+        package_committed_sha256 = ""
     for name, expected_hash in sorted(package["artifact_hashes"].items()):
         rel = f"{repo_rel(output_dir, root)}/{name}"
         try:
@@ -53,6 +69,9 @@ def validate_committed_artifacts(
         "package_sha256": sha256_bytes(
             (output_dir / "r2_t02_result_package.json").read_bytes()
         ),
+        "package_git_blob_sha": package_git_blob_sha,
+        "package_committed_sha256": package_committed_sha256,
+        "package_hash_in_closed_set": bool(package_committed_sha256),
         "artifact_hash_basis": "committed_git_blob",
         "artifact_count": len(package["artifact_hashes"]),
         "artifact_git_blobs": artifact_git_blobs,
@@ -65,7 +84,7 @@ def validate_committed_artifacts(
         )
     if update_package and not errors:
         package["artifact_commit"] = result["artifact_commit"]
-        package["reviewed_pr_head"] = result["reviewed_pr_head"]
+        package["reviewed_pr_head"] = "pending_repository_final_gate_exact_head"
         package["artifact_commit_binding_status"] = "passed"
         package["artifact_hash_basis"] = "committed_git_blob"
         (output_dir / "r2_t02_result_package.json").write_text(

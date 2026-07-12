@@ -1,11 +1,25 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["csv_columns", "primary_key", "additionalProperties"],
-  "properties": {
-    "csv_columns": {"const": ["gate_id", "state_line", "metric_id", "operator", "threshold", "scope_rule", "fail_closed", "zero_tolerance"]},
-    "primary_key": {"const": ["gate_id"]},
-    "additionalProperties": {"const": false}
-  }
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["csv_columns", "primary_key", "additionalProperties"],
+    "properties": {
+        "csv_columns": {
+            "const": [
+                "gate_id",
+                "state_line",
+                "metric_id",
+                "operator",
+                "threshold",
+                "admissible_threshold",
+                "scope_rule",
+                "evaluator_id",
+                "violation_population_key",
+                "fail_closed",
+                "zero_tolerance"
+            ]
+        },
+        "primary_key": {"const": ["gate_id"]},
+        "additionalProperties": {"const": false}
+    }
 }
