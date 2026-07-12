@@ -1,5 +1,5 @@
 {
-  "artifact_commit": "b193477ba1e71cf44c3efe9e9e7a5025c92cee06",
+  "artifact_commit": "e88ec4313173730110900c9cd8c518fb9ff94c3f",
   "artifact_count": 18,
   "artifact_git_blobs": {
     "r2_t02_anomaly_scan.json": {
@@ -80,8 +80,8 @@
   "package_committed_sha256": "b349f36869803213bce2b3f07abe2a22275c34bf59b71e093ccee6afe448172a",
   "package_git_blob_sha": "0c837cad2c47ee5e308a72fc15a4fd4d318685eb",
   "package_hash_in_closed_set": true,
-  "package_sha256": "3bbb54dc05b6aa0d84f07560929be9163fbe323f463c4bbe6db9b57dbdb04c5d",
-  "reviewed_pr_head": "b193477ba1e71cf44c3efe9e9e7a5025c92cee06",
+  "package_sha256": "b349f36869803213bce2b3f07abe2a22275c34bf59b71e093ccee6afe448172a",
+  "reviewed_pr_head": "e88ec4313173730110900c9cd8c518fb9ff94c3f",
   "run_id": "R2-T02-20260712T1600Z",
   "status": "passed",
   "task_id": "R2-T02"
