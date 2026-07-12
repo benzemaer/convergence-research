@@ -189,7 +189,7 @@ def _analysis_markdown(
             "",
             "## 有限推断与边界",
             "",
-            "本扫描只审计状态机、区间几何、参数响应和守恒关系，不使用未来收益、方向或回测指标。primary 与 shared-q sidecar 的比较用于集合与几何诊断，不构成参数选择。上游日表未物理提供 `available_time` 与 `eligible` 字段，本任务按照冻结配置分别由交易日 15:00（Asia/Shanghai）和 `validity_status=valid` 派生；该事实是适用边界，不应改写为源字段已被独立确认。",
+            "本扫描只审计状态机、区间几何、参数响应和守恒关系，不使用未来收益、方向或回测指标。primary 与 shared-q sidecar 的比较用于集合与几何诊断，不构成参数选择。上游日表未物理提供 `available_time` 与 `eligible` 字段；T03 config 自身不能充当上游证明。在 authoritative availability、route-security expected-key 与 normalized interval reconciliation contracts 解决前，successor formal run 必须 fail closed。",
             "",
             "## 异常结论",
             "",

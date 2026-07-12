@@ -110,6 +110,13 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
             "=0",
         ),
         (
+            "strict_core_subset_status",
+            "global",
+            "SELECT count(*) FROM strict_core_shell_profile WHERE strict_core_subset_status<>'passed'",
+            0,
+            "=0",
+        ),
+        (
             "risk_set_formula",
             "global",
             "SELECT count(*) FROM event_zone_membership_daily WHERE state_risk_set_eligible IS DISTINCT FROM (eligible AND quality_state='valid' AND confirmed_state)",
@@ -166,7 +173,88 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
         output.append(
             _row(check_id, scope, "", value, rule, passed, True, "direct_sql")
         )
+    output.extend(_transition_closure_checks(con))
     return output
+
+
+def _transition_closure_checks(
+    con: duckdb.DuckDBPyConnection,
+) -> list[dict[str, Any]]:
+    """Entity-level closure checks bound to the frozen T02 transition registry."""
+    specs = [
+        (
+            "qualified_component_transition_closure",
+            """SELECT count(*) FROM (
+            SELECT q.candidate_cell_id,q.security_id,q.component_id
+            FROM qualified_component q LEFT JOIN transition_entity_ledger t
+              ON t.candidate_cell_id=q.candidate_cell_id AND t.security_id=q.security_id
+             AND t.entity_kind='component' AND t.entity_id=q.component_id
+             AND t.from_state='COMPONENT_FORMING' AND t.to_state='QUALIFIED_ACTIVE'
+             AND t.reason_code='d_qualification'
+            WHERE q.qualified GROUP BY 1,2,3 HAVING count(t.entity_id)<>1)""",
+        ),
+        (
+            "unqualified_normal_close_transition_closure",
+            """SELECT count(*) FROM (
+            SELECT q.candidate_cell_id,q.security_id,q.component_id
+            FROM qualified_component q JOIN component_source_lineage l
+              USING(candidate_cell_id,security_id,component_id)
+            LEFT JOIN transition_entity_ledger t
+              ON t.candidate_cell_id=q.candidate_cell_id AND t.security_id=q.security_id
+             AND t.entity_kind='component' AND t.entity_id=q.component_id
+             AND t.to_state='UNQUALIFIED_CLOSED'
+            WHERE NOT q.qualified AND l.normally_ended
+            GROUP BY 1,2,3 HAVING count(t.entity_id)<>1)""",
+        ),
+        (
+            "event_creation_transition_closure",
+            """SELECT count(*) FROM (
+            SELECT e.candidate_cell_id,e.security_id,e.scan_event_id
+            FROM event_zone e LEFT JOIN transition_entity_ledger t
+              ON t.candidate_cell_id=e.candidate_cell_id AND t.security_id=e.security_id
+             AND t.entity_kind='event_zone' AND t.entity_id=e.scan_event_id
+             AND t.to_state='QUALIFIED_ACTIVE'
+            GROUP BY 1,2,3 HAVING count(t.entity_id)<>1)""",
+        ),
+        (
+            "event_terminal_transition_closure",
+            """SELECT count(*) FROM (
+            SELECT e.candidate_cell_id,e.security_id,e.scan_event_id
+            FROM event_zone e LEFT JOIN transition_entity_ledger t
+              ON t.candidate_cell_id=e.candidate_cell_id AND t.security_id=e.security_id
+             AND t.entity_kind='event_zone' AND t.entity_id=e.scan_event_id
+             AND t.to_state IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED')
+            GROUP BY 1,2,3 HAVING count(t.entity_id)<>1)""",
+        ),
+        (
+            "accepted_bridge_transition_closure",
+            """SELECT count(*) FROM (
+            SELECT b.candidate_cell_id,b.security_id,b.bridge_segment_id
+            FROM event_zone_bridge_segment b LEFT JOIN transition_entity_ledger t
+              ON t.candidate_cell_id=b.candidate_cell_id AND t.security_id=b.security_id
+             AND t.entity_kind='bridge' AND t.entity_id=b.bridge_segment_id
+            WHERE b.merge_accepted GROUP BY 1,2,3 HAVING count(t.entity_id)<>3)""",
+        ),
+        (
+            "rejected_reentry_transition_closure",
+            """SELECT count(*) FROM (
+            SELECT r.candidate_cell_id,r.security_id,r.reentry_attempt_id
+            FROM reentry_attempt r LEFT JOIN transition_entity_ledger t
+              ON t.candidate_cell_id=r.candidate_cell_id AND t.security_id=r.security_id
+             AND t.entity_kind='reentry' AND t.entity_id=r.reentry_attempt_id
+            GROUP BY 1,2,3 HAVING count(t.entity_id)<>3)""",
+        ),
+        (
+            "quality_break_not_bridged",
+            """SELECT count(*) FROM event_zone_bridge_segment
+            WHERE merge_accepted AND decision_reason='quality_break'""",
+        ),
+    ]
+    return [
+        _row(check_id, "global", "", value, "=0", value == 0, True, "entity_ledger")
+        for check_id, sql in specs
+        for value in [con.execute(sql).fetchone()[0]]
+    ]
 
 
 def _parameter_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:

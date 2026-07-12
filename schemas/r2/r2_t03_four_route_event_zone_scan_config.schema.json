@@ -22,7 +22,7 @@
     },
     "semantics": {
       "type": "object", "additionalProperties": false,
-      "required": ["K", "d_grid", "g_grid", "available_time_policy", "evaluation_time_policy", "eligibility_policy", "selection_path_not_independently_confirmed"],
+      "required": ["K", "d_grid", "g_grid", "available_time_policy", "evaluation_time_policy", "eligibility_policy", "availability_adapter_status", "availability_upstream_contract_path", "expected_key_adapter_status", "expected_key_upstream_contract_path", "interval_reconciliation_adapter_status", "interval_reconciliation_upstream_contract_path", "selection_path_not_independently_confirmed"],
       "properties": {
         "K": {"const": 3},
         "d_grid": {"const": [1, 2, 3]},
@@ -30,6 +30,12 @@
         "available_time_policy": {"const": "source_trading_date_market_close_15_00_Asia_Shanghai"},
         "evaluation_time_policy": {"const": "membership_available_time"},
         "eligibility_policy": {"const": "validity_status_equals_valid"},
+        "availability_adapter_status": {"const": "unresolved_upstream_contract"},
+        "availability_upstream_contract_path": {"const": ""},
+        "expected_key_adapter_status": {"const": "unresolved_upstream_contract"},
+        "expected_key_upstream_contract_path": {"const": ""},
+        "interval_reconciliation_adapter_status": {"const": "unresolved_upstream_contract"},
+        "interval_reconciliation_upstream_contract_path": {"const": ""},
         "selection_path_not_independently_confirmed": {"const": true}
       }
     },

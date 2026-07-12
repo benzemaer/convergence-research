@@ -31,6 +31,12 @@
     "available_time_policy": "source_trading_date_market_close_15_00_Asia_Shanghai",
     "evaluation_time_policy": "membership_available_time",
     "eligibility_policy": "validity_status_equals_valid",
+    "availability_adapter_status": "unresolved_upstream_contract",
+    "availability_upstream_contract_path": "",
+    "expected_key_adapter_status": "unresolved_upstream_contract",
+    "expected_key_upstream_contract_path": "",
+    "interval_reconciliation_adapter_status": "unresolved_upstream_contract",
+    "interval_reconciliation_upstream_contract_path": "",
     "selection_path_not_independently_confirmed": true
   },
   "anomaly_policy": {
@@ -45,6 +51,7 @@
     "schemas/r2/r2_t03_four_route_event_zone_scan_config.schema.json",
     "schemas/r2/r2_t03_result_package.schema.json",
     "schemas/r2/r2_t03_output_manifest.schema.json",
+    "schemas/r2/r2_t03_corrected_execution_tables.schema.json",
     "docs/tasks/R2-T03_四路线d×g_event-zone状态机扫描与区间几何审计.md",
     "src/common/canonical_io.py",
     "src/r2/r2_t02_protocol_freeze.py",

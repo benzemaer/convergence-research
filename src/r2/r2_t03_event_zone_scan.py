@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -121,6 +121,8 @@ def run_scan(
         _create_output_schema(connection)
         _insert_cell_registry(connection, cells)
         _materialize_route_daily(connection, routes, root)
+        _materialize_authoritative_expected_keys(connection, config, root)
+        _materialize_authorized_upstream_intervals(connection, config, root)
         _create_atomic_daily_view(connection)
         connection.execute("BEGIN TRANSACTION")
         try:
@@ -132,6 +134,7 @@ def run_scan(
                     config["runtime"]["heartbeat_security_interval"]
                 ),
             )
+            _assert_upstream_interval_reconciliation(connection)
             connection.execute("COMMIT")
         except Exception:
             connection.execute("ROLLBACK")
@@ -193,6 +196,15 @@ def validate_source_readiness(
     config: dict[str, Any], cells: list[dict[str, Any]], *, root: Path = ROOT
 ) -> tuple[dict[str, Any], list[RouteSpec]]:
     inputs = config["inputs"]
+    adapter = adapter_contract_status(config, root=root)
+    if adapter["availability_adapter_status"] != "resolved":
+        raise R2T03Error("availability_adapter_status:unresolved_upstream_contract")
+    if adapter["expected_key_adapter_status"] != "resolved":
+        raise R2T03Error("expected_key_adapter_status:unresolved_upstream_contract")
+    if adapter["interval_reconciliation_adapter_status"] != "resolved":
+        raise R2T03Error(
+            "interval_reconciliation_adapter_status:unresolved_upstream_contract"
+        )
     handoff = _load_json(root / inputs["t02_handoff_path"])
     handoff_validation = _load_json(root / inputs["t02_handoff_validation_path"])
     required_handoff = {
@@ -245,9 +257,109 @@ def validate_source_readiness(
         "eligibility_source_field_present": False,
         "eligibility_policy": config["semantics"]["eligibility_policy"],
         "quality_raw_confirmed_fields_present": True,
+        **adapter,
         "superseded_input_detected": False,
     }
     return report, routes
+
+
+def adapter_contract_status(
+    config: Mapping[str, Any], *, root: Path = ROOT
+) -> dict[str, str]:
+    """Bind adapters to upstream contracts; configuration assertions are not evidence."""
+    semantics = config.get("semantics", {})
+    availability_contract = semantics.get("availability_upstream_contract_path", "")
+    expected_key_contract = semantics.get("expected_key_upstream_contract_path", "")
+    interval_contract = semantics.get(
+        "interval_reconciliation_upstream_contract_path", ""
+    )
+    availability_resolved = bool(
+        semantics.get("availability_adapter_status") == "resolved_upstream_contract"
+        and availability_contract
+        and (root / availability_contract).is_file()
+    )
+    expected_resolved = bool(
+        semantics.get("expected_key_adapter_status") == "resolved_upstream_contract"
+        and expected_key_contract
+        and (root / expected_key_contract).is_file()
+        and config.get("inputs", {}).get("expected_key_source")
+    )
+    interval_resolved = bool(
+        semantics.get("interval_reconciliation_adapter_status")
+        == "resolved_upstream_contract"
+        and interval_contract
+        and (root / interval_contract).is_file()
+        and config.get("inputs", {}).get("authorized_interval_source")
+    )
+    return {
+        "availability_adapter_status": (
+            "resolved" if availability_resolved else "unresolved_upstream_contract"
+        ),
+        "availability_upstream_contract_path": str(availability_contract),
+        "expected_key_adapter_status": (
+            "resolved" if expected_resolved else "unresolved_upstream_contract"
+        ),
+        "expected_key_upstream_contract_path": str(expected_key_contract),
+        "interval_reconciliation_adapter_status": (
+            "resolved" if interval_resolved else "unresolved_upstream_contract"
+        ),
+        "interval_reconciliation_upstream_contract_path": str(interval_contract),
+    }
+
+
+def build_expected_security_dates(
+    security_ids: Iterable[str],
+    trading_dates: Iterable[str],
+    applicable_keys: Iterable[tuple[str, str]],
+) -> dict[str, list[str]]:
+    """Build security x expected-date keys from an authoritative applicability set.
+
+    Neither the security universe nor the date set may be inferred from observed route rows.
+    The explicit applicability keys bind listing/delisting and route-universe policy.
+    """
+    securities = set(security_ids)
+    dates = set(trading_dates)
+    keys = set(applicable_keys)
+    if any(security not in securities or date not in dates for security, date in keys):
+        raise R2T03Error("expected_key_outside_authoritative_domain")
+    return {
+        security: sorted(
+            date for key_security, date in keys if key_security == security
+        )
+        for security in sorted(securities)
+    }
+
+
+def reconcile_atomic_interval_rows(
+    rebuilt: Iterable[Mapping[str, Any]], upstream: Iterable[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Exact row-level reconciliation required before a successor formal run."""
+    fields = (
+        "route_id",
+        "security_id",
+        "start_date",
+        "end_date",
+        "confirmed_day_count",
+        "termination_reason",
+    )
+
+    def canonical(rows: Iterable[Mapping[str, Any]]) -> list[tuple[Any, ...]]:
+        output = []
+        for row in rows:
+            missing = [field for field in fields if field not in row]
+            if missing:
+                raise R2T03Error(f"interval_reconciliation_missing_field:{missing[0]}")
+            output.append(tuple(row[field] for field in fields))
+        return sorted(output)
+
+    left, right = canonical(rebuilt), canonical(upstream)
+    return {
+        "status": "passed" if left == right else "failed",
+        "rebuilt_row_count": len(left),
+        "upstream_row_count": len(right),
+        "missing_from_rebuilt": sorted(set(right) - set(left)),
+        "unexpected_rebuilt": sorted(set(left) - set(right)),
+    }
 
 
 def _route_specs(
@@ -340,6 +452,10 @@ def _materialize_route_daily(
             table = f"{alias}.candidate_daily_state"
             source_filter = f"candidate_config_id='{route.source_id}'"
             date_col = "trading_date"
+        # This adapter is intentionally unreachable while
+        # availability_adapter_status=unresolved_upstream_contract. The T02 metric
+        # dictionary requires actual row available_time plus committed lineage; the
+        # T03 config policy is not upstream proof of a 15:00 timestamp.
         available = (
             f"strftime(strptime({date_col}, '%Y%m%d'), '%Y-%m-%d') || 'T15:00:00+08:00'"
         )
@@ -349,6 +465,8 @@ def _materialize_route_daily(
                    security_id,
                    CAST(strptime({date_col}, '%Y%m%d') AS DATE) AS trade_date,
                    {available} AS available_time,
+                   -- R0 validity_status is the frozen quality predicate, but the
+                   -- adapter remains fail-closed until its upstream contract is bound.
                    validity_status='valid' AS eligible,
                    CASE
                      WHEN validity_status='valid' THEN 'valid'
@@ -375,6 +493,116 @@ def _materialize_route_daily(
     )
     if con.execute("SELECT count(*) FROM route_daily").fetchone()[0] == 0:
         raise R2T03Error("route_daily_all_zero")
+
+
+def _materialize_authoritative_expected_keys(
+    con: duckdb.DuckDBPyConnection, config: Mapping[str, Any], root: Path
+) -> None:
+    """Load route/security/date keys from an upstream-authorized source, never observations."""
+    source = config.get("inputs", {}).get("expected_key_source")
+    required = {
+        "path",
+        "table",
+        "route_id_field",
+        "security_id_field",
+        "trade_date_field",
+    }
+    if not isinstance(source, Mapping) or not required <= set(source):
+        raise R2T03Error("expected_key_adapter_status:unresolved_upstream_contract")
+    identifiers = [
+        str(source[key])
+        for key in ("table", "route_id_field", "security_id_field", "trade_date_field")
+    ]
+    if any(not value.replace("_", "").isalnum() for value in identifiers):
+        raise R2T03Error("expected_key_source_identifier_invalid")
+    path = root / str(source["path"])
+    if not path.is_file():
+        raise R2T03Error("expected_key_source_missing")
+    con.execute(f"ATTACH '{_sql_path(path)}' AS expected_key_source (READ_ONLY)")
+    table, route_field, security_field, date_field = identifiers
+    con.execute(
+        f"""CREATE TABLE expected_route_key AS
+        SELECT {route_field}::VARCHAR route_id,{security_field}::VARCHAR security_id,
+               CAST(strptime({date_field}::VARCHAR,'%Y%m%d') AS DATE) trade_date
+        FROM expected_key_source.{table}"""
+    )
+    duplicates = con.execute(
+        "SELECT count(*)-count(DISTINCT (route_id,security_id,trade_date)) FROM expected_route_key"
+    ).fetchone()[0]
+    if duplicates:
+        raise R2T03Error("expected_key_source_duplicate_key")
+    missing = con.execute(
+        """SELECT e.route_id,e.security_id,e.trade_date FROM expected_route_key e
+        LEFT JOIN route_daily r USING(route_id,security_id,trade_date)
+        WHERE r.trade_date IS NULL ORDER BY 1,2,3 LIMIT 1"""
+    ).fetchone()
+    if missing:
+        raise R2T03Error(
+            "missing_expected_trading_row:" + ":".join(str(value) for value in missing)
+        )
+    unexpected = con.execute(
+        """SELECT r.route_id,r.security_id,r.trade_date FROM route_daily r
+        LEFT JOIN expected_route_key e USING(route_id,security_id,trade_date)
+        WHERE e.trade_date IS NULL ORDER BY 1,2,3 LIMIT 1"""
+    ).fetchone()
+    if unexpected:
+        raise R2T03Error(
+            "observed_row_outside_expected_key_contract:"
+            + ":".join(str(value) for value in unexpected)
+        )
+
+
+def _materialize_authorized_upstream_intervals(
+    con: duckdb.DuckDBPyConnection, config: Mapping[str, Any], root: Path
+) -> None:
+    """Load an upstream-contract-normalized interval surface for exact reconciliation."""
+    source = config.get("inputs", {}).get("authorized_interval_source")
+    required = {
+        "path",
+        "table",
+        "route_id_field",
+        "security_id_field",
+        "start_date_field",
+        "end_date_field",
+        "confirmed_day_count_field",
+        "termination_reason_field",
+    }
+    if not isinstance(source, Mapping) or not required <= set(source):
+        raise R2T03Error(
+            "interval_reconciliation_adapter_status:unresolved_upstream_contract"
+        )
+    identifiers = {key: str(source[key]) for key in required if key != "path"}
+    if any(not value.replace("_", "").isalnum() for value in identifiers.values()):
+        raise R2T03Error("authorized_interval_source_identifier_invalid")
+    path = root / str(source["path"])
+    if not path.is_file():
+        raise R2T03Error("authorized_interval_source_missing")
+    con.execute(f"ATTACH '{_sql_path(path)}' AS authorized_interval_source (READ_ONLY)")
+    con.execute(
+        f"""CREATE TABLE authorized_upstream_interval AS SELECT
+        {identifiers["route_id_field"]}::VARCHAR route_id,
+        {identifiers["security_id_field"]}::VARCHAR security_id,
+        CAST({identifiers["start_date_field"]} AS DATE) start_date,
+        CAST({identifiers["end_date_field"]} AS DATE) end_date,
+        {identifiers["confirmed_day_count_field"]}::INTEGER confirmed_day_count,
+        {identifiers["termination_reason_field"]}::VARCHAR termination_reason
+        FROM authorized_interval_source.{identifiers["table"]}"""
+    )
+
+
+def _assert_upstream_interval_reconciliation(con: duckdb.DuckDBPyConnection) -> None:
+    key = "route_id,security_id,start_date,end_date,confirmed_day_count,termination_reason"
+    missing = con.execute(
+        f"SELECT {key} FROM authorized_upstream_interval EXCEPT SELECT {key} FROM route_atomic_interval LIMIT 1"
+    ).fetchone()
+    unexpected = con.execute(
+        f"SELECT {key} FROM route_atomic_interval EXCEPT SELECT {key} FROM authorized_upstream_interval LIMIT 1"
+    ).fetchone()
+    if missing or unexpected:
+        raise R2T03Error(
+            "upstream_interval_row_reconciliation_failed:"
+            f"missing={missing!r}:unexpected={unexpected!r}"
+        )
 
 
 def _execute_routes(
@@ -405,10 +633,22 @@ def _execute_routes(
         processed = 0
         buffers = _new_write_buffers()
         for security_id, rows in _iter_security_timelines(con, route.route_id):
+            expected_dates = [
+                row[0].isoformat()
+                for row in con.execute(
+                    "SELECT trade_date FROM expected_route_key WHERE route_id=? AND security_id=? ORDER BY trade_date",
+                    [route.route_id, security_id],
+                ).fetchall()
+            ]
+            if not expected_dates:
+                raise R2T03Error(
+                    f"expected_key_security_missing:{route.route_id}:{security_id}"
+                )
             _process_security(
                 route,
                 security_id,
                 rows,
+                expected_dates,
                 cell_by_route[route.route_id],
                 execution,
                 buffers,
@@ -462,6 +702,7 @@ def _process_security(
     route: RouteSpec,
     security_id: str,
     source_rows: list[tuple[Any, ...]],
+    expected_dates: list[str],
     cells: list[dict[str, Any]],
     execution: dict[str, dict[str, Any]],
     buffers: dict[str, list[tuple[Any, ...]]],
@@ -477,7 +718,6 @@ def _process_security(
         )
         for row in source_rows
     ]
-    expected_dates = [row.trade_date for row in daily]
     timeline, confirmation_ledger = replay_confirmation(
         daily, expected_dates, security_id=security_id
     )
@@ -514,6 +754,7 @@ def _process_security(
         components, zones, zone_ledger = group_event_zones(
             timeline, intervals, d, g, candidate_cell_id=cell_id
         )
+        _bind_zone_terminal_reasons(zones, zone_ledger)
         component_rows = [
             (
                 cell_id,
@@ -528,6 +769,9 @@ def _process_security(
             for component in components
         ]
         buffers["qualified_component"].extend(component_rows)
+        buffers["component_source_lineage"].extend(
+            _component_lineage_rows(route, cell_id, security_id, components)
+        )
         membership_rows, event_rows = _zone_rows(
             route, cell_id, security_id, timeline, zones
         )
@@ -537,7 +781,24 @@ def _process_security(
             route, cell_id, security_id, timeline, components, zones, d, g
         )
         buffers["event_zone_bridge_segment"].extend(bridge_rows)
-        transitions = confirmation_ledger + zone_ledger
+        reentry_rows = _reentry_attempt_rows(
+            cell_id, route.route_id, security_id, components, zones
+        )
+        buffers["reentry_attempt"].extend(reentry_rows)
+        entity_ledger = _entity_transition_rows(
+            cell_id,
+            security_id,
+            confirmation_ledger,
+            components,
+            zones,
+            bridge_rows,
+            reentry_rows,
+        )
+        buffers["transition_entity_ledger"].extend(entity_ledger)
+        transitions = [
+            {"from_state": row[5], "to_state": row[6], "reason_code": row[7]}
+            for row in entity_ledger
+        ]
         transition_rows = [
             (
                 cell_id,
@@ -563,9 +824,12 @@ def _new_write_buffers() -> dict[str, list[tuple[Any, ...]]]:
         for table in [
             "route_atomic_interval",
             "qualified_component",
+            "component_source_lineage",
             "event_zone",
             "event_zone_membership_daily",
             "event_zone_bridge_segment",
+            "reentry_attempt",
+            "transition_entity_ledger",
             "transition_profile",
         ]
     }
@@ -691,6 +955,222 @@ def _zone_rows(
     return membership_output, event_output
 
 
+def _component_lineage_rows(
+    route: RouteSpec,
+    cell_id: str,
+    security_id: str,
+    components: list[dict[str, Any]],
+) -> list[tuple[Any, ...]]:
+    output = []
+    for ordinal, component in enumerate(components, start=1):
+        termination = component["termination_reason"]
+        censor_status = {
+            "natural_state_exit": "not_censored",
+            "sample_end_censoring": "right_censored",
+            "quality_interruption": "quality_break",
+            "missing_expected_trading_row": "missing_row_fail_closed",
+        }.get(termination, "unknown_fail_closed")
+        output.append(
+            (
+                cell_id,
+                security_id,
+                component["component_id"],
+                f"{route.route_id}|{security_id}|{ordinal:05d}",
+                termination,
+                censor_status,
+                termination == "natural_state_exit",
+            )
+        )
+    return output
+
+
+def _bind_zone_terminal_reasons(
+    zones: list[dict[str, Any]], zone_ledger: list[dict[str, Any]]
+) -> None:
+    terminal_states = {"FINALIZED", "FINALIZED_WITH_QUALITY_BREAK", "RIGHT_CENSORED"}
+    terminal_rows = [
+        row
+        for row in zone_ledger
+        if row["to_state"] in terminal_states
+        and row["from_state"] in {"GAP_PENDING", "REENTRY_PENDING_QUALIFICATION"}
+    ]
+    if len(terminal_rows) != len(zones):
+        raise R2T03Error(
+            f"zone_terminal_ledger_not_closed:zones={len(zones)}:terminals={len(terminal_rows)}"
+        )
+    for zone, terminal in zip(zones, terminal_rows):
+        if zone["status"] != terminal["to_state"]:
+            raise R2T03Error("zone_terminal_state_mismatch")
+        zone["terminal_reason_code"] = terminal["reason_code"]
+
+
+def _reentry_attempt_rows(
+    cell_id: str,
+    route_id: str,
+    security_id: str,
+    components: list[dict[str, Any]],
+    zones: list[dict[str, Any]],
+) -> list[tuple[Any, ...]]:
+    output = []
+    for component in components:
+        if component["qualified"]:
+            continue
+        zone_id = ""
+        for zone in zones:
+            if any(
+                row["unqualified_reentry_member"]
+                and component["start_index"]
+                <= row["row_index"]
+                <= component["end_index"]
+                for row in zone["membership_rows"]
+            ):
+                zone_id = zone["scan_event_id"]
+                break
+        if not zone_id:
+            continue
+        termination = component["termination_reason"]
+        outcome = {
+            "natural_state_exit": "unqualified_reentry",
+            "quality_interruption": "quality_break",
+            "sample_end_censoring": "right_censored_reentry",
+        }.get(termination, "unknown_fail_closed")
+        attempt_id = f"{cell_id}|{security_id}|reentry|{component['component_id']}"
+        output.append(
+            (
+                cell_id,
+                route_id,
+                security_id,
+                zone_id,
+                attempt_id,
+                component["component_id"],
+                component["start_date"],
+                component["end_date"],
+                termination,
+                outcome,
+            )
+        )
+    return output
+
+
+def _entity_transition_rows(
+    cell_id: str,
+    security_id: str,
+    confirmation_ledger: list[dict[str, Any]],
+    components: list[dict[str, Any]],
+    zones: list[dict[str, Any]],
+    bridge_rows: list[tuple[Any, ...]],
+    reentry_rows: list[tuple[Any, ...]],
+) -> list[tuple[Any, ...]]:
+    """Create entity-addressable ledger rows; aggregate equality is never fabricated."""
+    rows: list[tuple[Any, ...]] = []
+
+    def add(
+        entity_kind: str,
+        entity_id: str,
+        from_state: str,
+        to_state: str,
+        reason: str,
+    ) -> None:
+        rows.append(
+            (
+                cell_id,
+                security_id,
+                len(rows) + 1,
+                entity_kind,
+                entity_id,
+                from_state,
+                to_state,
+                reason,
+            )
+        )
+
+    for index, item in enumerate(confirmation_ledger, start=1):
+        if item["from_state"] != "ANY" and item["to_state"] != "FAIL_CLOSED":
+            add(
+                "confirmation",
+                f"confirmation|{index:05d}",
+                item["from_state"],
+                item["to_state"],
+                item["reason_code"],
+            )
+    for component in components:
+        if component["qualified"]:
+            to_state, reason = "QUALIFIED_ACTIVE", "d_qualification"
+        elif component["termination_reason"] == "sample_end_censoring":
+            to_state, reason = "RIGHT_CENSORED", "prequalification_right_censored"
+        elif component["termination_reason"] == "natural_state_exit":
+            to_state, reason = "UNQUALIFIED_CLOSED", "normal_short_interval_drop"
+        else:
+            to_state, reason = "FINALIZED_WITH_QUALITY_BREAK", "quality_break"
+        add(
+            "component",
+            component["component_id"],
+            "COMPONENT_FORMING",
+            to_state,
+            reason,
+        )
+    for zone in zones:
+        add(
+            "event_zone",
+            zone["scan_event_id"],
+            "COMPONENT_FORMING",
+            "QUALIFIED_ACTIVE",
+            "d_qualification_event_created",
+        )
+        add(
+            "event_zone",
+            zone["scan_event_id"],
+            "GAP_PENDING",
+            zone["status"],
+            _zone_reason(zone),
+        )
+    for bridge in bridge_rows:
+        if not bridge[16]:
+            continue
+        attempt_id = bridge[4]
+        add("bridge", attempt_id, "QUALIFIED_ACTIVE", "GAP_PENDING", "gap_pending")
+        add(
+            "bridge",
+            attempt_id,
+            "GAP_PENDING",
+            "REENTRY_PENDING_QUALIFICATION",
+            "reentry_pending",
+        )
+        add(
+            "bridge",
+            attempt_id,
+            "REENTRY_PENDING_QUALIFICATION",
+            "QUALIFIED_ACTIVE",
+            "reentry_reaches_d_merge",
+        )
+    for reentry in reentry_rows:
+        attempt_id, outcome = reentry[4], reentry[9]
+        add("reentry", attempt_id, "QUALIFIED_ACTIVE", "GAP_PENDING", "gap_pending")
+        add(
+            "reentry",
+            attempt_id,
+            "GAP_PENDING",
+            "REENTRY_PENDING_QUALIFICATION",
+            "unqualified_reentry_observed",
+        )
+        terminal = {
+            "unqualified_reentry": ("FINALIZED", "unqualified_reentry_blocks_merge"),
+            "quality_break": ("FINALIZED_WITH_QUALITY_BREAK", "quality_break"),
+            "right_censored_reentry": (
+                "RIGHT_CENSORED",
+                "sample_end_before_requalification",
+            ),
+        }.get(outcome, ("FINALIZED_WITH_QUALITY_BREAK", "unknown_fail_closed"))
+        add(
+            "reentry",
+            attempt_id,
+            "REENTRY_PENDING_QUALIFICATION",
+            terminal[0],
+            terminal[1],
+        )
+    return rows
+
+
 def _bridge_rows(
     route: RouteSpec,
     cell_id: str,
@@ -786,6 +1266,9 @@ def _create_output_schema(con: duckdb.DuckDBPyConnection) -> None:
           component_id VARCHAR, start_date DATE, end_date DATE,
           confirmed_day_count INTEGER, qualified BOOLEAN,
           event_qualification_time TIMESTAMPTZ);
+        CREATE TABLE component_source_lineage(candidate_cell_id VARCHAR,
+          security_id VARCHAR, component_id VARCHAR, source_atomic_interval_id VARCHAR,
+          termination_reason VARCHAR, censor_status VARCHAR, normally_ended BOOLEAN);
         CREATE TABLE event_zone(candidate_cell_id VARCHAR, security_id VARCHAR,
           scan_event_id VARCHAR, first_component_id VARCHAR, component_count INTEGER,
           bridge_count INTEGER, bridged_day_count INTEGER,
@@ -816,6 +1299,13 @@ def _create_output_schema(con: duckdb.DuckDBPyConnection) -> None:
           total_nonconfirmed_gap_day_count INTEGER, merge_accepted BOOLEAN,
           decision_reason VARCHAR, decision_available_time TIMESTAMPTZ,
           membership_available_time TIMESTAMPTZ);
+        CREATE TABLE reentry_attempt(candidate_cell_id VARCHAR, route_id VARCHAR,
+          security_id VARCHAR, scan_event_id VARCHAR, reentry_attempt_id VARCHAR,
+          source_component_id VARCHAR, start_date DATE, end_date DATE,
+          termination_reason VARCHAR, outcome VARCHAR);
+        CREATE TABLE transition_entity_ledger(candidate_cell_id VARCHAR, security_id VARCHAR,
+          transition_ordinal INTEGER, entity_kind VARCHAR, entity_id VARCHAR,
+          from_state VARCHAR, to_state VARCHAR, reason_code VARCHAR);
         CREATE TABLE transition_profile(candidate_cell_id VARCHAR, security_id VARCHAR,
           transition_ordinal INTEGER, from_state VARCHAR, to_state VARCHAR,
           reason_code VARCHAR);
@@ -856,7 +1346,8 @@ def _create_atomic_daily_view(con: duckdb.DuckDBPyConnection) -> None:
         """
         CREATE VIEW atomic_confirmed_daily AS
         SELECT c.candidate_cell_id, r.route_id, r.security_id, r.trade_date,
-               r.available_time, r.raw_state, r.confirmed_state,
+               r.available_time, r.eligible, r.quality_state,
+               r.raw_state, r.confirmed_state,
                r.confirmed_start_date, r.confirmation_time,
                r.state_risk_set_eligible
         FROM route_daily r JOIN cell_registry c USING(route_id)
@@ -1017,6 +1508,8 @@ def _normalize_path(value: str) -> str:
 
 
 def _zone_reason(zone: dict[str, Any]) -> str:
+    if zone.get("terminal_reason_code"):
+        return str(zone["terminal_reason_code"])
     if zone["status"] == "FINALIZED_WITH_QUALITY_BREAK":
         return "quality_break"
     if zone["status"] == "RIGHT_CENSORED":
