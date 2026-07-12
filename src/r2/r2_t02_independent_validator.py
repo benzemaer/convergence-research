@@ -334,6 +334,10 @@ def _independent_fixture_replay(fixture: dict[str, Any]) -> dict[str, Any]:
     membership_rows = _independent_membership_rows(
         timeline, components, int(fixture["d"])
     )
+    zones, gap_membership_rows = _independent_core_zones(
+        timeline, components, int(fixture["g"]), int(fixture["d"])
+    )
+    membership_rows.extend(gap_membership_rows)
     event_zone_count, event_transition_count, terminal_reason = _independent_zones(
         timeline, components, int(fixture["g"])
     )
@@ -346,6 +350,8 @@ def _independent_fixture_replay(fixture: dict[str, Any]) -> dict[str, Any]:
         "membership_rows": membership_rows,
         "timeline": timeline,
         "components": components,
+        "zones": zones,
+        "gap_counts": _independent_gap_counts(timeline, components, int(fixture["g"])),
     }
 
 
@@ -390,8 +396,91 @@ def _independent_core_trace_errors(
             if observed.get("event_qualification_time") != independent_time:
                 mismatch("component", str(ordinal), "event_qualification_time")
 
-    if len(fixture.get("observed_zone_ledger", [])) != replay["event_zone_count"]:
+    observed_zones = fixture.get("observed_zone_ledger", [])
+    independent_zones = replay["zones"]
+    if len(observed_zones) != replay["event_zone_count"]:
         mismatch("zone", "row_count", "event_zone_count")
+    final_transitions = [
+        row
+        for row in fixture.get("observed_transition_ledger", [])
+        if "trade_date" not in row
+        and row.get("to_state")
+        in {"FINALIZED", "FINALIZED_WITH_QUALITY_BREAK", "RIGHT_CENSORED"}
+    ]
+    for ordinal, (observed, independent) in enumerate(
+        zip(observed_zones, independent_zones), start=1
+    ):
+        for field in (
+            "status",
+            "zone_finalization_time",
+            "raw_false_bridged_day_count",
+            "preconfirmation_gap_day_count",
+        ):
+            if observed.get(field) != independent.get(field):
+                mismatch("zone", str(ordinal), field)
+        observed_reason = (
+            final_transitions[ordinal - 1].get("reason_code")
+            if ordinal <= len(final_transitions)
+            else ""
+        )
+        if observed_reason != independent["finalization_reason"]:
+            mismatch("zone", str(ordinal), "finalization_reason")
+
+    observed_membership = {
+        row["trade_date"]: row for row in fixture.get("observed_membership_rows", [])
+    }
+    independent_membership = {
+        row["trade_date"]: row for row in replay["membership_rows"]
+    }
+    if observed_membership.keys() != independent_membership.keys():
+        mismatch("membership", "row_keys", "trade_date")
+    membership_fields = (
+        "event_zone_member",
+        "is_raw_false_bridge",
+        "is_preconfirmation_gap",
+        "prequalification_member",
+        "unqualified_reentry_member",
+        "membership_available_time",
+        "zone_status_as_of",
+        "state_risk_set_eligible",
+        "qualified_event_risk_set_eligible",
+    )
+    for trade_date in observed_membership.keys() & independent_membership.keys():
+        for field in membership_fields:
+            if observed_membership[trade_date].get(field) != independent_membership[
+                trade_date
+            ].get(field):
+                mismatch("membership", trade_date, field)
+
+    observed_risk = {
+        row["trade_date"]: row for row in fixture.get("observed_risk_set_rows", [])
+    }
+    if observed_risk.keys() != independent_membership.keys():
+        mismatch("risk_set", "row_keys", "trade_date")
+    for trade_date in observed_risk.keys() & independent_membership.keys():
+        for field in (
+            "state_risk_set_eligible",
+            "qualified_event_risk_set_eligible",
+        ):
+            if observed_risk[trade_date].get(field) != independent_membership[
+                trade_date
+            ].get(field):
+                mismatch("risk_set", trade_date, field)
+
+    observed_gaps = fixture.get("observed_raw_false_gap_count_timeline", [])
+    if len(observed_gaps) != len(replay["gap_counts"]):
+        mismatch("gap", "row_count", "row_count")
+    for ordinal, (observed, independent) in enumerate(
+        zip(observed_gaps, replay["gap_counts"]), start=1
+    ):
+        for field in (
+            "raw_false_gap_count",
+            "preconfirmation_raw_true_count",
+            "total_nonconfirmed_gap_count",
+            "exceeds_g",
+        ):
+            if observed.get(field) != independent.get(field):
+                mismatch("gap", str(ordinal), field)
     if case_id == "event_id_stability" and fixture.get("observed_zone_ledger"):
         payload = f"{contract_version}|synthetic_{case_id}|S1|component_001"
         independent_id = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
@@ -406,11 +495,15 @@ def _independent_membership_rows(
     rows: list[dict[str, Any]] = []
     qualified_seen = 0
     for component in components:
+        if not component["qualified"] and not qualified_seen:
+            continue
         qualification_index = component["start_index"] + d - 1
         qualification_time = (
             timeline[qualification_index]["available_time"]
             if component["qualified"]
-            else timeline[component["end_index"]]["available_time"]
+            else timeline[min(component["end_index"] + 1, len(timeline) - 1)][
+                "available_time"
+            ]
         )
         for index in range(component["start_index"], component["end_index"] + 1):
             source = timeline[index]
@@ -437,6 +530,8 @@ def _independent_membership_rows(
             rows.append(
                 {
                     "trade_date": source["trade_date"],
+                    "is_raw_false_bridge": False,
+                    "is_preconfirmation_gap": False,
                     "component_qualified_as_of": qualified_as_of,
                     "prequalification_member": not qualified_as_of,
                     "event_zone_member": component["qualified"],
@@ -457,6 +552,157 @@ def _independent_membership_rows(
         if component["qualified"]:
             qualified_seen += 1
     return rows
+
+
+def _independent_core_zones(
+    timeline: list[dict[str, Any]],
+    components: list[dict[str, Any]],
+    g: int,
+    d: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    zones: list[dict[str, Any]] = []
+    gap_membership: list[dict[str, Any]] = []
+    open_zone: dict[str, Any] | None = None
+    previous_qualified: dict[str, Any] | None = None
+
+    def new_zone(component: dict[str, Any]) -> dict[str, Any]:
+        zone = {
+            "status": "",
+            "zone_finalization_time": "",
+            "finalization_reason": "",
+            "raw_false_bridged_day_count": 0,
+            "preconfirmation_gap_day_count": 0,
+        }
+        zones.append(zone)
+        return zone
+
+    def finalize(
+        zone: dict[str, Any], decision: tuple[str, dict[str, Any]] | None
+    ) -> None:
+        if decision is None:
+            zone["status"] = "RIGHT_CENSORED"
+            zone["zone_finalization_time"] = ""
+            zone["finalization_reason"] = "sample_end_open_zone"
+            return
+        reason, row = decision
+        zone["status"] = (
+            "FINALIZED_WITH_QUALITY_BREAK" if reason == "quality_break" else "FINALIZED"
+        )
+        zone["zone_finalization_time"] = row["available_time"]
+        zone["finalization_reason"] = reason
+
+    for component in components:
+        if not component["qualified"]:
+            if open_zone is not None and previous_qualified is not None:
+                if component["termination_reason"] == "sample_end_censoring":
+                    finalize(open_zone, None)
+                    open_zone["finalization_reason"] = (
+                        "sample_end_before_requalification"
+                    )
+                else:
+                    exit_index = min(component["end_index"] + 1, len(timeline) - 1)
+                    finalize(
+                        open_zone,
+                        ("unqualified_reentry_blocks_merge", timeline[exit_index]),
+                    )
+                open_zone = None
+            continue
+        if open_zone is None:
+            open_zone = new_zone(component)
+            previous_qualified = component
+            continue
+        gap = timeline[previous_qualified["end_index"] + 1 : component["start_index"]]
+        decision = _independent_gap_decision_row(gap, g)
+        if decision is not None:
+            finalize(open_zone, decision)
+            open_zone = new_zone(component)
+        else:
+            qualification_index = component["start_index"] + d - 1
+            qualification_time = timeline[qualification_index]["available_time"]
+            for source in gap:
+                raw_false = bool(
+                    source["eligible"]
+                    and source["quality_state"] == "valid"
+                    and source["raw_state"] is False
+                )
+                preconfirmation = bool(
+                    source["eligible"]
+                    and source["quality_state"] == "valid"
+                    and source["raw_state"] is True
+                    and not source["confirmed_state"]
+                )
+                open_zone["raw_false_bridged_day_count"] += int(raw_false)
+                open_zone["preconfirmation_gap_day_count"] += int(preconfirmation)
+                gap_membership.append(
+                    {
+                        "trade_date": source["trade_date"],
+                        "event_zone_member": True,
+                        "is_raw_false_bridge": raw_false,
+                        "is_preconfirmation_gap": preconfirmation,
+                        "prequalification_member": preconfirmation,
+                        "unqualified_reentry_member": False,
+                        "membership_available_time": qualification_time,
+                        "zone_status_as_of": "GAP_PENDING",
+                        "state_risk_set_eligible": False,
+                        "qualified_event_risk_set_eligible": False,
+                    }
+                )
+        previous_qualified = component
+
+    if open_zone is not None and previous_qualified is not None:
+        trailing = timeline[previous_qualified["end_index"] + 1 :]
+        finalize(open_zone, _independent_gap_decision_row(trailing, g))
+    return zones, gap_membership
+
+
+def _independent_gap_decision_row(
+    rows: list[dict[str, Any]], g: int
+) -> tuple[str, dict[str, Any]] | None:
+    raw_false_count = 0
+    for row in rows:
+        if row["hard_break"]:
+            return "quality_break", row
+        if (
+            row["eligible"]
+            and row["quality_state"] == "valid"
+            and row["raw_state"] is False
+        ):
+            raw_false_count += 1
+            if raw_false_count > g:
+                return "raw_false_gap_exceeds_g", row
+    return None
+
+
+def _independent_gap_counts(
+    timeline: list[dict[str, Any]], components: list[dict[str, Any]], g: int
+) -> list[dict[str, Any]]:
+    counts: list[dict[str, Any]] = []
+    for left, right in zip(components, components[1:]):
+        if not (left["qualified"] and right["qualified"]):
+            continue
+        gap = timeline[left["end_index"] + 1 : right["start_index"]]
+        raw_false = sum(
+            row["eligible"]
+            and row["quality_state"] == "valid"
+            and row["raw_state"] is False
+            for row in gap
+        )
+        preconfirmation = sum(
+            row["eligible"]
+            and row["quality_state"] == "valid"
+            and row["raw_state"] is True
+            and not row["confirmed_state"]
+            for row in gap
+        )
+        counts.append(
+            {
+                "raw_false_gap_count": raw_false,
+                "preconfirmation_raw_true_count": preconfirmation,
+                "total_nonconfirmed_gap_count": raw_false + preconfirmation,
+                "exceeds_g": raw_false > g,
+            }
+        )
+    return counts
 
 
 def _independent_intervals(timeline: list[dict[str, Any]]) -> list[dict[str, Any]]:

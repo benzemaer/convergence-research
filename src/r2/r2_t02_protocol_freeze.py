@@ -30,7 +30,7 @@ from src.r2.r2_t02_independent_validator import (
 )
 
 TASK_ID = "R2-T02"
-CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v6"
+CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v7"
 K = 3
 D_GRID = (1, 2, 3)
 G_GRID = (0, 1, 2)
@@ -4709,6 +4709,17 @@ def _metric_evaluator(rows: list[dict[str, Any]], metric_id: str) -> dict[str, A
 
 def _evaluate_metric_rule(rows: list[dict[str, Any]], metric_id: str) -> dict[str, Any]:
     if metric_id in {
+        "qualified_event_count",
+        "unique_securities",
+        "bridged_day_ratio",
+        "merge_ratio",
+        "open_event_ratio",
+        "nonzero_years",
+        "max_year_share",
+        "duration_q95_ratio",
+    }:
+        return _evaluate_reference_metric(rows, metric_id)
+    if metric_id in {
         "intersection_confirmed_days",
         "W120_only_confirmed_days",
         "W250_only_confirmed_days",
@@ -4819,6 +4830,94 @@ def _metric_result(
         "denominator": None,
         "row_count": len(rows),
         "null_reason": "",
+    }
+
+
+_QUALIFIED_ZONE_STATUSES = {
+    "FINALIZED",
+    "FINALIZED_WITH_QUALITY_BREAK",
+    "RIGHT_CENSORED",
+}
+
+
+def _evaluate_reference_metric(
+    rows: list[dict[str, Any]], metric_id: str
+) -> dict[str, Any]:
+    required_fields = {
+        "qualified_event_count": ("scan_event_id", "status"),
+        "unique_securities": ("scan_event_id", "security_id", "status"),
+        "bridged_day_ratio": ("raw_false_bridged_day_count", "zone_span_days"),
+        "merge_ratio": ("scan_event_id", "component_count"),
+        "open_event_ratio": ("scan_event_id", "status"),
+        "nonzero_years": (
+            "scan_event_id",
+            "first_qualified_component_start_date",
+            "status",
+        ),
+        "max_year_share": (
+            "scan_event_id",
+            "first_qualified_component_start_date",
+            "status",
+        ),
+        "duration_q95_ratio": ("zone_span_days", "upstream_atomic_duration_q95"),
+    }[metric_id]
+    _require_metric_fields(rows, metric_id, required_fields)
+
+    qualified_rows = [
+        row for row in rows if row.get("status") in _QUALIFIED_ZONE_STATUSES
+    ]
+    if metric_id == "qualified_event_count":
+        return _metric_result(
+            metric_id,
+            len({row["scan_event_id"] for row in qualified_rows}),
+            rows,
+        )
+    if metric_id == "unique_securities":
+        return _metric_result(
+            metric_id,
+            len({row["security_id"] for row in qualified_rows}),
+            rows,
+        )
+    if metric_id == "bridged_day_ratio":
+        numerator = sum(row["raw_false_bridged_day_count"] for row in rows)
+        denominator = sum(row["zone_span_days"] for row in rows)
+    elif metric_id == "merge_ratio":
+        events = {row["scan_event_id"]: row for row in rows}
+        numerator = sum(row["component_count"] > 1 for row in events.values())
+        denominator = len(events)
+    elif metric_id == "open_event_ratio":
+        events = {row["scan_event_id"]: row for row in qualified_rows}
+        numerator = sum(row["status"] == "RIGHT_CENSORED" for row in events.values())
+        denominator = len(events)
+    elif metric_id in {"nonzero_years", "max_year_share"}:
+        events = {row["scan_event_id"]: row for row in qualified_rows}
+        years: dict[str, int] = {}
+        for row in events.values():
+            year = str(row["first_qualified_component_start_date"])[:4]
+            if len(year) != 4 or not year.isdigit():
+                raise ValueError(
+                    f"metric_required_input_invalid:{metric_id}:first_qualified_component_start_date"
+                )
+            years[year] = years.get(year, 0) + 1
+        if metric_id == "nonzero_years":
+            return _metric_result(metric_id, len(years), rows)
+        numerator = max(years.values(), default=0)
+        denominator = len(events)
+    else:
+        numerator = _quantile([row["zone_span_days"] for row in rows], 0.95)
+        denominators = {row["upstream_atomic_duration_q95"] for row in rows}
+        if len(denominators) > 1:
+            raise ValueError(
+                "metric_input_inconsistent:duration_q95_ratio:upstream_atomic_duration_q95"
+            )
+        denominator = next(iter(denominators), 0)
+
+    value = _safe_ratio(numerator, denominator)
+    return {
+        **_metric_result(metric_id, value, rows),
+        "numerator": numerator,
+        "denominator": denominator,
+        "null_reason": "zero_denominator" if value is None else "",
     }
 
 
@@ -5810,7 +5909,7 @@ def main(argv: list[str] | None = None) -> int:
         "--config",
         type=Path,
         default=ROOT
-        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json",
+        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v7.json",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true")

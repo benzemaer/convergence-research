@@ -9,9 +9,9 @@ from src.r2 import r2_t02_protocol_freeze as r2_t02
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v7.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1500Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1600Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -273,6 +273,73 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
             errors,
         )
 
+        bridge = next(
+            row for row in fixtures if row["case_id"] == "bridge_membership_delayed"
+        )
+        bridge_replay = independent._independent_fixture_replay(bridge)
+        mutations = [
+            ("observed_zone_ledger", 0, "status", "RIGHT_CENSORED", "zone"),
+            (
+                "observed_zone_ledger",
+                0,
+                "zone_finalization_time",
+                "2099-01-01T00:00:00+08:00",
+                "zone",
+            ),
+            (
+                "observed_zone_ledger",
+                0,
+                "raw_false_bridged_day_count",
+                99,
+                "zone",
+            ),
+            (
+                "observed_membership_rows",
+                1,
+                "membership_available_time",
+                "2099-01-01T00:00:00+08:00",
+                "membership",
+            ),
+            (
+                "observed_membership_rows",
+                1,
+                "is_raw_false_bridge",
+                False,
+                "membership",
+            ),
+            (
+                "observed_risk_set_rows",
+                0,
+                "state_risk_set_eligible",
+                False,
+                "risk_set",
+            ),
+            (
+                "observed_risk_set_rows",
+                0,
+                "qualified_event_risk_set_eligible",
+                False,
+                "risk_set",
+            ),
+        ]
+        for table, index, field, value, entity in mutations:
+            changed = json.loads(json.dumps(bridge))
+            changed[table][index][field] = value
+            with self.subTest(table=table, field=field):
+                errors = independent._independent_core_trace_errors(
+                    "bridge_membership_delayed",
+                    changed,
+                    bridge_replay,
+                    r2_t02.CONTRACT_VERSION,
+                )
+                self.assertTrue(
+                    any(
+                        f":{entity}:" in error and error.endswith(f":{field}")
+                        for error in errors
+                    ),
+                    errors,
+                )
+
     def test_metric_and_hard_gate_evaluators_have_pass_fail_semantics(self):
         zone_rows = [
             {
@@ -287,7 +354,8 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
                 "component_count": 2,
                 "status": "RIGHT_CENSORED",
                 "duration": 10,
-                "baseline_q95": 5,
+                "upstream_atomic_duration_q95": 5,
+                "first_qualified_component_start_date": "2025-01-01",
             },
             {
                 "scan_event_id": "e2",
@@ -301,7 +369,8 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
                 "component_count": 1,
                 "status": "FINALIZED",
                 "duration": 5,
-                "baseline_q95": 5,
+                "upstream_atomic_duration_q95": 5,
+                "first_qualified_component_start_date": "2026-01-01",
             },
         ]
         self.assertEqual(
@@ -328,6 +397,75 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         self.assertFalse(
             r2_t02._zero_tolerance_evaluator(["raw_false_gap_days_exceed_g"])
         )
+
+    def test_reference_metrics_are_exact_and_fail_closed(self):
+        rows = [
+            {
+                "scan_event_id": "e1",
+                "security_id": "S1",
+                "status": "RIGHT_CENSORED",
+                "raw_false_bridged_day_count": 2,
+                "zone_span_days": 10,
+                "component_count": 2,
+                "first_qualified_component_start_date": "2025-01-01",
+                "upstream_atomic_duration_q95": 5,
+            },
+            {
+                "scan_event_id": "e2",
+                "security_id": "S2",
+                "status": "FINALIZED",
+                "raw_false_bridged_day_count": 0,
+                "zone_span_days": 5,
+                "component_count": 1,
+                "first_qualified_component_start_date": "2026-01-01",
+                "upstream_atomic_duration_q95": 5,
+            },
+        ]
+        expected = {
+            "qualified_event_count": 2,
+            "unique_securities": 2,
+            "bridged_day_ratio": 2 / 15,
+            "merge_ratio": 0.5,
+            "open_event_ratio": 0.5,
+            "nonzero_years": 2,
+            "max_year_share": 0.5,
+            "duration_q95_ratio": 2.0,
+        }
+        for metric_id, value in expected.items():
+            with self.subTest(metric_id=metric_id):
+                self.assertAlmostEqual(
+                    r2_t02._metric_evaluator(rows, metric_id)["value"], value
+                )
+
+        required = {
+            "qualified_event_count": "status",
+            "unique_securities": "security_id",
+            "bridged_day_ratio": "raw_false_bridged_day_count",
+            "merge_ratio": "component_count",
+            "open_event_ratio": "status",
+            "nonzero_years": "first_qualified_component_start_date",
+            "max_year_share": "first_qualified_component_start_date",
+            "duration_q95_ratio": "upstream_atomic_duration_q95",
+        }
+        for metric_id, missing in required.items():
+            incomplete = [
+                {key: value for key, value in rows[0].items() if key != missing}
+            ]
+            with self.subTest(metric_id=metric_id, missing=missing):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    f"metric_required_input_missing:{metric_id}:{missing}",
+                ):
+                    r2_t02._metric_evaluator(incomplete, metric_id)
+
+        count_metrics = {"qualified_event_count", "unique_securities", "nonzero_years"}
+        for metric_id in expected:
+            result = r2_t02._metric_evaluator([], metric_id)
+            if metric_id in count_metrics:
+                self.assertEqual(result["value"], 0)
+            else:
+                self.assertIsNone(result["value"])
+                self.assertEqual(result["null_reason"], "zero_denominator")
 
     def test_hard_gate_component_population_metrics_are_exact_and_fail_closed(self):
         retained_rows = [
@@ -719,7 +857,7 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
     def test_premerge_formal_surface_uses_registered_v3_config_sources(self):
         paths = set(premerge._formal_surface_paths(ROOT))
         for required in {
-            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v6.json",
+            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v7.json",
             "docs/stages/R2_参数、事件规则与状态版本冻结.md",
             "schemas/r2/r2_t02_t03_output_contract.schema.json",
             "scripts/validate_text_contract.py",
