@@ -1,12 +1,12 @@
 {
   "task_id": "R2-T02",
-  "superseded_run_id": "R2-T02-20260712T0600Z",
+  "superseded_run_id": "R2-T02-20260712T0700Z",
   "replacement_run_id": "R2-T02-20260712T0800Z",
   "status": "superseded",
-  "superseded_at": "2026-07-12T07:00:00Z",
+  "superseded_at": "2026-07-12T08:00:00Z",
   "supersession_reason_codes": [
-    "package_hashes_included_validation_result_cycle",
-    "committed_artifact_validation_failed"
+    "committed_artifact_validator_entrypoint_not_thin",
+    "formal_source_set_revised"
   ],
   "current_evidence_allowed": false,
   "formal_input_allowed": false,

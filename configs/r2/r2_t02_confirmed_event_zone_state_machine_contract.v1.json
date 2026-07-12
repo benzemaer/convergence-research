@@ -47,6 +47,7 @@
     "schemas/r2/r2_t02_result_package.schema.json",
     "src/common/canonical_io.py",
     "src/r2/r2_t02_protocol_freeze.py",
+    "src/r2/r2_t02_committed_artifact_validator.py",
     "src/r2/r2_t02_independent_validator.py",
     "src/r2/r2_t02_premerge_full_evidence.py",
     "scripts/validate_text_contract.py",

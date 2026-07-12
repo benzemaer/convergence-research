@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
     ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v1.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T0700Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T0800Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
