@@ -332,8 +332,7 @@ def _materialize_route_daily(
             source_filter = f"candidate_config_id='{route.source_id}'"
             date_col = "trading_date"
         available = (
-            f"strftime(strptime({date_col}, '%Y%m%d'), '%Y-%m-%d') "
-            "|| 'T15:00:00+08:00'"
+            f"strftime(strptime({date_col}, '%Y%m%d'), '%Y-%m-%d') || 'T15:00:00+08:00'"
         )
         selects.append(
             f"""
@@ -498,22 +497,24 @@ def _process_security(
         components, zones, zone_ledger = group_event_zones(
             timeline, intervals, d, g, candidate_cell_id=cell_id
         )
-        con.executemany(
-            "INSERT INTO qualified_component VALUES (?,?,?,?,?,?,?,?)",
-            [
-                (
-                    cell_id,
-                    security_id,
-                    component["component_id"],
-                    component["start_date"],
-                    component["end_date"],
-                    component["confirmed_day_count"],
-                    component["qualified"],
-                    component["event_qualification_time"] or None,
-                )
-                for component in components
-            ],
-        )
+        component_rows = [
+            (
+                cell_id,
+                security_id,
+                component["component_id"],
+                component["start_date"],
+                component["end_date"],
+                component["confirmed_day_count"],
+                component["qualified"],
+                component["event_qualification_time"] or None,
+            )
+            for component in components
+        ]
+        if component_rows:
+            con.executemany(
+                "INSERT INTO qualified_component VALUES (?,?,?,?,?,?,?,?)",
+                component_rows,
+            )
         membership_rows, event_rows = _zone_rows(
             route, cell_id, security_id, timeline, zones
         )
