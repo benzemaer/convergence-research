@@ -1,0 +1,29 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T0300Z",
+  "replacement_run_id": "R2-T02-20260712T0600Z",
+  "status": "superseded",
+  "superseded_at": "2026-07-12T06:00:00Z",
+  "supersession_reason_codes": [
+    "synthetic_cases_were_generic_name_only",
+    "validator_reused_generator_replay",
+    "missing_expected_row_not_fail_closed",
+    "event_zone_asof_membership_fields_missing",
+    "risk_set_contract_single_surface_only",
+    "transition_registry_incomplete",
+    "metric_gate_definitions_not_uniquely_executable",
+    "t03_output_contract_not_strict",
+    "schemas_not_used_as_row_contracts",
+    "premerge_full_evidence_chain_incomplete",
+    "formal_output_lineage_worktree_based"
+  ],
+  "current_evidence_allowed": false,
+  "formal_input_allowed": false,
+  "downstream_gate_allowed": false,
+  "scientific_review_status": "needs_revision",
+  "replacement_scientific_review_status": "pending",
+  "replacement_independent_review_status": "pending",
+  "R2-T03_allowed_to_start": false,
+  "R2-T04_allowed_to_start": false,
+  "R3_allowed_to_start": false
+}
