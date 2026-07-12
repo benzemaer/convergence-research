@@ -96,6 +96,8 @@ def validate_artifacts(output_dir: Path) -> list[str]:
             errors.append(f"independent_generic_assertion_detected:{case_id}")
         if "hand_authored_oracle" not in fixture_row:
             errors.append(f"independent_missing_hand_authored_oracle:{case_id}")
+        elif not (set(fixture_row["hand_authored_oracle"]) - {"d", "g"}):
+            errors.append(f"independent_thin_hand_authored_oracle:{case_id}")
 
     missing_case = result_by_case.get("missing_row_fail_closed")
     if (
@@ -160,6 +162,7 @@ def validate_artifacts(output_dir: Path) -> list[str]:
         "atomic_confirmed_daily",
         "qualified_component",
         "event_zone",
+        "event_zone_bridge_segment",
         "event_zone_membership_daily",
         "transition_profile",
         "strict_core_window_comparison",
@@ -183,6 +186,9 @@ def validate_artifacts(output_dir: Path) -> list[str]:
         "is_preconfirmation_gap",
         "raw_false_gap_count_as_of",
         "raw_false_gap_ordinal_as_of",
+        "evaluation_time",
+        "eligible",
+        "quality_state",
     }:
         if field not in membership_fields:
             errors.append(f"independent_missing_t03_membership_field:{field}")

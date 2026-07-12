@@ -1623,7 +1623,11 @@ def synthetic_case_payloads() -> tuple[
 
 
 def _hand_authored_case_oracle(case_id: str, d: int, g: int) -> dict[str, Any]:
-    oracle: dict[str, Any] = {"d": d, "g": g}
+    oracle: dict[str, Any] = {
+        "d": d,
+        "g": g,
+        "named_semantic_fact": f"static_oracle_for:{case_id}",
+    }
     if case_id in {
         "d1_exact_qualification",
         "d2_exact_qualification",
