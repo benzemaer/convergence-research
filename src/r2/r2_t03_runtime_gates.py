@@ -25,6 +25,11 @@ def validate_runtime_gates(
     con = duckdb.connect(str(database), read_only=True)
     try:
         checks = _structural_checks(con)
+        checks.append(
+            _transition_registry_check(
+                con, hard_gate_registry.parent / "r2_t02_transition_registry.csv"
+            )
+        )
         parameter = _parameter_checks(con)
         gates = _evaluate_frozen_gates(con, hard_gate_registry)
     finally:
@@ -249,12 +254,59 @@ def _transition_closure_checks(
             """SELECT count(*) FROM event_zone_bridge_segment
             WHERE merge_accepted AND decision_reason='quality_break'""",
         ),
+        (
+            "event_entity_transition_continuity",
+            """SELECT count(*) FROM (
+            SELECT candidate_cell_id,security_id,entity_id,transition_ordinal,from_state,
+              lag(to_state) OVER (PARTITION BY candidate_cell_id,security_id,entity_id ORDER BY transition_ordinal) prior_to
+            FROM transition_entity_ledger WHERE entity_kind='event_zone')
+            WHERE transition_ordinal>1 AND from_state<>prior_to""",
+        ),
+        (
+            "event_entity_transition_ordinal_continuity",
+            """SELECT count(*) FROM (
+            SELECT candidate_cell_id,security_id,entity_id,count(*) n,min(transition_ordinal) lo,max(transition_ordinal) hi
+            FROM transition_entity_ledger WHERE entity_kind='event_zone' GROUP BY 1,2,3)
+            WHERE lo<>1 OR hi<>n""",
+        ),
+        (
+            "event_entity_no_transition_after_terminal",
+            """SELECT count(*) FROM (
+            SELECT candidate_cell_id,security_id,entity_id,transition_ordinal,to_state,
+              max(transition_ordinal) OVER (PARTITION BY candidate_cell_id,security_id,entity_id) last_ordinal
+            FROM transition_entity_ledger WHERE entity_kind='event_zone')
+            WHERE to_state IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED') AND transition_ordinal<>last_ordinal""",
+        ),
     ]
     return [
         _row(check_id, "global", "", value, "=0", value == 0, True, "entity_ledger")
         for check_id, sql in specs
         for value in [con.execute(sql).fetchone()[0]]
     ]
+
+
+def _transition_registry_check(
+    con: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    allowed = {(row["from_state"], row["to_state"], row["reason_code"]) for row in rows}
+    observed = set(
+        con.execute(
+            "SELECT DISTINCT from_state,to_state,reason_code FROM transition_entity_ledger"
+        ).fetchall()
+    )
+    invalid = sorted(observed - allowed)
+    return _row(
+        "transition_tuple_registry",
+        "global",
+        "",
+        len(invalid),
+        "=0",
+        not invalid,
+        True,
+        json.dumps(invalid[:3]),
+    )
 
 
 def _parameter_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:

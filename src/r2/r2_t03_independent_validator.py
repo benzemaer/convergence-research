@@ -133,9 +133,21 @@ def source_timeline_oracle(
             previous = component
             continue
         if mergeable_gap and previous["qualified"]:
+            preconfirmation = [
+                row
+                for row in gap
+                if row["eligible"]
+                and row["quality_state"] == "valid"
+                and row.get("raw_state") is True
+                and not row["confirmed_state"]
+            ]
             open_zone["component_count"] += 1
             open_zone["bridge_count"] += 1
             open_zone["raw_false_bridged_day_count"] += len(raw_false)
+            open_zone["preconfirmation_gap_day_count"] += len(preconfirmation)
+            open_zone["total_nonconfirmed_gap_day_count"] += len(raw_false) + len(
+                preconfirmation
+            )
             open_zone["zone_span_days"] += len(gap) + component["confirmed_day_count"]
             open_zone["confirmed_keys"].update(_component_keys(component, timeline))
             open_zone["span_keys"].update(
@@ -183,6 +195,22 @@ def source_timeline_oracle(
         if row["confirmed_state"]
     }
     qualified_keys = set().union(*(zone["confirmed_keys"] for zone in zones), set())
+    qualified_asof_keys = set().union(
+        *(
+            {
+                (
+                    str(timeline[index]["security_id"]),
+                    str(timeline[index]["trade_date"]),
+                )
+                for index in range(
+                    int(component["start"]) + d - 1, int(component["end"]) + 1
+                )
+            }
+            for component in components
+            if component["qualified"]
+        ),
+        set(),
+    )
     normally_ended = [
         component
         for component in components
@@ -197,14 +225,54 @@ def source_timeline_oracle(
         "confirmed_keys": confirmed_keys,
         "qualified_confirmed_keys": qualified_keys,
         "eligible_valid_keys": eligible_valid_keys,
+        "qualified_asof_keys": qualified_asof_keys,
         "qualified_event_count": len(zones),
         "bridge_count": sum(zone["bridge_count"] for zone in zones),
         "membership_count": sum(zone["zone_span_days"] for zone in zones),
+        "unique_security_count": int(bool(zones)),
+        "qualified_component_count": sum(
+            component["qualified"] for component in components
+        ),
+        "unqualified_component_count": sum(
+            not component["qualified"]
+            and component["termination_reason"] == "natural_state_exit"
+            for component in components
+        ),
+        "raw_false_bridged_day_count": sum(
+            zone["raw_false_bridged_day_count"] for zone in zones
+        ),
+        "preconfirmation_gap_day_count": sum(
+            zone["preconfirmation_gap_day_count"] for zone in zones
+        ),
+        "total_nonconfirmed_gap_day_count": sum(
+            zone["total_nonconfirmed_gap_day_count"] for zone in zones
+        ),
+        "open_event_count": sum(zone["status"] == "RIGHT_CENSORED" for zone in zones),
+        "merged_event_count": sum(zone["component_count"] > 1 for zone in zones),
+        "event_spans": event_spans,
+        "atomic_spans": atomic_spans,
+        "event_years": [zone["start_year"] for zone in zones],
         "confirmed_event_coverage": _oracle_ratio(
             len(qualified_keys), len(eligible_valid_keys)
         ),
         "merge_ratio": _oracle_ratio(
             sum(zone["component_count"] > 1 for zone in zones), len(zones)
+        ),
+        "open_event_ratio": _oracle_ratio(
+            sum(zone["status"] == "RIGHT_CENSORED" for zone in zones), len(zones)
+        ),
+        "retained_confirmed_day_ratio": _oracle_ratio(
+            len(qualified_keys), len(confirmed_keys)
+        ),
+        "retrospective_qualified_confirmed_coverage": _oracle_ratio(
+            len(qualified_keys), len(eligible_valid_keys)
+        ),
+        "asof_qualified_confirmed_coverage": _oracle_ratio(
+            len(qualified_asof_keys), len(eligible_valid_keys)
+        ),
+        "bridged_day_ratio": _oracle_ratio(
+            sum(zone["raw_false_bridged_day_count"] for zone in zones),
+            sum(zone["zone_span_days"] for zone in zones),
         ),
         "duration_q95_ratio": _oracle_ratio(
             _oracle_nearest(event_spans, 0.95), _oracle_nearest(atomic_spans, 0.95)
@@ -307,6 +375,16 @@ def independent_window_oracle(
     }
 
 
+def compare_oracle_metric_targets(
+    expected: Mapping[str, Any], production: Mapping[str, Any]
+) -> list[str]:
+    return [
+        f"independent_metric_mismatch:{metric}"
+        for metric, value in expected.items()
+        if metric not in production or not _equal(value, production[metric])
+    ]
+
+
 def validate_independently(
     database: Path, output_dir: Path, *, root: Path = ROOT
 ) -> dict[str, Any]:
@@ -321,9 +399,39 @@ def validate_independently(
             "SELECT candidate_cell_id,route_id,d,g FROM cell_registry ORDER BY 1"
         ).fetchall()
         for cell_id, route_id, d, g in cells:
-            aggregate_events = 0
-            aggregate_numerator = 0
-            aggregate_denominator = 0
+            aggregate = {
+                "events": 0,
+                "unique_securities": 0,
+                "eligible": 0,
+                "confirmed": 0,
+                "qualified": 0,
+                "asof": 0,
+                "normally_ended": 0,
+                "short_drop": 0,
+                "raw_false_bridge": 0,
+                "preconfirmation": 0,
+                "nonconfirmed": 0,
+                "zone_span": 0,
+                "merged": 0,
+                "open": 0,
+                "unqualified_reentry": 0,
+                "qualified_components": 0,
+                "unqualified_components": 0,
+            }
+            event_spans: list[int] = []
+            atomic_spans: list[int] = []
+            year_counts: dict[str, int] = {}
+            transition_expected = {
+                key: 0
+                for key in (
+                    "qualification",
+                    "unqualified_close",
+                    "event_creation",
+                    "event_terminal",
+                    "accepted_bridge_paths",
+                    "rejected_reentry_paths",
+                )
+            }
             cell_confirmed: set[tuple[str, str]] = set()
             cell_eligible: set[tuple[str, str]] = set()
             cell_events: dict[str, set[tuple[str, str]]] = {}
@@ -364,9 +472,38 @@ def validate_independently(
                         con, route_id, security_id, expected, oracle["atomic_intervals"]
                     )
                     reconciled_route_security.add(route_security)
-                aggregate_events += oracle["qualified_event_count"]
-                aggregate_numerator += len(oracle["qualified_confirmed_keys"])
-                aggregate_denominator += len(oracle["eligible_valid_keys"])
+                aggregate["events"] += oracle["qualified_event_count"]
+                aggregate["unique_securities"] += oracle["unique_security_count"]
+                aggregate["eligible"] += len(oracle["eligible_valid_keys"])
+                aggregate["confirmed"] += len(oracle["confirmed_keys"])
+                aggregate["qualified"] += len(oracle["qualified_confirmed_keys"])
+                aggregate["asof"] += len(oracle["qualified_asof_keys"])
+                aggregate["normally_ended"] += sum(
+                    x["termination_reason"] == "natural_state_exit"
+                    for x in oracle["components"]
+                )
+                aggregate["short_drop"] += sum(
+                    x["termination_reason"] == "natural_state_exit"
+                    and x["confirmed_day_count"] < d
+                    for x in oracle["components"]
+                )
+                aggregate["raw_false_bridge"] += oracle["raw_false_bridged_day_count"]
+                aggregate["preconfirmation"] += oracle["preconfirmation_gap_day_count"]
+                aggregate["nonconfirmed"] += oracle["total_nonconfirmed_gap_day_count"]
+                aggregate["zone_span"] += oracle["membership_count"]
+                aggregate["merged"] += oracle["merged_event_count"]
+                aggregate["open"] += oracle["open_event_count"]
+                aggregate["unqualified_reentry"] += oracle["unqualified_reentry_count"]
+                aggregate["qualified_components"] += oracle["qualified_component_count"]
+                aggregate["unqualified_components"] += oracle[
+                    "unqualified_component_count"
+                ]
+                event_spans.extend(oracle["event_spans"])
+                atomic_spans.extend(oracle["atomic_spans"])
+                for year in oracle["event_years"]:
+                    year_counts[year] = year_counts.get(year, 0) + 1
+                for key in transition_expected:
+                    transition_expected[key] += oracle["transition_closure"][key]
                 cell_confirmed.update(oracle["confirmed_keys"])
                 cell_eligible.update(oracle["eligible_valid_keys"])
                 for zone in oracle["zones"]:
@@ -380,14 +517,54 @@ def validate_independently(
                 "spans": cell_spans,
             }
             expected_values = {
-                "qualified_event_count": aggregate_events,
-                "confirmed_event_coverage": _oracle_ratio(
-                    aggregate_numerator, aggregate_denominator
+                "qualified_event_count": aggregate["events"],
+                "unique_securities": aggregate["unique_securities"],
+                "retained_confirmed_day_ratio": _oracle_ratio(
+                    aggregate["qualified"], aggregate["confirmed"]
                 ),
+                "confirmed_event_coverage": _oracle_ratio(
+                    aggregate["qualified"], aggregate["eligible"]
+                ),
+                "retrospective_qualified_confirmed_coverage": _oracle_ratio(
+                    aggregate["qualified"], aggregate["eligible"]
+                ),
+                "asof_qualified_confirmed_coverage": _oracle_ratio(
+                    aggregate["asof"], aggregate["eligible"]
+                ),
+                "short_interval_drop_rate": _oracle_ratio(
+                    aggregate["short_drop"], aggregate["normally_ended"]
+                ),
+                "bridged_day_ratio": _oracle_ratio(
+                    aggregate["raw_false_bridge"], aggregate["zone_span"]
+                ),
+                "merge_ratio": _oracle_ratio(aggregate["merged"], aggregate["events"]),
+                "open_event_ratio": _oracle_ratio(
+                    aggregate["open"], aggregate["events"]
+                ),
+                "nonzero_years": len(year_counts),
+                "max_year_share": _oracle_ratio(
+                    max(year_counts.values(), default=0), sum(year_counts.values())
+                ),
+                "duration_q95_ratio": _oracle_ratio(
+                    _oracle_nearest(event_spans, 0.95),
+                    _oracle_nearest(atomic_spans, 0.95),
+                ),
+                "unqualified_reentry_count": aggregate["unqualified_reentry"],
+                "qualified_component_count": aggregate["qualified_components"],
+                "unqualified_component_count": aggregate["unqualified_components"],
+                "raw_false_bridged_day_count": aggregate["raw_false_bridge"],
+                "preconfirmation_gap_day_count": aggregate["preconfirmation"],
+                "total_nonconfirmed_gap_day_count": aggregate["nonconfirmed"],
             }
             observed = con.execute(
-                """SELECT qualified_event_count,confirmed_event_coverage
-                FROM dg_event_zone_profile WHERE candidate_cell_id=?""",
+                """SELECT m.qualified_event_count,m.unique_securities,m.retained_confirmed_day_ratio,
+                p.confirmed_event_coverage,q.retrospective_qualified_confirmed_coverage,
+                q.asof_qualified_confirmed_coverage,m.short_interval_drop_rate,m.bridged_day_ratio,
+                m.merge_ratio,m.open_event_ratio,m.nonzero_years,m.max_year_share,m.duration_q95_ratio,
+                p.unqualified_reentry_count,q.qualified_component_count,q.unqualified_component_count,
+                p.raw_false_bridged_day_count,p.preconfirmation_gap_day_count,p.total_nonconfirmed_gap_day_count
+                FROM metric_results m JOIN dg_event_zone_profile p USING(candidate_cell_id)
+                JOIN d_qualification_profile q USING(candidate_cell_id) WHERE m.candidate_cell_id=?""",
                 [cell_id],
             ).fetchone()
             for metric, production in zip(expected_values, observed):
@@ -404,6 +581,9 @@ def validate_independently(
                 )
                 if not passed:
                     failures.append(f"{cell_id}:{metric}")
+            _append_transition_comparisons(
+                con, cell_id, transition_expected, rows, failures
+            )
         _append_source_comparison_checks(con, cell_oracles, rows, failures)
     finally:
         con.close()
@@ -425,7 +605,12 @@ def validate_independently(
         "comparison_count": len(rows),
         "failure_count": len(failures),
         "failures": failures[:100],
-        "oracle_source_tables": ["route_daily", "expected_route_key"],
+        "oracle_source_tables": [
+            "route_daily",
+            "expected_route_key",
+            "authorized_upstream_interval",
+            "cell_registry",
+        ],
         "forbidden_production_oracle_tables_used": False,
         "production_scanner_imported": False,
         "production_metrics_imported": False,
@@ -448,10 +633,13 @@ def _new_oracle_zone(
         "component_count": 1,
         "bridge_count": 0,
         "raw_false_bridged_day_count": 0,
+        "preconfirmation_gap_day_count": 0,
+        "total_nonconfirmed_gap_day_count": 0,
         "zone_span_days": int(component["confirmed_day_count"]),
         "confirmed_keys": _component_keys(component, timeline),
         "span_keys": _component_keys(component, timeline),
         "status": "QUALIFIED_ACTIVE",
+        "start_year": str(timeline[int(component["start"])]["trade_date"])[:4],
     }
 
 
@@ -516,6 +704,52 @@ def _append_source_comparison_checks(
         _append_comparisons(
             f"{primary}|{comparison}", independent, observed, rows, failures
         )
+
+
+def _append_transition_comparisons(
+    con: duckdb.DuckDBPyConnection,
+    cell_id: str,
+    expected: Mapping[str, int],
+    rows: list[dict[str, Any]],
+    failures: list[str],
+) -> None:
+    observed = dict(
+        zip(
+            expected,
+            con.execute(
+                """SELECT
+                count(*) FILTER (WHERE entity_kind='component' AND from_state='COMPONENT_FORMING' AND to_state='QUALIFIED_ACTIVE' AND reason_code='d_qualification'),
+                count(*) FILTER (WHERE entity_kind='component' AND to_state='UNQUALIFIED_CLOSED' AND reason_code='normal_short_interval_drop'),
+                count(*) FILTER (WHERE entity_kind='event_zone' AND from_state='COMPONENT_FORMING' AND to_state='QUALIFIED_ACTIVE' AND reason_code='d_qualification'),
+                count(*) FILTER (WHERE entity_kind='event_zone' AND to_state IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED')),
+                count(DISTINCT entity_id) FILTER (WHERE entity_kind='bridge'),
+                count(DISTINCT entity_id) FILTER (WHERE entity_kind='reentry')
+                FROM transition_entity_ledger WHERE candidate_cell_id=?""",
+                [cell_id],
+            ).fetchone(),
+        )
+    )
+    _append_comparisons(
+        cell_id,
+        {f"transition_{k}": v for k, v in expected.items()},
+        list(observed.values()),
+        rows,
+        failures,
+    )
+    discontinuity = con.execute(
+        """SELECT count(*) FROM (SELECT entity_id,transition_ordinal,from_state,
+        lag(to_state) OVER (PARTITION BY security_id,entity_id ORDER BY transition_ordinal) prior_to
+        FROM transition_entity_ledger WHERE candidate_cell_id=? AND entity_kind='event_zone')
+        WHERE transition_ordinal>1 AND from_state<>prior_to""",
+        [cell_id],
+    ).fetchone()[0]
+    _append_comparisons(
+        cell_id,
+        {"transition_event_entity_discontinuity_count": 0},
+        [discontinuity],
+        rows,
+        failures,
+    )
 
 
 def _append_comparisons(

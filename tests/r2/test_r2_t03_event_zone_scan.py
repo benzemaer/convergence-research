@@ -17,7 +17,9 @@ from src.r2.r2_t02_protocol_freeze import (
 )
 from src.r2.r2_t03_event_zone_scan import (
     R2T03Error,
+    RouteSpec,
     _bind_zone_terminal_reasons,
+    _component_lineage_rows,
     _entity_transition_rows,
     load_config,
 )
@@ -27,11 +29,39 @@ from src.r2.r2_t03_runtime_gates import (
     _compare,
     _threshold,
     _transition_closure_checks,
+    _transition_registry_check,
     validate_runtime_gates,
 )
 
 
 class R2T03FailurePathTest(unittest.TestCase):
+    def test_component_lineage_uses_exact_source_interval_id(self) -> None:
+        route = RouteSpec(
+            "r",
+            "primary",
+            "S_PCT",
+            120,
+            3,
+            0.2,
+            0.2,
+            0.2,
+            0.2,
+            "r0",
+            "source",
+            "d",
+            "i",
+        )
+        component = {
+            "component_id": "c1",
+            "start_date": "2026-01-01",
+            "end_date": "2026-01-03",
+            "confirmed_day_count": 3,
+            "termination_reason": "natural_state_exit",
+        }
+        interval = {**component, "source_interval_id": "actual_r0_interval_42"}
+        rows = _component_lineage_rows(route, "cell", "S1", [component], [interval])
+        self.assertEqual(rows[0][3], "actual_r0_interval_42")
+
     def test_load_config_fails_closed_on_wrong_task(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"
@@ -148,7 +178,10 @@ class R2T03FailurePathTest(unittest.TestCase):
         event_created = [
             row
             for row in rows
-            if row[3] == "event_zone" and row[6] == "QUALIFIED_ACTIVE"
+            if row[3] == "event_zone"
+            and row[5] == "COMPONENT_FORMING"
+            and row[6] == "QUALIFIED_ACTIVE"
+            and row[7] == "d_qualification"
         ]
         event_terminal = [
             row for row in rows if row[3] == "event_zone" and row[6] == "FINALIZED"
@@ -163,14 +196,16 @@ class R2T03FailurePathTest(unittest.TestCase):
         self.assertEqual(len(reentry_path), 3)
 
     def test_zone_terminal_binding_excludes_prequalification_censor(self) -> None:
-        zones = [{"status": "FINALIZED"}]
+        zones = [{"scan_event_id": "e1", "status": "FINALIZED"}]
         ledger = [
             {
+                "scan_event_id": "component-only",
                 "from_state": "COMPONENT_FORMING",
                 "to_state": "RIGHT_CENSORED",
                 "reason_code": "prequalification_right_censored",
             },
             {
+                "scan_event_id": "e1",
                 "from_state": "GAP_PENDING",
                 "to_state": "FINALIZED",
                 "reason_code": "raw_false_gap_exceeds_g",
@@ -181,7 +216,31 @@ class R2T03FailurePathTest(unittest.TestCase):
 
     def test_zone_terminal_binding_fails_on_unclosed_ledger(self) -> None:
         with self.assertRaisesRegex(R2T03Error, "zone_terminal_ledger_not_closed"):
-            _bind_zone_terminal_reasons([{"status": "RIGHT_CENSORED"}], [])
+            _bind_zone_terminal_reasons(
+                [{"scan_event_id": "e1", "status": "RIGHT_CENSORED"}], []
+            )
+
+    def test_zone_terminal_binding_rejects_order_only_cross_event_match(self) -> None:
+        zones = [
+            {"scan_event_id": "e1", "status": "FINALIZED"},
+            {"scan_event_id": "e2", "status": "RIGHT_CENSORED"},
+        ]
+        swapped = [
+            {
+                "scan_event_id": "e2",
+                "from_state": "GAP_PENDING",
+                "to_state": "FINALIZED",
+                "reason_code": "raw_false_gap_exceeds_g",
+            },
+            {
+                "scan_event_id": "e1",
+                "from_state": "GAP_PENDING",
+                "to_state": "RIGHT_CENSORED",
+                "reason_code": "sample_end_open_zone",
+            },
+        ]
+        with self.assertRaisesRegex(R2T03Error, "zone_terminal_state_mismatch"):
+            _bind_zone_terminal_reasons(zones, swapped)
 
     def test_reference_timelines_bind_every_event_terminal_reason(self) -> None:
         cases = [
@@ -211,6 +270,18 @@ class R2T03FailurePathTest(unittest.TestCase):
             _, zones, ledger = group_event_zones(
                 timeline, atomic_intervals(timeline), d, g
             )
+            for zone, terminal in zip(
+                zones,
+                [
+                    row
+                    for row in ledger
+                    if row["to_state"]
+                    in {"FINALIZED", "FINALIZED_WITH_QUALITY_BREAK", "RIGHT_CENSORED"}
+                    and row["from_state"]
+                    in {"GAP_PENDING", "REENTRY_PENDING_QUALIFICATION"}
+                ],
+            ):
+                terminal["scan_event_id"] = zone["scan_event_id"]
             _bind_zone_terminal_reasons(zones, ledger)
             self.assertTrue(all(zone.get("terminal_reason_code") for zone in zones))
 
@@ -231,6 +302,25 @@ class R2T03FailurePathTest(unittest.TestCase):
                 if row["check_id"] == "accepted_bridge_transition_closure"
             )
             self.assertEqual(bridge["status"], "failed")
+            con.execute(
+                "INSERT INTO transition_entity_ledger VALUES ('c','S1',4,'event_zone','e1','FINALIZED','QUALIFIED_ACTIVE','illegal_reason')"
+            )
+            continuity = _transition_closure_checks(con)
+            self.assertEqual(
+                next(
+                    row
+                    for row in continuity
+                    if row["check_id"] == "event_entity_no_transition_after_terminal"
+                )["status"],
+                "failed",
+            )
+            registry = _transition_registry_check(
+                con,
+                Path(
+                    "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_transition_registry.csv"
+                ),
+            )
+            self.assertEqual(registry["status"], "failed")
         finally:
             con.close()
 
@@ -246,18 +336,19 @@ CREATE TABLE event_zone_bridge_segment(candidate_cell_id VARCHAR,security_id VAR
 INSERT INTO event_zone_bridge_segment VALUES ('c','S1','b1',true,'bridge_accepted');
 CREATE TABLE reentry_attempt(candidate_cell_id VARCHAR,security_id VARCHAR,reentry_attempt_id VARCHAR);
 INSERT INTO reentry_attempt VALUES ('c','S1','r1');
-CREATE TABLE transition_entity_ledger(candidate_cell_id VARCHAR,security_id VARCHAR,entity_kind VARCHAR,entity_id VARCHAR,from_state VARCHAR,to_state VARCHAR,reason_code VARCHAR);
+CREATE TABLE transition_entity_ledger(candidate_cell_id VARCHAR,security_id VARCHAR,transition_ordinal INTEGER,entity_kind VARCHAR,entity_id VARCHAR,from_state VARCHAR,to_state VARCHAR,reason_code VARCHAR);
 INSERT INTO transition_entity_ledger VALUES
-('c','S1','component','q1','COMPONENT_FORMING','QUALIFIED_ACTIVE','d_qualification'),
-('c','S1','component','q2','COMPONENT_FORMING','UNQUALIFIED_CLOSED','normal_short_interval_drop'),
-('c','S1','event_zone','e1','COMPONENT_FORMING','QUALIFIED_ACTIVE','d_qualification_event_created'),
-('c','S1','event_zone','e1','GAP_PENDING','FINALIZED','raw_false_gap_exceeds_g'),
-('c','S1','bridge','b1','QUALIFIED_ACTIVE','GAP_PENDING','gap_pending'),
-('c','S1','bridge','b1','GAP_PENDING','REENTRY_PENDING_QUALIFICATION','reentry_pending'),
-('c','S1','bridge','b1','REENTRY_PENDING_QUALIFICATION','QUALIFIED_ACTIVE','reentry_reaches_d_merge'),
-('c','S1','reentry','r1','QUALIFIED_ACTIVE','GAP_PENDING','gap_pending'),
-('c','S1','reentry','r1','GAP_PENDING','REENTRY_PENDING_QUALIFICATION','unqualified_reentry_observed'),
-('c','S1','reentry','r1','REENTRY_PENDING_QUALIFICATION','FINALIZED','unqualified_reentry_blocks_merge');
+('c','S1',1,'component','q1','COMPONENT_FORMING','QUALIFIED_ACTIVE','d_qualification'),
+('c','S1',1,'component','q2','COMPONENT_FORMING','UNQUALIFIED_CLOSED','normal_short_interval_drop'),
+('c','S1',1,'event_zone','e1','COMPONENT_FORMING','QUALIFIED_ACTIVE','d_qualification'),
+('c','S1',2,'event_zone','e1','QUALIFIED_ACTIVE','GAP_PENDING','gap_pending'),
+('c','S1',3,'event_zone','e1','GAP_PENDING','FINALIZED','raw_false_gap_exceeds_g'),
+('c','S1',1,'bridge','b1','QUALIFIED_ACTIVE','GAP_PENDING','gap_pending'),
+('c','S1',2,'bridge','b1','GAP_PENDING','REENTRY_PENDING_QUALIFICATION','reentry_pending'),
+('c','S1',3,'bridge','b1','REENTRY_PENDING_QUALIFICATION','QUALIFIED_ACTIVE','reentry_reaches_d_merge'),
+('c','S1',1,'reentry','r1','QUALIFIED_ACTIVE','GAP_PENDING','gap_pending'),
+('c','S1',2,'reentry','r1','GAP_PENDING','REENTRY_PENDING_QUALIFICATION','unqualified_reentry_observed'),
+('c','S1',3,'reentry','r1','REENTRY_PENDING_QUALIFICATION','FINALIZED','unqualified_reentry_blocks_merge');
 """
 
 

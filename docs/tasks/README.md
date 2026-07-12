@@ -68,9 +68,9 @@ R2-T03_status: code_correction_only_pending_implementation_review
 R2-T03_historical_run_id: R2-T03-20260712T1205Z
 R2-T03_historical_run_status: author_draft_invalidated_pending_successor_run
 R2-T03_formal_rerun_executed: false
-R2-T03_availability_adapter_status: unresolved_upstream_contract
-R2-T03_expected_key_adapter_status: unresolved_upstream_contract
-R2-T03_interval_reconciliation_adapter_status: unresolved_upstream_contract
+R2-T03_availability_adapter_status: resolved_research_policy
+R2-T03_expected_key_adapter_status: resolved_upstream_adapter
+R2-T03_interval_reconciliation_adapter_status: resolved_upstream_adapter
 R2-T03_scientific_review_scope: implementation_only
 R2-T03_formal_task_completed: false
 R2-T04_allowed_to_start: false
@@ -396,13 +396,13 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate。PR #94 的 exact-head scientific PASS、premerge-full、workflow final-gate consumer、merge ancestry 与 GitHub artifact metadata 已由 immutable post-merge handoff 持久绑定；R2-T02 author package 保持不可变的 author-stage 状态。R2-T03 初始 handoff 阻断已解决，但实现复核确认历史 run `R2-T03-20260712T1205Z` 的指标、transition、strict-core/window comparison 和独立复算不符合冻结口径，该 run 已标记为 `author_draft_invalidated_pending_successor_run`。当前 PR 只提交 code/schema/synthetic tests 并请求 implementation review；没有执行 successor run。availability 与 authoritative expected-key 上游契约仍未解决，R2-T04 至 R2-T08 继续关闭。
+状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate。PR #94 的 exact-head scientific PASS、premerge-full、workflow final-gate consumer、merge ancestry 与 GitHub artifact metadata 已由 immutable post-merge handoff 持久绑定；R2-T02 author package 保持不可变的 author-stage 状态。R2-T03 初始 handoff 阻断已解决，但实现复核确认历史 run `R2-T03-20260712T1205Z` 不符合冻结口径，该 run 继续标记为 `author_draft_invalidated_pending_successor_run`。当前 PR 仍为 implementation-correction-only：v2 config 固化 15:00 Asia/Shanghai 研究逻辑时点，expected-key adapter 绑定当前 R0 lineage 的 D2-T20 `d2_expected_security_dates`，interval adapter 完成 8/8 route identity 与 reason normalization，event entity continuity 和 independent metric coverage 已扩展；没有执行 successor run。R2-T04 至 R2-T08 继续关闭。
 
 R2-T01 author-draft 历史门禁记录：`current_task: R2-T01 参数候选收敛与 shortlist registry`、`next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约`、`R2-T02_allowed_to_start: false`。这些 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 R2-T02 author package 记录为准。
 
 - `R2-T01` 参数候选收敛与 shortlist registry：completed via PR #91 final gate
 - `R2-T02` confirmed-state 与 event-zone 双层状态机契约：completed via PR #94 and immutable post-merge handoff
-- `R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计：code-correction-only；历史 1205Z author-draft invalidated；formal rerun not executed；implementation review requested
+- `R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计：implementation-correction-only；v2 adapters implemented and aggregate-validated；历史 1205Z author-draft invalidated；formal rerun not executed；implementation review requested
 - `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：blocked
 - `R2-T05` canonical 日度状态与事件区间物化：blocked
 - `R2-T06` canonical 状态机无前视回放与一致性验收：blocked

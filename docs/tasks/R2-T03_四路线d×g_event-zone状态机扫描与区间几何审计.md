@@ -12,6 +12,9 @@ historical_formal_run_id: R2-T03-20260712T1205Z
 historical_run_status: author_draft_invalidated_pending_successor_run
 current_execution_status: code_correction_only
 formal_rerun_executed: false
+availability_adapter_status: resolved_research_policy
+expected_key_adapter_status: resolved_upstream_adapter
+interval_reconciliation_adapter_status: resolved_upstream_adapter
 scientific_review_scope: implementation_only
 scientific_review_status: implementation_review_requested
 formal_task_completed: false
@@ -88,8 +91,10 @@ strict-core 改为 exact security-date membership/component containment，primar
 
 ## 9. 未解决的正式上游契约
 
-仓库已有 D1 trading-calendar 契约明确规定 R0 不得直接读取 D1 calendar，且当前 R2 输入没有 route×security×expected trading-date 的授权 expected-key artifact；因此不能从 observed route rows 构造 expected keys，也不能宣称 missing-row protection 已完成。当前 `expected_key_adapter_status=unresolved_upstream_contract`，runner 会在读取正式大库前 fail closed。
+v2 expected-key adapter 沿当前 R0-T10 authorized manifest 追溯到 R0-T04 实际输入的 D3-T11，再沿 D3-T07 追溯到 D2-T20 `d2_t15_tnskhdata_staging.duckdb`。该库内 `d2_expected_security_dates` 是第一优先级 skeleton；只读审计确认 1,751,066 个唯一 base keys、800 证券、20160104–20260630、0 duplicate，冻结 8-route 展开计数为 14,008,528。完整 keys 不进入 Git。adapter validation 只证明 source identity/schema/aggregate，未执行 successor expected-vs-observed reconciliation。
 
-同样，R0-T10/R0-T15 日表没有物理 `available_time` 或 `eligible` 字段。T02 只要求 actual row available_time 与 committed lineage，并不能证明由 date 生成 15:00 timestamp；T03 config 自己声明 policy 也不是上游证据。因此 `availability_adapter_status=unresolved_upstream_contract`。`validity_status=valid` 可作为质量筛选规则保留在修正代码中，但在 availability/eligibility adapter 获得正式来源绑定前不得启动 successor run。
+`r2_t03_eod_availability_policy.v1` 将 `available_time` 冻结为 trade date 当日 15:00:00+08:00 的研究逻辑信息集时点。它不是下载、计算完成或成交时间；不假设 15:00 同瞬间计算和成交。confirmation、d qualification、exit 与 g+1/quality finalization 均取决定行 15:00，membership 继续使用 T02 as-of 规则并不得回填为事件首日。后续交易阶段必须另行冻结 calculation/execution latency。
 
-R0-T10 与 R0-T15 interval surfaces 的字段和 termination vocabulary 也不直接等同于 T02 的 `natural_state_exit / quality_interruption / sample_end_censoring`。本轮已实现 exact row reconciliation 接口和 synthetic mutation test，但没有臆造映射；当前 `interval_reconciliation_adapter_status=unresolved_upstream_contract`。后续必须提供经授权、已规范化且包含 `route_id/security_id/start_date/end_date/confirmed_day_count/termination_reason` 的 upstream surface，production runner 和独立 validator 都会逐行 fail closed 比较。
+interval adapter 对 R0-T10 shared-q 和 R0-T15 primary-q 完成 8/8 exact route mapping，总 source interval count 为 31,346。`raw_state_false/end_of_input_open/raw_state_blocked/raw_state_diagnostic_required/raw_state_unknown` 分别映射到 T02 三类 reason；R0-T15 legacy `raw_state_false_or_invalid` 必须用首个 post-interval route-daily decision row 消歧，不得直接当作 natural exit。reconciliation 使用 multiset/`EXCEPT ALL`，component lineage 绑定 actual source interval ID。compact validation 未执行 successor row-level reconciliation，不能解释为实际结果通过。
+
+event-zone 主 ledger 现在按 `scan_event_id` 产生连续 ordinal：creation 后显式进入 `QUALIFIED_ACTIVE→GAP_PENDING`，accepted bridge/rejected reentry 保留完整路径，terminal 后不得继续，所有 tuple 必须存在于冻结 transition registry。terminal 通过 event ID 关联，不再按顺序 zip。formal independent validator 从四张允许的 source surfaces 重建并比较 19 个核心指标、transition closure、strict-core 全字段、W120/W250 全字段、expected completeness 与 interval multiset；production derived tables 只作为 comparison target。

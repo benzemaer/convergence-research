@@ -5,6 +5,7 @@ import unittest
 import src.r2.r2_t03_independent_validator as validator_module
 from src.r2.r2_t03_independent_validator import (
     R2T03IndependentValidationError,
+    compare_oracle_metric_targets,
     independent_strict_core_oracle,
     independent_window_oracle,
     source_timeline_oracle,
@@ -129,6 +130,25 @@ class R2T03SourceOracleTimelineTest(unittest.TestCase):
 
 
 class R2T03IndependentComparisonOracleTest(unittest.TestCase):
+    def test_each_formal_metric_mutation_has_exact_failure_id(self) -> None:
+        expected = {
+            "confirmed_event_coverage": 0.25,
+            "duration_q95_ratio": 2.0,
+            "merge_ratio": 0.5,
+            "short_interval_drop_rate": 0.1,
+            "open_event_ratio": 0.2,
+            "nonzero_years": 3,
+            "bridged_day_ratio": 0.05,
+            "unqualified_reentry_count": 4,
+        }
+        for metric, value in expected.items():
+            production = dict(expected)
+            production[metric] = value + 1
+            self.assertEqual(
+                compare_oracle_metric_targets(expected, production),
+                [f"independent_metric_mismatch:{metric}"],
+            )
+
     def test_oracle_does_not_import_production_scanner_metrics_or_t02_helpers(
         self,
     ) -> None:
