@@ -38,6 +38,8 @@
         "author_package_sha256",
         "committed_artifact_sidecar_path",
         "committed_artifact_sidecar_sha256",
+        "author_stage_review_record_path",
+        "author_stage_review_record_sha256",
         "scientific_review_record_path",
         "scientific_review_record_sha256"
     ],
@@ -77,6 +79,8 @@
         "author_package_sha256": {"type": "string"},
         "committed_artifact_sidecar_path": {"type": "string"},
         "committed_artifact_sidecar_sha256": {"type": "string"},
+        "author_stage_review_record_path": {"type": "string"},
+        "author_stage_review_record_sha256": {"type": "string"},
         "scientific_review_record_path": {"type": "string"},
         "scientific_review_record_sha256": {"type": "string"}
     }

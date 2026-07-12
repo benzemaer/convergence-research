@@ -14,18 +14,9 @@ from scripts.run_unittest_profile import _build_suite, _load_profiles, _suite_te
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2/r2_t02_premerge_full_evidence.schema.json"
 PROFILE_CONFIG = ROOT / "configs/ci/unittest_profiles.v1.json"
-FORMAL_SURFACE = [
-    ".github/workflows/quality.yml",
-    "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v2.json",
-    "schemas/r2/r2_t02_premerge_full_evidence.schema.json",
-    "scripts/run_unittest_profile.py",
-    "scripts/r2/build_r2_t02_premerge_full_evidence.py",
-    "scripts/r2/validate_r2_t02_committed_artifacts.py",
-    "src/r2/r2_t02_committed_artifact_validator.py",
-    "src/r2/r2_t02_protocol_freeze.py",
-    "src/r2/r2_t02_independent_validator.py",
-    "src/r2/r2_t02_premerge_full_evidence.py",
-]
+FORMAL_CONFIG = (
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v3.json"
+)
 
 
 def build_evidence(
@@ -35,6 +26,7 @@ def build_evidence(
     reviewed_head_sha: str,
     author_package_path: Path | None = None,
     committed_artifact_sidecar_path: Path | None = None,
+    author_stage_review_record_path: Path | None = None,
     scientific_review_record_path: Path | None = None,
     root: Path = ROOT,
 ) -> dict[str, Any]:
@@ -90,6 +82,12 @@ def build_evidence(
         "committed_artifact_sidecar_sha256": _sha_optional(
             committed_artifact_sidecar_path
         ),
+        "author_stage_review_record_path": _rel_optional(
+            author_stage_review_record_path, root
+        ),
+        "author_stage_review_record_sha256": _sha_optional(
+            author_stage_review_record_path
+        ),
         "scientific_review_record_path": _rel_optional(
             scientific_review_record_path, root
         ),
@@ -144,6 +142,7 @@ def validate_final_gate(
     for key in [
         "author_package",
         "committed_artifact_sidecar",
+        "author_stage_review_record",
         "scientific_review_record",
     ]:
         if not payload.get(f"{key}_path") or not payload.get(f"{key}_sha256"):
@@ -155,9 +154,21 @@ def validate_final_gate(
     if not errors:
         author = _load_json(root / payload["author_package_path"])
         sidecar = _load_json(root / payload["committed_artifact_sidecar_path"])
+        author_stage_review = _load_json(
+            root / payload["author_stage_review_record_path"]
+        )
         review = _load_json(root / payload["scientific_review_record_path"])
+        if (
+            payload["author_stage_review_record_path"]
+            == payload["scientific_review_record_path"]
+        ):
+            errors.append("scientific_review_must_be_post_author_artifact")
         if author.get("run_id") != sidecar.get("run_id"):
             errors.append("author_sidecar_run_id_mismatch")
+        if author.get("run_id") != author_stage_review.get("run_id"):
+            errors.append("author_stage_review_run_id_mismatch")
+        if author_stage_review.get("scientific_review_status") != "pending":
+            errors.append("author_stage_review_not_pending")
         if sidecar.get("status") != "passed":
             errors.append("committed_sidecar_not_passed")
         if sidecar.get("package_committed_sha256") != payload["author_package_sha256"]:
@@ -231,7 +242,7 @@ def _sha_optional(path: Path | None) -> str:
 
 def _formal_surface_sha256(root: Path) -> str:
     digest = hashlib.sha256()
-    for rel in sorted(FORMAL_SURFACE):
+    for rel in sorted(_formal_surface_paths(root)):
         path = root / rel
         digest.update(rel.encode("utf-8"))
         digest.update(b"\0")
@@ -245,7 +256,7 @@ def _formal_surface_git_blob_sha256(root: Path) -> str:
 
     digest = hashlib.sha256()
     head = _git_sha(root)
-    for rel in sorted(FORMAL_SURFACE):
+    for rel in sorted(_formal_surface_paths(root)):
         blob = subprocess.check_output(["git", "show", f"{head}:{rel}"], cwd=root)
         digest.update(rel.encode("utf-8"))
         digest.update(b"\0")
@@ -268,7 +279,7 @@ def _is_ancestor(ancestor: str, descendant: str, root: Path) -> bool:
 def _formal_surface_unchanged_between(left: str, right: str, root: Path) -> bool:
     import subprocess
 
-    for rel in FORMAL_SURFACE:
+    for rel in _formal_surface_paths(root):
         left_blob = subprocess.check_output(["git", "show", f"{left}:{rel}"], cwd=root)
         right_blob = subprocess.check_output(
             ["git", "show", f"{right}:{rel}"], cwd=root
@@ -276,6 +287,15 @@ def _formal_surface_unchanged_between(left: str, right: str, root: Path) -> bool
         if left_blob != right_blob:
             return False
     return True
+
+
+def _formal_surface_paths(root: Path) -> list[str]:
+    config = _load_json(
+        FORMAL_CONFIG if FORMAL_CONFIG.is_absolute() else root / FORMAL_CONFIG
+    )
+    paths = set(config.get("formal_source_paths", []))
+    paths.add(str(FORMAL_CONFIG.relative_to(root)).replace("\\", "/"))
+    return sorted(paths)
 
 
 def _collection_sha256(test_ids: list[str]) -> str:
@@ -292,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--final-gate-validate", type=Path)
     parser.add_argument("--author-package", type=Path)
     parser.add_argument("--committed-artifact-sidecar", type=Path)
+    parser.add_argument("--author-stage-review-record", type=Path)
     parser.add_argument("--scientific-review-record", type=Path)
     parser.add_argument("--expected-repository", default="")
     parser.add_argument("--expected-pr-number", type=int, default=0)
@@ -317,6 +338,7 @@ def main(argv: list[str] | None = None) -> int:
         reviewed_head_sha=args.reviewed_head_sha,
         author_package_path=args.author_package,
         committed_artifact_sidecar_path=args.committed_artifact_sidecar,
+        author_stage_review_record_path=args.author_stage_review_record,
         scientific_review_record_path=args.scientific_review_record,
     )
     return 0

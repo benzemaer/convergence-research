@@ -39,7 +39,7 @@
             "enum": ["worktree_precommit_bytes", "committed_git_blob"]
         },
         "protocol_version": {
-            "const": "r2_t02_confirmed_event_zone_state_machine_contract.v2"
+            "const": "r2_t02_confirmed_event_zone_state_machine_contract.v3"
         },
         "task_type": {"const": "protocol_freeze"},
         "actual_scan_executed": {"const": false},

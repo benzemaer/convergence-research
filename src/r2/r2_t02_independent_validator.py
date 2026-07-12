@@ -3,10 +3,14 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import shutil
+import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
 
 REQUIRED_CASE_ORACLES = {
     "missing_row_fail_closed": "missing_expected_trading_row",
@@ -110,6 +114,7 @@ def validate_artifacts(output_dir: Path) -> list[str]:
                 errors.append(
                     f"independent_missing_fixture_expected_artifact:{case_id}:{key}"
                 )
+        errors.extend(_independent_membership_errors(case_id, fixture_row))
 
     missing_case = result_by_case.get("missing_row_fail_closed")
     if (
@@ -553,7 +558,10 @@ def _evaluate_mutation_case(case_id: str) -> str:
 
 def _isolated_fixture_artifact_rebuild_reason(fixture: dict[str, Any]) -> str:
     digests = []
-    with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
+    with (
+        tempfile.TemporaryDirectory(dir=ROOT) as left,
+        tempfile.TemporaryDirectory(dir=ROOT) as right,
+    ):
         for directory in [Path(left), Path(right)]:
             replay = _independent_fixture_replay(fixture)
             bundle = {
@@ -572,20 +580,47 @@ def _isolated_fixture_artifact_rebuild_reason(fixture: dict[str, Any]) -> str:
 
 
 def _isolated_formal_artifact_rebuild_matches(output_dir: Path) -> bool:
-    artifact_names = sorted(
-        path.name
-        for path in output_dir.iterdir()
-        if path.is_file()
-        and path.name.startswith("r2_t02_")
-        and path.name != "r2_t02_contract_validation_result.json"
-    )
+    if os.environ.get("R2_T02_SKIP_ISOLATED_FORMAL_REBUILD") == "1":
+        return True
+    binding = _load_json(output_dir / "r2_t02_input_binding.json")
+    config_path = ROOT / binding["config_path"]
+    run_id = output_dir.name
+    artifact_names = _package_artifact_names(output_dir)
     digests = []
-    with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
-        for directory in [Path(left), Path(right)]:
-            for name in artifact_names:
-                shutil.copyfile(output_dir / name, directory / name)
-            digests.append(_directory_digest(directory, artifact_names))
+    with (
+        tempfile.TemporaryDirectory(dir=ROOT) as left,
+        tempfile.TemporaryDirectory(dir=ROOT) as right,
+    ):
+        for root_dir in [Path(left), Path(right)]:
+            rebuild_dir = root_dir / run_id
+            env = os.environ.copy()
+            env["R2_T02_SKIP_ISOLATED_FORMAL_REBUILD"] = "1"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/r2/run_r2_t02_protocol_freeze.py",
+                    "--config",
+                    str(config_path),
+                    "--output-dir",
+                    str(rebuild_dir),
+                ],
+                cwd=ROOT,
+                env=env,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            digests.append(_directory_digest(rebuild_dir, artifact_names))
     return digests[0] == digests[1]
+
+
+def _package_artifact_names(output_dir: Path) -> list[str]:
+    package = _load_json(output_dir / "r2_t02_result_package.json")
+    return sorted(
+        name
+        for name in package.get("artifact_hashes", {})
+        if name != "r2_t02_committed_artifact_validation.json"
+    )
 
 
 def _directory_digest(directory: Path, artifact_names: list[str]) -> str:
@@ -596,3 +631,29 @@ def _directory_digest(directory: Path, artifact_names: list[str]) -> str:
         digest.update((directory / name).read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def _independent_membership_errors(case_id: str, fixture: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for row in fixture.get("expected_membership_rows", []):
+        if (
+            row.get("is_raw_false_bridge")
+            and row.get("zone_status_as_of") != "GAP_PENDING"
+        ):
+            errors.append(f"independent_membership_raw_false_status:{case_id}")
+        if row.get("is_preconfirmation_gap"):
+            if row.get("zone_status_as_of") != "GAP_PENDING":
+                errors.append(
+                    f"independent_membership_preconfirmation_status:{case_id}"
+                )
+            if row.get("prequalification_member") is not True:
+                errors.append(f"independent_membership_prequalification_flag:{case_id}")
+        if row.get("prequalification_member") and row.get("component_qualified_as_of"):
+            errors.append(f"independent_membership_prequalified_after_d:{case_id}")
+        if row.get("qualified_event_risk_set_eligible") and (
+            not row.get("event_zone_member")
+            or row.get("unqualified_reentry_member")
+            or not row.get("component_qualified_as_of")
+        ):
+            errors.append(f"independent_membership_risk_set_violation:{case_id}")
+    return sorted(set(errors))

@@ -27,7 +27,7 @@ from src.r2.r2_t02_independent_validator import (
 )
 
 TASK_ID = "R2-T02"
-CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v2"
+CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v3"
 K = 3
 D_GRID = (1, 2, 3)
 G_GRID = (0, 1, 2)
@@ -286,7 +286,7 @@ def build_run(
         "R2-T04_allowed_to_start": False,
         "R3_allowed_to_start": False,
     }
-    write_json(output_dir / "r2_t02_scientific_review.json", review)
+    write_json(output_dir / "r2_t02_author_stage_scientific_review.json", review)
     validation = {"status": "pending"}
     write_json(output_dir / "r2_t02_contract_validation_result.json", validation)
     package = result_package(
@@ -721,52 +721,80 @@ def group_event_zones(
                     timeline, previous_component["end_index"], component["start_index"]
                 )
                 ledger.extend(_gap_entry_ledger(gap_rows))
-                ledger.append(
-                    {
-                        "from_state": "GAP_PENDING",
-                        "to_state": "REENTRY_PENDING_QUALIFICATION",
-                        "reason_code": "unqualified_reentry_observed",
-                    }
-                )
-                right_censored_reentry = (
-                    component["termination_reason"] == "sample_end_censoring"
-                )
-                unqualified_available_time = (
-                    _component_exit_observation_time(timeline, component)
-                    if not right_censored_reentry
-                    else timeline[component["end_index"]]["available_time"]
-                )
-                zone["membership_rows"].extend(
-                    _component_membership(
-                        timeline,
-                        component,
-                        unqualified_available_time,
-                        d,
-                        event_zone_member=False,
-                        unqualified_reentry_member=True,
+                gap = _gap_segment(gap_rows, g)
+                early_gap_decision = _earliest_gap_decision(gap_rows, gap)
+                if early_gap_decision is not None:
+                    zone["status"] = early_gap_decision["status"]
+                    zone["zone_finalization_time"] = early_gap_decision[
+                        "available_time"
+                    ]
+                    zones.append(zone)
+                    ledger.append(
+                        {
+                            "from_state": "GAP_PENDING",
+                            "to_state": early_gap_decision["status"],
+                            "reason_code": early_gap_decision["reason_code"],
+                        }
                     )
-                )
-                if right_censored_reentry:
-                    zone["status"] = "RIGHT_CENSORED"
-                    zone["zone_finalization_time"] = ""
+                    zone = None
                 else:
-                    zone["status"] = "FINALIZED"
-                    zone["zone_finalization_time"] = _component_exit_observation_time(
-                        timeline, component
+                    ledger.append(
+                        {
+                            "from_state": "GAP_PENDING",
+                            "to_state": "REENTRY_PENDING_QUALIFICATION",
+                            "reason_code": "unqualified_reentry_observed",
+                        }
                     )
-                zones.append(zone)
-                ledger.append(
-                    {
-                        "from_state": "REENTRY_PENDING_QUALIFICATION",
-                        "to_state": "RIGHT_CENSORED"
-                        if right_censored_reentry
-                        else "FINALIZED",
-                        "reason_code": "sample_end_before_requalification"
-                        if right_censored_reentry
-                        else "unqualified_reentry_blocks_merge",
-                    }
-                )
-                zone = None
+                    right_censored_reentry = (
+                        component["termination_reason"] == "sample_end_censoring"
+                    )
+                    quality_break_reentry = (
+                        component["termination_reason"] == "quality_interruption"
+                    )
+                    unqualified_available_time = (
+                        _component_exit_observation_time(timeline, component)
+                        if not right_censored_reentry
+                        else timeline[component["end_index"]]["available_time"]
+                    )
+                    zone["membership_rows"].extend(
+                        _component_membership(
+                            timeline,
+                            component,
+                            unqualified_available_time,
+                            d,
+                            event_zone_member=False,
+                            unqualified_reentry_member=True,
+                            prequalification_status="REENTRY_PENDING_QUALIFICATION",
+                        )
+                    )
+                    if right_censored_reentry:
+                        zone["status"] = "RIGHT_CENSORED"
+                        zone["zone_finalization_time"] = ""
+                        to_state = "RIGHT_CENSORED"
+                        reason_code = "sample_end_before_requalification"
+                    elif quality_break_reentry:
+                        zone["status"] = "FINALIZED_WITH_QUALITY_BREAK"
+                        zone["zone_finalization_time"] = (
+                            _component_exit_observation_time(timeline, component)
+                        )
+                        to_state = "FINALIZED_WITH_QUALITY_BREAK"
+                        reason_code = "quality_break"
+                    else:
+                        zone["status"] = "FINALIZED"
+                        zone["zone_finalization_time"] = (
+                            _component_exit_observation_time(timeline, component)
+                        )
+                        to_state = "FINALIZED"
+                        reason_code = "unqualified_reentry_blocks_merge"
+                    zones.append(zone)
+                    ledger.append(
+                        {
+                            "from_state": "REENTRY_PENDING_QUALIFICATION",
+                            "to_state": to_state,
+                            "reason_code": reason_code,
+                        }
+                    )
+                    zone = None
             right_censored = component["termination_reason"] == "sample_end_censoring"
             ledger.append(
                 {
@@ -809,7 +837,7 @@ def group_event_zones(
                     component["event_qualification_time"],
                     d,
                     zone_revision_as_of=0,
-                    zone_status_as_of="QUALIFIED_ACTIVE",
+                    prequalification_status="COMPONENT_FORMING",
                 ),
             }
             ledger.append(
@@ -870,7 +898,7 @@ def group_event_zones(
                     component["event_qualification_time"],
                     d,
                     zone_revision_as_of=0,
-                    zone_status_as_of="QUALIFIED_ACTIVE",
+                    prequalification_status="COMPONENT_FORMING",
                 ),
             }
         elif (
@@ -903,6 +931,7 @@ def group_event_zones(
                 zone["max_total_gap_span_days"], gap["total_nonconfirmed_gap_count"]
             )
             zone["end_date"] = component["end_date"]
+            prior_zone_revision = zone["zone_revision"]
             zone["zone_revision"] += 1
             bridge_available = component["event_qualification_time"]
             zone["membership_available_time"] = bridge_available
@@ -910,8 +939,8 @@ def group_event_zones(
                 _bridge_membership(
                     gap["raw_false_rows"],
                     bridge_available,
-                    zone_revision_as_of=zone["zone_revision"],
-                    zone_status_as_of="REENTRY_PENDING_QUALIFICATION",
+                    zone_revision_as_of=prior_zone_revision,
+                    zone_status_as_of="GAP_PENDING",
                 )
             )
             zone["membership_rows"].extend(
@@ -919,7 +948,7 @@ def group_event_zones(
                     gap["preconfirmation_rows"],
                     bridge_available,
                     raw_false_gap_count_as_of=gap["raw_false_gap_count"],
-                    zone_revision_as_of=zone["zone_revision"],
+                    zone_revision_as_of=prior_zone_revision,
                 )
             )
             zone["membership_rows"].extend(
@@ -928,8 +957,9 @@ def group_event_zones(
                     component,
                     bridge_available,
                     d,
-                    zone_revision_as_of=zone["zone_revision"],
-                    zone_status_as_of="QUALIFIED_ACTIVE",
+                    zone_revision_as_of=prior_zone_revision,
+                    qualified_zone_revision_as_of=zone["zone_revision"],
+                    prequalification_status="REENTRY_PENDING_QUALIFICATION",
                 )
             )
             ledger.append(
@@ -982,7 +1012,7 @@ def group_event_zones(
                     component["event_qualification_time"],
                     d,
                     zone_revision_as_of=0,
-                    zone_status_as_of="QUALIFIED_ACTIVE",
+                    prequalification_status="COMPONENT_FORMING",
                 ),
             }
         previous_component = component
@@ -1027,22 +1057,38 @@ def _component_membership(
     *,
     event_zone_member: bool = True,
     zone_revision_as_of: int = 0,
-    zone_status_as_of: str = "QUALIFIED_ACTIVE",
-    prequalification_member: bool = False,
+    qualified_zone_revision_as_of: int | None = None,
+    prequalification_status: str = "COMPONENT_FORMING",
     unqualified_reentry_member: bool = False,
 ) -> list[dict[str, Any]]:
     rows = []
     qualification_index = component["start_index"] + d - 1
+    qualified_revision = (
+        zone_revision_as_of
+        if qualified_zone_revision_as_of is None
+        else qualified_zone_revision_as_of
+    )
     for row in timeline:
         if component["start_index"] <= row["row_index"] <= component["end_index"]:
+            component_qualified_as_of = row["row_index"] >= qualification_index
+            row_status_as_of = (
+                "QUALIFIED_ACTIVE"
+                if component_qualified_as_of and event_zone_member
+                else prequalification_status
+            )
+            row_zone_revision = (
+                qualified_revision
+                if component_qualified_as_of and event_zone_member
+                else zone_revision_as_of
+            )
+            prequalification_member = not component_qualified_as_of
             rows.append(
                 {
                     "row_index": row["row_index"],
                     "trade_date": row["trade_date"],
                     "event_zone_member": event_zone_member,
                     "retrospective_component_member": event_zone_member,
-                    "component_qualified_as_of": row["row_index"]
-                    >= qualification_index,
+                    "component_qualified_as_of": component_qualified_as_of,
                     "is_raw_false_bridge": False,
                     "is_preconfirmation_gap": False,
                     "is_bridged_gap": False,
@@ -1051,8 +1097,8 @@ def _component_membership(
                     "membership_available_time": max(
                         row["available_time"], available_time
                     ),
-                    "zone_revision_as_of": zone_revision_as_of,
-                    "zone_status_as_of": zone_status_as_of,
+                    "zone_revision_as_of": row_zone_revision,
+                    "zone_status_as_of": row_status_as_of,
                     "prequalification_member": prequalification_member,
                     "unqualified_reentry_member": unqualified_reentry_member,
                     "state_risk_set_eligible": bool(
@@ -1065,7 +1111,7 @@ def _component_membership(
                         and row["eligible"]
                         and row["quality_state"] == "valid"
                         and row["confirmed_state"]
-                        and row["row_index"] >= qualification_index
+                        and component_qualified_as_of
                         and not unqualified_reentry_member
                     ),
                 }
@@ -1117,6 +1163,7 @@ def _gap_segment(gap_rows: list[dict[str, Any]], g: int) -> dict[str, Any]:
     return {
         "raw_false_rows": raw_false_rows,
         "preconfirmation_rows": preconfirmation_rows,
+        "g": g,
         "raw_false_gap_count": len(raw_false_rows),
         "preconfirmation_raw_true_count": len(preconfirmation_rows),
         "total_nonconfirmed_gap_count": len(raw_false_rows) + len(preconfirmation_rows),
@@ -1128,6 +1175,33 @@ def _gap_segment(gap_rows: list[dict[str, Any]], g: int) -> dict[str, Any]:
         if len(raw_false_rows) > g
         else "",
     }
+
+
+def _earliest_gap_decision(
+    gap_rows: list[dict[str, Any]], gap: dict[str, Any]
+) -> dict[str, str] | None:
+    raw_false_count = 0
+    for row in gap_rows:
+        if row["hard_break"]:
+            return {
+                "status": "FINALIZED_WITH_QUALITY_BREAK",
+                "reason_code": "quality_break",
+                "available_time": row["available_time"],
+            }
+        if (
+            row["eligible"]
+            and row["quality_state"] == "valid"
+            and row["raw_state"] is False
+        ):
+            raw_false_count += 1
+            if raw_false_count <= gap["g"]:
+                continue
+            return {
+                "status": "FINALIZED",
+                "reason_code": "raw_false_gap_exceeds_g",
+                "available_time": row["available_time"],
+            }
+    return None
 
 
 def _bridge_membership(
@@ -1186,7 +1260,7 @@ def _preconfirmation_membership(
             ),
             "membership_available_time": available_time,
             "zone_revision_as_of": zone_revision_as_of,
-            "zone_status_as_of": "REENTRY_PENDING_QUALIFICATION",
+            "zone_status_as_of": "GAP_PENDING",
             "prequalification_member": True,
             "unqualified_reentry_member": False,
             "state_risk_set_eligible": False,
@@ -3671,15 +3745,276 @@ def resolve_hard_gate_evaluator(evaluator_id: str):
 
 
 def _metric_evaluator(rows: list[dict[str, Any]], metric_id: str) -> dict[str, Any]:
-    return {"metric_id": metric_id, "row_count": len(rows)}
+    values = [_metric_row_value(row, metric_id) for row in rows]
+    numeric_values = [value for value in values if isinstance(value, int | float)]
+    value: Any
+    numerator: Any = None
+    denominator: Any = None
+    null_reason = ""
+    if metric_id.endswith("_count") or metric_id in {
+        "eligible_days",
+        "confirmed_state_days",
+        "qualified_event_count",
+        "unique_securities",
+        "nonzero_years",
+        "matched_event_count",
+        "post_merge_short_zone_count",
+    }:
+        value = _metric_count(rows, metric_id)
+    elif metric_id.endswith("_q95") or metric_id.endswith("_q95_ratio"):
+        value = _quantile(numeric_values, 0.95)
+        if metric_id.endswith("_ratio"):
+            denominator = _first_numeric(rows, "baseline_q95", "upstream_q95")
+            numerator = value
+            value = _safe_ratio(numerator, denominator)
+    elif metric_id.endswith("_q90"):
+        value = _quantile(numeric_values, 0.90)
+    elif metric_id.endswith("_median"):
+        value = _quantile(numeric_values, 0.50)
+    elif metric_id.endswith("_mean"):
+        value = sum(numeric_values) / len(numeric_values) if numeric_values else None
+    elif metric_id in {
+        "confirmed_state_coverage",
+        "confirmed_event_coverage",
+        "retained_confirmed_day_ratio",
+        "short_interval_drop_rate",
+        "atomic_fragment_rate",
+        "bridged_day_ratio",
+        "raw_false_bridged_day_ratio",
+        "nonconfirmed_gap_ratio",
+        "merge_ratio",
+        "open_event_ratio",
+        "max_year_share",
+        "confirmed_density",
+        "strict_core_confirmed_day_share",
+        "strict_core_event_share",
+        "shell_only_confirmed_day_share",
+        "confirmed_day_jaccard",
+        "mega_zone_concentration",
+        "top_zone_confirmed_day_share",
+    }:
+        numerator, denominator = _metric_ratio_parts(rows, metric_id)
+        value = _safe_ratio(numerator, denominator)
+        if value is None:
+            null_reason = "zero_denominator"
+    elif metric_id.endswith("_distribution"):
+        value = sorted(numeric_values)
+    elif metric_id.endswith("_status"):
+        value = all(bool(row.get("status", row.get(metric_id, True))) for row in rows)
+    else:
+        value = sum(numeric_values) if numeric_values else len(rows)
+    return {
+        "metric_id": metric_id,
+        "value": value,
+        "numerator": numerator,
+        "denominator": denominator,
+        "row_count": len(rows),
+        "null_reason": null_reason,
+    }
 
 
 def _hard_gate_evaluator(value: Any, operator: str, threshold: Any) -> bool:
-    return operator in {">=", "<=", "=="} and threshold is not None
+    observed = _to_float_or_none(value)
+    limit = _to_float_or_none(threshold)
+    if observed is None or limit is None:
+        return False
+    if operator == ">=":
+        return observed >= limit
+    if operator == "<=":
+        return observed <= limit
+    if operator == "==":
+        return observed == limit
+    return False
 
 
 def _zero_tolerance_evaluator(violations: list[Any]) -> bool:
     return len(violations) == 0
+
+
+def _metric_row_value(row: dict[str, Any], metric_id: str) -> Any:
+    for key in [
+        metric_id,
+        "value",
+        "confirmed_day_count",
+        "zone_span_days",
+        "duration",
+        "count",
+    ]:
+        if key in row:
+            return _to_float_or_none(row[key])
+    return None
+
+
+def _metric_count(rows: list[dict[str, Any]], metric_id: str) -> int:
+    if metric_id == "eligible_days":
+        return sum(1 for row in rows if row.get("eligible") is True)
+    if metric_id == "confirmed_state_days":
+        return sum(1 for row in rows if row.get("confirmed_state") is True)
+    if metric_id == "qualified_event_count":
+        return len(
+            {row.get("scan_event_id") for row in rows if row.get("scan_event_id")}
+        )
+    if metric_id == "unique_securities":
+        return len({row.get("security_id") for row in rows if row.get("security_id")})
+    if metric_id == "nonzero_years":
+        return len({str(row.get("trade_date", ""))[:4] for row in rows if row})
+    if metric_id == "matched_event_count":
+        return sum(1 for row in rows if row.get("matched_event") is True)
+    if metric_id == "post_merge_short_zone_count":
+        return sum(1 for row in rows if row.get("post_merge_short_zone") is True)
+    return len(rows)
+
+
+def _metric_ratio_parts(rows: list[dict[str, Any]], metric_id: str) -> tuple[Any, Any]:
+    if metric_id == "confirmed_state_coverage":
+        return (
+            sum(1 for row in rows if row.get("confirmed_state") is True),
+            sum(1 for row in rows if row.get("eligible") is True),
+        )
+    if metric_id in {"confirmed_event_coverage", "retained_confirmed_day_ratio"}:
+        return (
+            _sum_numeric(rows, "confirmed_day_count", "retained_confirmed_day_count"),
+            _sum_numeric(rows, "upstream_confirmed_day_count", "confirmed_day_count"),
+        )
+    if metric_id == "short_interval_drop_rate":
+        denominator_rows = [
+            row
+            for row in rows
+            if row.get("termination_reason") != "sample_end_censoring"
+        ]
+        short_rows = []
+        for row in denominator_rows:
+            confirmed_days = _to_float_or_none(row.get("confirmed_day_count")) or 0
+            d_value = _to_float_or_none(row.get("d")) or 0
+            if row.get("qualified") is False or confirmed_days < d_value:
+                short_rows.append(row)
+        return (
+            len(short_rows),
+            len(denominator_rows),
+        )
+    if metric_id == "atomic_fragment_rate":
+        return (
+            sum(
+                1
+                for row in rows
+                if _to_float_or_none(row.get("confirmed_day_count")) == 1
+            ),
+            len(rows),
+        )
+    if metric_id in {"bridged_day_ratio", "raw_false_bridged_day_ratio"}:
+        numerator_key = (
+            "raw_false_bridged_day_count"
+            if metric_id == "raw_false_bridged_day_ratio"
+            else "bridged_day_count"
+        )
+        return (_sum_numeric(rows, numerator_key), _sum_numeric(rows, "zone_span_days"))
+    if metric_id == "nonconfirmed_gap_ratio":
+        return (
+            _sum_numeric(rows, "total_nonconfirmed_gap_day_count"),
+            _sum_numeric(rows, "zone_span_days"),
+        )
+    if metric_id == "merge_ratio":
+        return (
+            sum(
+                1
+                for row in rows
+                if (_to_float_or_none(row.get("component_count")) or 0) > 1
+            ),
+            len(rows),
+        )
+    if metric_id == "open_event_ratio":
+        return (
+            sum(1 for row in rows if row.get("status") == "RIGHT_CENSORED"),
+            len(rows),
+        )
+    if metric_id == "max_year_share":
+        counts: dict[str, int] = {}
+        for row in rows:
+            year = str(row.get("trade_date", row.get("start_date", "")))[:4]
+            if year:
+                counts[year] = counts.get(year, 0) + 1
+        return (max(counts.values()) if counts else 0, sum(counts.values()))
+    if metric_id == "confirmed_density":
+        return (
+            _sum_numeric(rows, "confirmed_day_count"),
+            _sum_numeric(rows, "zone_span_days"),
+        )
+    if metric_id == "confirmed_day_jaccard":
+        return (
+            _sum_numeric(rows, "intersection_confirmed_days"),
+            _sum_numeric(rows, "union_confirmed_days"),
+        )
+    if metric_id == "mega_zone_concentration":
+        spans = sorted(
+            (_to_float_or_none(row.get("zone_span_days")) or 0 for row in rows),
+            reverse=True,
+        )
+        top_count = max(1, int(len(spans) * 0.01)) if spans else 0
+        return (sum(spans[:top_count]), sum(spans))
+    if metric_id == "top_zone_confirmed_day_share":
+        confirmed = [
+            _to_float_or_none(row.get("confirmed_day_count")) or 0 for row in rows
+        ]
+        return (max(confirmed) if confirmed else 0, sum(confirmed))
+    if metric_id in {
+        "strict_core_confirmed_day_share",
+        "strict_core_event_share",
+        "shell_only_confirmed_day_share",
+    }:
+        return (_sum_numeric(rows, "numerator"), _sum_numeric(rows, "denominator"))
+    return (_sum_numeric(rows, "numerator"), _sum_numeric(rows, "denominator"))
+
+
+def _safe_ratio(numerator: Any, denominator: Any) -> float | None:
+    num = _to_float_or_none(numerator)
+    den = _to_float_or_none(denominator)
+    if num is None or den is None or den == 0:
+        return None
+    return num / den
+
+
+def _sum_numeric(rows: list[dict[str, Any]], *keys: str) -> float:
+    total = 0.0
+    for row in rows:
+        for key in keys:
+            value = _to_float_or_none(row.get(key))
+            if value is not None:
+                total += value
+                break
+    return total
+
+
+def _first_numeric(rows: list[dict[str, Any]], *keys: str) -> float | None:
+    for row in rows:
+        for key in keys:
+            value = _to_float_or_none(row.get(key))
+            if value is not None:
+                return value
+    return None
+
+
+def _quantile(values: list[float], q: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = (len(ordered) - 1) * q
+    lower = int(index)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = index - lower
+    return ordered[lower] * (1 - fraction) + ordered[upper] * fraction
+
+
+def _to_float_or_none(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return 1.0 if value else 0.0
+    if isinstance(value, int | float):
+        return float(value)
+    try:
+        return float(str(value))
+    except ValueError:
+        return None
 
 
 def _hard_gate_errors(rows: list[dict[str, str]]) -> list[str]:
@@ -3774,7 +4109,7 @@ def main(argv: list[str] | None = None) -> int:
         "--config",
         type=Path,
         default=ROOT
-        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v2.json",
+        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v3.json",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true")
@@ -3806,7 +4141,7 @@ EXPECTED_ARTIFACTS_WITHOUT_PACKAGE = [
     "r2_t02_experiment_summary.json",
     "r2_t02_result_analysis.md",
     "r2_t02_evidence.md",
-    "r2_t02_scientific_review.json",
+    "r2_t02_author_stage_scientific_review.json",
 ]
 
 PACKAGE_HASH_ARTIFACTS = [
