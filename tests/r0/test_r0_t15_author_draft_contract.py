@@ -176,7 +176,12 @@ class R0T15FinalGateContractTests(unittest.TestCase):
                         self.assertIn("R3_allowed_to_start: false", readme_text)
                     else:
                         self.assertIn("R2-T01_status: completed", readme_text)
-                        self.assertIn("R2-T02_allowed_to_start: true", readme_text)
+                        if "R2-T02_status: completed" in readme_text:
+                            self.assertIn("R2-T02_allowed_to_start: false", readme_text)
+                            self.assertIn("R2-T03_allowed_to_start: true", readme_text)
+                            self.assertIn("R2-T04_allowed_to_start: false", readme_text)
+                        else:
+                            self.assertIn("R2-T02_allowed_to_start: true", readme_text)
                         self.assertIn("R3_allowed_to_start: false", readme_text)
 
     def test_repository_merge_transition_authorizes_only_t14_02(self) -> None:
