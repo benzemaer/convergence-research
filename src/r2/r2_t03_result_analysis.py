@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -22,6 +23,14 @@ def build_result_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, An
     summary = _json(output_dir / "r2_t03_experiment_summary.json")
     runtime = _json(output_dir / "r2_t03_runtime_gate_validation.json")
     independent = _json(output_dir / "r2_t03_independent_validation.json")
+    with (output_dir / "r2_t03_runtime_gate_results.csv").open(
+        encoding="utf-8", newline=""
+    ) as handle:
+        scientific_failures = [
+            row
+            for row in csv.DictReader(handle)
+            if row["status"] == "failed" and row["blocking"] == "False"
+        ]
     database = output_dir / "r2_t03_event_zone_scan.duckdb"
     con = duckdb.connect(str(database), read_only=True)
     try:
@@ -42,7 +51,7 @@ def build_result_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, An
     write_json(output_dir / "r2_t03_anomaly_scan.json", anomaly)
     write_markdown(
         output_dir / "r2_t03_result_analysis.md",
-        _analysis_markdown(metrics, anomaly, runtime),
+        _analysis_markdown(metrics, anomaly, runtime, scientific_failures),
     )
     package = {
         "task_id": "R2-T03",
@@ -138,7 +147,10 @@ def _anomaly_scan(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
 
 
 def _analysis_markdown(
-    metrics: list[tuple[Any, ...]], anomaly: dict[str, Any], runtime: dict[str, Any]
+    metrics: list[tuple[Any, ...]],
+    anomaly: dict[str, Any],
+    runtime: dict[str, Any],
+    scientific_failures: list[dict[str, str]],
 ) -> str:
     by_state: dict[str, list[tuple[Any, ...]]] = {}
     for row in metrics:
@@ -167,6 +179,20 @@ def _analysis_markdown(
             "## 异常结论",
             "",
             f"异常项：{', '.join(anomaly['failures']) if anomaly['failures'] else '无阻断异常'}。无论本项结果如何，本 author-draft 都不授权推进 R2-T04；后续仍需独立 scientific review。",
+            "",
+            "## 冻结 scientific gate 诊断",
+            "",
+            (
+                f"共有 {len(scientific_failures)} 个非工程阻断的冻结 gate 失败；"
+                "这些结果全部保留为 scientific review 输入，不用于选取或排除 cell。"
+                if scientific_failures
+                else "冻结 scientific gate 未报告失败。"
+            ),
+            "",
+            *[
+                f"- `{row['candidate_cell_id']}`：`{row['check_id']}` observed={row['observed_value']}，规则 `{row['expected_rule']}`。"
+                for row in scientific_failures
+            ],
         ]
     )
     return "\n".join(lines) + "\n"
