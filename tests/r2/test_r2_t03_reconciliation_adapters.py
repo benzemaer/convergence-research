@@ -166,7 +166,9 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
                 actual["expected_key_adapter_status"], "unresolved_upstream_contract"
             )
 
-    def test_v2_committed_contracts_resolve_all_adapters(self) -> None:
+    def test_v2_committed_contracts_resolve_only_when_actual_sources_exist(
+        self,
+    ) -> None:
         config = json.loads(
             Path("configs/r2/r2_t03_four_route_event_zone_scan.v2.json").read_text(
                 encoding="utf-8"
@@ -176,12 +178,30 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
         self.assertEqual(
             actual["availability_adapter_status"], "resolved_research_policy"
         )
+        expected_contract = json.loads(
+            Path(config["expected_key_adapter_contract_path"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        interval_contract = json.loads(
+            Path(config["interval_adapter_contract_path"]).read_text(encoding="utf-8")
+        )
+        source_bytes_present = Path(expected_contract["source_duckdb_path"]).is_file()
+        interval_bytes_present = all(
+            Path(row["interval_path"]).is_file()
+            for row in interval_contract["route_mappings"]
+        )
         self.assertEqual(
-            actual["expected_key_adapter_status"], "resolved_upstream_adapter"
+            actual["expected_key_adapter_status"],
+            "resolved_upstream_adapter"
+            if source_bytes_present
+            else "unresolved_upstream_contract",
         )
         self.assertEqual(
             actual["interval_reconciliation_adapter_status"],
-            "resolved_upstream_adapter",
+            "resolved_upstream_adapter"
+            if interval_bytes_present
+            else "unresolved_upstream_contract",
         )
 
     def test_v2_config_and_adapter_contracts_validate_against_schemas(self) -> None:
