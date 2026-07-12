@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2/r2_t02_premerge_full_evidence.schema.json"
 PROFILE_CONFIG = ROOT / "configs/ci/unittest_profiles.v1.json"
 FORMAL_CONFIG = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v7.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v8.json"
 )
 
 
@@ -36,6 +36,8 @@ def build_evidence(
     heavy_test_ids = sorted(
         _suite_test_ids(_build_suite(profiles["r0-heavy-premerge"]))
     )
+    canonical_full_test_ids = {_canonical_test_id(value) for value in full_test_ids}
+    canonical_heavy_test_ids = {_canonical_test_id(value) for value in heavy_test_ids}
     runner_test_ids = sorted(profile_result.get("test_ids", []))
     full_collection_hash = _collection_sha256(full_test_ids)
     heavy_collection_hash = _collection_sha256(heavy_test_ids)
@@ -71,7 +73,9 @@ def build_evidence(
         "heavy_test_count": len(heavy_files),
         "heavy_test_ids": heavy_test_ids,
         "heavy_test_collection_sha256": heavy_collection_hash,
-        "heavy_subset_of_full": set(heavy_test_ids).issubset(full_test_ids),
+        "heavy_subset_of_full": canonical_heavy_test_ids.issubset(
+            canonical_full_test_ids
+        ),
         "completed_at_utc": profile_result["completed_at_utc"],
         "formal_surface_sha256": _formal_surface_sha256(root),
         "formal_surface_git_blob_sha256": _formal_surface_git_blob_sha256(root),
@@ -356,6 +360,18 @@ def _formal_surface_paths(root: Path) -> list[str]:
 
 def _collection_sha256(test_ids: list[str]) -> str:
     return hashlib.sha256("\n".join(sorted(test_ids)).encode("utf-8")).hexdigest()
+
+
+def _canonical_test_id(test_id: str) -> str:
+    marker = "_tests_"
+    if not test_id.startswith("_unittest_profile_") or marker not in test_id:
+        return test_id
+    module_tail, separator, test_tail = test_id.partition(".")
+    relative_module = module_tail.split(marker, 1)[1]
+    package, package_separator, module = relative_module.partition("_")
+    if not package_separator:
+        return test_id
+    return f"{package}.{module}{separator}{test_tail}"
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -6,7 +6,7 @@
   "properties": {
     "task_id": {"const": "R2-T02"},
     "task_type": {"const": "protocol_freeze"},
-    "protocol_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v7"},
+    "protocol_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
     "base_main_sha": {"type": "string", "minLength": 40, "maxLength": 40},
     "inputs": {"type": "object"},
     "upstream_required_fields": {"type": "object"},

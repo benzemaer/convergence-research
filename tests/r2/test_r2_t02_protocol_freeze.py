@@ -9,9 +9,9 @@ from src.r2 import r2_t02_protocol_freeze as r2_t02
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v7.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v8.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1600Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1700Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -857,7 +857,7 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
     def test_premerge_formal_surface_uses_registered_v3_config_sources(self):
         paths = set(premerge._formal_surface_paths(ROOT))
         for required in {
-            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v7.json",
+            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v8.json",
             "docs/stages/R2_参数、事件规则与状态版本冻结.md",
             "schemas/r2/r2_t02_t03_output_contract.schema.json",
             "scripts/validate_text_contract.py",
@@ -869,6 +869,19 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
             ".github/workflows/quality.yml",
         }:
             self.assertIn(required, paths)
+
+    def test_premerge_heavy_ids_are_canonicalized_to_full_discovery_ids(self):
+        dynamic_id = (
+            "_unittest_profile_convergence-research_tests_r0_"
+            "test_r0_t10_score_materializer.R0T10ScoreMaterializerTest."
+            "test_uses_spawn_process_pool"
+        )
+        discovered_id = (
+            "r0.test_r0_t10_score_materializer.R0T10ScoreMaterializerTest."
+            "test_uses_spawn_process_pool"
+        )
+        self.assertEqual(premerge._canonical_test_id(dynamic_id), discovered_id)
+        self.assertEqual(premerge._canonical_test_id(discovered_id), discovered_id)
 
     def _run_rows(self, raw_values, *, d, g, qualities=None):
         dates = [f"2026-01-{day:02d}" for day in range(2, 2 + len(raw_values))]

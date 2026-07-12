@@ -1,0 +1,18 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T1600Z",
+  "replacement_run_id": "R2-T02-20260712T1700Z",
+  "review_id": "repository_ready_gate_29189338264",
+  "reviewed_head": "676b2ed20d414d19ee41c85710dfcd4f432e9a1a",
+  "supersession_reason_codes": [
+    "premerge_heavy_test_identity_canonicalization"
+  ],
+  "status": "superseded",
+  "current_evidence_eligible": false,
+  "formal_input_eligible": false,
+  "downstream_gate_state": {
+    "R2-T03_allowed_to_start": false,
+    "R2-T04_allowed_to_start": false,
+    "R3_allowed_to_start": false
+  }
+}
