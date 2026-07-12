@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id", "run_id", "validation_mode", "status", "handoff_path",
+    "handoff_commit", "handoff_git_blob_sha", "handoff_committed_sha256",
+    "validated_binding_count", "existing_validate_final_gate_called",
+    "github_review_snapshot_revalidated", "merge_ancestry_verified",
+    "artifact_metadata_verified", "all_committed_sha_verified",
+    "author_package_immutable", "scientific_review_status",
+    "repository_final_gate_status", "formal_task_completed",
+    "R2-T03_allowed_to_start", "R2-T04_allowed_to_start", "R3_allowed_to_start",
+    "selection_path_not_independently_confirmed", "errors"
+  ],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "run_id": {"const": "R2-T02-20260712T1700Z"},
+    "validation_mode": {"const": "post_merge_repository_final_gate_handoff"},
+    "status": {"const": "passed"},
+    "handoff_path": {"const": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_repository_final_gate_handoff.json"},
+    "handoff_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "handoff_git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "handoff_committed_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "validated_binding_count": {"type": "integer", "minimum": 12},
+    "existing_validate_final_gate_called": {"const": true},
+    "github_review_snapshot_revalidated": {"const": true},
+    "merge_ancestry_verified": {"const": true},
+    "artifact_metadata_verified": {"const": true},
+    "all_committed_sha_verified": {"const": true},
+    "author_package_immutable": {"const": true},
+    "scientific_review_status": {"const": "passed"},
+    "repository_final_gate_status": {"const": "passed"},
+    "formal_task_completed": {"const": true},
+    "R2-T03_allowed_to_start": {"const": true},
+    "R2-T04_allowed_to_start": {"const": false},
+    "R3_allowed_to_start": {"const": false},
+    "selection_path_not_independently_confirmed": {"const": true},
+    "errors": {"type": "array", "maxItems": 0}
+  }
+}
