@@ -1,0 +1,20 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T1100Z",
+  "replacement_run_id": "R2-T02-20260712T1200Z",
+  "review_id": "4679609404",
+  "reviewed_head": "cea14a3994d75d23c2e5bd6c5287817489307575",
+  "supersession_reason_codes": [
+    "unqualified_reentry_earliest_decisive_event_priority",
+    "zone_status_as_of_must_be_daily_state_machine_state",
+    "expected_artifact_oracles_require_stronger_static_and_independent_checks",
+    "metric_and_hard_gate_evaluators_must_execute_observed_threshold_comparison",
+    "formal_surface_must_match_registered_v3_sources",
+    "post_author_scientific_review_must_be_separate_from_author_pending_record"
+  ],
+  "downstream_gate_state": {
+    "R2-T03_allowed_to_start": false,
+    "R2-T04_allowed_to_start": false,
+    "R3_allowed_to_start": false
+  }
+}
