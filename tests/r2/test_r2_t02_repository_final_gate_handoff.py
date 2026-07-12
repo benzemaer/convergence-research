@@ -164,6 +164,26 @@ class R2T02RepositoryFinalGateHandoffTest(unittest.TestCase):
         ):
             handoff._validate_handoff_semantics(payload)
 
+    def test_committed_handoff_and_validation_pass(self) -> None:
+        run_dir = ROOT / handoff.RUN_DIR
+        payload = json.loads(
+            (run_dir / handoff.HANDOFF_NAME).read_text(encoding="utf-8")
+        )
+        result = json.loads(
+            (run_dir / handoff.VALIDATION_NAME).read_text(encoding="utf-8")
+        )
+        handoff._validate_schema(payload, ROOT / handoff.HANDOFF_SCHEMA)
+        handoff._validate_schema(result, ROOT / handoff.VALIDATION_SCHEMA)
+        replay = handoff.validate_handoff(
+            run_dir / handoff.HANDOFF_NAME,
+            handoff_commit=result["handoff_commit"],
+            root=ROOT,
+            verify_remote=False,
+        )
+        self.assertEqual(replay["status"], "passed")
+        self.assertTrue(replay["R2-T03_allowed_to_start"])
+        self.assertFalse(replay["R2-T04_allowed_to_start"])
+
 
 if __name__ == "__main__":
     unittest.main()

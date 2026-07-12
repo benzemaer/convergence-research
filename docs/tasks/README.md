@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R2
-current_task: R2-T02 confirmed-state 与 event-zone 双层状态机契约
-next_planned_task: R2-T03 四路线 d×g event-zone 状态机扫描与区间几何审计
+current_task: R2-T03 四路线 d×g event-zone 状态机扫描与区间几何审计
+next_planned_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
@@ -53,13 +53,17 @@ R2-T01_allowed_to_start: true
 R2-T01_status: completed
 R2-T01_scientific_review_status: passed
 R2-T01_independent_review_status: passed
-R2-T02_status: author_analysis_complete_pending_independent_review
-R2-T02_scientific_review_status: pending
-R2-T02_independent_review_status: pending
-R2-T02_formal_task_completed: false
-R2-T02_allowed_to_start: true
-R2-T03_allowed_to_start: false
-R2-T03_startup_status: blocked_missing_authoritative_t02_final_gate_binding
+R2-T02_status: completed
+R2-T02_scientific_review_status: passed
+R2-T02_independent_review_status: passed
+R2-T02_repository_final_gate_status: passed
+R2-T02_formal_task_completed: true
+R2-T02_allowed_to_start: false
+R2-T03_allowed_to_start: true
+R2-T03_initial_startup_status: blocked_missing_authoritative_t02_final_gate_binding
+R2-T03_resolution_status: resolved
+R2-T03_startup_status: passed
+R2-T03_resolved_by: r2_t02_repository_final_gate_handoff.json
 R2-T04_allowed_to_start: false
 R2-T05_allowed_to_start: false
 R2-T06_allowed_to_start: false
@@ -383,13 +387,13 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 已通过独立科学审阅与 final gate。PR #94 的 exact-head scientific PASS 与 premerge-full/final-gate workflow 成功可以从 GitHub 外部记录观察到，但当前 `main` 未提交可供下游绑定的 immutable final-gate evidence；仓库内 R2-T02 v8 author package 仍保持 downstream gate 关闭。因此 R2-T03 启动状态为 `blocked_missing_authoritative_t02_final_gate_binding`，R2-T03 至 R2-T08 仍 blocked。
+状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate。PR #94 的 exact-head scientific PASS、premerge-full、workflow final-gate consumer、merge ancestry 与 GitHub artifact metadata 已由 immutable post-merge handoff 持久绑定；R2-T02 author package 保持不可变的 author-stage 状态。R2-T03 初始阻断 `blocked_missing_authoritative_t02_final_gate_binding` 已解决，当前允许启动；R2-T04 至 R2-T08 仍 blocked。
 
 R2-T01 author-draft 历史门禁记录：`current_task: R2-T01 参数候选收敛与 shortlist registry`、`next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约`、`R2-T02_allowed_to_start: false`。这些 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 R2-T02 author package 记录为准。
 
 - `R2-T01` 参数候选收敛与 shortlist registry：completed via PR #91 final gate
-- `R2-T02` confirmed-state 与 event-zone 双层状态机契约：PR #94 已合并，但缺少 committed downstream final-gate binding
-- `R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计：blocked_missing_authoritative_t02_final_gate_binding
+- `R2-T02` confirmed-state 与 event-zone 双层状态机契约：completed via PR #94 and immutable post-merge handoff
+- `R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计：in progress；startup gate passed
 - `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：blocked
 - `R2-T05` canonical 日度状态与事件区间物化：blocked
 - `R2-T06` canonical 状态机无前视回放与一致性验收：blocked
