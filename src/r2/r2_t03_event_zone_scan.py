@@ -412,7 +412,7 @@ def _execute_routes(
 def _iter_security_timelines(
     con: duckdb.DuckDBPyConnection, route_id: str
 ) -> Iterator[tuple[str, list[tuple[Any, ...]]]]:
-    cursor = con.execute(
+    cursor = con.cursor().execute(
         """
         SELECT security_id, trade_date, available_time, eligible, quality_state,
                raw_state, confirmed_state, confirmed_start_date, confirmation_time
@@ -422,20 +422,23 @@ def _iter_security_timelines(
     )
     current_security = None
     rows: list[tuple[Any, ...]] = []
-    while True:
-        batch = cursor.fetchmany(20000)
-        if not batch:
-            break
-        for row in batch:
-            if current_security is None:
-                current_security = row[0]
-            if row[0] != current_security:
-                yield current_security, rows
-                current_security = row[0]
-                rows = []
-            rows.append(row)
-    if current_security is not None:
-        yield current_security, rows
+    try:
+        while True:
+            batch = cursor.fetchmany(20000)
+            if not batch:
+                break
+            for row in batch:
+                if current_security is None:
+                    current_security = row[0]
+                if row[0] != current_security:
+                    yield current_security, rows
+                    current_security = row[0]
+                    rows = []
+                rows.append(row)
+        if current_security is not None:
+            yield current_security, rows
+    finally:
+        cursor.close()
 
 
 def _process_security(
