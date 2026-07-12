@@ -6,7 +6,7 @@
   "properties": {
     "task_id": {"const": "R2-T02"},
     "run_id": {"type": "string"},
-    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v3"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v4"},
     "execution_code_commit": {"type": "string"},
     "primary_cell_count": {"const": 36},
     "shared_q_sidecar_cell_count": {"const": 36},
@@ -51,7 +51,7 @@
     "table_contract": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["primary_key", "denominator_scope", "fields"],
+      "required": ["primary_key", "denominator_scope", "fields", "row_schema"],
       "properties": {
         "primary_key": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "denominator_scope": {"type": "string", "minLength": 1},
@@ -61,12 +61,27 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name", "type", "nullable"],
+            "required": ["name", "type", "nullable", "enum_values"],
             "properties": {
               "name": {"type": "string", "minLength": 1},
               "type": {"type": "string", "minLength": 1},
-              "nullable": {"type": "boolean"}
+              "nullable": {"type": "boolean"},
+              "enum_values": {
+                "type": "array",
+                "items": {"type": "string"},
+                "uniqueItems": true
+              }
             }
+          }
+        },
+        "row_schema": {
+          "type": "object",
+          "required": ["type", "additionalProperties", "required", "properties"],
+          "properties": {
+            "type": {"const": "object"},
+            "additionalProperties": {"const": false},
+            "required": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "properties": {"type": "object"}
           }
         }
       }

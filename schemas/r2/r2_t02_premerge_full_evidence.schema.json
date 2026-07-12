@@ -40,8 +40,15 @@
         "committed_artifact_sidecar_sha256",
         "author_stage_review_record_path",
         "author_stage_review_record_sha256",
-        "scientific_review_record_path",
-        "scientific_review_record_sha256"
+        "github_reviews_api_path",
+        "github_reviews_api_sha256",
+        "github_scientific_review_id",
+        "github_scientific_review_commit_id",
+        "github_scientific_reviewer_login",
+        "github_scientific_review_state",
+        "github_scientific_review_submitted_at",
+        "github_scientific_review_body_sha256",
+        "github_scientific_review_api_verified"
     ],
     "properties": {
         "task_id": {"const": "R2-T02"},
@@ -81,7 +88,14 @@
         "committed_artifact_sidecar_sha256": {"type": "string"},
         "author_stage_review_record_path": {"type": "string"},
         "author_stage_review_record_sha256": {"type": "string"},
-        "scientific_review_record_path": {"type": "string"},
-        "scientific_review_record_sha256": {"type": "string"}
+        "github_reviews_api_path": {"type": "string", "minLength": 1},
+        "github_reviews_api_sha256": {"type": "string", "minLength": 64},
+        "github_scientific_review_id": {"type": "integer", "minimum": 1},
+        "github_scientific_review_commit_id": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "github_scientific_reviewer_login": {"type": "string", "minLength": 1},
+        "github_scientific_review_state": {"enum": ["APPROVED", "COMMENTED"]},
+        "github_scientific_review_submitted_at": {"type": "string", "minLength": 1},
+        "github_scientific_review_body_sha256": {"type": "string", "minLength": 64},
+        "github_scientific_review_api_verified": {"const": true}
     }
 }

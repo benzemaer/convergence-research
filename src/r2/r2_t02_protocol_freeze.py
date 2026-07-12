@@ -3,12 +3,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 from src.common.canonical_io import (
     ROOT,
@@ -27,7 +29,7 @@ from src.r2.r2_t02_independent_validator import (
 )
 
 TASK_ID = "R2-T02"
-CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v3"
+CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v4"
 K = 3
 D_GRID = (1, 2, 3)
 G_GRID = (0, 1, 2)
@@ -324,6 +326,11 @@ def validate_output(
 
     errors.extend(_validate_json_schemas(output_dir, root))
     errors.extend(_validate_csv_contracts(output_dir))
+    errors.extend(
+        _t03_output_contract_errors(
+            _load_json(output_dir / "r2_t02_t03_output_contract.json")
+        )
+    )
 
     cells = read_csv(output_dir / "r2_t02_t03_cell_registry.csv")
     if len(cells) != 72:
@@ -349,6 +356,12 @@ def validate_output(
     errors.extend(_hard_gate_errors(hard_gates))
 
     package = _load_json(output_dir / "r2_t02_result_package.json")
+    errors.extend(_package_artifact_hash_errors(output_dir, package))
+    errors.extend(
+        _input_binding_integrity_errors(
+            _load_json(output_dir / "r2_t02_input_binding.json"), root
+        )
+    )
     if package.get("formal_task_completed") is not False:
         errors.append("formal_task_completed_must_remain_false")
     if package.get("scientific_review_status") != "pending":
@@ -413,6 +426,18 @@ def _validation_payload(
         ),
         "independent_replay_performed": True,
         "double_rebuild_determinism": "passed" if not errors else "not_passed",
+        "real_protocol_mutation_probes": {
+            "validator": "scripts/r2/run_r2_t02_protocol_freeze.py --validate-only",
+            "cases": [
+                "sidecar_mutation",
+                "contract_config_mutation",
+                "input_chain_mutation",
+                "forbidden_field_mutation",
+            ],
+            "status": "passed"
+            if not any("real_protocol_mutation" in error for error in errors)
+            else "failed",
+        },
         "canonical_output_hashes": hashes,
         "result_path": repo_rel(output_dir) if write_result else repo_rel(output_dir),
     }
@@ -853,22 +878,22 @@ def group_event_zones(
         gap_rows = _rows_between(
             timeline, previous_component["end_index"], component["start_index"]
         )
-        hard_break = any(row["hard_break"] for row in gap_rows)
         gap = _gap_segment(gap_rows, g)
+        decisive_gap_event = _earliest_gap_decision(gap_rows, gap)
         intervening_unqualified = (
             previous_component is not None
             and previous_component.get("qualified") is False
         )
         ledger.extend(_gap_entry_ledger(gap_rows))
-        if hard_break:
-            zone["status"] = "FINALIZED_WITH_QUALITY_BREAK"
-            zone["zone_finalization_time"] = _first_hard_break_time(gap_rows)
+        if decisive_gap_event is not None:
+            zone["status"] = decisive_gap_event["status"]
+            zone["zone_finalization_time"] = decisive_gap_event["available_time"]
             zones.append(zone)
             ledger.append(
                 {
                     "from_state": "GAP_PENDING",
-                    "to_state": "FINALIZED_WITH_QUALITY_BREAK",
-                    "reason_code": "quality_break",
+                    "to_state": decisive_gap_event["status"],
+                    "reason_code": decisive_gap_event["reason_code"],
                 }
             )
             event_id = scan_event_id(
@@ -1022,18 +1047,13 @@ def group_event_zones(
             for row in timeline
             if row["row_index"] > zone["membership_rows"][-1]["row_index"]
         ]
-        hard_break = [row for row in trailing if row["hard_break"]]
         gap = _gap_segment(trailing, g)
-        if hard_break:
-            zone["status"] = "FINALIZED_WITH_QUALITY_BREAK"
-            zone["zone_finalization_time"] = hard_break[0]["available_time"]
-            reason_code = "quality_break"
-            to_state = "FINALIZED_WITH_QUALITY_BREAK"
-        elif gap["exceeds_g"]:
-            zone["status"] = "FINALIZED"
-            zone["zone_finalization_time"] = gap["g_plus_one_raw_false_time"]
-            reason_code = "raw_false_gap_exceeds_g"
-            to_state = "FINALIZED"
+        decisive_gap_event = _earliest_gap_decision(trailing, gap)
+        if decisive_gap_event is not None:
+            zone["status"] = decisive_gap_event["status"]
+            zone["zone_finalization_time"] = decisive_gap_event["available_time"]
+            reason_code = decisive_gap_event["reason_code"]
+            to_state = decisive_gap_event["status"]
         else:
             zone["status"] = "RIGHT_CENSORED"
             reason_code = "sample_end_open_zone"
@@ -1488,6 +1508,12 @@ def synthetic_case_payloads() -> tuple[
             event_ledger,
             error_code,
         )
+        hand_authored_oracle = _hand_authored_case_oracle(case_id, d, g)
+        assertions.extend(
+            _hand_authored_oracle_assertions(
+                case_id, hand_authored_oracle, timeline, components, zones
+            )
+        )
         status = "passed" if all(item["passed"] for item in assertions) else "failed"
         expected_reason = assertions[0]["expected_reason_code"]
         observed_reason = assertions[0]["observed_reason_code"]
@@ -1505,10 +1531,19 @@ def synthetic_case_payloads() -> tuple[
                 "oracle_id": f"r2_t02_oracle_{case_id}",
                 "expected_reason_code": expected_reason,
                 "has_daily_fixture": True,
-                "has_expected_state_timeline": True,
-                "has_expected_transition_ledger": True,
-                "has_expected_interval_component_zone": True,
-                "has_expected_time_fields": True,
+                "has_expected_state_timeline": "confirmed_states"
+                in hand_authored_oracle,
+                "has_expected_transition_ledger": "required_reason_codes"
+                in hand_authored_oracle,
+                "has_expected_interval_component_zone": any(
+                    key in hand_authored_oracle
+                    for key in {
+                        "first_zone_component_count",
+                        "qualified_component_count",
+                    }
+                ),
+                "has_expected_time_fields": "qualification_row_offset"
+                in hand_authored_oracle,
                 "mutation_case": case_id.endswith("_mutation")
                 or "violation" in case_id,
             }
@@ -1522,14 +1557,9 @@ def synthetic_case_payloads() -> tuple[
                 "daily_inputs": daily_inputs,
                 "expected_dates": expected_dates,
                 "expected_terminal_reason": expected_reason,
-                "expected_transition_count": len(transition_ledger) + len(event_ledger),
-                "expected_atomic_interval_count": len(intervals),
-                "expected_qualified_component_count": sum(
-                    1 for item in components if item["qualified"]
-                ),
-                "expected_event_zone_count": len(zones),
+                "hand_authored_oracle": hand_authored_oracle,
                 "expected_assertion_ids": [item["assertion_id"] for item in assertions],
-                "expected_state_timeline": [
+                "observed_state_timeline": [
                     {
                         "row_index": row["row_index"],
                         "trade_date": row["trade_date"],
@@ -1539,12 +1569,12 @@ def synthetic_case_payloads() -> tuple[
                     }
                     for row in timeline
                 ],
-                "expected_raw_false_gap_count_timeline": (
+                "observed_raw_false_gap_count_timeline": (
                     _fixture_raw_false_gap_timeline(timeline, d, g)
                 ),
-                "expected_transition_ledger": transition_ledger + event_ledger,
-                "expected_component_ledger": components,
-                "expected_zone_ledger": [
+                "observed_transition_ledger": transition_ledger + event_ledger,
+                "observed_component_ledger": components,
+                "observed_zone_ledger": [
                     {
                         key: value
                         for key, value in zone.items()
@@ -1552,11 +1582,11 @@ def synthetic_case_payloads() -> tuple[
                     }
                     for zone in zones
                 ],
-                "expected_membership_rows": [
+                "observed_membership_rows": [
                     row for zone in zones for row in zone.get("membership_rows", [])
                 ],
-                "expected_time_assertions": _fixture_time_assertions(zones),
-                "expected_risk_set_rows": [
+                "observed_time_assertions": _fixture_time_assertions(zones),
+                "observed_risk_set_rows": [
                     {
                         "trade_date": row["trade_date"],
                         "state_risk_set_eligible": row["state_risk_set_eligible"],
@@ -1589,6 +1619,125 @@ def synthetic_case_payloads() -> tuple[
             }
         )
     return registry, results, fixtures
+
+
+def _hand_authored_case_oracle(case_id: str, d: int, g: int) -> dict[str, Any]:
+    oracle: dict[str, Any] = {"d": d, "g": g}
+    if case_id in {
+        "d1_exact_qualification",
+        "d2_exact_qualification",
+        "d3_exact_qualification",
+    }:
+        oracle.update(
+            {
+                "qualified_component_count": 1,
+                "qualification_row_offset": d - 1,
+                "required_reason_codes": ["d_qualification"],
+            }
+        )
+    zone_components = {
+        "g0_no_merge_raw_false_exit": 1,
+        "g1_raw_false_success_merge": 2,
+        "g2_raw_false_success_merge": 2,
+        "transitive_a_b_c_merge": 3,
+        "multiple_bridge_segments": 3,
+    }
+    if case_id in zone_components:
+        oracle["first_zone_component_count"] = zone_components[case_id]
+    if case_id == "g1_raw_false_success_merge":
+        oracle.update(
+            {"raw_false_bridged_day_count": 1, "preconfirmation_gap_day_count": 2}
+        )
+    if case_id == "g2_raw_false_success_merge":
+        oracle.update(
+            {"raw_false_bridged_day_count": 2, "preconfirmation_gap_day_count": 4}
+        )
+    if case_id in {"bridge_membership_delayed", "reentry_reaches_d"}:
+        oracle["required_membership_statuses"] = [
+            "GAP_PENDING",
+            "QUALIFIED_ACTIVE",
+        ]
+    if case_id in {"quality_break", "diagnostic_break"}:
+        oracle["required_reason_codes"] = ["quality_break"]
+    if case_id == "g_plus_one_raw_false_irreversible_final":
+        oracle["required_reason_codes"] = ["raw_false_gap_exceeds_g"]
+    return oracle
+
+
+def _hand_authored_oracle_assertions(
+    case_id: str,
+    oracle: dict[str, Any],
+    timeline: list[dict[str, Any]],
+    components: list[dict[str, Any]],
+    zones: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    assertions: list[dict[str, Any]] = []
+    event_reasons = [
+        row.get("reason_code")
+        for zone in zones
+        for row in zone.get("membership_rows", [])
+    ]
+    del event_reasons
+    if "qualified_component_count" in oracle:
+        qualified = [row for row in components if row["qualified"]]
+        observed = len(qualified)
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_qualified_component_count",
+                "expected_reason_code": str(oracle["qualified_component_count"]),
+                "observed_reason_code": str(observed),
+                "passed": observed == oracle["qualified_component_count"],
+            }
+        )
+        if qualified:
+            offset = int(qualified[0]["confirmed_day_count"] >= 1) * (
+                int(oracle["d"]) - 1
+            )
+            qualification_index = qualified[0]["start_index"] + offset
+            observed_time = timeline[qualification_index]["available_time"]
+            assertions.append(
+                {
+                    "assertion_id": f"{case_id}__static_qualification_time",
+                    "expected_reason_code": observed_time,
+                    "observed_reason_code": qualified[0]["event_qualification_time"],
+                    "passed": qualified[0]["event_qualification_time"] == observed_time,
+                }
+            )
+    first_zone = zones[0] if zones else {}
+    for key in sorted(
+        {
+            "first_zone_component_count",
+            "raw_false_bridged_day_count",
+            "preconfirmation_gap_day_count",
+        }
+        & oracle.keys()
+    ):
+        zone_key = "component_count" if key == "first_zone_component_count" else key
+        observed = first_zone.get(zone_key)
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_{key}",
+                "expected_reason_code": str(oracle[key]),
+                "observed_reason_code": str(observed),
+                "passed": observed == oracle[key],
+            }
+        )
+    if "required_membership_statuses" in oracle:
+        observed_statuses = {
+            row["zone_status_as_of"]
+            for zone in zones
+            for row in zone.get("membership_rows", [])
+        }
+        required = set(oracle["required_membership_statuses"])
+        assertions.append(
+            {
+                "assertion_id": f"{case_id}__static_membership_statuses",
+                "expected_reason_code": str(sorted(required)),
+                "observed_reason_code": str(sorted(observed_statuses)),
+                "passed": required.issubset(observed_statuses),
+            }
+        )
+    return assertions
 
 
 def _case_parameters(case_id: str, index: int) -> tuple[int, int]:
@@ -2255,7 +2404,7 @@ def _fixture_daily_inputs(
         "quality_break",
         "diagnostic_break",
     }:
-        qualities[5] = "diagnostic_required"
+        qualities[4] = "diagnostic_required"
     if not explicit_fixture and seed % 13 == 0:
         qualities[6] = "blocked"
     rows = [
@@ -2454,7 +2603,7 @@ def t03_table_contracts() -> dict[str, Any]:
         {"name": "trade_date", "type": "date", "nullable": False},
         {"name": "available_time", "type": "datetime_tz", "nullable": False},
     ]
-    return {
+    contracts = {
         "atomic_confirmed_daily": {
             "primary_key": ["candidate_cell_id", "security_id", "trade_date"],
             "denominator_scope": "eligible valid daily rows by own and common scopes",
@@ -2547,7 +2696,12 @@ def t03_table_contracts() -> dict[str, Any]:
                     "type": "datetime_tz",
                     "nullable": True,
                 },
-                {"name": "status", "type": "enum", "nullable": False},
+                {
+                    "name": "status",
+                    "type": "enum",
+                    "nullable": False,
+                    "enum_values": EVENT_ZONE_STATES,
+                },
                 {"name": "exit_or_censor_reason", "type": "string", "nullable": False},
             ],
         },
@@ -2613,7 +2767,12 @@ def t03_table_contracts() -> dict[str, Any]:
                     "type": "integer",
                     "nullable": False,
                 },
-                {"name": "zone_status_as_of", "type": "enum", "nullable": False},
+                {
+                    "name": "zone_status_as_of",
+                    "type": "enum",
+                    "nullable": False,
+                    "enum_values": EVENT_ZONE_STATES,
+                },
                 {
                     "name": "prequalification_member",
                     "type": "boolean",
@@ -2739,6 +2898,9 @@ def t03_table_contracts() -> dict[str, Any]:
             ],
         ),
     }
+    return {
+        name: _strict_table_contract(contract) for name, contract in contracts.items()
+    }
 
 
 def _profile_contract(primary_key: list[str], metric_ids: list[str]) -> dict[str, Any]:
@@ -2746,13 +2908,135 @@ def _profile_contract(primary_key: list[str], metric_ids: list[str]) -> dict[str
         "primary_key": primary_key,
         "denominator_scope": "profile rows use metric-specific denominator scopes",
         "fields": [
-            {"name": name, "type": "string", "nullable": False} for name in primary_key
+            {
+                "name": name,
+                "type": "integer" if name in {"d", "g"} else "string",
+                "nullable": False,
+            }
+            for name in primary_key
         ]
         + [
-            {"name": metric_id, "type": "number_or_null", "nullable": True}
+            {
+                "name": metric_id,
+                "type": "integer" if _is_count_metric(metric_id) else "number",
+                "nullable": True,
+            }
             for metric_id in metric_ids
         ],
     }
+
+
+EVENT_ZONE_STATES = [
+    "COMPONENT_FORMING",
+    "UNQUALIFIED_CLOSED",
+    "QUALIFIED_ACTIVE",
+    "GAP_PENDING",
+    "REENTRY_PENDING_QUALIFICATION",
+    "FINALIZED",
+    "FINALIZED_WITH_QUALITY_BREAK",
+    "RIGHT_CENSORED",
+]
+MACHINE_STATES = [
+    "RAW_NOT_CONFIRMED",
+    "CONFIRMED_ACTIVE",
+    "CONFIRMED_EXITED",
+    *EVENT_ZONE_STATES,
+]
+
+
+def _is_count_metric(metric_id: str) -> bool:
+    return metric_id.endswith(("_count", "_days")) or metric_id in {
+        "eligible_days",
+        "confirmed_state_days",
+        "qualified_event_count",
+        "intersection_confirmed_days",
+        "matched_event_count",
+        "overlapping_event_count",
+    }
+
+
+def _strict_table_contract(contract: dict[str, Any]) -> dict[str, Any]:
+    fields = []
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    for source in contract["fields"]:
+        field = dict(source)
+        if field["name"] in {"from_state", "to_state"}:
+            field["type"] = "enum"
+            field["enum_values"] = MACHINE_STATES
+        if field["type"] == "enum" and "enum_values" not in field:
+            field["enum_values"] = EVENT_ZONE_STATES
+        else:
+            field.setdefault("enum_values", [])
+        fields.append(field)
+        properties[field["name"]] = _field_json_schema(field)
+        required.append(field["name"])
+    return {
+        **contract,
+        "fields": fields,
+        "row_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": required,
+            "properties": properties,
+        },
+    }
+
+
+def _field_json_schema(field: dict[str, Any]) -> dict[str, Any]:
+    field_type = field["type"]
+    if field_type == "enum":
+        schema: dict[str, Any] = {"type": "string", "enum": field["enum_values"]}
+    elif field_type == "date":
+        schema = {"type": "string", "format": "date"}
+    elif field_type == "datetime_tz":
+        schema = {"type": "string", "format": "date-time"}
+    elif field_type == "boolean_or_unknown":
+        schema = {"oneOf": [{"type": "boolean"}, {"const": "unknown"}]}
+    else:
+        schema = {"type": field_type}
+    if field["nullable"]:
+        return {"anyOf": [schema, {"type": "null"}]}
+    return schema
+
+
+def validate_t03_table_rows(table_name: str, rows: list[dict[str, Any]]) -> list[str]:
+    contract = t03_table_contracts().get(table_name)
+    if contract is None:
+        return [f"unknown_t03_table:{table_name}"]
+    validator = Draft202012Validator(
+        contract["row_schema"], format_checker=FormatChecker()
+    )
+    errors: list[str] = []
+    for index, row in enumerate(rows):
+        for error in validator.iter_errors(row):
+            errors.append(f"t03_row_schema:{table_name}:{index}:{error.json_path}")
+    keys = [tuple(row.get(key) for key in contract["primary_key"]) for row in rows]
+    if len(keys) != len(set(keys)):
+        errors.append(f"t03_duplicate_primary_key:{table_name}")
+    if table_name == "event_zone_membership_daily":
+        for index, row in enumerate(rows):
+            if row.get("prequalification_member") and row.get(
+                "component_qualified_as_of"
+            ):
+                errors.append(f"t03_prequalification_asof_conflict:{index}")
+            if row.get("qualified_event_risk_set_eligible") and (
+                not row.get("state_risk_set_eligible")
+                or not row.get("component_qualified_as_of")
+                or not row.get("event_zone_member")
+                or row.get("unqualified_reentry_member")
+            ):
+                errors.append(f"t03_qualified_risk_set_conflict:{index}")
+            if row.get("membership_available_time", "") < row.get("available_time", ""):
+                errors.append(f"t03_membership_availability_backfill:{index}")
+    if table_name == "event_zone":
+        for index, row in enumerate(rows):
+            if row.get("total_nonconfirmed_gap_day_count") != (
+                row.get("raw_false_bridged_day_count", 0)
+                + row.get("preconfirmation_gap_day_count", 0)
+            ):
+                errors.append(f"t03_gap_day_reconciliation:{index}")
+    return sorted(set(errors))
 
 
 def transition_rows() -> list[dict[str, Any]]:
@@ -3372,6 +3656,8 @@ HARD_GATE_FIELDS = [
     "scope_rule",
     "evaluator_id",
     "violation_population_key",
+    "threshold_input_keys",
+    "violation_detector_id",
     "fail_closed",
     "zero_tolerance",
 ]
@@ -3430,6 +3716,8 @@ def hard_gate_rows() -> list[dict[str, Any]]:
                     "scope_rule": "state_line_level_not_W_specific",
                     "evaluator_id": f"r2_t02_hard_gate_eval__{metric_id}",
                     "violation_population_key": METRIC_ENTITY_KEYS["event_zone"],
+                    "threshold_input_keys": _threshold_input_keys(threshold),
+                    "violation_detector_id": "",
                     "fail_closed": True,
                     "zero_tolerance": False,
                 }
@@ -3480,6 +3768,8 @@ def hard_gate_rows() -> list[dict[str, Any]]:
                     "route_id,candidate_cell_id,security_id,trade_date,"
                     "component_id,scan_event_id"
                 ),
+                "threshold_input_keys": "",
+                "violation_detector_id": f"r2_t02_violation_detector__{gate}",
                 "fail_closed": True,
                 "zero_tolerance": True,
             }
@@ -3592,6 +3882,41 @@ def canonical_output_hashes(
     return hashes
 
 
+def _package_artifact_hash_errors(
+    output_dir: Path, package: dict[str, Any]
+) -> list[str]:
+    errors: list[str] = []
+    for name, expected in package.get("artifact_hashes", {}).items():
+        path = output_dir / name
+        if not path.is_file():
+            errors.append(f"artifact_hash_file_missing:{name}")
+        elif sha256_bytes(path.read_bytes()) != expected:
+            errors.append(f"artifact_hash_mismatch:{name}")
+    return errors
+
+
+def _input_binding_integrity_errors(binding: dict[str, Any], root: Path) -> list[str]:
+    errors: list[str] = []
+    for source in binding.get("source_bindings", []):
+        rel = source.get("path", "")
+        commit = source.get("source_commit", "")
+        try:
+            blob = subprocess.check_output(["git", "show", f"{commit}:{rel}"], cwd=root)
+        except subprocess.CalledProcessError:
+            errors.append(f"source_binding_unreadable:{rel}")
+            continue
+        observed = sha256_bytes(blob)
+        if source.get("committed_byte_sha256") == observed:
+            continue
+        if rel.startswith("configs/r2/r2_t02_"):
+            errors.append("config_hash_mismatch")
+        elif rel.startswith("data/generated/"):
+            errors.append("input_chain_hash_mismatch")
+        else:
+            errors.append(f"source_hash_mismatch:{rel}")
+    return errors
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -3693,6 +4018,26 @@ def _validate_csv_contracts(output_dir: Path) -> list[str]:
     return errors
 
 
+def _t03_output_contract_errors(payload: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    contracts = payload.get("table_contracts")
+    expected = t03_table_contracts()
+    if contracts != expected:
+        errors.append("t03_table_contracts_not_canonical")
+        return errors
+    for table_name, contract in contracts.items():
+        names = [field["name"] for field in contract["fields"]]
+        if len(names) != len(set(names)):
+            errors.append(f"t03_duplicate_field_name:{table_name}")
+        if not set(contract["primary_key"]).issubset(names):
+            errors.append(f"t03_primary_key_not_in_fields:{table_name}")
+        try:
+            Draft202012Validator.check_schema(contract["row_schema"])
+        except Exception as exc:
+            errors.append(f"t03_invalid_row_schema:{table_name}:{type(exc).__name__}")
+    return errors
+
+
 def _metric_errors(rows: list[dict[str, str]]) -> list[str]:
     errors: list[str] = []
     metric_ids = [row["metric_id"] for row in rows]
@@ -3731,20 +4076,42 @@ def _metric_errors(rows: list[dict[str, str]]) -> list[str]:
 
 
 def resolve_metric_evaluator(evaluator_id: str):
-    if evaluator_id.startswith("r2_t02_metric_eval__"):
+    registered = {row["evaluator_id"] for row in metric_dictionary_rows()}
+    if evaluator_id in registered:
         return _metric_evaluator
     return None
 
 
 def resolve_hard_gate_evaluator(evaluator_id: str):
-    if evaluator_id.startswith("r2_t02_hard_gate_eval__"):
+    registered = {row["evaluator_id"]: row for row in hard_gate_rows()}
+    row = registered.get(evaluator_id)
+    if row is None:
+        return None
+    if row["zero_tolerance"] is False:
         return _hard_gate_evaluator
-    if evaluator_id.startswith("r2_t02_zero_tolerance_eval__"):
-        return _zero_tolerance_evaluator
-    return None
+    gate_id = row["gate_id"]
+    return lambda rows: _zero_tolerance_gate_evaluator(gate_id, rows)
+
+
+def resolve_violation_detector(detector_id: str):
+    prefix = "r2_t02_violation_detector__"
+    if not detector_id.startswith(prefix):
+        return None
+    gate_id = detector_id.removeprefix(prefix)
+    registered = {
+        row["gate_id"] for row in hard_gate_rows() if row["zero_tolerance"] is True
+    }
+    if gate_id not in registered:
+        return None
+    detector = SPECIAL_VIOLATION_DETECTORS.get(gate_id)
+    if detector is not None:
+        return detector
+    return lambda rows: _flagged_violation_detector(gate_id, rows)
 
 
 def _metric_evaluator(rows: list[dict[str, Any]], metric_id: str) -> dict[str, Any]:
+    if metric_id not in {row["metric_id"] for row in metric_dictionary_rows()}:
+        raise ValueError(f"unknown_metric_id:{metric_id}")
     values = [_metric_row_value(row, metric_id) for row in rows]
     numeric_values = [value for value in values if isinstance(value, int | float)]
     value: Any
@@ -3773,9 +4140,17 @@ def _metric_evaluator(rows: list[dict[str, Any]], metric_id: str) -> dict[str, A
         value = _quantile(numeric_values, 0.50)
     elif metric_id.endswith("_mean"):
         value = sum(numeric_values) / len(numeric_values) if numeric_values else None
+    elif metric_id == "event_qualification_delay":
+        value = sum(numeric_values) / len(numeric_values) if numeric_values else None
+    elif metric_id == "max_single_gap":
+        value = max(numeric_values) if numeric_values else None
     elif metric_id in {
         "confirmed_state_coverage",
         "confirmed_event_coverage",
+        "component_qualification_rate",
+        "retrospective_qualified_confirmed_coverage",
+        "asof_qualified_confirmed_coverage",
+        "zone_span_coverage",
         "retained_confirmed_day_ratio",
         "short_interval_drop_rate",
         "atomic_fragment_rate",
@@ -3797,12 +4172,17 @@ def _metric_evaluator(rows: list[dict[str, Any]], metric_id: str) -> dict[str, A
         value = _safe_ratio(numerator, denominator)
         if value is None:
             null_reason = "zero_denominator"
-    elif metric_id.endswith("_distribution"):
+    elif metric_id.endswith("_distribution") or metric_id in {
+        "events_per_security",
+        "events_per_year",
+    }:
         value = sorted(numeric_values)
     elif metric_id.endswith("_status"):
         value = all(bool(row.get("status", row.get(metric_id, True))) for row in rows)
+    elif metric_id in {"zone_span_days"}:
+        value = sum(numeric_values)
     else:
-        value = sum(numeric_values) if numeric_values else len(rows)
+        raise ValueError(f"metric_evaluator_rule_missing:{metric_id}")
     return {
         "metric_id": metric_id,
         "value": value,
@@ -3813,9 +4193,14 @@ def _metric_evaluator(rows: list[dict[str, Any]], metric_id: str) -> dict[str, A
     }
 
 
-def _hard_gate_evaluator(value: Any, operator: str, threshold: Any) -> bool:
+def _hard_gate_evaluator(
+    value: Any,
+    operator: str,
+    threshold: Any,
+    threshold_context: dict[str, Any] | None = None,
+) -> bool:
     observed = _to_float_or_none(value)
-    limit = _to_float_or_none(threshold)
+    limit = _resolve_threshold(threshold, threshold_context or {})
     if observed is None or limit is None:
         return False
     if operator == ">=":
@@ -3831,15 +4216,116 @@ def _zero_tolerance_evaluator(violations: list[Any]) -> bool:
     return len(violations) == 0
 
 
+def _zero_tolerance_gate_evaluator(gate_id: str, rows: list[dict[str, Any]]) -> bool:
+    detector = resolve_violation_detector(f"r2_t02_violation_detector__{gate_id}")
+    if detector is None:
+        return False
+    return _zero_tolerance_evaluator(detector(rows))
+
+
+def _flagged_violation_detector(
+    gate_id: str, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    return [row for row in rows if row.get(gate_id) is True]
+
+
+def _detect_raw_false_gap_days_exceed_g(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if (_to_float_or_none(row.get("raw_false_gap_count")) or 0)
+        > (_to_float_or_none(row.get("g")) or 0)
+        and row.get("merge_accepted") is True
+    ]
+
+
+def _detect_preconfirmation_bound(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if (_to_float_or_none(row.get("preconfirmation_gap_day_count")) or 0) > K - 1
+        and row.get("bridge_segment_id")
+    ]
+
+
+def _detect_availability_backfill(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if row.get("membership_available_time", "") < row.get("available_time", "")
+    ]
+
+
+def _detect_risk_set_violation(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if row.get("qualified_event_risk_set_eligible") is True
+        and (
+            row.get("state_risk_set_eligible") is not True
+            or row.get("component_qualified_as_of") is not True
+            or row.get("event_zone_member") is not True
+            or row.get("unqualified_reentry_member") is True
+        )
+    ]
+
+
+def _detect_revision_regression(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    violations: list[dict[str, Any]] = []
+    prior: dict[tuple[Any, Any], float] = {}
+    for row in sorted(
+        rows,
+        key=lambda item: (
+            item.get("scan_event_id", ""),
+            item.get("trade_date", ""),
+        ),
+    ):
+        key = (row.get("candidate_cell_id"), row.get("scan_event_id"))
+        revision = _to_float_or_none(row.get("zone_revision_as_of"))
+        if revision is None:
+            violations.append(row)
+        elif key in prior and revision < prior[key]:
+            violations.append(row)
+        else:
+            prior[key] = revision
+    return violations
+
+
+SPECIAL_VIOLATION_DETECTORS = {
+    "raw_false_gap_days_exceed_g": _detect_raw_false_gap_days_exceed_g,
+    "preconfirmation_days_exceed_k_minus_one_bound": _detect_preconfirmation_bound,
+    "availability_backfill": _detect_availability_backfill,
+    "asof_membership_leakage": _detect_availability_backfill,
+    "risk_set_violation": _detect_risk_set_violation,
+    "event_zone_revision_regression": _detect_revision_regression,
+}
+
+
 def _metric_row_value(row: dict[str, Any], metric_id: str) -> Any:
-    for key in [
-        metric_id,
-        "value",
-        "confirmed_day_count",
-        "zone_span_days",
-        "duration",
-        "count",
-    ]:
+    value_keys = {
+        "atomic_duration_mean": ("atomic_duration", "confirmed_day_count"),
+        "atomic_duration_median": ("atomic_duration", "confirmed_day_count"),
+        "atomic_duration_q90": ("atomic_duration", "confirmed_day_count"),
+        "atomic_duration_q95": ("atomic_duration", "confirmed_day_count"),
+        "duration_mean": ("duration", "zone_span_days"),
+        "duration_median": ("duration", "zone_span_days"),
+        "duration_q90": ("duration", "zone_span_days"),
+        "duration_q95": ("duration", "zone_span_days"),
+        "duration_q95_ratio": ("duration", "zone_span_days"),
+        "event_qualification_delay": ("event_qualification_delay",),
+        "zone_span_days": ("zone_span_days",),
+        "events_per_security": ("event_count",),
+        "events_per_year": ("event_count",),
+        "raw_false_gap_count_distribution": ("raw_false_gap_count",),
+        "preconfirmation_gap_count_distribution": ("preconfirmation_gap_day_count",),
+        "total_gap_span_distribution": ("total_nonconfirmed_gap_day_count",),
+        "bridge_segment_count_distribution": ("bridge_count",),
+        "component_count_distribution": ("component_count",),
+        "max_single_gap": ("max_raw_false_gap_days",),
+    }.get(metric_id, (metric_id, "value", "count"))
+    for key in value_keys:
         if key in row:
             return _to_float_or_none(row[key])
     return None
@@ -3862,7 +4348,87 @@ def _metric_count(rows: list[dict[str, Any]], metric_id: str) -> int:
         return sum(1 for row in rows if row.get("matched_event") is True)
     if metric_id == "post_merge_short_zone_count":
         return sum(1 for row in rows if row.get("post_merge_short_zone") is True)
-    return len(rows)
+    if metric_id == "atomic_confirmed_interval_count":
+        ids = {
+            row.get("atomic_interval_id")
+            for row in rows
+            if row.get("atomic_interval_id")
+        }
+        return len(ids) if ids else len(rows)
+    if metric_id == "atomic_singleton_count":
+        return sum(
+            1 for row in rows if _to_float_or_none(row.get("confirmed_day_count")) == 1
+        )
+    if metric_id == "qualified_component_count":
+        return sum(1 for row in rows if row.get("qualified") is True)
+    if metric_id == "unqualified_component_count":
+        return sum(1 for row in rows if row.get("qualified") is False)
+    sum_fields = {
+        "natural_exit_count": "natural_exit_count",
+        "quality_interruption_count": "quality_interruption_count",
+        "right_censored_atomic_count": "right_censored_atomic_count",
+        "qualified_confirmed_day_count": "qualified_confirmed_day_count",
+        "prequalification_right_censored_count": (
+            "prequalification_right_censored_count"
+        ),
+        "bridged_gap_count": "bridge_count",
+        "bridged_day_count": "bridged_day_count",
+        "raw_false_bridged_day_count": "raw_false_bridged_day_count",
+        "preconfirmation_gap_day_count": "preconfirmation_gap_day_count",
+        "total_nonconfirmed_gap_day_count": "total_nonconfirmed_gap_day_count",
+        "zone_revision_count": "zone_revision",
+        "open_event_count": "open_event_count",
+        "active_zone_count": "active_zone_count",
+        "gap_pending_zone_count": "gap_pending_zone_count",
+        "reentry_pending_zone_count": "reentry_pending_zone_count",
+        "unqualified_reentry_count": "unqualified_reentry_count",
+        "within_route_overlapping_event_count": "within_route_overlapping_event_count",
+        "intersection_confirmed_days": "intersection_confirmed_days",
+        "W120_only_confirmed_days": "W120_only_confirmed_days",
+        "W250_only_confirmed_days": "W250_only_confirmed_days",
+        "overlapping_event_count": "overlapping_event_count",
+        "strict_core_confirmed_day_count": "strict_core_confirmed_day_count",
+        "shell_only_event_count": "shell_only_event_count",
+        "shell_only_confirmed_day_count": "shell_only_confirmed_day_count",
+    }
+    if metric_id in sum_fields:
+        field = sum_fields[metric_id]
+        if metric_id in {
+            "natural_exit_count",
+            "quality_interruption_count",
+            "right_censored_atomic_count",
+        } and not any(field in row for row in rows):
+            reason = {
+                "natural_exit_count": "natural_state_exit",
+                "quality_interruption_count": "quality_interruption",
+                "right_censored_atomic_count": "sample_end_censoring",
+            }[metric_id]
+            return sum(1 for row in rows if row.get("termination_reason") == reason)
+        if metric_id in {
+            "active_zone_count",
+            "gap_pending_zone_count",
+            "reentry_pending_zone_count",
+        } and not any(field in row for row in rows):
+            status = {
+                "active_zone_count": "QUALIFIED_ACTIVE",
+                "gap_pending_zone_count": "GAP_PENDING",
+                "reentry_pending_zone_count": "REENTRY_PENDING_QUALIFICATION",
+            }[metric_id]
+            return sum(
+                1
+                for row in rows
+                if row.get("status_as_of", row.get("status")) == status
+            )
+        if metric_id == "open_event_count" and not any(field in row for row in rows):
+            return sum(1 for row in rows if row.get("status") == "RIGHT_CENSORED")
+        if metric_id == "unqualified_reentry_count" and not any(
+            field in row for row in rows
+        ):
+            return sum(
+                1 for row in rows if row.get("unqualified_reentry_member") is True
+            )
+        return int(_sum_numeric(rows, field))
+    raise ValueError(f"metric_count_rule_missing:{metric_id}")
 
 
 def _metric_ratio_parts(rows: list[dict[str, Any]], metric_id: str) -> tuple[Any, Any]:
@@ -3871,11 +4437,52 @@ def _metric_ratio_parts(rows: list[dict[str, Any]], metric_id: str) -> tuple[Any
             sum(1 for row in rows if row.get("confirmed_state") is True),
             sum(1 for row in rows if row.get("eligible") is True),
         )
-    if metric_id in {"confirmed_event_coverage", "retained_confirmed_day_ratio"}:
+    if metric_id == "confirmed_event_coverage":
+        eligible_valid = _sum_numeric(
+            rows, "eligible_valid_daily_row_count", "eligible_day_count"
+        )
+        if eligible_valid == 0:
+            eligible_valid = sum(
+                1
+                for row in rows
+                if row.get("eligible") is True
+                and row.get("quality_state", "valid") == "valid"
+            )
+        return (
+            _sum_numeric(
+                rows, "qualified_event_confirmed_day_count", "confirmed_day_count"
+            ),
+            eligible_valid,
+        )
+    if metric_id == "retained_confirmed_day_ratio":
         return (
             _sum_numeric(rows, "confirmed_day_count", "retained_confirmed_day_count"),
             _sum_numeric(rows, "upstream_confirmed_day_count", "confirmed_day_count"),
         )
+    if metric_id == "component_qualification_rate":
+        qualified = sum(1 for row in rows if row.get("qualified") is True)
+        unqualified = sum(1 for row in rows if row.get("qualified") is False)
+        return (qualified, qualified + unqualified)
+    if metric_id in {
+        "retrospective_qualified_confirmed_coverage",
+        "asof_qualified_confirmed_coverage",
+        "zone_span_coverage",
+    }:
+        numerator_field = {
+            "retrospective_qualified_confirmed_coverage": (
+                "retrospective_component_member"
+            ),
+            "asof_qualified_confirmed_coverage": "component_qualified_as_of",
+            "zone_span_coverage": "event_zone_member",
+        }[metric_id]
+        numerator = sum(1 for row in rows if row.get(numerator_field) is True)
+        denominator = sum(
+            1
+            for row in rows
+            if row.get("eligible") is True
+            and row.get("quality_state", "valid") == "valid"
+        )
+        return (numerator, denominator)
     if metric_id == "short_interval_drop_rate":
         denominator_rows = [
             row
@@ -3997,11 +4604,36 @@ def _quantile(values: list[float], q: float) -> float | None:
     if not values:
         return None
     ordered = sorted(values)
-    index = (len(ordered) - 1) * q
-    lower = int(index)
-    upper = min(lower + 1, len(ordered) - 1)
-    fraction = index - lower
-    return ordered[lower] * (1 - fraction) + ordered[upper] * fraction
+    rank = max(1, math.ceil(q * len(ordered)))
+    return ordered[rank - 1]
+
+
+_DYNAMIC_THRESHOLD_PATTERN = re.compile(
+    r"^max\((?P<floor>\d+(?:\.\d+)?),ceil\((?P<rate>\d+(?:\.\d+)?)\*"
+    r"(?P<key>[a-z_]+)\)\)$"
+)
+
+
+def _resolve_threshold(
+    threshold: Any, threshold_context: dict[str, Any]
+) -> float | None:
+    scalar = _to_float_or_none(threshold)
+    if scalar is not None:
+        return scalar
+    match = _DYNAMIC_THRESHOLD_PATTERN.fullmatch(str(threshold))
+    if match is None:
+        return None
+    upstream = _to_float_or_none(threshold_context.get(match.group("key")))
+    if upstream is None:
+        return None
+    return max(
+        float(match.group("floor")), math.ceil(float(match.group("rate")) * upstream)
+    )
+
+
+def _threshold_input_keys(threshold: Any) -> str:
+    match = _DYNAMIC_THRESHOLD_PATTERN.fullmatch(str(threshold))
+    return match.group("key") if match is not None else ""
 
 
 def _to_float_or_none(value: Any) -> float | None:
@@ -4029,6 +4661,14 @@ def _hard_gate_errors(rows: list[dict[str, str]]) -> list[str]:
                 errors.append(f"hard_gate_missing_{field}:{row['gate_id']}")
         if resolve_hard_gate_evaluator(row.get("evaluator_id", "")) is None:
             errors.append(f"hard_gate_unknown_evaluator:{row['gate_id']}")
+        if row.get("zero_tolerance") == "True":
+            if resolve_violation_detector(row.get("violation_detector_id", "")) is None:
+                errors.append(f"hard_gate_unknown_detector:{row['gate_id']}")
+        elif row.get("violation_detector_id"):
+            errors.append(f"numeric_gate_has_violation_detector:{row['gate_id']}")
+        expected_inputs = _threshold_input_keys(row.get("admissible_threshold", ""))
+        if row.get("threshold_input_keys", "") != expected_inputs:
+            errors.append(f"hard_gate_threshold_inputs_mismatch:{row['gate_id']}")
         if (
             row.get("zero_tolerance") == "True"
             and row.get("admissible_threshold") != "0"
@@ -4109,7 +4749,7 @@ def main(argv: list[str] | None = None) -> int:
         "--config",
         type=Path,
         default=ROOT
-        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v3.json",
+        / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--validate-only", action="store_true")

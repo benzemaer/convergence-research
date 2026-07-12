@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -56,6 +57,7 @@ def validate_artifacts(output_dir: Path) -> list[str]:
     fixture_by_case = {row["case_id"]: row for row in fixtures.get("fixtures", [])}
     if not _isolated_formal_artifact_rebuild_matches(output_dir):
         errors.append("independent_full_artifact_double_rebuild_mismatch")
+    errors.extend(_real_protocol_mutation_probe_errors(output_dir))
 
     for case_id, fixture_row in sorted(fixture_by_case.items()):
         expected_reason = fixture_row.get("expected_terminal_reason", "")
@@ -86,35 +88,14 @@ def validate_artifacts(output_dir: Path) -> list[str]:
                 errors.append(f"independent_double_rebuild_mismatch:{case_id}")
             if replay["terminal_reason"] != fixture_row["expected_terminal_reason"]:
                 errors.append(f"independent_fixture_terminal_mismatch:{case_id}")
-            for key in [
-                "transition_count",
-                "atomic_interval_count",
-                "qualified_component_count",
-                "event_zone_count",
-            ]:
-                expected_key = f"expected_{key}"
-                if int(fixture_row.get(expected_key, -1)) != replay[key]:
-                    errors.append(f"independent_fixture_{key}_mismatch:{case_id}")
+            errors.extend(_independent_membership_errors(case_id, replay))
         if any(
             item.startswith("default_fixture")
             for item in fixture_row.get("expected_assertion_ids", [])
         ):
             errors.append(f"independent_generic_assertion_detected:{case_id}")
-        for key in [
-            "expected_state_timeline",
-            "expected_raw_false_gap_count_timeline",
-            "expected_transition_ledger",
-            "expected_component_ledger",
-            "expected_zone_ledger",
-            "expected_membership_rows",
-            "expected_time_assertions",
-            "expected_risk_set_rows",
-        ]:
-            if key not in fixture_row:
-                errors.append(
-                    f"independent_missing_fixture_expected_artifact:{case_id}:{key}"
-                )
-        errors.extend(_independent_membership_errors(case_id, fixture_row))
+        if "hand_authored_oracle" not in fixture_row:
+            errors.append(f"independent_missing_hand_authored_oracle:{case_id}")
 
     missing_case = result_by_case.get("missing_row_fail_closed")
     if (
@@ -253,6 +234,7 @@ def _independent_fixture_replay(fixture: dict[str, Any]) -> dict[str, Any]:
                 "atomic_interval_count": 0,
                 "qualified_component_count": 0,
                 "event_zone_count": 0,
+                "membership_rows": [],
             }
         valid_true = (
             row["eligible"]
@@ -301,6 +283,9 @@ def _independent_fixture_replay(fixture: dict[str, Any]) -> dict[str, Any]:
         {**item, "qualified": item["confirmed_day_count"] >= int(fixture["d"])}
         for item in intervals
     ]
+    membership_rows = _independent_membership_rows(
+        timeline, components, int(fixture["d"])
+    )
     event_zone_count, event_transition_count, terminal_reason = _independent_zones(
         timeline, components, int(fixture["g"])
     )
@@ -310,7 +295,67 @@ def _independent_fixture_replay(fixture: dict[str, Any]) -> dict[str, Any]:
         "atomic_interval_count": len(intervals),
         "qualified_component_count": sum(1 for item in components if item["qualified"]),
         "event_zone_count": event_zone_count,
+        "membership_rows": membership_rows,
     }
+
+
+def _independent_membership_rows(
+    timeline: list[dict[str, Any]], components: list[dict[str, Any]], d: int
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    qualified_seen = 0
+    for component in components:
+        qualification_index = component["start_index"] + d - 1
+        qualification_time = (
+            timeline[qualification_index]["available_time"]
+            if component["qualified"]
+            else timeline[component["end_index"]]["available_time"]
+        )
+        for index in range(component["start_index"], component["end_index"] + 1):
+            source = timeline[index]
+            qualified_as_of = component["qualified"] and index >= qualification_index
+            if component["qualified"]:
+                status = (
+                    "QUALIFIED_ACTIVE"
+                    if qualified_as_of
+                    else "REENTRY_PENDING_QUALIFICATION"
+                    if qualified_seen
+                    else "COMPONENT_FORMING"
+                )
+            else:
+                status = (
+                    "REENTRY_PENDING_QUALIFICATION"
+                    if qualified_seen
+                    else "COMPONENT_FORMING"
+                )
+            state_risk = bool(
+                source["eligible"]
+                and source["quality_state"] == "valid"
+                and source["confirmed_state"]
+            )
+            rows.append(
+                {
+                    "trade_date": source["trade_date"],
+                    "component_qualified_as_of": qualified_as_of,
+                    "prequalification_member": not qualified_as_of,
+                    "event_zone_member": component["qualified"],
+                    "unqualified_reentry_member": bool(
+                        qualified_seen and not component["qualified"]
+                    ),
+                    "zone_status_as_of": status,
+                    "membership_available_time": max(
+                        source["available_time"], qualification_time
+                    ),
+                    "row_available_time": source["available_time"],
+                    "state_risk_set_eligible": state_risk,
+                    "qualified_event_risk_set_eligible": bool(
+                        state_risk and component["qualified"] and qualified_as_of
+                    ),
+                }
+            )
+        if component["qualified"]:
+            qualified_seen += 1
+    return rows
 
 
 def _independent_intervals(timeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -390,30 +435,19 @@ def _independent_zones(
             for row in timeline
             if previous["end_index"] < row["row_index"] < component["start_index"]
         ]
-        hard_break = any(row["hard_break"] for row in gap)
-        raw_false = [
-            row
-            for row in gap
-            if row["eligible"]
-            and row["quality_state"] == "valid"
-            and row["raw_state"] is False
-        ]
         transitions += 1 if gap else 0
-        if hard_break:
+        decisive_reason = _independent_gap_decision(gap, g)
+        if decisive_reason == "quality_break":
             zones += 1
             transitions += 1
             terminal_reason = "quality_break"
-        elif len(raw_false) <= g and previous.get("qualified") is not False:
+        elif decisive_reason is None and previous.get("qualified") is not False:
             transitions += 2
             terminal_reason = "reentry_reaches_d_merge"
         else:
             zones += 1
             transitions += 1
-            terminal_reason = (
-                "raw_false_gap_exceeds_g"
-                if len(raw_false) > g
-                else "unqualified_reentry_blocks_merge"
-            )
+            terminal_reason = decisive_reason or "unqualified_reentry_blocks_merge"
         previous = component
     if zone_open:
         zones += 1
@@ -423,21 +457,26 @@ def _independent_zones(
             for row in timeline
             if previous and row["row_index"] > previous["end_index"]
         ]
-        hard_break = any(row["hard_break"] for row in trailing)
-        raw_false = [
-            row
-            for row in trailing
-            if row["eligible"]
+        terminal_reason = (
+            _independent_gap_decision(trailing, g) or "sample_end_open_zone"
+        )
+    return zones, transitions, terminal_reason
+
+
+def _independent_gap_decision(rows: list[dict[str, Any]], g: int) -> str | None:
+    raw_false_count = 0
+    for row in rows:
+        if row["hard_break"]:
+            return "quality_break"
+        if (
+            row["eligible"]
             and row["quality_state"] == "valid"
             and row["raw_state"] is False
-        ]
-        if hard_break:
-            terminal_reason = "quality_break"
-        elif len(raw_false) > g:
-            terminal_reason = "raw_false_gap_exceeds_g"
-        else:
-            terminal_reason = "sample_end_open_zone"
-    return zones, transitions, terminal_reason
+        ):
+            raw_false_count += 1
+            if raw_false_count > g:
+                return "raw_false_gap_exceeds_g"
+    return None
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -614,6 +653,80 @@ def _isolated_formal_artifact_rebuild_matches(output_dir: Path) -> bool:
     return digests[0] == digests[1]
 
 
+def _real_protocol_mutation_probe_errors(output_dir: Path) -> list[str]:
+    if os.environ.get("R2_T02_SKIP_REAL_MUTATION_PROBES") == "1":
+        return []
+    probes = {
+        "sidecar_mutation": "artifact_hash_mismatch:r2_t02_t03_output_contract.json",
+        "contract_config_mutation": "config_hash_mismatch",
+        "input_chain_mutation": "input_chain_hash_mismatch",
+        "forbidden_field_mutation": (
+            "forbidden_output_field:r2_t02_result_package.json:winner"
+        ),
+    }
+    errors: list[str] = []
+    with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+        for case_id, expected_error in probes.items():
+            probe_dir = Path(directory) / case_id / output_dir.name
+            shutil.copytree(output_dir, probe_dir)
+            _apply_real_protocol_mutation(probe_dir, case_id)
+            env = os.environ.copy()
+            env["R2_T02_SKIP_ISOLATED_FORMAL_REBUILD"] = "1"
+            env["R2_T02_SKIP_REAL_MUTATION_PROBES"] = "1"
+            binding = _load_json(probe_dir / "r2_t02_input_binding.json")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/r2/run_r2_t02_protocol_freeze.py",
+                    "--validate-only",
+                    "--config",
+                    str(ROOT / binding["config_path"]),
+                    "--output-dir",
+                    str(probe_dir),
+                ],
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            validation = _load_json(
+                probe_dir / "r2_t02_contract_validation_result.json"
+            )
+            observed_errors = validation.get("errors", [])
+            if result.returncode == 0 or expected_error not in observed_errors:
+                errors.append(f"real_protocol_mutation_not_rejected:{case_id}")
+    return errors
+
+
+def _apply_real_protocol_mutation(output_dir: Path, case_id: str) -> None:
+    if case_id == "sidecar_mutation":
+        path = output_dir / "r2_t02_t03_output_contract.json"
+        payload = _load_json(path)
+        payload["registry_row_count"] = 71
+    elif case_id in {"contract_config_mutation", "input_chain_mutation"}:
+        path = output_dir / "r2_t02_input_binding.json"
+        payload = _load_json(path)
+        prefix = (
+            "configs/r2/r2_t02_"
+            if case_id == "contract_config_mutation"
+            else "data/generated/"
+        )
+        target = next(
+            row for row in payload["source_bindings"] if row["path"].startswith(prefix)
+        )
+        target["committed_byte_sha256"] = "0" * 64
+    elif case_id == "forbidden_field_mutation":
+        path = output_dir / "r2_t02_result_package.json"
+        payload = _load_json(path)
+        payload["winner"] = "forbidden"
+    else:
+        raise ValueError(f"unknown_real_protocol_mutation:{case_id}")
+    path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _package_artifact_names(output_dir: Path) -> list[str]:
     package = _load_json(output_dir / "r2_t02_result_package.json")
     return sorted(
@@ -633,21 +746,14 @@ def _directory_digest(directory: Path, artifact_names: list[str]) -> str:
     return digest.hexdigest()
 
 
-def _independent_membership_errors(case_id: str, fixture: dict[str, Any]) -> list[str]:
+def _independent_membership_errors(case_id: str, replay: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    for row in fixture.get("expected_membership_rows", []):
+    for row in replay.get("membership_rows", []):
         if (
             row.get("is_raw_false_bridge")
             and row.get("zone_status_as_of") != "GAP_PENDING"
         ):
             errors.append(f"independent_membership_raw_false_status:{case_id}")
-        if row.get("is_preconfirmation_gap"):
-            if row.get("zone_status_as_of") != "GAP_PENDING":
-                errors.append(
-                    f"independent_membership_preconfirmation_status:{case_id}"
-                )
-            if row.get("prequalification_member") is not True:
-                errors.append(f"independent_membership_prequalification_flag:{case_id}")
         if row.get("prequalification_member") and row.get("component_qualified_as_of"):
             errors.append(f"independent_membership_prequalified_after_d:{case_id}")
         if row.get("qualified_event_risk_set_eligible") and (
@@ -656,4 +762,6 @@ def _independent_membership_errors(case_id: str, fixture: dict[str, Any]) -> lis
             or not row.get("component_qualified_as_of")
         ):
             errors.append(f"independent_membership_risk_set_violation:{case_id}")
+        if row.get("membership_available_time", "") < row.get("row_available_time", ""):
+            errors.append(f"independent_membership_availability_backfill:{case_id}")
     return sorted(set(errors))

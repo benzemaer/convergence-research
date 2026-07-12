@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2/r2_t02_premerge_full_evidence.schema.json"
 PROFILE_CONFIG = ROOT / "configs/ci/unittest_profiles.v1.json"
 FORMAL_CONFIG = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v3.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json"
 )
 
 
@@ -27,7 +27,7 @@ def build_evidence(
     author_package_path: Path | None = None,
     committed_artifact_sidecar_path: Path | None = None,
     author_stage_review_record_path: Path | None = None,
-    scientific_review_record_path: Path | None = None,
+    github_reviews_path: Path | None = None,
     root: Path = ROOT,
 ) -> dict[str, Any]:
     profile_result = _load_json(profile_result_path)
@@ -40,6 +40,7 @@ def build_evidence(
     full_collection_hash = _collection_sha256(full_test_ids)
     heavy_collection_hash = _collection_sha256(heavy_test_ids)
     heavy_files = sorted(profiles["r0-heavy-premerge"].get("files", []))
+    review = _select_exact_head_scientific_pass(github_reviews_path, reviewed_head_sha)
     payload = {
         "task_id": "R2-T02",
         "repository": os.environ.get("GITHUB_REPOSITORY", ""),
@@ -88,10 +89,17 @@ def build_evidence(
         "author_stage_review_record_sha256": _sha_optional(
             author_stage_review_record_path
         ),
-        "scientific_review_record_path": _rel_optional(
-            scientific_review_record_path, root
-        ),
-        "scientific_review_record_sha256": _sha_optional(scientific_review_record_path),
+        "github_reviews_api_path": _rel_optional(github_reviews_path, root),
+        "github_reviews_api_sha256": _sha_optional(github_reviews_path),
+        "github_scientific_review_id": int(review["id"]),
+        "github_scientific_review_commit_id": review["commit_id"],
+        "github_scientific_reviewer_login": review["user"]["login"],
+        "github_scientific_review_state": review["state"],
+        "github_scientific_review_submitted_at": review["submitted_at"],
+        "github_scientific_review_body_sha256": hashlib.sha256(
+            review["body"].encode("utf-8")
+        ).hexdigest(),
+        "github_scientific_review_api_verified": True,
     }
     _validate(payload, root)
     if payload["tested_head_sha"] != payload["reviewed_head_sha"]:
@@ -143,7 +151,6 @@ def validate_final_gate(
         "author_package",
         "committed_artifact_sidecar",
         "author_stage_review_record",
-        "scientific_review_record",
     ]:
         if not payload.get(f"{key}_path") or not payload.get(f"{key}_sha256"):
             errors.append(f"{key}_binding_missing")
@@ -157,12 +164,8 @@ def validate_final_gate(
         author_stage_review = _load_json(
             root / payload["author_stage_review_record_path"]
         )
-        review = _load_json(root / payload["scientific_review_record_path"])
-        if (
-            payload["author_stage_review_record_path"]
-            == payload["scientific_review_record_path"]
-        ):
-            errors.append("scientific_review_must_be_post_author_artifact")
+        review_errors = _github_review_attestation_errors(payload, root)
+        errors.extend(review_errors)
         if author.get("run_id") != sidecar.get("run_id"):
             errors.append("author_sidecar_run_id_mismatch")
         if author.get("run_id") != author_stage_review.get("run_id"):
@@ -173,13 +176,6 @@ def validate_final_gate(
             errors.append("committed_sidecar_not_passed")
         if sidecar.get("package_committed_sha256") != payload["author_package_sha256"]:
             errors.append("sidecar_package_hash_mismatch")
-        if review.get("scientific_review_status") != "passed":
-            errors.append("scientific_review_not_passed")
-        if review.get("independent_review_status") != "passed":
-            errors.append("independent_review_not_passed")
-        reviewed_head = review.get("reviewed_head") or review.get("reviewed_pr_head")
-        if reviewed_head and reviewed_head != payload["tested_head_sha"]:
-            errors.append("scientific_review_head_mismatch")
         if author.get("repository_final_gate_status") != "pending":
             errors.append("author_package_final_gate_not_pending")
         artifact_commit = sidecar.get("artifact_commit", "")
@@ -210,6 +206,66 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"expected JSON object: {path}")
     return value
+
+
+def _load_json_array(path: Path) -> list[dict[str, Any]]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, list) or not all(isinstance(row, dict) for row in value):
+        raise ValueError(f"expected JSON object array: {path}")
+    return value
+
+
+def _select_exact_head_scientific_pass(
+    reviews_path: Path | None, reviewed_head_sha: str
+) -> dict[str, Any]:
+    if reviews_path is None or not reviews_path.is_file():
+        raise ValueError("github_reviews_api_binding_missing")
+    eligible = [
+        review
+        for review in _load_json_array(reviews_path)
+        if review.get("commit_id") == reviewed_head_sha
+        and review.get("state") in {"APPROVED", "COMMENTED"}
+        and "[R2-T02 scientific PASS]" in str(review.get("body", ""))
+        and review.get("id")
+        and review.get("user", {}).get("login")
+        and review.get("submitted_at")
+    ]
+    if not eligible:
+        raise ValueError("exact_head_github_scientific_pass_not_found")
+    return max(eligible, key=lambda row: (row["submitted_at"], int(row["id"])))
+
+
+def _github_review_attestation_errors(payload: dict[str, Any], root: Path) -> list[str]:
+    path_value = payload.get("github_reviews_api_path", "")
+    if not path_value:
+        return ["github_reviews_api_binding_missing"]
+    path = Path(path_value)
+    if not path.is_absolute():
+        path = root / path
+    if not path.is_file():
+        return ["github_reviews_api_file_missing"]
+    if _sha_optional(path) != payload.get("github_reviews_api_sha256"):
+        return ["github_reviews_api_sha_mismatch"]
+    try:
+        review = _select_exact_head_scientific_pass(path, payload["tested_head_sha"])
+    except ValueError as exc:
+        return [str(exc)]
+    expected = {
+        "github_scientific_review_id": int(review["id"]),
+        "github_scientific_review_commit_id": review["commit_id"],
+        "github_scientific_reviewer_login": review["user"]["login"],
+        "github_scientific_review_state": review["state"],
+        "github_scientific_review_submitted_at": review["submitted_at"],
+        "github_scientific_review_body_sha256": hashlib.sha256(
+            review["body"].encode("utf-8")
+        ).hexdigest(),
+        "github_scientific_review_api_verified": True,
+    }
+    return [
+        f"github_review_attestation_mismatch:{key}"
+        for key, value in expected.items()
+        if payload.get(key) != value
+    ]
 
 
 def _int_env(name: str) -> int:
@@ -313,7 +369,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--author-package", type=Path)
     parser.add_argument("--committed-artifact-sidecar", type=Path)
     parser.add_argument("--author-stage-review-record", type=Path)
-    parser.add_argument("--scientific-review-record", type=Path)
+    parser.add_argument("--github-reviews-json", type=Path)
     parser.add_argument("--expected-repository", default="")
     parser.add_argument("--expected-pr-number", type=int, default=0)
     parser.add_argument("--expected-workflow", default="")
@@ -339,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
         author_package_path=args.author_package,
         committed_artifact_sidecar_path=args.committed_artifact_sidecar,
         author_stage_review_record_path=args.author_stage_review_record,
-        scientific_review_record_path=args.scientific_review_record,
+        github_reviews_path=args.github_reviews_json,
     )
     return 0
 

@@ -1,4 +1,5 @@
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,9 +8,9 @@ from src.r2 import r2_t02_protocol_freeze as r2_t02
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
-    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v3.json"
+    ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1200Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T1300Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -194,6 +195,39 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
         self.assertEqual(zones[0]["status"], "FINALIZED_WITH_QUALITY_BREAK")
         self.assertIn("quality_break", [row["reason_code"] for row in ledger])
 
+    def test_qualified_gap_uses_earliest_raw_false_before_later_quality_break(self):
+        raws = [True, True, True, False, True, True, True, True]
+        qualities = ["valid"] * len(raws)
+        qualities[4] = "diagnostic_required"
+        timeline, _intervals, _components, zones, ledger = self._run_rows(
+            raws, d=1, g=0, qualities=qualities
+        )
+        self.assertEqual(zones[0]["status"], "FINALIZED")
+        self.assertEqual(
+            zones[0]["zone_finalization_time"], timeline[3]["available_time"]
+        )
+        self.assertEqual(
+            [
+                row["reason_code"]
+                for row in ledger
+                if row["from_state"] == "GAP_PENDING"
+            ][0],
+            "raw_false_gap_exceeds_g",
+        )
+
+    def test_trailing_gap_uses_earliest_raw_false_before_later_quality_break(self):
+        raws = [True, True, True, False, True]
+        qualities = ["valid"] * len(raws)
+        qualities[4] = "diagnostic_required"
+        timeline, _intervals, _components, zones, ledger = self._run_rows(
+            raws, d=1, g=0, qualities=qualities
+        )
+        self.assertEqual(zones[0]["status"], "FINALIZED")
+        self.assertEqual(
+            zones[0]["zone_finalization_time"], timeline[3]["available_time"]
+        )
+        self.assertEqual(ledger[-1]["reason_code"], "raw_false_gap_exceeds_g")
+
     def test_synthetic_registry_is_actual_replay_not_empty(self):
         registry, results = r2_t02.synthetic_case_artifacts()
         self.assertGreaterEqual(len(registry), 40)
@@ -263,10 +297,129 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
             r2_t02._zero_tolerance_evaluator(["raw_false_gap_days_exceed_g"])
         )
 
+    def test_metric_counts_denominators_and_nearest_order_q95_are_exact(self):
+        rows = [
+            {
+                "scan_event_id": "e1",
+                "security_id": "S1",
+                "bridged_day_count": 7,
+                "raw_false_bridged_day_count": 5,
+                "preconfirmation_gap_day_count": 2,
+                "total_nonconfirmed_gap_day_count": 7,
+                "zone_revision": 3,
+                "status": "RIGHT_CENSORED",
+                "status_as_of": "GAP_PENDING",
+                "unqualified_reentry_count": 4,
+                "confirmed_day_count": 6,
+                "eligible_valid_daily_row_count": 20,
+                "zone_span_days": 11,
+                "baseline_q95": 10,
+            },
+            {
+                "scan_event_id": "e2",
+                "security_id": "S2",
+                "bridged_day_count": 1,
+                "raw_false_bridged_day_count": 1,
+                "preconfirmation_gap_day_count": 4,
+                "total_nonconfirmed_gap_day_count": 5,
+                "zone_revision": 2,
+                "status": "FINALIZED",
+                "status_as_of": "QUALIFIED_ACTIVE",
+                "unqualified_reentry_count": 2,
+                "confirmed_day_count": 3,
+                "eligible_valid_daily_row_count": 10,
+                "zone_span_days": 4,
+                "baseline_q95": 10,
+            },
+        ]
+        expected_counts = {
+            "bridged_day_count": 8,
+            "raw_false_bridged_day_count": 6,
+            "preconfirmation_gap_day_count": 6,
+            "total_nonconfirmed_gap_day_count": 12,
+            "zone_revision_count": 5,
+            "active_zone_count": 1,
+            "gap_pending_zone_count": 1,
+            "unqualified_reentry_count": 6,
+        }
+        for metric_id, expected in expected_counts.items():
+            with self.subTest(metric_id=metric_id):
+                self.assertEqual(
+                    r2_t02._metric_evaluator(rows, metric_id)["value"], expected
+                )
+        coverage = r2_t02._metric_evaluator(rows, "confirmed_event_coverage")
+        self.assertEqual(coverage["numerator"], 9)
+        self.assertEqual(coverage["denominator"], 30)
+        self.assertEqual(coverage["value"], 0.3)
+        durations = [
+            {"zone_span_days": value, "confirmed_day_count": 100 - value}
+            for value in [1, 2, 3, 4, 100]
+        ]
+        self.assertEqual(
+            r2_t02._metric_evaluator(durations, "duration_q95")["value"], 100
+        )
+
+    def test_hard_gate_registry_resolves_dynamic_thresholds_and_exact_ids(self):
+        context = {"upstream_confirmed_interval_count": 6000}
+        threshold = "max(250,ceil(0.05*upstream_confirmed_interval_count))"
+        self.assertTrue(r2_t02._hard_gate_evaluator(300, ">=", threshold, context))
+        self.assertFalse(r2_t02._hard_gate_evaluator(299, ">=", threshold, context))
+        self.assertFalse(r2_t02._hard_gate_evaluator(999, ">=", threshold, {}))
+        self.assertIsNone(
+            r2_t02.resolve_metric_evaluator("r2_t02_metric_eval__does_not_exist")
+        )
+        self.assertIsNone(
+            r2_t02.resolve_hard_gate_evaluator(
+                "r2_t02_zero_tolerance_eval__does_not_exist"
+            )
+        )
+        detector = r2_t02.resolve_violation_detector(
+            "r2_t02_violation_detector__status_asof_timeline_gap"
+        )
+        self.assertIsNotNone(detector)
+        self.assertEqual(len(detector([{"status_asof_timeline_gap": True}, {}])), 1)
+
+    def test_t03_contract_has_strict_row_schemas_and_integer_profiles(self):
+        contracts = r2_t02.t03_table_contracts()
+        profile_fields = {
+            row["name"]: row for row in contracts["dg_event_zone_profile"]["fields"]
+        }
+        self.assertEqual(profile_fields["d"]["type"], "integer")
+        self.assertEqual(profile_fields["g"]["type"], "integer")
+        self.assertEqual(profile_fields["qualified_event_count"]["type"], "integer")
+        membership = contracts["event_zone_membership_daily"]
+        self.assertFalse(membership["row_schema"]["additionalProperties"])
+        status = next(
+            row for row in membership["fields"] if row["name"] == "zone_status_as_of"
+        )
+        self.assertIn("REENTRY_PENDING_QUALIFICATION", status["enum_values"])
+
+    def test_external_github_review_attestation_requires_exact_head_and_pass_marker(
+        self,
+    ):
+        head = "a" * 40
+        reviews = [
+            {
+                "id": 123,
+                "commit_id": head,
+                "state": "COMMENTED",
+                "body": "[R2-T02 scientific PASS] independent review passed",
+                "submitted_at": "2026-07-12T08:00:00Z",
+                "user": {"login": "scientific-reviewer"},
+            }
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "reviews.json"
+            path.write_text(json.dumps(reviews), encoding="utf-8")
+            selected = premerge._select_exact_head_scientific_pass(path, head)
+            self.assertEqual(selected["id"], 123)
+            with self.assertRaisesRegex(ValueError, "exact_head"):
+                premerge._select_exact_head_scientific_pass(path, "b" * 40)
+
     def test_premerge_formal_surface_uses_registered_v3_config_sources(self):
         paths = set(premerge._formal_surface_paths(ROOT))
         for required in {
-            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v3.json",
+            "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v4.json",
             "docs/stages/R2_参数、事件规则与状态版本冻结.md",
             "schemas/r2/r2_t02_t03_output_contract.schema.json",
             "scripts/validate_text_contract.py",

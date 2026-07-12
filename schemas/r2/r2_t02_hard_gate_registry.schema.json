@@ -15,6 +15,8 @@
                 "scope_rule",
                 "evaluator_id",
                 "violation_population_key",
+                "threshold_input_keys",
+                "violation_detector_id",
                 "fail_closed",
                 "zero_tolerance"
             ]
