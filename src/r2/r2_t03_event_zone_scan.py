@@ -7,6 +7,7 @@ import json
 import platform
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -573,18 +574,29 @@ def _new_write_buffers() -> dict[str, list[tuple[Any, ...]]]:
 def _flush_write_buffers(
     con: duckdb.DuckDBPyConnection, buffers: dict[str, list[tuple[Any, ...]]]
 ) -> None:
-    placeholders = {
-        "route_atomic_interval": "?,?,?,?,?,?,?",
-        "qualified_component": "?,?,?,?,?,?,?,?",
-        "event_zone": "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
-        "event_zone_membership_daily": "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
-        "event_zone_bridge_segment": "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
-        "transition_profile": "?,?,?,?,?,?",
-    }
     for table, rows in buffers.items():
         if rows:
-            con.executemany(f"INSERT INTO {table} VALUES ({placeholders[table]})", rows)
-            rows.clear()
+            temp_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    newline="",
+                    prefix=f"r2_t03_{table}_",
+                    suffix=".csv",
+                    delete=False,
+                ) as handle:
+                    temp_path = Path(handle.name)
+                    writer = csv.writer(handle, lineterminator="\n")
+                    writer.writerows(rows)
+                con.execute(
+                    f"COPY {table} FROM '{_sql_path(temp_path)}' "
+                    "(FORMAT CSV, HEADER false, NULL '')"
+                )
+                rows.clear()
+            finally:
+                if temp_path and temp_path.exists():
+                    temp_path.unlink()
 
 
 def _zone_rows(
