@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T03 output manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "execution_commit", "artifact_count", "artifacts", "database_tables", "status"],
+  "properties": {
+    "task_id": {"const": "R2-T03"},
+    "run_id": {"type": "string", "pattern": "^R2-T03-"},
+    "execution_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "artifact_count": {"type": "integer", "minimum": 1},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size_bytes"],
+        "properties": {
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size_bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "database_tables": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "status": {"const": "passed"}
+  }
+}

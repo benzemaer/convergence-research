@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "config_version", "inputs", "runtime", "semantics", "anomaly_policy", "formal_source_paths"],
+  "properties": {
+    "task_id": {"const": "R2-T03"},
+    "config_version": {"const": "r2_t03_four_route_event_zone_scan.v1"},
+    "inputs": {"type": "object", "minProperties": 12, "additionalProperties": {"type": "string", "minLength": 1}},
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["baseline_worker_count", "formal_worker_count", "duckdb_threads", "duckdb_memory_limit", "heartbeat_security_interval", "output_database_name", "timezone"],
+      "properties": {
+        "baseline_worker_count": {"const": 1},
+        "formal_worker_count": {"type": "integer", "minimum": 1, "maximum": 16},
+        "duckdb_threads": {"type": "integer", "minimum": 1, "maximum": 16},
+        "duckdb_memory_limit": {"type": "string"},
+        "heartbeat_security_interval": {"type": "integer", "minimum": 1},
+        "output_database_name": {"const": "r2_t03_event_zone_scan.duckdb"},
+        "timezone": {"const": "Asia/Shanghai"}
+      }
+    },
+    "semantics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["K", "d_grid", "g_grid", "available_time_policy", "evaluation_time_policy", "eligibility_policy", "selection_path_not_independently_confirmed"],
+      "properties": {
+        "K": {"const": 3},
+        "d_grid": {"const": [1, 2, 3]},
+        "g_grid": {"const": [0, 1, 2]},
+        "available_time_policy": {"const": "source_trading_date_market_close_15_00_Asia_Shanghai"},
+        "evaluation_time_policy": {"const": "membership_available_time"},
+        "eligibility_policy": {"const": "validity_status_equals_valid"},
+        "selection_path_not_independently_confirmed": {"const": true}
+      }
+    },
+    "anomaly_policy": {"type": "object", "minProperties": 5, "additionalProperties": {"type": "boolean"}},
+    "formal_source_paths": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

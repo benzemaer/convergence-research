@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T03 result package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "execution_commit", "engineering_validation_status", "independent_validation_status", "anomaly_scan_status", "scientific_review_status", "author_package_lifecycle", "actual_scan_executed", "cell_count", "R2-T04_allowed_to_start", "R3_allowed_to_start"],
+  "properties": {
+    "task_id": {"const": "R2-T03"},
+    "run_id": {"type": "string", "pattern": "^R2-T03-"},
+    "execution_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "engineering_validation_status": {"const": "passed"},
+    "independent_validation_status": {"const": "passed"},
+    "anomaly_scan_status": {"enum": ["passed", "investigation_required"]},
+    "scientific_review_status": {"const": "pending_independent_scientific_review"},
+    "author_package_lifecycle": {"const": "author_draft"},
+    "actual_scan_executed": {"const": true},
+    "cell_count": {"const": 72},
+    "selection_path_not_independently_confirmed": {"const": true},
+    "R2-T04_allowed_to_start": {"const": false},
+    "R3_allowed_to_start": {"const": false}
+  }
+}

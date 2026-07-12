@@ -1,0 +1,62 @@
+{
+  "task_id": "R2-T03",
+  "config_version": "r2_t03_four_route_event_zone_scan.v1",
+  "inputs": {
+    "t02_handoff_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_repository_final_gate_handoff.json",
+    "t02_handoff_validation_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_repository_final_gate_handoff_validation.json",
+    "cell_registry_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_cell_registry.csv",
+    "output_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json",
+    "metric_dictionary_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_metric_dictionary.csv",
+    "hard_gate_registry_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_hard_gate_registry.csv",
+    "r0_t15_manifest_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_artifact_manifest.json",
+    "r0_t15_registry_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_candidate_registry.csv",
+    "r0_t15_daily_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
+    "r0_t15_interval_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb",
+    "r0_t10_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/r0_t10_05_full_grid_manifest.json",
+    "r0_t10_config_root": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/configs"
+  },
+  "runtime": {
+    "baseline_worker_count": 1,
+    "formal_worker_count": 1,
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "8GB",
+    "heartbeat_security_interval": 100,
+    "output_database_name": "r2_t03_event_zone_scan.duckdb",
+    "timezone": "Asia/Shanghai"
+  },
+  "semantics": {
+    "K": 3,
+    "d_grid": [1, 2, 3],
+    "g_grid": [0, 1, 2],
+    "available_time_policy": "source_trading_date_market_close_15_00_Asia_Shanghai",
+    "evaluation_time_policy": "membership_available_time",
+    "eligibility_policy": "validity_status_equals_valid",
+    "selection_path_not_independently_confirmed": true
+  },
+  "anomaly_policy": {
+    "block_on_zero_primary_output": true,
+    "block_on_parameter_nonresponse_until_explained": true,
+    "block_on_conservation_failure": true,
+    "block_on_subset_violation": true,
+    "block_on_risk_set_violation": true
+  },
+  "formal_source_paths": [
+    "configs/r2/r2_t03_four_route_event_zone_scan.v1.json",
+    "schemas/r2/r2_t03_four_route_event_zone_scan_config.schema.json",
+    "schemas/r2/r2_t03_result_package.schema.json",
+    "schemas/r2/r2_t03_output_manifest.schema.json",
+    "docs/tasks/R2-T03_四路线d×g_event-zone状态机扫描与区间几何审计.md",
+    "src/common/canonical_io.py",
+    "src/r2/r2_t02_protocol_freeze.py",
+    "src/r2/r2_t03_event_zone_scan.py",
+    "src/r2/r2_t03_metrics.py",
+    "src/r2/r2_t03_runtime_gates.py",
+    "src/r2/r2_t03_result_analysis.py",
+    "src/r2/r2_t03_independent_validator.py",
+    "src/r2/r2_t03_cli.py",
+    "scripts/r2/run_r2_t03_event_zone_scan.py",
+    "scripts/r2/validate_r2_t03_event_zone_scan.py",
+    "scripts/r2/analyze_r2_t03_results.py",
+    "scripts/r2/validate_r2_t03_committed_artifacts.py"
+  ]
+}
