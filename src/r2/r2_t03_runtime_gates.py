@@ -25,9 +25,15 @@ def validate_runtime_gates(
     con = duckdb.connect(str(database), read_only=True)
     try:
         checks = _structural_checks(con)
+        checks.extend(_binding_checks(output_dir))
         checks.append(
             _transition_registry_check(
                 con, hard_gate_registry.parent / "r2_t02_transition_registry.csv"
+            )
+        )
+        checks.append(
+            _output_contract_check(
+                con, hard_gate_registry.parent / "r2_t02_t03_output_contract.json"
             )
         )
         parameter = _parameter_checks(con)
@@ -78,6 +84,20 @@ def validate_runtime_gates(
 
 def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
     specs = [
+        (
+            "duplicate_primary_key",
+            "route_daily",
+            "SELECT count(*)-count(DISTINCT (route_id,security_id,trade_date)) FROM route_daily",
+            0,
+            "=0",
+        ),
+        (
+            "missing_expected_trading_row",
+            "global",
+            "SELECT (SELECT count(*) FROM expected_route_key)-(SELECT count(*) FROM route_daily)",
+            0,
+            "=0",
+        ),
         ("cell_count", "global", "SELECT count(*) FROM cell_registry", 72, "=72"),
         (
             "route_count",
@@ -122,7 +142,7 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
             "=0",
         ),
         (
-            "risk_set_formula",
+            "risk_set_violation",
             "global",
             "SELECT count(*) FROM event_zone_membership_daily WHERE state_risk_set_eligible IS DISTINCT FROM (eligible AND quality_state='valid' AND confirmed_state)",
             0,
@@ -164,9 +184,156 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
             "=0",
         ),
         (
-            "confirmed_conservation",
+            "confirmed_day_conservation_mismatch",
             "global",
             "SELECT count(*) FROM (SELECT m.candidate_cell_id, sum(m.confirmed_day_count) component_days, a.confirmed_state_days FROM qualified_component m JOIN atomic_baseline_profile a USING(candidate_cell_id) GROUP BY 1,3 HAVING component_days<>confirmed_state_days)",
+            0,
+            "=0",
+        ),
+        (
+            "lineage_mismatch",
+            "global",
+            "SELECT count(*) FROM route_atomic_interval WHERE upstream_source_interval_id IS NULL",
+            0,
+            "=0",
+        ),
+        (
+            "event_id_instability",
+            "global",
+            "SELECT count(*) FROM event_zone WHERE scan_event_id IS NULL OR scan_event_id=''",
+            0,
+            "=0",
+        ),
+        (
+            "post_merge_short_zone",
+            "global",
+            "SELECT count(*) FROM event_zone e JOIN cell_registry c USING(candidate_cell_id) WHERE e.confirmed_day_count<c.d",
+            0,
+            "=0",
+        ),
+        (
+            "unknown_bridge",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE is_bridged_gap AND quality_state='unknown'",
+            0,
+            "=0",
+        ),
+        (
+            "blocked_bridge",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE is_bridged_gap AND quality_state='blocked'",
+            0,
+            "=0",
+        ),
+        (
+            "diagnostic_required_bridge",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE is_bridged_gap AND quality_state='diagnostic_required'",
+            0,
+            "=0",
+        ),
+        (
+            "ineligible_bridge",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE is_bridged_gap AND NOT eligible",
+            0,
+            "=0",
+        ),
+        (
+            "right_censor_misclassified_as_natural_exit",
+            "global",
+            "SELECT count(*) FROM event_zone WHERE status='RIGHT_CENSORED' AND exit_or_censor_reason NOT IN ('sample_end_open_zone','sample_end_before_requalification')",
+            0,
+            "=0",
+        ),
+        (
+            "prequalification_censor_included_in_drop_denominator",
+            "global",
+            "SELECT count(*) FROM component_source_lineage WHERE censor_status='right_censored' AND normally_ended",
+            0,
+            "=0",
+        ),
+        (
+            "asof_membership_leakage",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE component_qualified_as_of AND membership_available_time<available_time",
+            0,
+            "=0",
+        ),
+        (
+            "availability_backfill",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE membership_available_time<available_time OR evaluation_time<>membership_available_time",
+            0,
+            "=0",
+        ),
+        (
+            "unqualified_reentry_unfinalized",
+            "global",
+            "SELECT count(*) FROM reentry_attempt WHERE outcome NOT IN ('unqualified_reentry','quality_break','right_censored_reentry')",
+            0,
+            "=0",
+        ),
+        (
+            "censor_contamination",
+            "global",
+            "SELECT count(*) FROM component_source_lineage WHERE censor_status<>'not_censored' AND normally_ended",
+            0,
+            "=0",
+        ),
+        (
+            "raw_false_gap_days_exceed_g",
+            "global",
+            "SELECT count(*) FROM event_zone e JOIN cell_registry c USING(candidate_cell_id) WHERE e.max_raw_false_gap_days>c.g AND e.status='RIGHT_CENSORED'",
+            0,
+            "=0",
+        ),
+        (
+            "preconfirmation_days_exceed_k_minus_one_bound",
+            "global",
+            "SELECT count(*) FROM event_zone WHERE preconfirmation_gap_day_count>2*greatest(component_count-1,0)",
+            0,
+            "=0",
+        ),
+        (
+            "total_nonconfirmed_gap_days_exceed_k_bound",
+            "global",
+            "SELECT count(*) FROM event_zone WHERE total_nonconfirmed_gap_day_count>raw_false_bridged_day_count+2*greatest(component_count-1,0)",
+            0,
+            "=0",
+        ),
+        (
+            "event_overlap_within_same_route_cell_security",
+            "global",
+            "SELECT count(*) FROM event_zone a JOIN event_zone b ON a.candidate_cell_id=b.candidate_cell_id AND a.security_id=b.security_id AND a.scan_event_id<b.scan_event_id JOIN qualified_component qa ON qa.candidate_cell_id=a.candidate_cell_id AND qa.security_id=a.security_id AND qa.component_id=a.first_component_id JOIN qualified_component qb ON qb.candidate_cell_id=b.candidate_cell_id AND qb.security_id=b.security_id AND qb.component_id=b.first_component_id WHERE qa.start_date<=qb.end_date AND qb.start_date<=qa.end_date",
+            0,
+            "=0",
+        ),
+        (
+            "event_zone_revision_regression",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE zone_revision_as_of<0",
+            0,
+            "=0",
+        ),
+        (
+            "status_asof_timeline_gap",
+            "global",
+            "SELECT count(*) FROM event_zone_membership_daily WHERE event_zone_member AND zone_status_as_of IS NULL",
+            0,
+            "=0",
+        ),
+        (
+            "strict_core_shell_reconciliation_mismatch",
+            "global",
+            "SELECT count(*) FROM strict_core_shell_profile WHERE strict_core_subset_status<>'passed'",
+            0,
+            "=0",
+        ),
+        (
+            "forbidden_output_field",
+            "global",
+            "SELECT count(*) FROM pragma_table_info('route_daily') WHERE name ILIKE '%future%' OR name ILIKE '%return%'",
             0,
             "=0",
         ),
@@ -180,6 +347,52 @@ def _structural_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
         )
     output.extend(_transition_closure_checks(con))
     return output
+
+
+def _binding_checks(output_dir: Path) -> list[dict[str, Any]]:
+    readiness = json.loads(
+        (output_dir / "r2_t03_source_readiness.json").read_text(encoding="utf-8")
+    )
+    bindings = json.loads(
+        (output_dir / "r2_t03_input_binding.json").read_text(encoding="utf-8")
+    )
+    file_failures = sum(
+        value.get("status") != "passed" for value in readiness.get("files", {}).values()
+    )
+    superseded = bool(readiness.get("superseded_input_detected", True))
+    binding_failed = bindings.get("status") != "passed"
+    return [
+        _row(
+            "source_hash_mismatch",
+            "global",
+            "",
+            file_failures,
+            "=0",
+            file_failures == 0,
+            True,
+            "source_readiness",
+        ),
+        _row(
+            "superseded_input",
+            "global",
+            "",
+            int(superseded),
+            "=0",
+            not superseded,
+            True,
+            "derived_identity_check",
+        ),
+        _row(
+            "input_binding_mismatch",
+            "global",
+            "",
+            int(binding_failed),
+            "=0",
+            not binding_failed,
+            True,
+            "input_binding",
+        ),
+    ]
 
 
 def _transition_closure_checks(
@@ -218,7 +431,8 @@ def _transition_closure_checks(
             FROM event_zone e LEFT JOIN transition_entity_ledger t
               ON t.candidate_cell_id=e.candidate_cell_id AND t.security_id=e.security_id
              AND t.entity_kind='event_zone' AND t.entity_id=e.scan_event_id
-             AND t.to_state='QUALIFIED_ACTIVE'
+             AND t.from_state='COMPONENT_FORMING' AND t.to_state='QUALIFIED_ACTIVE'
+             AND t.reason_code='d_qualification'
             GROUP BY 1,2,3 HAVING count(t.entity_id)<>1)""",
         ),
         (
@@ -309,6 +523,80 @@ def _transition_registry_check(
     )
 
 
+def _output_contract_check(
+    con: duckdb.DuckDBPyConnection, path: Path
+) -> dict[str, Any]:
+    contract = json.loads(path.read_text(encoding="utf-8"))
+    missing = []
+    for table, spec in contract.get("table_contracts", {}).items():
+        tables = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
+        if table not in tables:
+            missing.append(f"table:{table}")
+            continue
+        info = con.execute(f"PRAGMA table_info('{table}')").fetchall()
+        actual = {row[1] for row in info}
+        actual_types = {row[1]: str(row[2]).upper() for row in info}
+        fields = spec.get("fields", [])
+        required = {field["name"] for field in fields}
+        missing.extend(f"field:{table}:{field}" for field in required - actual)
+        primary_key = spec.get("primary_key", [])
+        if primary_key:
+            key = ",".join(primary_key)
+            duplicates = con.execute(
+                f"SELECT count(*)-count(DISTINCT ({key})) FROM {table}"
+            ).fetchone()[0]
+            if duplicates:
+                missing.append(f"duplicate_pk:{table}:{duplicates}")
+        for field in fields:
+            expected_type = field.get("type")
+            compatible = {
+                "string": ("VARCHAR",),
+                "enum": ("VARCHAR",),
+                "integer": ("INTEGER", "BIGINT", "HUGEINT", "SMALLINT"),
+                "number": ("DOUBLE", "FLOAT", "DECIMAL", "REAL"),
+                "boolean": ("BOOLEAN",),
+                "boolean_or_unknown": ("BOOLEAN", "VARCHAR"),
+                "date": ("DATE",),
+                "datetime_tz": ("TIMESTAMP WITH TIME ZONE", "TIMESTAMPTZ"),
+            }.get(expected_type, ())
+            if (
+                field["name"] in actual
+                and compatible
+                and not any(
+                    actual_types[field["name"]].startswith(value)
+                    for value in compatible
+                )
+            ):
+                missing.append(
+                    f"type:{table}:{field['name']}:{actual_types[field['name']]}"
+                )
+            if not field.get("nullable", True) and field["name"] in actual:
+                nulls = con.execute(
+                    f'SELECT count(*) FROM {table} WHERE "{field["name"]}" IS NULL'
+                ).fetchone()[0]
+                if nulls:
+                    missing.append(f"null:{table}:{field['name']}:{nulls}")
+            enums = field.get("enum_values", [])
+            if enums and field["name"] in actual:
+                placeholders = ",".join("?" for _ in enums)
+                invalid = con.execute(
+                    f'SELECT count(*) FROM {table} WHERE "{field["name"]}" NOT IN ({placeholders})',
+                    enums,
+                ).fetchone()[0]
+                if invalid:
+                    missing.append(f"enum:{table}:{field['name']}:{invalid}")
+    return _row(
+        "schema_mismatch",
+        "global",
+        "",
+        len(missing),
+        "=0",
+        not missing,
+        True,
+        json.dumps(missing[:5]),
+    )
+
+
 def _parameter_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
     output = []
     rows = con.execute(
@@ -346,6 +634,38 @@ def _parameter_checks(con: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
             not monotonic,
             True,
             json.dumps(monotonic[:3]),
+        )
+    )
+    for check_id, scope, violations, rule in con.execute(
+        "SELECT check_id,scope,observed_violations,expected_rule FROM parameter_invariant_profile"
+    ).fetchall():
+        output.append(
+            _row(
+                check_id,
+                scope,
+                "",
+                violations,
+                rule,
+                violations == 0,
+                True,
+                "parameter_invariant_profile",
+            )
+        )
+    g0 = con.execute(
+        """SELECT count(*) FROM dg_event_zone_profile p JOIN d_qualification_profile d USING(candidate_cell_id)
+        JOIN cell_registry c USING(candidate_cell_id) WHERE c.g=0 AND
+        (p.qualified_event_count<>d.qualified_component_count OR p.raw_false_bridged_day_count<>0)"""
+    ).fetchone()[0]
+    output.append(
+        _row(
+            "g_zero_identity",
+            "global",
+            "",
+            g0,
+            "=0",
+            g0 == 0,
+            True,
+            "event=component;bridge=0",
         )
     )
     d_bad = con.execute(
@@ -398,7 +718,10 @@ def _evaluate_frozen_gates(
         if rule["implementation_stage"] != "r2_t02_reference_executable":
             continue
         for cell_id, metric in metrics.items():
-            if metric["state_line"] != rule["state_line"]:
+            if (
+                rule["state_line"] != "GLOBAL"
+                and metric["state_line"] != rule["state_line"]
+            ):
                 continue
             observed = metric[rule["metric_id"]]
             threshold = _threshold(

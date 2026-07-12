@@ -29,6 +29,9 @@ def source_timeline_oracle(
         raise R2T03IndependentValidationError("oracle_duplicate_daily_key")
     timeline: list[dict[str, Any]] = []
     streak = 0
+    active = False
+    confirmed_start = ""
+    last_confirmed = ""
     for trade_date in expected_dates:
         if trade_date not in by_date:
             raise R2T03IndependentValidationError(
@@ -39,14 +42,44 @@ def source_timeline_oracle(
         raw = source.get("raw_state")
         hard_break = not eligible_valid or raw is None
         streak = streak + 1 if eligible_valid and raw is True else 0
+        confirmed = bool(eligible_valid and raw is True and streak >= k)
+        reason = ""
+        confirmation_time = ""
+        confirmed_end = ""
+        exit_time = ""
+        if not active and confirmed:
+            active = True
+            confirmed_start = trade_date
+            reason = "k3_confirmation"
+            confirmation_time = str(source["available_time"])
+        elif active and not confirmed:
+            reason = "quality_interruption" if hard_break else "natural_state_exit"
+            confirmed_end = last_confirmed
+            exit_time = str(source["available_time"])
+            active = False
+            confirmed_start = ""
+        elif active and confirmed:
+            reason = "confirmed_maintained"
+        elif hard_break:
+            reason = "hard_break_reset"
+        elif raw is False:
+            reason = "ordinary_false"
         timeline.append(
             {
                 **source,
                 "trade_date": trade_date,
-                "confirmed_state": bool(eligible_valid and raw is True and streak >= k),
+                "confirmed_state": confirmed,
+                "confirmed_start_date": confirmed_start if confirmed else "",
+                "confirmation_time": confirmation_time,
+                "confirmed_end_date": confirmed_end,
+                "exit_observation_time": exit_time,
+                "state_risk_set_eligible": confirmed and eligible_valid,
+                "reason_code": reason,
                 "hard_break": hard_break,
             }
         )
+        if confirmed:
+            last_confirmed = trade_date
     intervals: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
     for index, row in enumerate(timeline):
@@ -99,7 +132,8 @@ def source_timeline_oracle(
             continue
         assert previous is not None
         gap = timeline[previous["end"] + 1 : component["start"]]
-        hard_break = any(row["hard_break"] for row in gap)
+        decision = _earliest_oracle_decision(gap, g)
+        hard_break = decision == "quality_break"
         raw_false = [
             row
             for row in gap
@@ -107,7 +141,7 @@ def source_timeline_oracle(
             and row["quality_state"] == "valid"
             and row.get("raw_state") is False
         ]
-        mergeable_gap = not hard_break and len(raw_false) <= g
+        mergeable_gap = decision is None and len(raw_false) <= g
         if not component["qualified"]:
             if mergeable_gap:
                 if component["termination_reason"] == "natural_state_exit":
@@ -167,18 +201,13 @@ def source_timeline_oracle(
     if open_zone is not None:
         assert previous is not None
         trailing = timeline[int(previous["end"]) + 1 :]
-        trailing_hard_break = any(row["hard_break"] for row in trailing)
-        trailing_raw_false = sum(
-            row["eligible"]
-            and row["quality_state"] == "valid"
-            and row.get("raw_state") is False
-            for row in trailing
-        )
+        trailing_decision = _earliest_oracle_decision(trailing, g)
+        trailing_hard_break = trailing_decision == "quality_break"
         open_zone["status"] = (
             "FINALIZED_WITH_QUALITY_BREAK"
             if trailing_hard_break
             else "FINALIZED"
-            if trailing_raw_false > g
+            if trailing_decision == "raw_false_gap_exceeds_g"
             else "RIGHT_CENSORED"
         )
         zones.append(open_zone)
@@ -219,6 +248,7 @@ def source_timeline_oracle(
     event_spans = [zone["zone_span_days"] for zone in zones]
     atomic_spans = [interval["confirmed_day_count"] for interval in intervals]
     return {
+        "timeline": timeline,
         "atomic_intervals": intervals,
         "components": components,
         "zones": zones,
@@ -448,10 +478,14 @@ def validate_independently(
                         "eligible": row[2],
                         "quality_state": row[3],
                         "raw_state": row[4],
+                        "available_time": row[5],
+                        "expected_empty_reason": row[6],
+                        "source_row_present": row[7],
                     }
                     for row in con.execute(
-                        """SELECT security_id,CAST(trade_date AS VARCHAR),eligible,quality_state,raw_state
-                        FROM route_daily WHERE route_id=? AND security_id=? ORDER BY trade_date""",
+                        """SELECT security_id,CAST(trade_date AS VARCHAR),eligible,quality_state,raw_state,
+                        CAST(available_time AS VARCHAR),expected_empty_reason,source_row_present
+                        FROM route_source_daily WHERE route_id=? AND security_id=? ORDER BY trade_date""",
                         [route_id, security_id],
                     ).fetchall()
                 ]
@@ -468,6 +502,9 @@ def validate_independently(
                 )
                 route_security = (route_id, security_id)
                 if route_security not in reconciled_route_security:
+                    _assert_oracle_daily_matches_canonical(
+                        con, route_id, security_id, oracle["timeline"]
+                    )
                     _assert_source_interval_oracle_matches_upstream(
                         con, route_id, security_id, expected, oracle["atomic_intervals"]
                     )
@@ -606,7 +643,8 @@ def validate_independently(
         "failure_count": len(failures),
         "failures": failures[:100],
         "oracle_source_tables": [
-            "route_daily",
+            "route_source_daily",
+            "expected_route_key",
             "expected_route_key",
             "authorized_upstream_interval",
             "cell_registry",
@@ -641,6 +679,22 @@ def _new_oracle_zone(
         "status": "QUALIFIED_ACTIVE",
         "start_year": str(timeline[int(component["start"])]["trade_date"])[:4],
     }
+
+
+def _earliest_oracle_decision(rows: Sequence[Mapping[str, Any]], g: int) -> str | None:
+    raw_false_count = 0
+    for row in rows:
+        if bool(row["hard_break"]):
+            return "quality_break"
+        if (
+            row["eligible"]
+            and row["quality_state"] == "valid"
+            and row.get("raw_state") is False
+        ):
+            raw_false_count += 1
+            if raw_false_count > g:
+                return "raw_false_gap_exceeds_g"
+    return None
 
 
 def _append_source_comparison_checks(
@@ -790,19 +844,73 @@ def _assert_source_interval_oracle_matches_upstream(
         )
         for row in intervals
     )
-    upstream = [
+    production = [
         (str(start), str(end), int(count), str(reason))
         for start, end, count, reason in con.execute(
             """SELECT CAST(start_date AS VARCHAR),CAST(end_date AS VARCHAR),
-            confirmed_day_count,termination_reason FROM authorized_upstream_interval
+            confirmed_day_count,termination_reason FROM route_atomic_interval
             WHERE route_id=? AND security_id=? ORDER BY 1,2,3,4""",
             [route_id, security_id],
         ).fetchall()
     ]
-    if rebuilt != upstream:
+    if rebuilt != production:
         raise R2T03IndependentValidationError(
-            f"upstream_interval_row_reconciliation_failed:{route_id}:{security_id}"
+            f"dense_interval_oracle_mismatch:{route_id}:{security_id}"
         )
+    lineage_bad = con.execute(
+        """SELECT count(*) FROM route_atomic_interval r
+        LEFT JOIN authorized_upstream_interval u ON
+          r.route_id=u.route_id AND r.security_id=u.security_id
+          AND r.upstream_source_interval_id=u.upstream_source_interval_id
+        WHERE r.route_id=? AND r.security_id=? AND
+          (u.upstream_source_interval_id IS NULL OR r.start_date<u.raw_start_date
+           OR r.end_date>u.interval_end_date)""",
+        [route_id, security_id],
+    ).fetchone()[0]
+    if lineage_bad:
+        raise R2T03IndependentValidationError(
+            f"dense_sparse_lineage_mismatch:{route_id}:{security_id}"
+        )
+
+
+def _assert_oracle_daily_matches_canonical(
+    con: duckdb.DuckDBPyConnection,
+    route_id: str,
+    security_id: str,
+    timeline: Sequence[Mapping[str, Any]],
+) -> None:
+    fields = (
+        "eligible",
+        "quality_state",
+        "raw_state",
+        "confirmed_state",
+        "confirmed_start_date",
+        "confirmation_time",
+        "confirmed_end_date",
+        "exit_observation_time",
+        "state_risk_set_eligible",
+        "reason_code",
+        "hard_break",
+    )
+    production = con.execute(
+        """SELECT eligible,quality_state,raw_state,confirmed_state,
+        coalesce(CAST(confirmed_start_date AS VARCHAR),''),coalesce(CAST(confirmation_time AS VARCHAR),''),
+        coalesce(CAST(confirmed_end_date AS VARCHAR),''),coalesce(CAST(exit_observation_time AS VARCHAR),''),
+        state_risk_set_eligible,reason_code,hard_break FROM route_daily
+        WHERE route_id=? AND security_id=? ORDER BY trade_date""",
+        [route_id, security_id],
+    ).fetchall()
+    expected = [tuple(row.get(field) for field in fields) for row in timeline]
+    normalized_production = [tuple(row) for row in production]
+    if len(expected) != len(normalized_production):
+        raise R2T03IndependentValidationError(
+            f"canonical_daily_row_count_mismatch:{route_id}:{security_id}"
+        )
+    for index, (left, right) in enumerate(zip(expected, normalized_production)):
+        if any(not _equal(a, b) for a, b in zip(left, right)):
+            raise R2T03IndependentValidationError(
+                f"canonical_daily_field_mismatch:{route_id}:{security_id}:{index}"
+            )
 
 
 def _component_keys(

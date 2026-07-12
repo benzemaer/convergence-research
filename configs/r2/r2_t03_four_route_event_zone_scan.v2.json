@@ -14,6 +14,9 @@
     "output_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json",
     "metric_dictionary_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_metric_dictionary.csv",
     "hard_gate_registry_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_hard_gate_registry.csv",
+    "transition_registry_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_transition_registry.csv",
+    "event_zone_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_zone_machine_contract.json",
+    "risk_set_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_r3_risk_set_contract.json",
     "r0_t15_manifest_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_artifact_manifest.json",
     "r0_t15_registry_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_candidate_registry.csv",
     "r0_t15_daily_path": "data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_daily_confirmation_results.duckdb",
@@ -34,6 +37,7 @@
   },
   "anomaly_policy": {"block_on_zero_primary_output":true,"block_on_parameter_nonresponse_until_explained":true,"block_on_conservation_failure":true,"block_on_subset_violation":true,"block_on_risk_set_violation":true},
   "formal_source_paths": [
+    "src/r2/r2_t03_result_analysis.py",
     "src/common/canonical_io.py", "src/r2/r2_t02_protocol_freeze.py", "schemas/r2/r2_t03_result_package.schema.json", "schemas/r2/r2_t03_output_manifest.schema.json", "scripts/r2/validate_r2_t03_committed_artifacts.py", "data/generated/r2/r2_t03_adapter/r2_t03_expected_domain_interval_impact_audit.json",
     "configs/r2/r2_t03_four_route_event_zone_scan.v2.json", "schemas/r2/r2_t03_four_route_event_zone_scan_config.v2.schema.json", "configs/r2/r2_t03_eod_availability_policy.v1.json", "schemas/r2/r2_t03_eod_availability_policy.schema.json", "configs/r2/r2_t03_expected_key_adapter.v1.json", "schemas/r2/r2_t03_expected_key_adapter.schema.json", "configs/r2/r2_t03_interval_adapter.v1.json", "schemas/r2/r2_t03_interval_adapter.schema.json", "data/generated/r2/r2_t03_adapter/r2_t03_expected_key_adapter_validation.json", "data/generated/r2/r2_t03_adapter/r2_t03_interval_adapter_validation.json", "docs/tasks/R2-T03_四路线d×g_event-zone状态机扫描与区间几何审计.md", "src/r2/r2_t03_input_adapters.py", "src/r2/r2_t03_event_zone_scan.py", "src/r2/r2_t03_metrics.py", "src/r2/r2_t03_runtime_gates.py", "src/r2/r2_t03_independent_validator.py", "src/r2/r2_t03_cli.py", "scripts/r2/run_r2_t03_event_zone_scan.py", "scripts/r2/validate_r2_t03_event_zone_scan.py", "scripts/r2/analyze_r2_t03_results.py"
   ]

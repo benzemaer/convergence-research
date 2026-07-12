@@ -416,7 +416,13 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
                     "CREATE TABLE d2_expected_security_dates(ts_code VARCHAR,trade_date VARCHAR)"
                 )
                 source_con.execute(
+                    "CREATE TABLE d2_source_status(ts_code VARCHAR,trade_date VARCHAR,trading_status VARCHAR)"
+                )
+                source_con.execute(
                     "INSERT INTO d2_expected_security_dates VALUES ('S1','20260102'),('S1','20260103')"
+                )
+                source_con.execute(
+                    "INSERT INTO d2_source_status VALUES ('S1','20260103','suspended')"
                 )
             contract = {
                 "expected_skeleton_source": {
@@ -433,25 +439,26 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
             con.execute("CREATE TABLE cell_registry(route_id VARCHAR)")
             con.execute("INSERT INTO cell_registry VALUES ('r1')")
             con.execute(
-                """CREATE TABLE route_daily(route_id VARCHAR,security_id VARCHAR,
+                """CREATE TABLE route_source_daily(route_id VARCHAR,security_id VARCHAR,
                 trade_date DATE,available_time VARCHAR,eligible BOOLEAN,quality_state VARCHAR,
                 raw_state BOOLEAN,confirmed_state BOOLEAN,confirmed_start_date DATE,
-                confirmation_time VARCHAR,state_risk_set_eligible BOOLEAN)"""
+                confirmation_time VARCHAR,state_risk_set_eligible BOOLEAN,
+                expected_empty_reason VARCHAR,source_row_present BOOLEAN)"""
             )
             con.execute(
-                "INSERT INTO route_daily VALUES ('r1','S1',DATE '2026-01-02','2026-01-02T15:00:00+08:00',true,'valid',true,false,NULL,NULL,false)"
+                "INSERT INTO route_source_daily VALUES ('r1','S1',DATE '2026-01-02','2026-01-02T15:00:00+08:00',true,'valid',true,false,NULL,NULL,false,NULL,true)"
             )
             _materialize_authoritative_expected_keys(
                 con, {"expected_key_adapter_contract_path": "contract.json"}, root
             )
             self.assertEqual(
                 con.execute(
-                    "SELECT eligible,quality_state,raw_state FROM route_daily WHERE trade_date=DATE '2026-01-03'"
+                    "SELECT eligible,quality_state,raw_state FROM route_source_daily WHERE trade_date=DATE '2026-01-03'"
                 ).fetchone(),
                 (False, "expected_empty", None),
             )
             self.assertEqual(
-                con.execute("SELECT count(*) FROM route_daily").fetchone()[0], 2
+                con.execute("SELECT count(*) FROM route_source_daily").fetchone()[0], 2
             )
             con.close()
 

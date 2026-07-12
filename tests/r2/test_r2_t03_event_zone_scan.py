@@ -58,7 +58,10 @@ class R2T03FailurePathTest(unittest.TestCase):
             "confirmed_day_count": 3,
             "termination_reason": "natural_state_exit",
         }
-        interval = {**component, "source_interval_id": "actual_r0_interval_42"}
+        interval = {
+            **component,
+            "upstream_source_interval_id": "actual_r0_interval_42",
+        }
         rows = _component_lineage_rows(route, "cell", "S1", [component], [interval])
         self.assertEqual(rows[0][3], "actual_r0_interval_42")
 

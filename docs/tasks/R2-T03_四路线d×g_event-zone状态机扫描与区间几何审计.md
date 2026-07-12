@@ -110,3 +110,13 @@ successor adapter 因此以完整 expected surface 为权威，将 expected-empt
 R0-T15 closed interval 现在只使用 `last_observed_date` 当日 decision row 消歧，open 状态直接读取上游 `is_open_interval`。formal readiness 会重新计算 D2 manifest、D2 DuckDB 与每个 R0 interval source 的实际 SHA-256、size 和 table aggregate，断言 contract route path/source ID/SHA 与 RouteSpec、manifest 和实际 bytes 一致，并把 actual bindings 写入 readiness 和 input binding。formal source binding 同时恢复 `src/common/canonical_io.py`、`src/r2/r2_t02_protocol_freeze.py`、result-package/output-manifest schemas 与 committed-artifact validator。
 
 本节只记录 implementation correction 和 read-only audit。未执行 successor baseline 或 72-cell scan；历史 1205Z 保持 invalidated，R2-T04/R3 关闭。
+
+## 11. E2E-01 至 E2E-09 最终实现修订
+
+最终执行链已收敛为 `route_source_daily → dense expected surface → one-time K=3 replay → canonical route_daily → route_atomic_interval → component/event/metric/validation/analysis`。`route_source_daily` 只承担 sparse source lineage；所有生产消费者读取含完整 available/eligible/quality/raw/confirmed/confirmation/exit/risk/reason/hard-break 字段的 canonical `route_daily`。固定断言为 8 routes、每路 1,751,066 keys、总计 14,008,528 行，其中 162,376 行 expected-empty（154,264 suspended、8,112 listing pause），listed-open-missing-daily 为 0。
+
+实际 adapter-only aggregate audit（未执行任何 candidate cell）得到：geometry affected source intervals 14、termination-only affected 10、all affected 24、split 0、eliminated 12、dense fragments 31,334、unaffected exact intervals 31,322；confirmed interval 内 difference rows 仍为 10。dense `interval_id` 与真实 `upstream_source_interval_id` 分离，production 与 independent validator 分别执行 dense fact exact reconciliation 和 dense-to-sparse lineage reconciliation。`duration_q95_ratio` 的分母为 canonical dense atomic interval nearest-order q95。
+
+event terminal reason 现由携带 `scan_event_id` 的实际 terminal ledger 绑定；component quality interruption 使用冻结的 `COMPONENT_FORMING→UNQUALIFIED_CLOSED` tuple。三层 supplemental diagnostics、strict-core/window diagnostics、runtime structural detectors、全部 parameter invariants、source-level independent dense reconstruction、完整 database/post-validation fingerprint、result analysis/anomaly 分类及 large-DuckDB committed validation 均进入 successor 实现。formal source paths 和 T02/R0/D2 actual input bindings已闭合，非空 run directory fail closed。
+
+这是 final implementation correction for E2E-01..E2E-09，不表示 implementation review、baseline、72 cells 或 scientific review 已通过。本轮未运行 successor baseline，未运行真实 d×g/72-cell scan，未创建新的正式 run 目录，未修改历史 `R2-T03-20260712T1205Z` artifacts；`R2-T04_allowed_to_start=false`、`R3_allowed_to_start=false`。

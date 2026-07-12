@@ -35,12 +35,7 @@ def build_result_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, An
     con = duckdb.connect(str(database), read_only=True)
     try:
         anomaly = _anomaly_scan(con)
-        metrics = con.execute(
-            "SELECT state_line,W,d,g,qualified_event_count,confirmed_event_coverage,"
-            "bridged_day_ratio FROM ("
-            "SELECT *,retained_confirmed_day_ratio AS confirmed_event_coverage "
-            "FROM metric_results) ORDER BY 1,2,3,4"
-        ).fetchall()
+        metrics = _analysis_metric_rows(con)
         table_rows = {
             row[0]: con.execute(f'SELECT count(*) FROM "{row[0]}"').fetchone()[0]
             for row in con.execute("SHOW TABLES").fetchall()
@@ -104,6 +99,8 @@ def validate_committed_artifacts(
         digest = hashlib.sha256(blob).hexdigest()
         if digest != artifact["sha256"]:
             failures.append(f"hash:{artifact['path']}")
+        if len(blob) != artifact["size_bytes"]:
+            failures.append(f"size:{artifact['path']}")
         bindings.append(
             {
                 "path": artifact["path"],
@@ -114,6 +111,58 @@ def validate_committed_artifacts(
         )
         if not bindings[-1]["working_tree_matches_committed"]:
             failures.append(f"working_tree:{artifact['path']}")
+    summary = _json(output_dir / "r2_t03_experiment_summary.json")
+    package = _json(output_dir / "r2_t03_result_package.json")
+    if manifest["artifact_count"] != len(manifest["artifacts"]):
+        failures.append("artifact_count")
+    if not (
+        package["execution_commit"]
+        == manifest["execution_commit"]
+        == summary["execution_commit"]
+    ):
+        failures.append("execution_commit_identity")
+    if not (
+        package["run_id"] == manifest["run_id"] == summary["run_id"] == output_dir.name
+    ):
+        failures.append("run_id_identity")
+    large = manifest["large_artifacts"][0]
+    if large["database_fingerprint"] != manifest["database_fingerprint"]:
+        failures.append("manifest_database_fingerprint_identity")
+    database = root / large["path"]
+    if not database.is_file():
+        failures.append("large_database_missing")
+    else:
+        actual_bytes = database.read_bytes()
+        if hashlib.sha256(actual_bytes).hexdigest() != large["sha256"]:
+            failures.append("large_database_hash")
+        if len(actual_bytes) != large["size_bytes"]:
+            failures.append("large_database_size")
+        from src.r2.r2_t03_event_zone_scan import _database_fingerprint
+
+        with duckdb.connect(str(database), read_only=True) as con:
+            actual_rows = {
+                name: con.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0]
+                for name in large["table_row_counts"]
+            }
+            actual_fingerprint = _database_fingerprint(con)
+        if actual_rows != large["table_row_counts"]:
+            failures.append("large_database_table_rows")
+        if actual_fingerprint != large["database_fingerprint"]:
+            failures.append("large_database_fingerprint")
+        if actual_fingerprint != manifest["database_fingerprint"]:
+            failures.append("manifest_database_fingerprint")
+    if (
+        _json(output_dir / "r2_t03_post_validation_fingerprint.json")
+        != manifest["post_validation_fingerprint"]
+    ):
+        failures.append("post_validation_fingerprint")
+    import subprocess
+
+    if subprocess.run(
+        ["git", "merge-base", "--is-ancestor", manifest["execution_commit"], commit],
+        cwd=root,
+    ).returncode:
+        failures.append("execution_commit_not_ancestor")
     report = {
         "task_id": "R2-T03",
         "run_id": output_dir.name,
@@ -141,24 +190,59 @@ def _anomaly_scan(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         "subset_violations": "SELECT count(*) FROM strict_core_window_comparison WHERE subset_violation",
         "availability_violations": "SELECT count(*) FROM event_zone_membership_daily WHERE membership_available_time<available_time OR evaluation_time<>membership_available_time",
         "risk_set_violations": "SELECT count(*) FROM event_zone_membership_daily WHERE qualified_event_risk_set_eligible IS DISTINCT FROM (state_risk_set_eligible AND event_zone_member AND component_qualified_as_of AND NOT is_raw_false_bridge AND NOT is_preconfirmation_gap)",
+        "dense_interval_lineage_mismatch": "SELECT count(*) FROM route_atomic_interval WHERE upstream_source_interval_id IS NULL",
+        "transition_closure": "SELECT count(*) FROM (SELECT e.scan_event_id FROM event_zone e LEFT JOIN transition_entity_ledger t ON t.candidate_cell_id=e.candidate_cell_id AND t.security_id=e.security_id AND t.entity_id=e.scan_event_id AND t.to_state IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED') GROUP BY e.candidate_cell_id,e.security_id,e.scan_event_id HAVING count(t.entity_id)<>1)",
+        "event_overlap_within_cell_security": "SELECT count(*) FROM event_zone a JOIN event_zone b ON a.candidate_cell_id=b.candidate_cell_id AND a.security_id=b.security_id AND a.scan_event_id<b.scan_event_id JOIN qualified_component qa ON qa.candidate_cell_id=a.candidate_cell_id AND qa.security_id=a.security_id AND qa.component_id=a.first_component_id JOIN qualified_component qb ON qb.candidate_cell_id=b.candidate_cell_id AND qb.security_id=b.security_id AND qb.component_id=b.first_component_id WHERE qa.start_date<=qb.end_date AND qb.start_date<=qa.end_date",
+        "pending_status_timeline_gap": "SELECT count(*) FROM event_zone_membership_daily WHERE event_zone_member AND zone_status_as_of IS NULL",
     }
     observed = {name: con.execute(sql).fetchone()[0] for name, sql in queries.items()}
-    failures = [name for name, value in observed.items() if value]
+    engineering_ids = {
+        "null_metric_cells",
+        "subset_violations",
+        "availability_violations",
+        "risk_set_violations",
+        "dense_interval_lineage_mismatch",
+        "transition_closure",
+        "event_overlap_within_cell_security",
+        "pending_status_timeline_gap",
+    }
+    scientific_ids = {
+        "zero_event_cells",
+        "one_event_cells",
+        "parameter_nonresponsive_groups",
+    }
+    engineering = [name for name in engineering_ids if observed[name]]
+    scientific = [name for name in scientific_ids if observed[name]]
     ranges = con.execute(
         "SELECT min(qualified_event_count),max(qualified_event_count),"
         "min(confirmed_event_coverage),max(confirmed_event_coverage) FROM dg_event_zone_profile"
     ).fetchone()
     return {
         "task_id": "R2-T03",
-        "status": "passed" if not failures else "investigation_required",
+        "status": "passed" if not engineering else "investigation_required",
         "checks": observed,
-        "failures": failures,
+        "failures": engineering + scientific,
+        "blocking_engineering_anomalies": engineering,
+        "scientific_investigation_items": scientific,
+        "nonblocking_descriptive_warnings": [],
         "event_count_range": [ranges[0], ranges[1]],
         "confirmed_event_coverage_range": [ranges[2], ranges[3]],
-        "downstream_progression_blocked": bool(failures),
+        "downstream_progression_blocked": bool(engineering),
         "R2-T04_allowed_to_start": False,
         "R3_allowed_to_start": False,
     }
+
+
+def _analysis_metric_rows(con: duckdb.DuckDBPyConnection) -> list[tuple[Any, ...]]:
+    """Read semantically distinct coverage fields from their authoritative tables."""
+    return con.execute(
+        """SELECT m.state_line,m.W,m.d,m.g,m.qualified_event_count,
+        p.confirmed_event_coverage,m.retained_confirmed_day_ratio,
+        q.retrospective_qualified_confirmed_coverage,q.asof_qualified_confirmed_coverage,
+        m.bridged_day_ratio FROM metric_results m
+        JOIN dg_event_zone_profile p USING(candidate_cell_id)
+        JOIN d_qualification_profile q USING(candidate_cell_id) ORDER BY 1,2,3,4"""
+    ).fetchall()
 
 
 def _analysis_markdown(
@@ -181,15 +265,16 @@ def _analysis_markdown(
     for state, rows in sorted(by_state.items()):
         events = [row[4] for row in rows]
         coverage = [row[5] for row in rows if row[5] is not None]
+        retained = [row[6] for row in rows if row[6] is not None]
         lines.append(
-            f"- `{state}` 的 36 个 cell 中，事件数范围为 {min(events)}–{max(events)}，confirmed-event coverage 范围为 {min(coverage):.6f}–{max(coverage):.6f}。"
+            f"- `{state}` 的 36 个 cell 中，事件数范围为 {min(events)}–{max(events)}，confirmed-event coverage 范围为 {min(coverage):.6f}–{max(coverage):.6f}，retained confirmed-day ratio 范围为 {min(retained):.6f}–{max(retained):.6f}。"
         )
     lines.extend(
         [
             "",
             "## 有限推断与边界",
             "",
-            "本扫描只审计状态机、区间几何、参数响应和守恒关系，不使用未来收益、方向或回测指标。primary 与 shared-q sidecar 的比较用于集合与几何诊断，不构成参数选择。上游日表未物理提供 `available_time` 与 `eligible` 字段；T03 config 自身不能充当上游证明。在 authoritative availability、route-security expected-key 与 normalized interval reconciliation contracts 解决前，successor formal run 必须 fail closed。",
+            "本扫描只审计状态机、区间几何、参数响应和守恒关系，不使用未来收益、方向或回测指标。primary 与 shared-q sidecar 的比较用于集合与几何诊断，不构成参数选择。availability policy、expected-key adapter 与 interval adapter 已解决；successor actual result 仍须由正式运行和独立验证确认。",
             "",
             "## 异常结论",
             "",
@@ -234,6 +319,8 @@ def _manifest(
             )
     database = output_dir / "r2_t03_event_zone_scan.duckdb"
     database_bytes = database.read_bytes()
+    summary = _json(output_dir / "r2_t03_experiment_summary.json")
+    post = _json(output_dir / "r2_t03_post_validation_fingerprint.json")
     return {
         "task_id": "R2-T03",
         "run_id": output_dir.name,
@@ -246,9 +333,16 @@ def _manifest(
                 "sha256": hashlib.sha256(database_bytes).hexdigest(),
                 "size_bytes": len(database_bytes),
                 "lifecycle": "local_large_artifact_not_committed",
+                "table_row_counts": tables,
+                "database_fingerprint": summary["database_fingerprint"],
             }
         ],
         "database_tables": tables,
+        "config_sha256": summary["config_sha256"],
+        "source_readiness_sha256": summary["source_readiness_sha256"],
+        "input_binding_sha256": summary["input_binding_sha256"],
+        "database_fingerprint": summary["database_fingerprint"],
+        "post_validation_fingerprint": post,
         "status": "passed",
     }
 

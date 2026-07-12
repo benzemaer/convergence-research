@@ -95,8 +95,10 @@ def run_scan(
 ) -> dict[str, Any]:
     started = time.time()
     config_path = config_path.resolve()
-    config = load_config(config_path)
     output_dir = output_dir.resolve()
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise R2T03Error("formal_run_output_dir_not_empty")
+    config = load_config(config_path)
     run_id = output_dir.name
     if not run_id.startswith("R2-T03-"):
         raise R2T03Error("run_id_must_start_R2_T03")
@@ -113,7 +115,7 @@ def run_scan(
     write_json(output_dir / "r2_t03_input_binding.json", bindings)
     database = output_dir / config["runtime"]["output_database_name"]
     if database.exists():
-        database.unlink()
+        raise R2T03Error("formal_run_output_dir_not_empty")
     connection = duckdb.connect(str(database))
     try:
         connection.execute(f"SET threads={int(config['runtime']['duckdb_threads'])}")
@@ -123,10 +125,15 @@ def run_scan(
         connection.execute(f"SET TimeZone='{config['runtime']['timezone']}'")
         _create_output_schema(connection)
         _insert_cell_registry(connection, cells)
-        _materialize_route_daily(connection, routes, root)
+        _materialize_route_source_daily(connection, routes, root)
         _materialize_authoritative_expected_keys(connection, config, root)
+        _materialize_canonical_daily_and_intervals(connection)
         _materialize_authorized_upstream_intervals(connection, config, root)
+        _bind_dense_interval_lineage(connection)
+        _assert_canonical_daily(connection)
+        _assert_upstream_interval_reconciliation(connection)
         _create_atomic_daily_view(connection)
+        _create_atomic_interval_view(connection)
         connection.execute("BEGIN TRANSACTION")
         try:
             execution_rows = _execute_routes(
@@ -137,14 +144,15 @@ def run_scan(
                     config["runtime"]["heartbeat_security_interval"]
                 ),
             )
-            _assert_upstream_interval_reconciliation(connection)
             connection.execute("COMMIT")
         except Exception:
             connection.execute("ROLLBACK")
             raise
         _create_profiles_and_comparisons(connection)
-        _create_atomic_interval_view(connection)
         fingerprint = _database_fingerprint(connection)
+        config_sha = _actual_sha256(config_path)
+        readiness_sha = _actual_sha256(output_dir / "r2_t03_source_readiness.json")
+        input_binding_sha = _actual_sha256(output_dir / "r2_t03_input_binding.json")
         if baseline_only:
             write_json(
                 output_dir / "r2_t03_single_worker_baseline.json",
@@ -155,6 +163,26 @@ def run_scan(
                     "status": "passed",
                     "database_fingerprint": fingerprint,
                     "cell_count": 72,
+                    "execution_commit": execution_commit,
+                    "config_sha256": config_sha,
+                    "source_readiness_sha256": readiness_sha,
+                    "input_binding_sha256": input_binding_sha,
+                    "route_source_daily_row_count": connection.execute(
+                        "SELECT count(*) FROM route_source_daily"
+                    ).fetchone()[0],
+                    "canonical_route_daily_row_count": connection.execute(
+                        "SELECT count(*) FROM route_daily"
+                    ).fetchone()[0],
+                    "expected_empty_row_count": connection.execute(
+                        "SELECT count(*) FROM route_daily WHERE NOT source_row_present"
+                    ).fetchone()[0],
+                    "dense_interval_count": connection.execute(
+                        "SELECT count(*) FROM route_atomic_interval"
+                    ).fetchone()[0],
+                    "source_interval_count": connection.execute(
+                        "SELECT count(*) FROM authorized_upstream_interval"
+                    ).fetchone()[0],
+                    "post_validation_fingerprint": None,
                 },
             )
         _export_compact_tables(connection, output_dir)
@@ -184,6 +212,9 @@ def run_scan(
             "route_count": len(routes),
             "database_path": repo_rel(database, root),
             "database_fingerprint": fingerprint,
+            "config_sha256": config_sha,
+            "source_readiness_sha256": readiness_sha,
+            "input_binding_sha256": input_binding_sha,
             "elapsed_seconds": round(time.time() - started, 6),
             "selection_path_not_independently_confirmed": True,
             "R2-T04_allowed_to_start": False,
@@ -231,6 +262,23 @@ def validate_source_readiness(
     t10_manifest = _load_json(root / inputs["r0_t10_manifest_path"])
     t15_registry = _read_csv(root / inputs["r0_t15_registry_path"])
     file_checks: dict[str, Any] = {}
+    binding_input_keys = [
+        "t02_handoff_path",
+        "t02_handoff_validation_path",
+        "cell_registry_path",
+        "output_contract_path",
+        "metric_dictionary_path",
+        "hard_gate_registry_path",
+        "transition_registry_path",
+        "event_zone_contract_path",
+        "risk_set_contract_path",
+        "r0_t15_manifest_path",
+        "r0_t15_registry_path",
+        "r0_t10_manifest_path",
+    ]
+    for key in binding_input_keys:
+        path = root / inputs[key]
+        _record_actual_file(path, file_checks, root)
     expected_contract = _load_json(root / config["expected_key_adapter_contract_path"])
     _check_file(
         root / expected_contract["source_manifest_path"],
@@ -292,8 +340,12 @@ def validate_source_readiness(
         "eligibility_policy": config["semantics"]["eligibility_policy"],
         "quality_raw_confirmed_fields_present": True,
         **adapter,
-        "superseded_input_detected": False,
+        "superseded_input_detected": _superseded_input_detected(
+            inputs, handoff, handoff_validation, routes
+        ),
     }
+    if report["superseded_input_detected"]:
+        raise R2T03Error("superseded_input_detected")
     return report, routes
 
 
@@ -503,7 +555,7 @@ def _route_specs(
     return routes
 
 
-def _materialize_route_daily(
+def _materialize_route_source_daily(
     con: duckdb.DuckDBPyConnection, routes: list[RouteSpec], root: Path
 ) -> None:
     selects = []
@@ -552,12 +604,16 @@ def _materialize_route_daily(
             WHERE {source_filter} AND state_name='{route.state_line}'
             """
         )
-    con.execute("CREATE TABLE route_daily AS " + " UNION ALL ".join(selects))
+    con.execute("CREATE TABLE route_source_daily AS " + " UNION ALL ".join(selects))
     con.execute(
-        "CREATE UNIQUE INDEX route_daily_pk ON route_daily(route_id,security_id,trade_date)"
+        "ALTER TABLE route_source_daily ADD COLUMN expected_empty_reason VARCHAR;"
+        "ALTER TABLE route_source_daily ADD COLUMN source_row_present BOOLEAN DEFAULT true"
     )
-    if con.execute("SELECT count(*) FROM route_daily").fetchone()[0] == 0:
-        raise R2T03Error("route_daily_all_zero")
+    con.execute(
+        "CREATE UNIQUE INDEX route_source_daily_pk ON route_source_daily(route_id,security_id,trade_date)"
+    )
+    if con.execute("SELECT count(*) FROM route_source_daily").fetchone()[0] == 0:
+        raise R2T03Error("route_source_daily_all_zero")
 
 
 def _materialize_authoritative_expected_keys(
@@ -592,7 +648,7 @@ def _materialize_authoritative_expected_keys(
     if duplicates:
         raise R2T03Error("expected_key_source_duplicate_key")
     unexpected = con.execute(
-        """SELECT r.route_id,r.security_id,r.trade_date FROM route_daily r
+        """SELECT r.route_id,r.security_id,r.trade_date FROM route_source_daily r
         LEFT JOIN expected_route_key e USING(route_id,security_id,trade_date)
         WHERE e.trade_date IS NULL ORDER BY 1,2,3 LIMIT 1"""
     ).fetchone()
@@ -602,19 +658,152 @@ def _materialize_authoritative_expected_keys(
             + ":".join(str(value) for value in unexpected)
         )
     con.execute(
-        """INSERT INTO route_daily
+        """INSERT INTO route_source_daily
         SELECT e.route_id,e.security_id,e.trade_date,
                strftime(e.trade_date,'%Y-%m-%d') || 'T15:00:00+08:00',
-               false,'expected_empty',NULL,false,NULL,NULL,false
-        FROM expected_route_key e LEFT JOIN route_daily r USING(route_id,security_id,trade_date)
+               false,'expected_empty',NULL,false,NULL,NULL,false,
+               CASE s.trading_status WHEN 'suspended' THEN 'suspended'
+                    WHEN 'listing_pause' THEN 'listing_pause'
+                    ELSE error('unclassified_expected_empty:' || coalesce(s.trading_status,'NULL')) END,
+               false
+        FROM expected_route_key e LEFT JOIN route_source_daily r USING(route_id,security_id,trade_date)
+        LEFT JOIN expected_key_source.d2_source_status s
+          ON s.ts_code=e.security_id AND CAST(strptime(s.trade_date,'%Y%m%d') AS DATE)=e.trade_date
         WHERE r.trade_date IS NULL"""
     )
     remaining = con.execute(
-        """SELECT count(*) FROM expected_route_key e LEFT JOIN route_daily r
+        """SELECT count(*) FROM expected_route_key e LEFT JOIN route_source_daily r
         USING(route_id,security_id,trade_date) WHERE r.trade_date IS NULL"""
     ).fetchone()[0]
     if remaining:
         raise R2T03Error("dense_expected_surface_materialization_incomplete")
+    observed = con.execute(
+        """SELECT count(*),count(*) FILTER (WHERE NOT source_row_present),
+        count(*) FILTER (WHERE expected_empty_reason='suspended'),
+        count(*) FILTER (WHERE expected_empty_reason='listing_pause')
+        FROM route_source_daily"""
+    ).fetchone()
+    if contract.get("adapter_id") == "r2_t03_expected_key_adapter.v1" and observed != (
+        14008528,
+        162376,
+        154264,
+        8112,
+    ):
+        raise R2T03Error(f"expected_empty_fixed_aggregate_mismatch:{observed!r}")
+
+
+def _materialize_canonical_daily_and_intervals(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    """Replay K=3 exactly once per route/security over the complete expected surface."""
+    daily_rows: list[tuple[Any, ...]] = []
+    interval_rows: list[tuple[Any, ...]] = []
+    for route_id, security_id in con.execute(
+        "SELECT DISTINCT route_id,security_id FROM route_source_daily ORDER BY 1,2"
+    ).fetchall():
+        source = con.execute(
+            """SELECT trade_date,CAST(available_time AS VARCHAR),eligible,quality_state,raw_state,
+            expected_empty_reason,source_row_present FROM route_source_daily
+            WHERE route_id=? AND security_id=? ORDER BY trade_date""",
+            [route_id, security_id],
+        ).fetchall()
+        dates = [row[0].isoformat() for row in source]
+        inputs = [
+            DailyInput(
+                security_id=security_id,
+                trade_date=row[0].isoformat(),
+                available_time=_iso_time(row[1]),
+                eligible=bool(row[2]),
+                quality_state=str(row[3]),
+                raw_state=row[4],
+            )
+            for row in source
+        ]
+        timeline, _ = replay_confirmation(inputs, dates, security_id=security_id)
+        for item, raw in zip(timeline, source, strict=True):
+            daily_rows.append(
+                (
+                    route_id,
+                    security_id,
+                    item["trade_date"],
+                    item["available_time"],
+                    item["eligible"],
+                    item["quality_state"],
+                    item["raw_state"],
+                    item["confirmed_state"],
+                    item["confirmed_start_date"] or None,
+                    (
+                        item["confirmation_time"]
+                        if item["reason_code"] == "k3_confirmation"
+                        else None
+                    ),
+                    item["confirmed_end_date"] or None,
+                    item["exit_observation_time"] or None,
+                    bool(
+                        item["eligible"]
+                        and item["quality_state"] == "valid"
+                        and item["confirmed_state"]
+                    ),
+                    item["reason_code"],
+                    item["hard_break"],
+                    raw[5],
+                    raw[6],
+                )
+            )
+        dense_intervals = atomic_intervals(timeline)
+        for ordinal, interval in enumerate(dense_intervals, start=1):
+            dense_id = hashlib.sha256(
+                f"dense-v1|{route_id}|{security_id}|{ordinal}|{interval['start_date']}|{interval['end_date']}".encode()
+            ).hexdigest()[:32]
+            exit_time = (
+                timeline[interval["end_index"] + 1]["available_time"]
+                if interval["termination_reason"] != "sample_end_censoring"
+                and interval["end_index"] + 1 < len(timeline)
+                else timeline[interval["end_index"]]["available_time"]
+            )
+            interval_rows.append(
+                (
+                    route_id,
+                    security_id,
+                    dense_id,
+                    None,
+                    interval["start_date"],
+                    interval["end_date"],
+                    interval["confirmed_day_count"],
+                    interval["termination_reason"],
+                    exit_time,
+                    False,
+                    False,
+                    1,
+                )
+            )
+        if len(daily_rows) >= 100000:
+            _copy_rows(con, "route_daily", daily_rows)
+        if len(interval_rows) >= 10000:
+            _copy_rows(con, "route_atomic_interval", interval_rows)
+    _copy_rows(con, "route_daily", daily_rows)
+    _copy_rows(con, "route_atomic_interval", interval_rows)
+
+
+def _copy_rows(
+    con: duckdb.DuckDBPyConnection, table: str, rows: list[tuple[Any, ...]]
+) -> None:
+    if not rows:
+        return
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="", suffix=".csv", delete=False
+        ) as handle:
+            temp_path = Path(handle.name)
+            csv.writer(handle, lineterminator="\n").writerows(rows)
+        con.execute(
+            f"COPY {table} FROM '{_sql_path(temp_path)}' (FORMAT CSV, HEADER false, NULL '')"
+        )
+        rows.clear()
+    finally:
+        if temp_path and temp_path.exists():
+            temp_path.unlink()
 
 
 def _materialize_authorized_upstream_intervals(
@@ -644,10 +833,11 @@ def _materialize_authorized_upstream_intervals(
         if mapping["source_kind"] == "r0_t10_shared_q":
             selects.append(
                 f"""SELECT '{route_id}' route_id,i.security_id,
-                i.confirmed_interval_id source_interval_id,
+                i.confirmed_interval_id upstream_source_interval_id,
                 CAST(strptime(i.raw_start_date,'%Y%m%d') AS DATE) raw_start_date,
-                CAST(strptime(i.confirmed_start_date,'%Y%m%d') AS DATE) start_date,
-                CAST(strptime(CASE WHEN i.is_open_interval THEN i.last_observed_date ELSE i.interval_end_date END,'%Y%m%d') AS DATE) end_date,
+                CAST(strptime(i.confirmed_start_date,'%Y%m%d') AS DATE) confirmed_start_date,
+                CAST(strptime(i.interval_end_date,'%Y%m%d') AS DATE) interval_end_date,
+                CAST(strptime(i.last_observed_date,'%Y%m%d') AS DATE) last_observed_date,
                 i.confirmed_length::INTEGER confirmed_day_count,
                 CASE i.termination_type
                   WHEN 'raw_state_false' THEN 'natural_state_exit'
@@ -656,7 +846,7 @@ def _materialize_authorized_upstream_intervals(
                   WHEN 'raw_state_diagnostic_required' THEN 'quality_interruption'
                   WHEN 'raw_state_unknown' THEN 'quality_interruption'
                   ELSE error('unregistered_source_termination_reason:' || coalesce(i.termination_type,'NULL'))
-                END termination_reason,
+                END normalized_termination_reason,
                 i.termination_type source_termination_reason,i.is_open_interval,
                 '{mapping["source_kind"]}' source_kind,'{mapping["source_artifact_sha256"]}' source_artifact_sha256
                 FROM {alias}.candidate_confirmed_interval i
@@ -666,21 +856,22 @@ def _materialize_authorized_upstream_intervals(
             selects.append(
                 f"""SELECT * FROM (WITH source AS (
                   SELECT i.*,(SELECT struct_pack(quality_state:=d.quality_state,raw_state:=d.raw_state)
-                    FROM route_daily d WHERE d.route_id='{route_id}' AND d.security_id=i.security_id
+                    FROM route_source_daily d WHERE d.route_id='{route_id}' AND d.security_id=i.security_id
                     AND d.trade_date=CAST(strptime(i.last_observed_date,'%Y%m%d') AS DATE)
                     LIMIT 1) decision
                   FROM {alias}.r0_t15_confirmed_interval_results i
                   WHERE i.formal_vector_id='{mapping["source_id"]}' AND i.state_name='{state_line}'
-                ) SELECT '{route_id}' route_id,security_id,interval_id source_interval_id,
+                ) SELECT '{route_id}' route_id,security_id,interval_id upstream_source_interval_id,
                 CAST(strptime(raw_start_date,'%Y%m%d') AS DATE) raw_start_date,
-                CAST(strptime(confirmed_start_date,'%Y%m%d') AS DATE) start_date,
-                CAST(strptime(CASE WHEN is_open_interval THEN last_observed_date ELSE interval_end_date END,'%Y%m%d') AS DATE) end_date,
+                CAST(strptime(confirmed_start_date,'%Y%m%d') AS DATE) confirmed_start_date,
+                CAST(strptime(interval_end_date,'%Y%m%d') AS DATE) interval_end_date,
+                CAST(strptime(last_observed_date,'%Y%m%d') AS DATE) last_observed_date,
                 confirmed_duration_observations::INTEGER confirmed_day_count,
                 CASE WHEN is_open_interval THEN 'sample_end_censoring'
                      WHEN decision IS NULL THEN error('closed_interval_terminal_decision_missing')
                      WHEN decision.quality_state IN ('blocked','diagnostic_required','unknown') OR decision.raw_state IS NULL THEN 'quality_interruption'
                      WHEN decision.raw_state=false THEN 'natural_state_exit'
-                     ELSE error('interval_terminal_decision_not_an_exit') END termination_reason,
+                     ELSE error('interval_terminal_decision_not_an_exit') END normalized_termination_reason,
                 CASE WHEN is_open_interval THEN 'end_of_input_open'
                      WHEN decision IS NULL THEN error('closed_interval_terminal_decision_missing')
                      WHEN decision.quality_state='blocked' THEN 'raw_state_blocked'
@@ -700,25 +891,28 @@ def _assert_upstream_interval_reconciliation(con: duckdb.DuckDBPyConnection) -> 
         """SELECT r.route_id,r.security_id,r.interval_id,count(*) n
         FROM route_atomic_interval r JOIN authorized_upstream_interval u
           ON r.route_id=u.route_id AND r.security_id=u.security_id
-         AND r.start_date>=u.start_date AND r.end_date<=u.end_date
+         AND r.start_date>=u.raw_start_date AND r.end_date<=u.interval_end_date
         GROUP BY 1,2,3 HAVING count(*)<>1 LIMIT 1"""
     ).fetchone()
     unmapped = con.execute(
         """SELECT r.route_id,r.security_id,r.interval_id FROM route_atomic_interval r
         WHERE NOT EXISTS (SELECT 1 FROM authorized_upstream_interval u
           WHERE r.route_id=u.route_id AND r.security_id=u.security_id
-            AND r.start_date>=u.start_date AND r.end_date<=u.end_date) LIMIT 1"""
+            AND r.start_date>=u.raw_start_date AND r.end_date<=u.interval_end_date) LIMIT 1"""
     ).fetchone()
     unaffected_mismatch = con.execute(
-        """SELECT u.route_id,u.security_id,u.source_interval_id
+        """SELECT u.route_id,u.security_id,u.upstream_source_interval_id
         FROM authorized_upstream_interval u
         WHERE NOT EXISTS (SELECT 1 FROM route_daily d WHERE d.route_id=u.route_id
           AND d.security_id=u.security_id AND d.quality_state='expected_empty'
-          AND d.trade_date BETWEEN u.raw_start_date AND u.end_date)
+          AND d.trade_date BETWEEN u.raw_start_date AND u.interval_end_date)
+        AND NOT EXISTS (SELECT 1 FROM route_daily d WHERE d.route_id=u.route_id
+          AND d.security_id=u.security_id AND d.quality_state='expected_empty'
+          AND d.trade_date>u.interval_end_date AND d.trade_date<=u.last_observed_date)
         AND NOT EXISTS (SELECT 1 FROM route_atomic_interval r WHERE r.route_id=u.route_id
-          AND r.security_id=u.security_id AND r.start_date=u.start_date
-          AND r.end_date=u.end_date AND r.confirmed_day_count=u.confirmed_day_count
-          AND r.termination_reason=u.termination_reason) LIMIT 1"""
+          AND r.security_id=u.security_id AND r.start_date=u.confirmed_start_date
+          AND r.end_date=u.interval_end_date AND r.confirmed_day_count=u.confirmed_day_count
+          AND r.termination_reason=u.normalized_termination_reason) LIMIT 1"""
     ).fetchone()
     if ambiguous or unmapped or unaffected_mismatch:
         raise R2T03Error(
@@ -726,6 +920,67 @@ def _assert_upstream_interval_reconciliation(con: duckdb.DuckDBPyConnection) -> 
             f"ambiguous={ambiguous!r}:unmapped={unmapped!r}:"
             f"unaffected_mismatch={unaffected_mismatch!r}"
         )
+
+
+def _bind_dense_interval_lineage(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute(
+        """CREATE TEMP TABLE dense_lineage AS
+        WITH candidates AS (
+          SELECT r.route_id,r.security_id,r.interval_id,u.upstream_source_interval_id,
+            EXISTS(SELECT 1 FROM route_source_daily d WHERE d.route_id=u.route_id
+              AND d.security_id=u.security_id AND NOT d.source_row_present
+              AND d.trade_date BETWEEN u.raw_start_date AND u.interval_end_date) geometry_affected,
+            EXISTS(SELECT 1 FROM route_source_daily d WHERE d.route_id=u.route_id
+              AND d.security_id=u.security_id AND NOT d.source_row_present
+              AND d.trade_date>u.interval_end_date AND d.trade_date<=u.last_observed_date) termination_affected
+          FROM route_atomic_interval r JOIN authorized_upstream_interval u
+            ON r.route_id=u.route_id AND r.security_id=u.security_id
+           AND r.start_date>=u.raw_start_date AND r.end_date<=u.interval_end_date
+        ), unique_map AS (
+          SELECT *,count(*) OVER (PARTITION BY route_id,security_id,interval_id) mapping_count
+          FROM candidates
+        ) SELECT route_id,security_id,interval_id,upstream_source_interval_id,
+          geometry_affected,termination_affected,
+          row_number() OVER (PARTITION BY route_id,security_id,upstream_source_interval_id
+                             ORDER BY interval_id) dense_fragment_ordinal,
+          mapping_count FROM unique_map"""
+    )
+    bad = con.execute(
+        "SELECT count(*) FROM dense_lineage WHERE mapping_count<>1"
+    ).fetchone()[0]
+    unmapped = con.execute(
+        """SELECT count(*) FROM route_atomic_interval r LEFT JOIN dense_lineage d
+        USING(route_id,security_id,interval_id) WHERE d.interval_id IS NULL"""
+    ).fetchone()[0]
+    if bad or unmapped:
+        raise R2T03Error(f"dense_interval_lineage_mapping_failed:{bad}:{unmapped}")
+    con.execute(
+        """UPDATE route_atomic_interval r SET
+          upstream_source_interval_id=d.upstream_source_interval_id,
+          source_geometry_affected=d.geometry_affected,
+          source_termination_affected=d.termination_affected,
+          dense_fragment_ordinal=d.dense_fragment_ordinal
+        FROM dense_lineage d WHERE r.route_id=d.route_id AND r.security_id=d.security_id
+          AND r.interval_id=d.interval_id"""
+    )
+
+
+def _assert_canonical_daily(con: duckdb.DuckDBPyConnection) -> None:
+    checks = {
+        "row_count": "SELECT (SELECT count(*) FROM route_daily)-(SELECT count(*) FROM expected_route_key)",
+        "duplicate_pk": "SELECT count(*)-count(DISTINCT (route_id,security_id,trade_date)) FROM route_daily",
+        "route_count": "SELECT count(DISTINCT route_id)-8 FROM route_daily",
+        "route_surface": "SELECT count(*) FROM (SELECT route_id,count(*) n FROM route_daily GROUP BY 1 HAVING n<>1751066)",
+        "expected_empty_count": "SELECT count(*)-162376 FROM route_daily WHERE NOT source_row_present",
+        "confirmed_ineligible": "SELECT count(*) FROM route_daily WHERE confirmed_state AND (NOT eligible OR quality_state<>'valid' OR raw_state IS DISTINCT FROM true)",
+        "risk_formula": "SELECT count(*) FROM route_daily WHERE state_risk_set_eligible IS DISTINCT FROM (eligible AND quality_state='valid' AND confirmed_state)",
+        "expected_empty_state": "SELECT count(*) FROM route_daily WHERE NOT source_row_present AND (confirmed_state OR state_risk_set_eligible)",
+        "confirmation_time": "SELECT count(*) FROM route_daily WHERE coalesce(reason_code='k3_confirmation',false) IS DISTINCT FROM (confirmation_time IS NOT NULL)",
+    }
+    for check_id, sql in checks.items():
+        value = con.execute(sql).fetchone()[0]
+        if value:
+            raise R2T03Error(f"canonical_daily_assertion_failed:{check_id}:{value}")
 
 
 def _execute_routes(
@@ -756,34 +1011,29 @@ def _execute_routes(
         processed = 0
         buffers = _new_write_buffers()
         for security_id, rows in _iter_security_timelines(con, route.route_id):
-            expected_dates = [
-                row[0].isoformat()
-                for row in con.execute(
-                    "SELECT trade_date FROM expected_route_key WHERE route_id=? AND security_id=? ORDER BY trade_date",
-                    [route.route_id, security_id],
-                ).fetchall()
-            ]
-            if not expected_dates:
-                raise R2T03Error(
-                    f"expected_key_security_missing:{route.route_id}:{security_id}"
-                )
             _process_security(
                 route,
                 security_id,
                 rows,
-                expected_dates,
                 [
                     {
-                        "source_interval_id": value[0],
-                        "start_date": value[1].isoformat(),
-                        "end_date": value[2].isoformat(),
-                        "confirmed_day_count": value[3],
-                        "termination_reason": value[4],
+                        "interval_id": value[0],
+                        "upstream_source_interval_id": value[1],
+                        "start_date": value[2].isoformat(),
+                        "end_date": value[3].isoformat(),
+                        "confirmed_day_count": value[4],
+                        "termination_reason": value[5],
+                        "exit_observation_time": _iso_time(value[6]),
+                        "source_geometry_affected": value[7],
+                        "source_termination_affected": value[8],
+                        "dense_fragment_ordinal": value[9],
                     }
                     for value in con.execute(
-                        """SELECT source_interval_id,start_date,end_date,confirmed_day_count,termination_reason
-                        FROM authorized_upstream_interval WHERE route_id=? AND security_id=?
-                        ORDER BY start_date,end_date,source_interval_id""",
+                        """SELECT interval_id,upstream_source_interval_id,start_date,end_date,
+                        confirmed_day_count,termination_reason,exit_observation_time,
+                        source_geometry_affected,source_termination_affected,dense_fragment_ordinal
+                        FROM route_atomic_interval WHERE route_id=? AND security_id=?
+                        ORDER BY start_date,end_date,interval_id""",
                         [route.route_id, security_id],
                     ).fetchall()
                 ],
@@ -810,7 +1060,9 @@ def _iter_security_timelines(
     cursor = con.cursor().execute(
         """
         SELECT security_id, trade_date, available_time, eligible, quality_state,
-               raw_state, confirmed_state, confirmed_start_date, confirmation_time
+               raw_state, confirmed_state, confirmed_start_date, confirmation_time,
+               confirmed_end_date,exit_observation_time,state_risk_set_eligible,
+               reason_code,hard_break,expected_empty_reason,source_row_present
         FROM route_daily WHERE route_id=? ORDER BY security_id, trade_date
         """,
         [route_id],
@@ -840,68 +1092,59 @@ def _process_security(
     route: RouteSpec,
     security_id: str,
     source_rows: list[tuple[Any, ...]],
-    expected_dates: list[str],
-    authorized_intervals: list[dict[str, Any]],
+    intervals: list[dict[str, Any]],
     cells: list[dict[str, Any]],
     execution: dict[str, dict[str, Any]],
     buffers: dict[str, list[tuple[Any, ...]]],
 ) -> None:
-    daily = [
-        DailyInput(
-            security_id=security_id,
-            trade_date=row[1].isoformat(),
-            available_time=_iso_time(row[2]),
-            eligible=bool(row[3]),
-            quality_state=str(row[4]),
-            raw_state=row[5],
-        )
-        for row in source_rows
+    timeline = [
+        {
+            "security_id": security_id,
+            "trade_date": row[1].isoformat(),
+            "row_index": index,
+            "available_time": _iso_time(row[2]),
+            "eligible": bool(row[3]),
+            "quality_state": str(row[4]),
+            "raw_state": row[5],
+            "confirmed_state": bool(row[6]),
+            "confirmed_start_date": row[7].isoformat() if row[7] else "",
+            "confirmation_time": _iso_time(row[8]) if row[8] else "",
+            "confirmed_end_date": row[9].isoformat() if row[9] else "",
+            "exit_observation_time": _iso_time(row[10]) if row[10] else "",
+            "state_risk_set_eligible": bool(row[11]),
+            "reason_code": str(row[12]),
+            "hard_break": bool(row[13]),
+            "expected_empty_reason": row[14] or "",
+            "source_row_present": bool(row[15]),
+        }
+        for index, row in enumerate(source_rows)
     ]
-    timeline, confirmation_ledger = replay_confirmation(
-        daily, expected_dates, security_id=security_id
-    )
-    intervals = atomic_intervals(timeline)
-    source_use_count: Counter[str] = Counter()
-    interval_rows = []
+    by_date = {row["trade_date"]: row["row_index"] for row in timeline}
     for interval in intervals:
-        matches = [
-            source
-            for source in authorized_intervals
-            if interval["start_date"] >= source["start_date"]
-            and interval["end_date"] <= source["end_date"]
-        ]
-        if len(matches) != 1:
-            raise R2T03Error(
-                f"dense_interval_source_mapping_not_unique:{route.route_id}:"
-                f"{security_id}:{interval['start_date']}:{interval['end_date']}"
-            )
-        source_id = matches[0]["source_interval_id"]
-        source_use_count[source_id] += 1
-        interval["source_interval_id"] = (
-            source_id
-            if source_use_count[source_id] == 1
-            else f"{source_id}::dense_fragment_{source_use_count[source_id]:03d}"
-        )
-        interval_rows.append(
-            (
-                route.route_id,
-                security_id,
-                interval["source_interval_id"],
-                interval["start_date"],
-                interval["end_date"],
-                interval["confirmed_day_count"],
-                interval["termination_reason"],
-            )
-        )
-    buffers["route_atomic_interval"].extend(interval_rows)
+        interval["start_index"] = by_date[interval["start_date"]]
+        interval["end_index"] = by_date[interval["end_date"]]
+    confirmation_ledger = [
+        {
+            "trade_date": row["trade_date"],
+            "from_state": "RAW_NOT_CONFIRMED"
+            if row["reason_code"] == "k3_confirmation"
+            else "CONFIRMED_ACTIVE",
+            "to_state": "CONFIRMED_ACTIVE"
+            if row["reason_code"] == "k3_confirmation"
+            else "CONFIRMED_EXITED",
+            "reason_code": row["reason_code"],
+        }
+        for row in timeline
+        if row["reason_code"]
+        in {"k3_confirmation", "natural_state_exit", "quality_interruption"}
+    ]
     for cell in sorted(cells, key=lambda row: row["candidate_cell_id"]):
         cell_id = cell["candidate_cell_id"]
         d, g = int(cell["d"]), int(cell["g"])
         components, zones, zone_ledger = group_event_zones(
             timeline, intervals, d, g, candidate_cell_id=cell_id
         )
-        for zone in zones:
-            zone["terminal_reason_code"] = _zone_reason(zone)
+        _bind_zone_terminal_reasons(zones, zone_ledger)
         component_rows = [
             (
                 cell_id,
@@ -969,7 +1212,6 @@ def _new_write_buffers() -> dict[str, list[tuple[Any, ...]]]:
     return {
         table: []
         for table in [
-            "route_atomic_interval",
             "qualified_component",
             "component_source_lineage",
             "event_zone",
@@ -1117,7 +1359,10 @@ def _component_lineage_rows(
             interval["confirmed_day_count"],
             interval["termination_reason"],
         )
-        interval_ids.setdefault(key, []).append(interval["source_interval_id"])
+        source_id = interval.get("upstream_source_interval_id")
+        if not source_id:
+            raise R2T03Error("component_lineage_missing_upstream_source_interval_id")
+        interval_ids.setdefault(key, []).append(source_id)
     output = []
     for component in components:
         termination = component["termination_reason"]
@@ -1276,7 +1521,7 @@ def _entity_transition_rows(
         elif component["termination_reason"] == "natural_state_exit":
             to_state, reason = "UNQUALIFIED_CLOSED", "normal_short_interval_drop"
         else:
-            to_state, reason = "FINALIZED_WITH_QUALITY_BREAK", "quality_break"
+            to_state, reason = "UNQUALIFIED_CLOSED", "normal_short_interval_drop"
         add(
             "component",
             component["component_id"],
@@ -1471,9 +1716,20 @@ def _create_output_schema(con: duckdb.DuckDBPyConnection) -> None:
         CREATE TABLE cell_registry(candidate_cell_id VARCHAR PRIMARY KEY, route_id VARCHAR,
           candidate_role VARCHAR, state_line VARCHAR, W INTEGER, K INTEGER,
           qP DOUBLE, qC DOUBLE, qT DOUBLE, qV DOUBLE, d INTEGER, g INTEGER);
+        CREATE TABLE route_daily(route_id VARCHAR,security_id VARCHAR,trade_date DATE,
+          available_time TIMESTAMPTZ,eligible BOOLEAN,quality_state VARCHAR,raw_state BOOLEAN,
+          confirmed_state BOOLEAN,confirmed_start_date DATE,confirmation_time TIMESTAMPTZ,
+          confirmed_end_date DATE,exit_observation_time TIMESTAMPTZ,
+          state_risk_set_eligible BOOLEAN,reason_code VARCHAR,hard_break BOOLEAN,
+          expected_empty_reason VARCHAR,source_row_present BOOLEAN,
+          PRIMARY KEY(route_id,security_id,trade_date));
         CREATE TABLE route_atomic_interval(route_id VARCHAR, security_id VARCHAR,
-          interval_id VARCHAR, start_date DATE, end_date DATE,
-          confirmed_day_count INTEGER, termination_reason VARCHAR);
+          interval_id VARCHAR, upstream_source_interval_id VARCHAR,
+          start_date DATE, end_date DATE, confirmed_day_count INTEGER,
+          termination_reason VARCHAR, exit_observation_time TIMESTAMPTZ,
+          source_geometry_affected BOOLEAN,source_termination_affected BOOLEAN,
+          dense_fragment_ordinal INTEGER,
+          PRIMARY KEY(route_id,security_id,interval_id));
         CREATE TABLE qualified_component(candidate_cell_id VARCHAR, security_id VARCHAR,
           component_id VARCHAR, start_date DATE, end_date DATE,
           confirmed_day_count INTEGER, qualified BOOLEAN,
@@ -1593,6 +1849,12 @@ def _export_compact_tables(con: duckdb.DuckDBPyConnection, output_dir: Path) -> 
         "window_overlap_comparison": "r2_t03_window_overlap_profile.csv",
         "parameter_response_audit": "r2_t03_parameter_response_audit.csv",
         "metric_results": "r2_t03_metric_results.csv",
+        "atomic_interval_diagnostic_profile": "r2_t03_atomic_interval_diagnostic_profile.csv",
+        "component_diagnostic_profile": "r2_t03_component_diagnostic_profile.csv",
+        "event_zone_diagnostic_profile": "r2_t03_event_zone_diagnostic_profile.csv",
+        "strict_core_diagnostic_profile": "r2_t03_strict_core_diagnostic_profile.csv",
+        "window_diagnostic_profile": "r2_t03_window_diagnostic_profile.csv",
+        "parameter_invariant_profile": "r2_t03_parameter_invariant_profile.csv",
     }
     for table, name in exports.items():
         con.execute(
@@ -1603,13 +1865,34 @@ def _export_compact_tables(con: duckdb.DuckDBPyConnection, output_dir: Path) -> 
 
 def _database_fingerprint(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
     tables = [
+        "cell_registry",
+        "route_source_daily",
+        "base_expected_security_date",
+        "expected_route_key",
         "route_daily",
+        "authorized_upstream_interval",
         "route_atomic_interval",
         "qualified_component",
+        "component_source_lineage",
         "event_zone",
         "event_zone_membership_daily",
         "event_zone_bridge_segment",
+        "reentry_attempt",
+        "transition_entity_ledger",
         "transition_profile",
+        "atomic_baseline_profile",
+        "atomic_interval_diagnostic_profile",
+        "d_qualification_profile",
+        "component_diagnostic_profile",
+        "dg_event_zone_profile",
+        "event_zone_diagnostic_profile",
+        "strict_core_shell_profile",
+        "strict_core_diagnostic_profile",
+        "window_overlap_comparison",
+        "window_diagnostic_profile",
+        "parameter_response_audit",
+        "parameter_invariant_profile",
+        "metric_results",
     ]
     result = {}
     for table in tables:
@@ -1620,9 +1903,30 @@ def _database_fingerprint(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         row_count, xor_hash = con.execute(
             f"SELECT count(*), bit_xor(hash({quoted})) FROM {table}"
         ).fetchone()
+        partition_columns = [
+            column
+            for column in ("route_id", "candidate_cell_id", "security_id")
+            if column in columns
+        ]
+        group = ",".join(f'"{column}"' for column in partition_columns)
+        if group:
+            partition_rows = con.execute(
+                f"SELECT {group},sha256(to_json(list_sort(list(hash({quoted}))))) "
+                f"FROM {table} GROUP BY {group} ORDER BY {group}"
+            ).fetchall()
+        else:
+            partition_rows = [
+                con.execute(
+                    f"SELECT sha256(to_json(list_sort(list(hash({quoted}))))) FROM {table}"
+                ).fetchone()
+            ]
+        multiset_hash = hashlib.sha256(
+            json.dumps(partition_rows, default=str, separators=(",", ":")).encode()
+        ).hexdigest()
         result[table] = {
             "row_count": row_count,
             "hash_xor_uint64": int(xor_hash or 0),
+            "stable_multiset_sha256": multiset_hash,
         }
     return result
 
@@ -1715,6 +2019,48 @@ def _actual_sha256(path: Path) -> str:
         while chunk := handle.read(16 * 1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _record_actual_file(path: Path, report: dict[str, Any], root: Path) -> None:
+    if not path.is_file():
+        raise R2T03Error(f"source_file_missing:{path}")
+    actual = _actual_sha256(path)
+    report.setdefault(
+        repo_rel(path, root),
+        {
+            "sha256": actual,
+            "registered_sha256": actual,
+            "size_bytes": path.stat().st_size,
+            "status": "passed",
+        },
+    )
+
+
+def _superseded_input_detected(
+    inputs: Mapping[str, str],
+    handoff: Mapping[str, Any],
+    validation: Mapping[str, Any],
+    routes: list[RouteSpec],
+) -> bool:
+    run_id = "R2-T02-20260712T1700Z"
+    if handoff.get("run_id") != run_id or validation.get("run_id") != run_id:
+        return True
+    if any(
+        run_id not in inputs[key]
+        for key in (
+            "t02_handoff_path",
+            "t02_handoff_validation_path",
+            "cell_registry_path",
+            "output_contract_path",
+            "metric_dictionary_path",
+            "hard_gate_registry_path",
+            "transition_registry_path",
+            "event_zone_contract_path",
+            "risk_set_contract_path",
+        )
+    ):
+        return True
+    return len(routes) != 8 or len({route.route_id for route in routes}) != 8
 
 
 def _validate_interval_contract_sources(

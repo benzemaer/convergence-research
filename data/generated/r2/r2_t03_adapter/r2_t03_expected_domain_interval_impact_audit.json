@@ -12,6 +12,13 @@
   "difference_rows_with_staging_daily_raw": 0,
   "interval_impact": {
     "difference_rows_inside_existing_confirmed_intervals": 10,
+    "geometry_affected_source_interval_count": 14,
+    "termination_only_affected_source_interval_count": 10,
+    "all_affected_source_interval_count": 24,
+    "source_interval_split_count": 0,
+    "source_interval_eliminated_count": 12,
+    "dense_fragment_count": 31334,
+    "unaffected_exact_interval_count": 31322,
     "existing_confirmed_intervals_affected": 2,
     "difference_rows_inside_k3_raw_start_through_interval_end": 30,
     "source_intervals_with_k3_geometry_affected": 14,
