@@ -1,0 +1,21 @@
+{
+  "task_id": "R2-T02",
+  "superseded_run_id": "R2-T02-20260712T0900Z",
+  "replacement_run_id": "R2-T02-20260712T1000Z",
+  "review_id": "4679505674",
+  "reviewed_head": "4c394ef43432c2ea84469644089fe05b06314d9e",
+  "supersession_reason_codes": [
+    "synthetic_case_name_fixture_mismatch",
+    "manufactured_oracle_and_mutation_result",
+    "independent_validator_self_certification",
+    "unqualified_reentry_censor_finalization_error",
+    "executor_t03_contract_membership_mismatch",
+    "metric_hard_gate_not_uniquely_executable",
+    "repository_final_gate_binding_incomplete"
+  ],
+  "downstream_gate_state": {
+    "R2-T03_allowed_to_start": false,
+    "R2-T04_allowed_to_start": false,
+    "R3_allowed_to_start": false
+  }
+}
