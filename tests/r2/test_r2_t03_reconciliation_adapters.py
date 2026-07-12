@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -16,6 +17,7 @@ from src.r2.r2_t02_protocol_freeze import (
 )
 from src.r2.r2_t03_event_zone_scan import (
     R2T03Error,
+    _materialize_authoritative_expected_keys,
     adapter_contract_status,
     build_expected_security_dates,
     reconcile_atomic_interval_rows,
@@ -122,6 +124,43 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
             actual = adapter_contract_status(config, root=root)
             self.assertEqual(
                 actual["availability_adapter_status"], "unresolved_upstream_contract"
+            )
+            self.assertEqual(
+                actual["expected_key_adapter_status"], "unresolved_upstream_contract"
+            )
+
+    def test_expected_adapter_rechecks_actual_source_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            database = root / "source.duckdb"
+            manifest.write_bytes(b"manifest\n")
+            database.write_bytes(b"source-v2")
+            old_database_sha = hashlib.sha256(b"source-v1").hexdigest()
+            contract = {
+                "source_manifest_path": "manifest.json",
+                "source_manifest_sha256": hashlib.sha256(b"manifest\n").hexdigest(),
+                "source_duckdb_path": "source.duckdb",
+                "source_duckdb_sha256": old_database_sha,
+            }
+            validation = {
+                "status": "passed",
+                "source_manifest_sha256": contract["source_manifest_sha256"],
+                "source_duckdb_sha256": old_database_sha,
+            }
+            (root / "contract.json").write_text(json.dumps(contract), encoding="utf-8")
+            (root / "validation.json").write_text(
+                json.dumps(validation), encoding="utf-8"
+            )
+            actual = adapter_contract_status(
+                {
+                    "semantics": {
+                        "expected_key_adapter_status": "resolved_upstream_adapter"
+                    },
+                    "expected_key_adapter_contract_path": "contract.json",
+                    "expected_key_adapter_validation_path": "validation.json",
+                },
+                root=root,
             )
             self.assertEqual(
                 actual["expected_key_adapter_status"], "unresolved_upstream_contract"
@@ -309,10 +348,92 @@ class R2T03ReconciliationAdapterTest(unittest.TestCase):
             ),
             "raw_state_blocked",
         )
-        self.assertEqual(derive_source_termination_reason(None), "end_of_input_open")
+        self.assertEqual(
+            derive_source_termination_reason(None, is_open_interval=True),
+            "end_of_input_open",
+        )
+        with self.assertRaisesRegex(
+            R2T03AdapterError, "closed_interval_terminal_decision_missing"
+        ):
+            derive_source_termination_reason(None, is_open_interval=False)
         result = reconcile_interval_multiset([closed, closed], [closed])
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["unexpected_multiset_row_count"], 1)
+
+    def test_t15_closed_interval_uses_last_observed_decision_row_semantics(
+        self,
+    ) -> None:
+        self.assertEqual(
+            derive_source_termination_reason(
+                {"quality_state": "valid", "raw_state": False},
+                is_open_interval=False,
+            ),
+            "raw_state_false",
+        )
+        for quality, expected in [
+            ("blocked", "raw_state_blocked"),
+            ("diagnostic_required", "raw_state_diagnostic_required"),
+        ]:
+            with self.subTest(quality=quality):
+                self.assertEqual(
+                    derive_source_termination_reason(
+                        {"quality_state": quality, "raw_state": None},
+                        is_open_interval=False,
+                    ),
+                    expected,
+                )
+
+    def test_dense_expected_surface_materializes_expected_empty_hard_break(
+        self,
+    ) -> None:
+        import duckdb
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "expected.duckdb"
+            with duckdb.connect(str(source)) as source_con:
+                source_con.execute(
+                    "CREATE TABLE d2_expected_security_dates(ts_code VARCHAR,trade_date VARCHAR)"
+                )
+                source_con.execute(
+                    "INSERT INTO d2_expected_security_dates VALUES ('S1','20260102'),('S1','20260103')"
+                )
+            contract = {
+                "expected_skeleton_source": {
+                    "source_duckdb_path": "expected.duckdb",
+                    "table": "d2_expected_security_dates",
+                    "security_id_field": "ts_code",
+                    "trade_date_field": "trade_date",
+                },
+                "date_min": "20260102",
+                "date_max": "20260103",
+            }
+            (root / "contract.json").write_text(json.dumps(contract), encoding="utf-8")
+            con = duckdb.connect()
+            con.execute("CREATE TABLE cell_registry(route_id VARCHAR)")
+            con.execute("INSERT INTO cell_registry VALUES ('r1')")
+            con.execute(
+                """CREATE TABLE route_daily(route_id VARCHAR,security_id VARCHAR,
+                trade_date DATE,available_time VARCHAR,eligible BOOLEAN,quality_state VARCHAR,
+                raw_state BOOLEAN,confirmed_state BOOLEAN,confirmed_start_date DATE,
+                confirmation_time VARCHAR,state_risk_set_eligible BOOLEAN)"""
+            )
+            con.execute(
+                "INSERT INTO route_daily VALUES ('r1','S1',DATE '2026-01-02','2026-01-02T15:00:00+08:00',true,'valid',true,false,NULL,NULL,false)"
+            )
+            _materialize_authoritative_expected_keys(
+                con, {"expected_key_adapter_contract_path": "contract.json"}, root
+            )
+            self.assertEqual(
+                con.execute(
+                    "SELECT eligible,quality_state,raw_state FROM route_daily WHERE trade_date=DATE '2026-01-03'"
+                ).fetchone(),
+                (False, "expected_empty", None),
+            )
+            self.assertEqual(
+                con.execute("SELECT count(*) FROM route_daily").fetchone()[0], 2
+            )
+            con.close()
 
 
 if __name__ == "__main__":

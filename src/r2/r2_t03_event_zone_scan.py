@@ -231,6 +231,36 @@ def validate_source_readiness(
     t10_manifest = _load_json(root / inputs["r0_t10_manifest_path"])
     t15_registry = _read_csv(root / inputs["r0_t15_registry_path"])
     file_checks: dict[str, Any] = {}
+    expected_contract = _load_json(root / config["expected_key_adapter_contract_path"])
+    _check_file(
+        root / expected_contract["source_manifest_path"],
+        expected_contract["source_manifest_sha256"],
+        file_checks,
+        root,
+    )
+    expected_db = root / expected_contract["source_duckdb_path"]
+    _check_file(
+        expected_db, expected_contract["source_duckdb_sha256"], file_checks, root
+    )
+    expected_source = expected_contract["expected_skeleton_source"]
+    with duckdb.connect(str(expected_db), read_only=True) as con:
+        expected_count, expected_security_count, expected_min, expected_max = (
+            con.execute(
+                f"SELECT count(*),count(DISTINCT {expected_source['security_id_field']}),"
+                f"min({expected_source['trade_date_field']}),max({expected_source['trade_date_field']}) "
+                f"FROM {expected_source['table']} WHERE {expected_source['trade_date_field']} "
+                f"BETWEEN ? AND ?",
+                [expected_contract["date_min"], expected_contract["date_max"]],
+            ).fetchone()
+        )
+    file_checks[repo_rel(expected_db, root)]["tables"] = {
+        expected_source["table"]: {
+            "row_count": expected_count,
+            "security_count": expected_security_count,
+            "date_min": expected_min,
+            "date_max": expected_max,
+        }
+    }
     for key in ["daily_confirmation", "confirmed_interval"]:
         registered = t15_manifest["outputs"][key]
         path = root / registered["path"]
@@ -248,6 +278,7 @@ def validate_source_readiness(
             if repo_rel(path, root) not in file_checks:
                 expected = _registered_t10_hash(t10_manifest, path_value)
                 _check_file(path, expected, file_checks, root)
+    _validate_interval_contract_sources(config, routes, file_checks, root)
     report = {
         "task_id": TASK_ID,
         "status": "passed",
@@ -268,7 +299,7 @@ def validate_source_readiness(
 
 def adapter_contract_status(
     config: Mapping[str, Any], *, root: Path = ROOT
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """Bind adapters to upstream contracts; configuration assertions are not evidence."""
     semantics = config.get("semantics", {})
     availability_contract = config.get("availability_policy_contract_path", "")
@@ -295,6 +326,15 @@ def adapter_contract_status(
         and (root / expected_key_contract).is_file()
         and passed(str(expected_validation))
     )
+    if expected_resolved:
+        contract = _load_json(root / str(expected_key_contract))
+        validation = _load_json(root / str(expected_validation))
+        expected_resolved = all(
+            _actual_sha256(root / contract[key.replace("_sha256", "_path")])
+            == contract[key]
+            == validation.get(key)
+            for key in ("source_manifest_sha256", "source_duckdb_sha256")
+        )
     interval_resolved = bool(
         semantics.get("interval_reconciliation_adapter_status")
         == "resolved_upstream_adapter"
@@ -302,6 +342,17 @@ def adapter_contract_status(
         and (root / interval_contract).is_file()
         and passed(str(interval_validation))
     )
+    if interval_resolved:
+        contract = _load_json(root / str(interval_contract))
+        validation = _load_json(root / str(interval_validation))
+        interval_resolved = bool(
+            validation.get("adapter_id") == contract.get("adapter_id")
+            and all(
+                _actual_sha256(root / row["interval_path"])
+                == row["source_artifact_sha256"]
+                for row in contract.get("route_mappings", [])
+            )
+        )
     return {
         "availability_adapter_status": (
             "resolved_research_policy"
@@ -540,15 +591,6 @@ def _materialize_authoritative_expected_keys(
     ).fetchone()[0]
     if duplicates:
         raise R2T03Error("expected_key_source_duplicate_key")
-    missing = con.execute(
-        """SELECT e.route_id,e.security_id,e.trade_date FROM expected_route_key e
-        LEFT JOIN route_daily r USING(route_id,security_id,trade_date)
-        WHERE r.trade_date IS NULL ORDER BY 1,2,3 LIMIT 1"""
-    ).fetchone()
-    if missing:
-        raise R2T03Error(
-            "missing_expected_trading_row:" + ":".join(str(value) for value in missing)
-        )
     unexpected = con.execute(
         """SELECT r.route_id,r.security_id,r.trade_date FROM route_daily r
         LEFT JOIN expected_route_key e USING(route_id,security_id,trade_date)
@@ -559,6 +601,20 @@ def _materialize_authoritative_expected_keys(
             "observed_row_outside_expected_key_contract:"
             + ":".join(str(value) for value in unexpected)
         )
+    con.execute(
+        """INSERT INTO route_daily
+        SELECT e.route_id,e.security_id,e.trade_date,
+               strftime(e.trade_date,'%Y-%m-%d') || 'T15:00:00+08:00',
+               false,'expected_empty',NULL,false,NULL,NULL,false
+        FROM expected_route_key e LEFT JOIN route_daily r USING(route_id,security_id,trade_date)
+        WHERE r.trade_date IS NULL"""
+    )
+    remaining = con.execute(
+        """SELECT count(*) FROM expected_route_key e LEFT JOIN route_daily r
+        USING(route_id,security_id,trade_date) WHERE r.trade_date IS NULL"""
+    ).fetchone()[0]
+    if remaining:
+        raise R2T03Error("dense_expected_surface_materialization_incomplete")
 
 
 def _materialize_authorized_upstream_intervals(
@@ -589,6 +645,7 @@ def _materialize_authorized_upstream_intervals(
             selects.append(
                 f"""SELECT '{route_id}' route_id,i.security_id,
                 i.confirmed_interval_id source_interval_id,
+                CAST(strptime(i.raw_start_date,'%Y%m%d') AS DATE) raw_start_date,
                 CAST(strptime(i.confirmed_start_date,'%Y%m%d') AS DATE) start_date,
                 CAST(strptime(CASE WHEN i.is_open_interval THEN i.last_observed_date ELSE i.interval_end_date END,'%Y%m%d') AS DATE) end_date,
                 i.confirmed_length::INTEGER confirmed_day_count,
@@ -607,28 +664,31 @@ def _materialize_authorized_upstream_intervals(
             )
         else:
             selects.append(
-                f"""WITH source AS (
+                f"""SELECT * FROM (WITH source AS (
                   SELECT i.*,(SELECT struct_pack(quality_state:=d.quality_state,raw_state:=d.raw_state)
                     FROM route_daily d WHERE d.route_id='{route_id}' AND d.security_id=i.security_id
-                    AND d.trade_date>CAST(strptime(i.last_observed_date,'%Y%m%d') AS DATE)
-                    ORDER BY d.trade_date LIMIT 1) decision
+                    AND d.trade_date=CAST(strptime(i.last_observed_date,'%Y%m%d') AS DATE)
+                    LIMIT 1) decision
                   FROM {alias}.r0_t15_confirmed_interval_results i
                   WHERE i.formal_vector_id='{mapping["source_id"]}' AND i.state_name='{state_line}'
                 ) SELECT '{route_id}' route_id,security_id,interval_id source_interval_id,
+                CAST(strptime(raw_start_date,'%Y%m%d') AS DATE) raw_start_date,
                 CAST(strptime(confirmed_start_date,'%Y%m%d') AS DATE) start_date,
-                CAST(strptime(CASE WHEN decision IS NULL THEN last_observed_date ELSE interval_end_date END,'%Y%m%d') AS DATE) end_date,
+                CAST(strptime(CASE WHEN is_open_interval THEN last_observed_date ELSE interval_end_date END,'%Y%m%d') AS DATE) end_date,
                 confirmed_duration_observations::INTEGER confirmed_day_count,
-                CASE WHEN decision IS NULL THEN 'sample_end_censoring'
+                CASE WHEN is_open_interval THEN 'sample_end_censoring'
+                     WHEN decision IS NULL THEN error('closed_interval_terminal_decision_missing')
                      WHEN decision.quality_state IN ('blocked','diagnostic_required','unknown') OR decision.raw_state IS NULL THEN 'quality_interruption'
                      WHEN decision.raw_state=false THEN 'natural_state_exit'
                      ELSE error('interval_terminal_decision_not_an_exit') END termination_reason,
-                CASE WHEN decision IS NULL THEN 'end_of_input_open'
+                CASE WHEN is_open_interval THEN 'end_of_input_open'
+                     WHEN decision IS NULL THEN error('closed_interval_terminal_decision_missing')
                      WHEN decision.quality_state='blocked' THEN 'raw_state_blocked'
                      WHEN decision.quality_state='diagnostic_required' THEN 'raw_state_diagnostic_required'
                      WHEN decision.quality_state!='valid' OR decision.raw_state IS NULL THEN 'raw_state_unknown'
                      ELSE 'raw_state_false' END source_termination_reason,
-                decision IS NULL is_open_interval,'{mapping["source_kind"]}' source_kind,
-                '{mapping["source_artifact_sha256"]}' source_artifact_sha256 FROM source"""
+                is_open_interval,'{mapping["source_kind"]}' source_kind,
+                '{mapping["source_artifact_sha256"]}' source_artifact_sha256 FROM source)"""
             )
     con.execute(
         "CREATE TABLE authorized_upstream_interval AS " + " UNION ALL ".join(selects)
@@ -636,18 +696,35 @@ def _materialize_authorized_upstream_intervals(
 
 
 def _assert_upstream_interval_reconciliation(con: duckdb.DuckDBPyConnection) -> None:
-    upstream_key = "route_id,security_id,source_interval_id,start_date,end_date,confirmed_day_count,termination_reason"
-    rebuilt_key = "route_id,security_id,interval_id,start_date,end_date,confirmed_day_count,termination_reason"
-    missing = con.execute(
-        f"SELECT {upstream_key} FROM authorized_upstream_interval EXCEPT ALL SELECT {rebuilt_key} FROM route_atomic_interval LIMIT 1"
+    ambiguous = con.execute(
+        """SELECT r.route_id,r.security_id,r.interval_id,count(*) n
+        FROM route_atomic_interval r JOIN authorized_upstream_interval u
+          ON r.route_id=u.route_id AND r.security_id=u.security_id
+         AND r.start_date>=u.start_date AND r.end_date<=u.end_date
+        GROUP BY 1,2,3 HAVING count(*)<>1 LIMIT 1"""
     ).fetchone()
-    unexpected = con.execute(
-        f"SELECT {rebuilt_key} FROM route_atomic_interval EXCEPT ALL SELECT {upstream_key} FROM authorized_upstream_interval LIMIT 1"
+    unmapped = con.execute(
+        """SELECT r.route_id,r.security_id,r.interval_id FROM route_atomic_interval r
+        WHERE NOT EXISTS (SELECT 1 FROM authorized_upstream_interval u
+          WHERE r.route_id=u.route_id AND r.security_id=u.security_id
+            AND r.start_date>=u.start_date AND r.end_date<=u.end_date) LIMIT 1"""
     ).fetchone()
-    if missing or unexpected:
+    unaffected_mismatch = con.execute(
+        """SELECT u.route_id,u.security_id,u.source_interval_id
+        FROM authorized_upstream_interval u
+        WHERE NOT EXISTS (SELECT 1 FROM route_daily d WHERE d.route_id=u.route_id
+          AND d.security_id=u.security_id AND d.quality_state='expected_empty'
+          AND d.trade_date BETWEEN u.raw_start_date AND u.end_date)
+        AND NOT EXISTS (SELECT 1 FROM route_atomic_interval r WHERE r.route_id=u.route_id
+          AND r.security_id=u.security_id AND r.start_date=u.start_date
+          AND r.end_date=u.end_date AND r.confirmed_day_count=u.confirmed_day_count
+          AND r.termination_reason=u.termination_reason) LIMIT 1"""
+    ).fetchone()
+    if ambiguous or unmapped or unaffected_mismatch:
         raise R2T03Error(
-            "upstream_interval_row_reconciliation_failed:"
-            f"missing={missing!r}:unexpected={unexpected!r}"
+            "dense_interval_source_reconciliation_failed:"
+            f"ambiguous={ambiguous!r}:unmapped={unmapped!r}:"
+            f"unaffected_mismatch={unaffected_mismatch!r}"
         )
 
 
@@ -783,42 +860,28 @@ def _process_security(
     timeline, confirmation_ledger = replay_confirmation(
         daily, expected_dates, security_id=security_id
     )
-    upstream_confirmed = [bool(row[6]) for row in source_rows]
-    replayed = [bool(row["confirmed_state"]) for row in timeline]
-    if upstream_confirmed != replayed:
-        mismatch = next(
-            index
-            for index, (left, right) in enumerate(zip(upstream_confirmed, replayed))
-            if left != right
-        )
-        raise R2T03Error(
-            f"upstream_confirmation_replay_mismatch:{route.route_id}:"
-            f"{security_id}:{expected_dates[mismatch]}"
-        )
     intervals = atomic_intervals(timeline)
-    source_ids: dict[tuple[Any, ...], list[str]] = {}
-    for source in authorized_intervals:
-        key = (
-            source["start_date"],
-            source["end_date"],
-            source["confirmed_day_count"],
-            source["termination_reason"],
-        )
-        source_ids.setdefault(key, []).append(source["source_interval_id"])
+    source_use_count: Counter[str] = Counter()
     interval_rows = []
     for interval in intervals:
-        key = (
-            interval["start_date"],
-            interval["end_date"],
-            interval["confirmed_day_count"],
-            interval["termination_reason"],
-        )
-        matches = source_ids.get(key, [])
-        if not matches:
+        matches = [
+            source
+            for source in authorized_intervals
+            if interval["start_date"] >= source["start_date"]
+            and interval["end_date"] <= source["end_date"]
+        ]
+        if len(matches) != 1:
             raise R2T03Error(
-                f"rebuilt_interval_missing_source_id:{route.route_id}:{security_id}:{key}"
+                f"dense_interval_source_mapping_not_unique:{route.route_id}:"
+                f"{security_id}:{interval['start_date']}:{interval['end_date']}"
             )
-        interval["source_interval_id"] = matches.pop(0)
+        source_id = matches[0]["source_interval_id"]
+        source_use_count[source_id] += 1
+        interval["source_interval_id"] = (
+            source_id
+            if source_use_count[source_id] == 1
+            else f"{source_id}::dense_fragment_{source_use_count[source_id]:03d}"
+        )
         interval_rows.append(
             (
                 route.route_id,
@@ -1584,6 +1647,7 @@ def _input_binding(
         "source_readiness_sha256": sha256_bytes(
             json.dumps(readiness, sort_keys=True, separators=(",", ":")).encode()
         ),
+        "actual_source_bindings": readiness.get("files", {}),
         "python": sys.version,
         "platform": platform.platform(),
         "duckdb": duckdb.__version__,
@@ -1641,6 +1705,44 @@ def _check_file(
         "size_bytes": path.stat().st_size,
         "status": "passed",
     }
+
+
+def _actual_sha256(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(16 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _validate_interval_contract_sources(
+    config: Mapping[str, Any],
+    routes: list[RouteSpec],
+    file_checks: Mapping[str, Any],
+    root: Path,
+) -> None:
+    contract = _load_json(root / config["interval_adapter_contract_path"])
+    mappings = {row["route_id"]: row for row in contract["route_mappings"]}
+    if set(mappings) != {route.route_id for route in routes}:
+        raise R2T03Error("interval_contract_route_set_mismatch")
+    for route in routes:
+        mapping = mappings[route.route_id]
+        expected = {
+            "source_kind": route.source_kind,
+            "source_id": route.source_id,
+            "state_line": route.state_line,
+            "interval_path": route.interval_path,
+        }
+        for key, value in expected.items():
+            if mapping.get(key) != value:
+                raise R2T03Error(
+                    f"interval_contract_route_mismatch:{route.route_id}:{key}"
+                )
+        checked = file_checks.get(repo_rel(root / route.interval_path, root), {})
+        if checked.get("sha256") != mapping["source_artifact_sha256"]:
+            raise R2T03Error(f"interval_contract_actual_sha_mismatch:{route.route_id}")
 
 
 def _registered_t10_hash(manifest: dict[str, Any], path: str) -> str:

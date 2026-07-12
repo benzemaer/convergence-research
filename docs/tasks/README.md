@@ -396,7 +396,7 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate。PR #94 的 exact-head scientific PASS、premerge-full、workflow final-gate consumer、merge ancestry 与 GitHub artifact metadata 已由 immutable post-merge handoff 持久绑定；R2-T02 author package 保持不可变的 author-stage 状态。R2-T03 初始 handoff 阻断已解决，但实现复核确认历史 run `R2-T03-20260712T1205Z` 不符合冻结口径，该 run 继续标记为 `author_draft_invalidated_pending_successor_run`。当前 PR 仍为 implementation-correction-only：v2 config 固化 15:00 Asia/Shanghai 研究逻辑时点，expected-key adapter 绑定当前 R0 lineage 的 D2-T20 `d2_expected_security_dates`，interval adapter 完成 8/8 route identity 与 reason normalization，event entity continuity 和 independent metric coverage 已扩展；没有执行 successor run。R2-T04 至 R2-T08 继续关闭。
+状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate。PR #94 的 exact-head scientific PASS、premerge-full、workflow final-gate consumer、merge ancestry 与 GitHub artifact metadata 已由 immutable post-merge handoff 持久绑定；R2-T02 author package 保持不可变的 author-stage 状态。R2-T03 初始 handoff 阻断已解决，但实现复核确认历史 run `R2-T03-20260712T1205Z` 不符合冻结口径，该 run 继续标记为 `author_draft_invalidated_pending_successor_run`。当前 PR 仍为 implementation-correction-only 且 implementation review 为 needs revision：完整 D2 expected surface 已按 expected-empty hard-break 语义接入，每路 20,297 行差异均已分类，10 行影响 2 个既有 interval；T15 terminal decision-row、实际 source SHA readiness 和 transitive formal-source binding 已修正。没有执行 successor baseline 或 72-cell run。R2-T04 至 R2-T08 继续关闭。
 
 R2-T01 author-draft 历史门禁记录：`current_task: R2-T01 参数候选收敛与 shortlist registry`、`next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约`、`R2-T02_allowed_to_start: false`。这些 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 R2-T02 author package 记录为准。
 

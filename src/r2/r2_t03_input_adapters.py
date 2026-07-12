@@ -109,10 +109,14 @@ def normalize_termination_reason(source_reason: str) -> str:
         ) from exc
 
 
-def derive_source_termination_reason(decision_row: Mapping[str, Any] | None) -> str:
+def derive_source_termination_reason(
+    decision_row: Mapping[str, Any] | None, *, is_open_interval: bool = False
+) -> str:
     """Disambiguate R0's legacy raw_state_false_or_invalid using its daily surface."""
-    if decision_row is None:
+    if is_open_interval:
         return "end_of_input_open"
+    if decision_row is None:
+        raise R2T03AdapterError("closed_interval_terminal_decision_missing")
     quality = str(
         decision_row.get("quality_state")
         or decision_row.get("validity_status")

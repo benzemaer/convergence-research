@@ -18,5 +18,7 @@
   "date_max": "20260630",
   "generation_rule": "upstream_universe_x_exchange_open_dates_x_listing_delisting_lifecycle",
   "route_expansion_rule": "base_expected_security_date_cross_join_8_frozen_route_ids",
+  "expected_empty_materialization_policy": "materialize_as_ineligible_quality_break_then_replay_k3_confirmation",
+  "expected_empty_quality_state": "expected_empty",
   "observed_rows_forbidden_as_expected_source": true
 }

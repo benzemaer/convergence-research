@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object", "additionalProperties": false,
-  "required": ["$schema", "adapter_id", "normalized_table", "termination_reason_mapping", "legacy_r0_t15_composite_reason_policy", "route_mappings", "multiset_reconciliation_required", "component_lineage_source"],
+  "required": ["$schema", "adapter_id", "normalized_table", "termination_reason_mapping", "legacy_r0_t15_composite_reason_policy", "route_mappings", "multiset_reconciliation_required", "dense_replay_reconciliation_policy", "component_lineage_source"],
   "properties": {
     "$schema": {"type": "string"}, "adapter_id": {"const": "r2_t03_interval_adapter.v1"}, "normalized_table": {"const": "authorized_upstream_interval"},
     "termination_reason_mapping": {"const": {"raw_state_false":"natural_state_exit","end_of_input_open":"sample_end_censoring","raw_state_blocked":"quality_interruption","raw_state_diagnostic_required":"quality_interruption","raw_state_unknown":"quality_interruption"}},
     "legacy_r0_t15_composite_reason_policy": {"type": "string"},
     "route_mappings": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"type": "object", "additionalProperties": false, "required": ["route_id","source_kind","source_id","state_line","W","K","qP","qC","qT","qV","interval_path","source_artifact_sha256"], "properties": {"route_id":{"type":"string"},"source_kind":{"enum":["r0_t10_shared_q","r0_t15_primary_q_vector"]},"source_id":{"type":"string"},"state_line":{"enum":["S_PCT","S_PCVT"]},"W":{"enum":[120,250]},"K":{"const":3},"qP":{"type":"number"},"qC":{"type":"number"},"qT":{"type":"number"},"qV":{"type":"number"},"interval_path":{"type":"string"},"source_artifact_sha256":{"pattern":"^[0-9a-f]{64}$"}}}},
-    "multiset_reconciliation_required": {"const": true}, "component_lineage_source": {"const": "actual_source_interval_id_or_unique_exact_interval_key"}
+    "multiset_reconciliation_required": {"const": false}, "dense_replay_reconciliation_policy": {"const":"unaffected_sparse_intervals_exact_impacted_dense_intervals_uniquely_contained_with_source_lineage"}, "component_lineage_source": {"const": "actual_source_interval_id_or_unique_exact_interval_key"}
   }
 }

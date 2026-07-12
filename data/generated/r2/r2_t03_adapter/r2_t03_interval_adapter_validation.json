@@ -12,7 +12,7 @@
   "unmapped_route_count": 0,
   "multiple_mapped_route_count": 0,
   "source_reason_vocabulary": ["raw_state_false", "raw_state_blocked", "raw_state_false_or_invalid"],
-  "legacy_composite_reason_disambiguation": "first_post_interval_route_daily_decision_row",
+  "legacy_composite_reason_disambiguation": "route_daily_at_last_observed_date_for_closed_interval; upstream_is_open_interval_for_open_status",
   "route_interval_counts": {
     "r2_s_pct_w120_q20_shared": 5528,
     "r2_s_pct_w120_qt25_primary": 7673,
@@ -25,5 +25,6 @@
   },
   "row_payload_committed": false,
   "successor_multiset_reconciliation_performed": false,
+  "dense_expected_domain_impact_audit_path": "data/generated/r2/r2_t03_adapter/r2_t03_expected_domain_interval_impact_audit.json",
   "status": "passed"
 }

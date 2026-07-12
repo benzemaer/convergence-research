@@ -20,6 +20,8 @@
   "route_count_mismatch_count": 0,
   "row_payload_committed": false,
   "observed_route_rows_used_as_expected_source": false,
-  "successor_expected_vs_observed_reconciliation_performed": false,
+  "successor_expected_vs_observed_reconciliation_performed": true,
+  "successor_expected_vs_observed_reconciliation_scope": "read_only_aggregate_classification_and_interval_impact_only; no formal scan",
+  "expected_domain_interval_impact_audit_path": "data/generated/r2/r2_t03_adapter/r2_t03_expected_domain_interval_impact_audit.json",
   "status": "passed"
 }
