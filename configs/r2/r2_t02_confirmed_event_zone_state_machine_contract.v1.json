@@ -47,9 +47,15 @@
     "schemas/r2/r2_t02_result_package.schema.json",
     "src/common/canonical_io.py",
     "src/r2/r2_t02_protocol_freeze.py",
+    "src/r2/r2_t02_independent_validator.py",
+    "src/r2/r2_t02_premerge_full_evidence.py",
     "scripts/validate_text_contract.py",
+    "scripts/run_unittest_profile.py",
     "scripts/r2/run_r2_t02_protocol_freeze.py",
-    "scripts/r2/validate_r2_t02_protocol_freeze.py"
+    "scripts/r2/validate_r2_t02_protocol_freeze.py",
+    "scripts/r2/validate_r2_t02_committed_artifacts.py",
+    "scripts/r2/build_r2_t02_premerge_full_evidence.py",
+    ".github/workflows/quality.yml"
   ],
   "candidate_contract": {
     "primary_cell_count": 36,

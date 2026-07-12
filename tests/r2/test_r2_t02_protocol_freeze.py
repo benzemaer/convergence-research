@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = (
     ROOT / "configs/r2/r2_t02_confirmed_event_zone_state_machine_contract.v1.json"
 )
-RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T0300Z"
+RUN_DIR = ROOT / "data/generated/r2/r2_t02/R2-T02-20260712T0600Z"
 SHORTLIST_PATH = (
     ROOT
     / "data/generated/r2/r2_t01/R2-T01-20260712T0020Z"
@@ -60,6 +60,15 @@ class R2T02ProtocolFreezeTest(unittest.TestCase):
             [row["confirmed_state"] for row in timeline], [False, False, True]
         )
         self.assertEqual(ledger[0]["reason_code"], "k3_confirmation")
+
+    def test_missing_expected_row_fails_closed(self):
+        rows = [
+            r2_t02.DailyInput(
+                "S1", "2026-01-02", "2026-01-02T15:01:00+08:00", True, "valid", True
+            )
+        ]
+        with self.assertRaises(r2_t02.MissingExpectedRowError):
+            r2_t02.replay_confirmation(rows, ["2026-01-02", "2026-01-03"])
 
     def test_synthetic_registry_is_actual_replay_not_empty(self):
         registry, results = r2_t02.synthetic_case_artifacts()

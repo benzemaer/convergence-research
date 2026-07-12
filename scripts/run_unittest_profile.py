@@ -8,6 +8,7 @@ import sys
 import time
 import unittest
 from collections import defaultdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,11 @@ def main(argv: list[str] | None = None) -> int:
         default=10,
         metavar="N",
         help="Report the N slowest test files (default: 10; use 0 to disable).",
+    )
+    parser.add_argument(
+        "--json-output",
+        type=Path,
+        help="Write machine-readable unittest profile result JSON.",
     )
     args = parser.parse_args(argv)
     if args.slowest_files < 0:
@@ -59,6 +65,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.slowest_files:
         _print_slowest_files(result, args.slowest_files)
+    if args.json_output:
+        _write_profile_result(
+            args.json_output,
+            args.profile,
+            result,
+            elapsed,
+            test_ids,
+            collection_sha256,
+        )
     return 0 if result.wasSuccessful() else 1
 
 
@@ -107,6 +122,35 @@ def _print_slowest_files(result: TimingTestResult, limit: int) -> None:
             f"tests={result.file_test_counts[test_file]} "
             f"elapsed_seconds={elapsed:.3f}"
         )
+
+
+def _write_profile_result(
+    output_path: Path,
+    profile: str,
+    result: TimingTestResult,
+    elapsed: float,
+    test_ids: list[str],
+    collection_sha256: str,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "profile": profile,
+        "status": "passed" if result.wasSuccessful() else "failed",
+        "test_count": result.testsRun,
+        "unique_test_count": len(set(test_ids)),
+        "test_collection_sha256": collection_sha256,
+        "failure_count": len(result.failures),
+        "error_count": len(result.errors),
+        "skipped_count": len(result.skipped),
+        "elapsed_seconds": round(elapsed, 6),
+        "completed_at_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "test_files": sorted(result.file_test_counts),
+        "file_test_counts": dict(sorted(result.file_test_counts.items())),
+    }
+    output_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _load_profiles(path: Path) -> dict[str, Any]:

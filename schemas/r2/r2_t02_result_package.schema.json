@@ -1,26 +1,59 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["task_id", "run_id", "execution_code_commit", "protocol_version", "task_type", "actual_scan_executed", "formal_task_completed", "scientific_review_status", "independent_review_status", "repository_final_gate_status", "R2-T03_allowed_to_start", "R2-T04_allowed_to_start", "R3_allowed_to_start", "full_status", "summary", "validation_status", "anomaly_blocking_errors", "artifact_hashes"],
-  "properties": {
-    "task_id": {"const": "R2-T02"},
-    "run_id": {"type": "string"},
-    "execution_code_commit": {"type": "string"},
-    "protocol_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"},
-    "task_type": {"const": "protocol_freeze"},
-    "actual_scan_executed": {"const": false},
-    "formal_task_completed": {"const": false},
-    "scientific_review_status": {"const": "pending"},
-    "independent_review_status": {"const": "pending"},
-    "repository_final_gate_status": {"const": "pending"},
-    "R2-T03_allowed_to_start": {"const": false},
-    "R2-T04_allowed_to_start": {"const": false},
-    "R3_allowed_to_start": {"const": false},
-    "full_status": {"const": "deferred_to_premerge_gate"},
-    "summary": {"type": "object"},
-    "validation_status": {"const": "passed"},
-    "anomaly_blocking_errors": {"const": []},
-    "artifact_hashes": {"type": "object"}
-  }
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "task_id",
+        "run_id",
+        "execution_code_commit",
+        "reviewed_pr_head",
+        "artifact_commit",
+        "artifact_commit_binding_status",
+        "artifact_hash_basis",
+        "protocol_version",
+        "task_type",
+        "actual_scan_executed",
+        "formal_task_completed",
+        "scientific_review_status",
+        "independent_review_status",
+        "repository_final_gate_status",
+        "R2-T03_allowed_to_start",
+        "R2-T04_allowed_to_start",
+        "R3_allowed_to_start",
+        "full_status",
+        "summary",
+        "validation_status",
+        "anomaly_blocking_errors",
+        "artifact_hashes"
+    ],
+    "properties": {
+        "task_id": {"const": "R2-T02"},
+        "run_id": {"type": "string"},
+        "execution_code_commit": {"type": "string"},
+        "reviewed_pr_head": {"type": "string"},
+        "artifact_commit": {"type": "string"},
+        "artifact_commit_binding_status": {
+            "enum": ["pending_post_commit_validation", "passed", "failed"]
+        },
+        "artifact_hash_basis": {
+            "enum": ["worktree_precommit_bytes", "committed_git_blob"]
+        },
+        "protocol_version": {
+            "const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"
+        },
+        "task_type": {"const": "protocol_freeze"},
+        "actual_scan_executed": {"const": false},
+        "formal_task_completed": {"const": false},
+        "scientific_review_status": {"const": "pending"},
+        "independent_review_status": {"const": "pending"},
+        "repository_final_gate_status": {"const": "pending"},
+        "R2-T03_allowed_to_start": {"const": false},
+        "R2-T04_allowed_to_start": {"const": false},
+        "R3_allowed_to_start": {"const": false},
+        "full_status": {"const": "deferred_to_premerge_gate"},
+        "summary": {"type": "object"},
+        "validation_status": {"enum": ["pending", "passed"]},
+        "anomaly_blocking_errors": {"const": []},
+        "artifact_hashes": {"type": "object"}
+    }
 }

@@ -2,14 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["task_id", "run_id", "contract_version", "execution_code_commit", "risk_set_eligible_rule", "required_fields", "assertions", "missing_field_policy"],
+  "required": ["task_id", "run_id", "contract_version", "execution_code_commit", "state_risk_set_eligible_rule", "qualified_event_risk_set_eligible_rule", "required_fields", "assertions", "missing_field_policy"],
   "properties": {
     "task_id": {"const": "R2-T02"},
     "run_id": {"type": "string"},
     "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v1"},
     "execution_code_commit": {"type": "string"},
-    "risk_set_eligible_rule": {"type": "string"},
-    "required_fields": {"type": "array"},
+    "state_risk_set_eligible_rule": {"type": "string"},
+    "qualified_event_risk_set_eligible_rule": {"type": "string"},
+    "required_fields": {
+      "type": "array",
+      "contains": {"const": "state_risk_set_eligible"},
+      "allOf": [
+        {"contains": {"const": "qualified_event_risk_set_eligible"}},
+        {"contains": {"const": "component_qualified_as_of"}},
+        {"contains": {"const": "membership_available_time"}}
+      ]
+    },
     "assertions": {"type": "array"},
     "missing_field_policy": {"const": "fail_closed"}
   }
