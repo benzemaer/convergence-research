@@ -28,7 +28,9 @@ def build_result_package(output_dir: Path, *, root: Path = ROOT) -> dict[str, An
         anomaly = _anomaly_scan(con)
         metrics = con.execute(
             "SELECT state_line,W,d,g,qualified_event_count,confirmed_event_coverage,"
-            "raw_false_bridged_day_ratio FROM metric_results ORDER BY 1,2,3,4"
+            "bridged_day_ratio FROM ("
+            "SELECT *,retained_confirmed_day_ratio AS confirmed_event_coverage "
+            "FROM metric_results) ORDER BY 1,2,3,4"
         ).fetchall()
         table_rows = {
             row[0]: con.execute(f'SELECT count(*) FROM "{row[0]}"').fetchone()[0]
