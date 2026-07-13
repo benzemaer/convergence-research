@@ -54,6 +54,11 @@ def _exact_mismatch(
     )
 
 
+def _attach_readonly(con: duckdb.DuckDBPyConnection, path: str, alias: str) -> None:
+    literal = path.replace("'", "''")
+    con.execute(f"ATTACH '{literal}' AS {alias} (READ_ONLY)")
+
+
 def _startup_checks(root: Path, config: dict[str, Any], errors: list[str]) -> None:
     binding = config["t05_binding"]
     refs = [
@@ -127,8 +132,8 @@ def validate_run(
     t05 = root / config["t05_artifacts"]["database_path"]
     t03 = root / config["t03_input"]["database_path"]
     con = duckdb.connect(str(database))
-    con.execute("ATTACH ? AS canon (READ_ONLY)", [str(t05)])
-    con.execute("ATTACH ? AS src (READ_ONLY)", [str(t03)])
+    _attach_readonly(con, str(t05), "canon")
+    _attach_readonly(con, str(t03), "src")
     checks: dict[str, int] = {}
     try:
         daily_columns = "state_version_id,security_id,trade_date,eligible_state,raw_state,confirmed_state,confirmation_time,component_qualified_as_of,event_status_as_of,active_event_id_as_of,state_risk_set_eligible,qualified_event_risk_set_eligible,strict_core_member,quality_state,candidate_config_id"

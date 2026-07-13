@@ -752,6 +752,11 @@ def _insert_rows(
     )
 
 
+def _attach_readonly(con: duckdb.DuckDBPyConnection, path: str, alias: str) -> None:
+    literal = path.replace("'", "''")
+    con.execute(f"ATTACH '{literal}' AS {alias} (READ_ONLY)")
+
+
 def _daily_asof(
     con: duckdb.DuckDBPyConnection, versions: list[dict[str, Any]], run_id: str
 ) -> None:
@@ -981,8 +986,8 @@ def run_formal(config_path: Path, output_dir: Path, repo: Path = ROOT) -> Path:
     con.execute("SET threads=1")
     con.execute("SET memory_limit='8GB'")
     con.execute("SET TimeZone='Asia/Shanghai'")
-    con.execute("ATTACH ? AS src (READ_ONLY)", [startup["t03_database_path"]])
-    con.execute("ATTACH ? AS canon (READ_ONLY)", [startup["t05_database_path"]])
+    _attach_readonly(con, startup["t03_database_path"], "src")
+    _attach_readonly(con, startup["t05_database_path"], "canon")
     try:
         primary_routes = [
             con.execute(
