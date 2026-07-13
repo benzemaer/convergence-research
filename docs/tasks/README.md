@@ -19,7 +19,10 @@
 ```text
 current_stage: R2
 current_task: R2-T05 canonical daily state、event zone 与 membership 物化
+# Historical route marker retained for R1 contract replay; it is not the current task.
+historical_current_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
 next_planned_task: R2-T06 canonical 状态机无前视回放与一致性验收
+historical_next_planned_task: R2-T05 canonical 日度状态与事件区间物化
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
