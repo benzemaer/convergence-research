@@ -1075,6 +1075,7 @@ def _daily_semantic_audit(
           ON r.route_id=cr.route_id AND r.security_id=m.security_id
          AND r.trade_date=m.trade_date
         WHERE m.state_version_id=? AND q.qualified
+          AND m.trade_date BETWEEN q.start_date AND q.end_date
           AND d.component_qualified_as_of IS DISTINCT FROM
               (q.event_qualification_time<=r.available_time)
         """,
@@ -1146,7 +1147,9 @@ def _daily_semantic_audit(
           ON r.route_id=cr.route_id AND r.security_id=m.security_id
          AND r.trade_date=m.trade_date
         WHERE m.state_version_id=? AND q.qualified
+          AND m.trade_date BETWEEN q.start_date AND q.end_date
           AND cm.component_id<>e.first_component_id
+          AND m.trade_date=CAST(q.event_qualification_time AS DATE)
           AND q.event_qualification_time<=r.available_time
           AND NOT d.component_qualified_as_of
         """,

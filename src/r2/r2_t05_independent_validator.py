@@ -873,6 +873,8 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
              AND r.security_id=d.security_id
              AND r.trade_date=d.trade_date
             WHERE d.state_version_id=?
+              AND d.trade_date BETWEEN q.start_date AND q.end_date
+              AND d.trade_date=CAST(q.event_qualification_time AS DATE)
               AND q.event_qualification_time<=r.available_time
               AND NOT d.component_qualified_as_of
             """,
