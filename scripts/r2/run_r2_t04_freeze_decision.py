@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.r2.r2_t04_freeze_decision import run_phase_a
 
