@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T04 independent validation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "phase", "status", "errors", "independently_recomputed", "production_oracle_imported"],
+  "properties": {"task_id": {"const": "R2-T04"}, "phase": {"const": "A"}, "status": {"enum": ["passed", "failed"]}, "errors": {"type": "array", "items": {"type": "string"}}, "independently_recomputed": {"type": "array", "items": {"type": "string"}}, "production_oracle_imported": {"const": false}}
+}

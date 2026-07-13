@@ -686,6 +686,12 @@ def run_phase_a(config_path: Path, output_dir: Path) -> dict[str, Any]:
         "R3_allowed_to_start": False,
     }
     write_json(output_dir / "r2_t04_experiment_summary.json", summary)
+    from src.r2.r2_t04_independent_validator import validate_independently
+
+    write_json(
+        output_dir / "r2_t04_independent_validation.json",
+        validate_independently(output_dir),
+    )
     return validation
 
 
@@ -702,6 +708,7 @@ def validate_phase_a(output_dir: Path) -> dict[str, Any]:
         "r2_t04_user_decision_template.json",
         "r2_t04_phase_a_validation.json",
         "r2_t04_experiment_summary.json",
+        "r2_t04_independent_validation.json",
     ]
     errors = [
         f"missing:{name}" for name in required if not (output_dir / name).exists()
