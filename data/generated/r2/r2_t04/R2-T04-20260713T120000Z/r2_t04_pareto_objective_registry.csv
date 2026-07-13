@@ -1,0 +1,13 @@
+metric_id,direction,source_profile,material_advantage,registered_in_t02_metric_dictionary,selection_scope
+qualified_event_count,max,metric_results,0.05,True,decision_unit
+retained_confirmed_day_ratio,max,metric_results,0.02,True,decision_unit
+bridged_day_ratio,min,metric_results,0.02,True,decision_unit
+merge_ratio,min,metric_results,0.02,True,decision_unit
+open_event_ratio,min,metric_results,0.01,True,decision_unit
+duration_q95_ratio,min,metric_results,0.05,True,decision_unit
+component_qualification_rate,max,component_diagnostic_profile,0.02,True,decision_unit
+qualification_delay_observations_q90,min,component_diagnostic_profile,1.0,False,decision_unit
+atomic_fragment_rate,min,atomic_interval_diagnostic_profile,0.02,True,decision_unit
+confirmed_density,max,event_zone_diagnostic_profile,0.02,True,decision_unit
+mega_zone_concentration,min,event_zone_diagnostic_profile,0.02,True,decision_unit
+max_single_gap,min,event_zone_diagnostic_profile,1.0,True,decision_unit
