@@ -169,6 +169,17 @@ class R0T15FinalGateContractTests(unittest.TestCase):
                     self.assertTrue(t10_author["R2_allowed_to_start"])
                     readme_text = README.read_text(encoding="utf-8")
                     if (
+                        "R2-T04_status: phase_b_author_package_complete_pending_independent_review"
+                        in readme_text
+                    ):
+                        self.assertIn("R2-T03_allowed_to_start: false", readme_text)
+                        self.assertIn("R2-T03_formal_task_completed: true", readme_text)
+                        self.assertIn("R2-T04_allowed_to_start: true", readme_text)
+                        self.assertIn(
+                            "R2-T04_formal_task_completed: false", readme_text
+                        )
+                        self.assertIn("R3_allowed_to_start: false", readme_text)
+                    elif (
                         "R2-T01_status: author_analysis_complete_pending_independent_review"
                         in readme_text
                     ):
