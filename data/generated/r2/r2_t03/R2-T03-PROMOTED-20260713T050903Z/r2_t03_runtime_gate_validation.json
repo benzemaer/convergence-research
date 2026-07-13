@@ -1,0 +1,1 @@
+{"R2-T04_allowed_to_start":false,"R3_allowed_to_start":false,"blocking_failure_count":0,"blocking_failures":[],"check_count":1087,"database_path":"data/interim/r2_t03_postscan_rehearsal/round_11/r2_t03_event_zone_scan.duckdb","frozen_scientific_gate_failure_count":0,"scientific_gate_failures_are_reported_not_cell_selection":true,"status":"passed","task_id":"R2-T03"}

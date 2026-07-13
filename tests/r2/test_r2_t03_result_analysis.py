@@ -1,18 +1,49 @@
 from __future__ import annotations
 
 # ruff: noqa: E501 -- SQL fixtures remain readable as complete statements.
+import hashlib
+import json
+import re
+import tempfile
 import unittest
+from pathlib import Path
 
 import duckdb
 
 from src.r2.r2_t03_result_analysis import (
     _analysis_markdown,
     _analysis_metric_rows,
+    _anomaly_queries,
     _anomaly_scan,
+    _query_dicts,
+    _single_security_concentration_query,
 )
 
 
 class R2T03ResultAnalysisTest(unittest.TestCase):
+    def test_single_security_concentration_query_uses_explicit_alias(self) -> None:
+        con = duckdb.connect(":memory:")
+        con.execute(
+            """CREATE TABLE event_zone(candidate_cell_id VARCHAR,security_id VARCHAR);
+            INSERT INTO event_zone VALUES ('c','S1'),('c','S1'),('c','S1'),('c','S2');"""
+        )
+        cursor = con.execute(_single_security_concentration_query())
+        self.assertEqual(
+            [item[0] for item in cursor.description],
+            [
+                "candidate_cell_id",
+                "security_event_share",
+            ],
+        )
+        self.assertEqual(cursor.fetchone(), ("c", 0.75))
+        self.assertEqual(
+            con.execute(
+                _anomaly_queries()["single_security_extreme_concentration"]
+            ).fetchone()[0],
+            1,
+        )
+        con.close()
+
     def test_confirmed_coverage_is_not_replaced_by_retained_ratio(self) -> None:
         con = duckdb.connect(":memory:")
         con.execute(
@@ -74,16 +105,63 @@ class R2T03ResultAnalysisTest(unittest.TestCase):
             CREATE TABLE transition_entity_ledger(candidate_cell_id VARCHAR,security_id VARCHAR,entity_id VARCHAR,to_state VARCHAR);
             CREATE TABLE event_zone_diagnostic_profile(nonconfirmed_gap_ratio DOUBLE,bridged_day_ratio DOUBLE,
               mega_zone_concentration DOUBLE,max_zone_span INTEGER,top_zone_confirmed_day_share DOUBLE,duration_q95_ratio DOUBLE,
-              right_censored_zone_count INTEGER,quality_break_zone_count INTEGER,qualified_event_count INTEGER);
-            INSERT INTO event_zone_diagnostic_profile VALUES (.6,.1,.2,20,.2,1,0,0,2);
+              right_censored_zone_count INTEGER,quality_break_zone_count INTEGER,qualified_event_count INTEGER,
+              max_year_share DOUBLE,merge_ratio DOUBLE,confirmed_event_coverage DOUBLE);
+            INSERT INTO event_zone_diagnostic_profile VALUES (.6,.1,.2,20,.2,1,0,0,2,.2,.1,.4);
             CREATE TABLE atomic_baseline_profile(candidate_cell_id VARCHAR,confirmed_state_days INTEGER);
             CREATE TABLE window_overlap_comparison(intersection_confirmed_days INTEGER,W120_own_eligible_days INTEGER,
-              W250_own_eligible_days INTEGER,common_eligible_days INTEGER);"""
+              W250_own_eligible_days INTEGER,common_eligible_days INTEGER);
+            CREATE TABLE window_diagnostic_profile(confirmed_day_jaccard DOUBLE);
+            INSERT INTO window_diagnostic_profile VALUES (.5);
+            CREATE TABLE strict_core_diagnostic_profile(strict_core_subset_status VARCHAR,
+              strict_core_confirmed_day_share DOUBLE,strict_core_event_share DOUBLE,
+              strict_core_qualified_component_share DOUBLE);
+            INSERT INTO strict_core_diagnostic_profile VALUES ('passed',.5,.5,.5);"""
         )
         result = _anomaly_scan(con)
         self.assertIn("bridge_gap_domination", result["scientific_investigation_items"])
         self.assertEqual(result["blocking_engineering_anomalies"], [])
         self.assertFalse(result["downstream_progression_blocked"])
+        self.assertEqual(set(result["checks"]), set(_anomaly_queries()))
+        json.dumps(result)
+        con.close()
+
+    def test_analysis_sql_has_no_bare_share_alias(self) -> None:
+        source = Path(__file__).parents[2] / "src/r2/r2_t03_result_analysis.py"
+        text = source.read_text(encoding="utf-8")
+        self.assertIsNone(re.search(r"\bAS\s+share\b", text, re.IGNORECASE))
+        self.assertIn("max_year_share", text)
+        self.assertIn("strict_core_event_share", text)
+
+    def test_query_mapping_normalizes_duckdb_date_for_canonical_json(self) -> None:
+        con = duckdb.connect(":memory:")
+        rows = _query_dicts(
+            con, "SELECT DATE '2026-07-13' observed_date,1.25::DECIMAL observed_value"
+        )
+        self.assertEqual(
+            rows, [{"observed_date": "2026-07-13", "observed_value": 1.25}]
+        )
+        json.dumps(rows)
+        con.close()
+
+    def test_read_only_analysis_query_preserves_database_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "analysis.duckdb"
+            con = duckdb.connect(str(path))
+            con.execute(
+                """CREATE TABLE event_zone(candidate_cell_id VARCHAR,security_id VARCHAR);
+                INSERT INTO event_zone VALUES ('c','S1'),('c','S2');"""
+            )
+            con.close()
+            before = hashlib.sha256(path.read_bytes()).hexdigest()
+            con = duckdb.connect(str(path), read_only=True)
+            self.assertEqual(
+                con.execute(_single_security_concentration_query()).fetchone(),
+                ("c", 0.5),
+            )
+            con.close()
+            after = hashlib.sha256(path.read_bytes()).hexdigest()
+            self.assertEqual(before, after)
 
 
 if __name__ == "__main__":
