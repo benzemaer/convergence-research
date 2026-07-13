@@ -252,7 +252,7 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
             id_mismatch += 1
     _check(assertions, failures, "event_id_independent_recalculation", id_mismatch, 0)
     _check(assertions, failures, "event_id_source_scan_one_to_one", len(event_rows), con.execute("SELECT count(distinct (state_version_id,source_scan_event_id)) FROM r2_t05_event_id_lineage").fetchone()[0])
-    _check(assertions, failures, "event_id_cross_state_security_collision", con.execute("SELECT count(*)-count(distinct state_version_id,canonical_event_id) FROM r2_t05_event_id_lineage").fetchone()[0], 0)
+    _check(assertions, failures, "event_id_cross_state_security_collision", con.execute("SELECT count(*)-count(distinct (state_version_id,canonical_event_id)) FROM r2_t05_event_id_lineage").fetchone()[0], 0)
     # Independent source-to-canonical membership comparison. The component join is rebuilt here.
     con.execute("""
       CREATE TEMP TABLE iv_component_map AS
