@@ -106,7 +106,13 @@ def _validate_startup_contract(
     if plan is not None:
         _check(assertions, failures, "startup_freeze_plan_status", plan.get("freeze_plan_status"), "passed")
         _check(assertions, failures, "startup_freeze_plan_cardinality", plan.get("planned_state_version_count"), 2)
-        _check(assertions, failures, "startup_freeze_plan_exact_versions", plan.get("planned_versions"), config["selected_versions"])
+        normalized_versions = []
+        for version in plan.get("planned_versions", []):
+            normalized = dict(version)
+            if "planned_state_version_id" in normalized:
+                normalized["state_version_id"] = normalized.pop("planned_state_version_id")
+            normalized_versions.append(normalized)
+        _check(assertions, failures, "startup_freeze_plan_exact_versions", normalized_versions, config["selected_versions"])
     if phase_b is not None:
         _check(assertions, failures, "startup_phase_b_status", phase_b.get("status"), "passed")
         _check(assertions, failures, "startup_phase_b_selected_count", phase_b.get("selected_cell_count"), 2)

@@ -138,11 +138,14 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
             "rejected_decision_unit_count": 2,
             "decision_units": decision_units,
         }
+        plan_versions = [dict(version) for version in versions]
+        for version in plan_versions:
+            version["planned_state_version_id"] = version.pop("state_version_id")
         plan = {
             "task_id": "R2-T04",
             "freeze_plan_status": "passed",
             "planned_state_version_count": 2,
-            "planned_versions": versions,
+            "planned_versions": plan_versions,
         }
         phase_b = {
             "task_id": "R2-T04",
@@ -247,7 +250,7 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
 
     def test_version_id_mutation_fails_closed(self) -> None:
         self._assert_startup_blocked(
-            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][0].__setitem__("state_version_id", "tampered")
+            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][0].__setitem__("planned_state_version_id", "tampered")
         )
 
     def test_candidate_cell_mutation_fails_closed(self) -> None:

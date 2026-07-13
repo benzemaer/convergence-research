@@ -300,9 +300,17 @@ def _check_freeze_plan(config: dict[str, Any], startup: dict[str, Any]) -> dict[
     phase_b = bound[phase_b_rel]["document"]
     expected = config["selected_versions"]
     actual = plan.get("planned_versions")
+    normalized_actual = []
+    if isinstance(actual, list):
+        for version in actual:
+            if "planned_state_version_id" not in version or "state_version_id" in version:
+                raise R2T05Blocked("t04_freeze_plan_state_version_id_field_mismatch")
+            normalized = dict(version)
+            normalized["state_version_id"] = normalized.pop("planned_state_version_id")
+            normalized_actual.append(normalized)
     if plan.get("freeze_plan_status") != "passed":
         raise R2T05Blocked("t04_freeze_plan_not_passed")
-    if actual != expected or plan.get("planned_state_version_count") != 2 or len(actual or []) != 2:
+    if normalized_actual != expected or plan.get("planned_state_version_count") != 2 or len(actual or []) != 2:
         raise R2T05Blocked("t04_freeze_plan_selected_versions_mismatch")
     if (
         decision.get("freeze_decision_status") != "passed"
