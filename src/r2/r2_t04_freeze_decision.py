@@ -204,7 +204,7 @@ def _runtime_gate_evidence(
 
 
 def _runtime_threshold(expected_rule: str) -> float | None:
-    match = re.search(r"(?:>=|<=|==|>|<)\s*([0-9]+(?:\.[0-9]+)?)", expected_rule)
+    match = re.search(r"(?:>=|<=|==|=|>|<)\s*([0-9]+(?:\.[0-9]+)?)", expected_rule)
     return float(match.group(1)) if match else None
 
 

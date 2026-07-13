@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "phase", "status", "errors", "checks", "independently_recomputed", "production_oracle_imported", "pareto_recommendation_recomputed", "pareto_recommendation_used_for_final_decision", "decision_validation_mode", "selected_cell_count", "strict_core_only_count", "rejected_pair_count", "global_gate_rows_recomputed", "recomputed_gate_row_count"],
+  "properties": {
+    "task_id": {"const": "R2-T04"}, "phase": {"const": "B"}, "status": {"enum": ["passed", "failed"]}, "errors": {"type": "array", "items": {"type": "string"}}, "checks": {"type": "object", "additionalProperties": {"type": "boolean"}}, "independently_recomputed": {"type": "array", "items": {"type": "string"}}, "production_oracle_imported": {"const": false}, "pareto_recommendation_recomputed": {"const": false}, "pareto_recommendation_used_for_final_decision": {"const": false}, "decision_validation_mode": {"const": "explicit_user_override_over_hard_gate_eligible_candidates"}, "selected_cell_count": {"const": 2}, "strict_core_only_count": {"const": 2}, "rejected_pair_count": {"const": 2}, "global_gate_rows_recomputed": {"const": 120}, "recomputed_gate_row_count": {"const": 160}
+  }
+}

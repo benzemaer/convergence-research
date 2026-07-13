@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "freeze_decision_status", "selected_version_count", "rejected_decision_unit_count", "strict_core_only_count", "decision_units", "user_decision_record_path", "decision_hash", "freeze_plan_status", "freeze_decision_hash"],
+  "properties": {
+    "task_id": {"const": "R2-T04"}, "run_id": {"const": "R2-T04-20260713T120000Z"}, "freeze_decision_status": {"const": "passed"}, "selected_version_count": {"const": 2}, "rejected_decision_unit_count": {"const": 2}, "strict_core_only_count": {"const": 2}, "decision_units": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "object", "additionalProperties": false, "required": ["decision_unit", "automatic_recommendation", "primary_candidate_cell_id", "shared_candidate_cell_id", "primary_disposition", "shared_disposition", "pair_disposition", "selected_d", "selected_g", "strict_core_enabled"], "properties": {"decision_unit": {"type": "string"}, "automatic_recommendation": {"type": ["string", "null"]}, "primary_candidate_cell_id": {"type": "string"}, "shared_candidate_cell_id": {"type": "string"}, "primary_disposition": {"enum": ["selected", "rejected"]}, "shared_disposition": {"enum": ["rejected", "retain_as_strict_core_only"]}, "pair_disposition": {"enum": ["selected", "reject_pair"]}, "selected_d": {"type": ["integer", "null"]}, "selected_g": {"type": ["integer", "null"]}, "strict_core_enabled": {"type": "boolean"}}}}, "user_decision_record_path": {"const": "r2_t04_user_decision_record.json"}, "decision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "freeze_plan_status": {"const": "author_decision_recorded_pending_independent_scientific_review"}, "freeze_decision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

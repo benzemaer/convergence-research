@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "phase_a_review_id", "reviewed_head", "phase_a_review_status", "resolution_mode", "automatic_recommendation_authoritative", "automatic_recommendation_consumed_by_freeze_decision", "hard_gate_evidence_reused", "hard_gate_evidence_status", "pareto_result_used_as_decision_authority", "weighted_score_used", "user_decision_authority", "new_parameter_search_performed", "new_candidate_generated", "phase_a_artifacts_preserved", "phase_a_artifact_paths"],
+  "properties": {
+    "task_id": {"const": "R2-T04"},
+    "run_id": {"const": "R2-T04-20260713T120000Z"},
+    "phase_a_review_id": {"const": 4682660769},
+    "reviewed_head": {"const": "f1e69e54729c0d6dd3b27d2d9bc5ce40220291de"},
+    "phase_a_review_status": {"const": "needs_revision"},
+    "resolution_mode": {"const": "explicit_user_override_without_phase_a_rerun"},
+    "automatic_recommendation_authoritative": {"const": false},
+    "automatic_recommendation_consumed_by_freeze_decision": {"const": false},
+    "hard_gate_evidence_reused": {"const": true},
+    "hard_gate_evidence_status": {"const": "passed"},
+    "pareto_result_used_as_decision_authority": {"const": false},
+    "weighted_score_used": {"const": false},
+    "user_decision_authority": {"const": true},
+    "new_parameter_search_performed": {"const": false},
+    "new_candidate_generated": {"const": false},
+    "phase_a_artifacts_preserved": {"const": true},
+    "phase_a_artifact_paths": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

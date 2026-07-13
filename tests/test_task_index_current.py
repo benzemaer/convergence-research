@@ -94,7 +94,10 @@ class TaskIndexCurrentTest(unittest.TestCase):
             current,
         )
         self.assertIn("R2-T04_allowed_to_start: true", current)
-        self.assertIn("R2-T04_status: in_progress", current)
+        self.assertIn(
+            "R2-T04_status: phase_b_author_package_complete_pending_independent_review",
+            current,
+        )
         self.assertIn("R2-T04_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)

@@ -67,7 +67,8 @@ R2-T03_resolved_by: r2_t02_repository_final_gate_handoff.json
 R2-T03_status: completed
 R2-T03_historical_run_id: R2-T03-20260712T1205Z
 R2-T03_historical_run_status: author_draft_invalidated_pending_successor_run
-R2-T03_formal_rerun_executed: true
+R2-T03_formal_rerun_executed: false
+R2-T03_final_execution_mode: promoted_preserved_fact_run_plus_current_postscan
 R2-T03_availability_adapter_status: resolved_research_policy
 R2-T03_expected_key_adapter_status: resolved_upstream_adapter
 R2-T03_interval_reconciliation_adapter_status: resolved_upstream_adapter
@@ -77,7 +78,7 @@ R2-T03_scientific_review_status: passed
 R2-T03_repository_final_gate_status: passed
 R2-T03_repository_final_gate_binding: r2_t03_repository_final_gate_handoff.json
 R2-T04_allowed_to_start: true
-R2-T04_status: in_progress
+R2-T04_status: phase_b_author_package_complete_pending_independent_review
 R2-T04_formal_task_completed: false
 R2-T05_allowed_to_start: false
 R2-T06_allowed_to_start: false
@@ -408,7 +409,7 @@ R2-T01 author-draft 历史门禁记录：`current_task: R2-T01 参数候选收�
 - `R2-T01` 参数候选收敛与 shortlist registry：completed via PR #91 final gate
 - `R2-T02` confirmed-state 与 event-zone 双层状态机契约：completed via PR #94 and immutable post-merge handoff
 - `R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计：implementation-correction-only；v2 adapters implemented and aggregate-validated；历史 1205Z author-draft invalidated；formal rerun not executed；implementation review requested
-- `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：blocked
+- `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：phase B author package complete; pending independent scientific review
 - `R2-T05` canonical 日度状态与事件区间物化：blocked
 - `R2-T06` canonical 状态机无前视回放与一致性验收：blocked
 - `R2-T07` 状态版本登记册与最终 freeze manifest：blocked
