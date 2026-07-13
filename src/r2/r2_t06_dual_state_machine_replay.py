@@ -828,6 +828,7 @@ def _write_bindings(
         repo / "src/r2/r2_t06_dual_state_machine_replay.py",
         repo / "src/r2/r2_t06_independent_fsm.py",
         repo / "src/r2/r2_t06_independent_validator.py",
+        repo / "src/r2/r2_t06_committed_artifact_validator.py",
         repo / "schemas/r2/r2_t06_canonical_dual_state_machine_replay.schema.json",
         repo / "scripts/r2/run_r2_t06_dual_state_machine_replay.py",
         repo / "scripts/r2/validate_r2_t06_replay.py",

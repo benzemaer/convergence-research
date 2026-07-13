@@ -18,10 +18,10 @@
 
 ```text
 current_stage: R2
-current_task: R2-T05 canonical daily state、event zone 与 membership 物化
+current_task: R2-T06 canonical 状态机无前视回放与一致性验收
 # Historical route marker retained for R1 contract replay; it is not the current task.
 historical_current_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
-next_planned_task: R2-T06 canonical 状态机无前视回放与一致性验收
+next_planned_task: R2-T07 状态版本登记册与最终 freeze manifest
 historical_next_planned_task: R2-T05 canonical 日度状态与事件区间物化
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
@@ -92,7 +92,12 @@ R2-T05_scientific_review_status: needs_revision
 R2-T05_startup_status: passed
 R2-T05_formal_run_executed: true
 R2-T05_formal_task_completed: false
-R2-T06_allowed_to_start: false
+R2-T06_allowed_to_start: true
+R2-T06_status: successor_formal_run_complete_pending_independent_scientific_review
+R2-T06_scientific_review_status: pending_independent_scientific_review
+R2-T06_startup_status: passed
+R2-T06_formal_run_executed: true
+R2-T06_formal_task_completed: false
 R2-T07_allowed_to_start: false
 R2-T08_allowed_to_start: false
 R3_allowed_to_start: false

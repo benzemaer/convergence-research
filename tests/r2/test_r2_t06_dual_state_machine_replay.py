@@ -272,7 +272,7 @@ def test_missing_formal_audit_is_fail_closed(tmp_path: Path) -> None:
 
 
 def test_committed_artifact_validator_uses_git_blobs() -> None:
-    source = (ROOT / "scripts/r2/validate_r2_t06_committed_artifacts.py").read_text(
+    source = (ROOT / "src/r2/r2_t06_committed_artifact_validator.py").read_text(
         encoding="utf-8"
     )
     assert '["git", *args]' in source

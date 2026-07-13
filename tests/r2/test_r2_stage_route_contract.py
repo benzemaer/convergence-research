@@ -34,7 +34,9 @@ class R2StageRouteContract(unittest.TestCase):
                 / "configs/r2/r2_t05_canonical_state_event_zone_materialization.v1.json"
             ).is_file()
         )
-        for task in range(6, 9):
+        self.assertTrue(list((ROOT / "src/r2").glob("r2_t06*")))
+        self.assertTrue((ROOT / "data/generated/r2/r2_t06").exists())
+        for task in range(7, 9):
             self.assertFalse(list((ROOT / "src/r2").glob(f"r2_t{task:02d}*")))
             self.assertFalse((ROOT / f"data/generated/r2/r2_t{task:02d}").exists())
         current = (
@@ -61,6 +63,14 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertIn("R2-T05_scientific_review_status: needs_revision", current)
         self.assertIn("R2-T05_formal_run_executed: true", current)
         self.assertIn("R2-T05_formal_task_completed: false", current)
+        self.assertIn("R2-T06_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T06_status: successor_formal_run_complete_pending_independent_scientific_review",
+            current,
+        )
+        self.assertIn("R2-T06_startup_status: passed", current)
+        self.assertIn("R2-T06_formal_run_executed: true", current)
+        self.assertIn("R2-T06_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
 
 
