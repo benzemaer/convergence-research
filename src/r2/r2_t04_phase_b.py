@@ -661,7 +661,9 @@ def _anomaly(
 def _artifact_records(output_dir: Path, names: list[str]) -> list[dict[str, Any]]:
     return [
         {
-            "path": str((output_dir / name).relative_to(ROOT)).replace("\\", "/"),
+            "path": str((output_dir / name).resolve().relative_to(ROOT)).replace(
+                "\\", "/"
+            ),
             "sha256": _sha(output_dir / name),
             "size_bytes": (output_dir / name).stat().st_size,
         }
@@ -675,7 +677,7 @@ def _source_artifact_bindings(
 ) -> list[dict[str, Any]]:
     bindings = []
     for name in PHASE_A_FILES:
-        path = output_dir / name
+        path = (output_dir / name).resolve()
         bindings.append(
             {
                 "path": str(path.relative_to(ROOT)).replace("\\", "/"),
