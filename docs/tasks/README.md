@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R2
-current_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
-next_planned_task: R2-T05 canonical 日度状态与事件区间物化
+current_task: R2-T05 canonical 日度状态与事件区间物化
+next_planned_task: R2-T06 canonical 状态机无前视回放与一致性验收
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
@@ -78,9 +78,12 @@ R2-T03_scientific_review_status: passed
 R2-T03_repository_final_gate_status: passed
 R2-T03_repository_final_gate_binding: r2_t03_repository_final_gate_handoff.json
 R2-T04_allowed_to_start: true
-R2-T04_status: phase_b_author_package_complete_pending_independent_review
-R2-T04_formal_task_completed: false
-R2-T05_allowed_to_start: false
+R2-T04_status: completed
+R2-T04_scientific_review_status: passed
+R2-T04_repository_final_gate_status: passed
+R2-T04_repository_final_gate_binding: r2_t04_repository_final_gate_handoff.json
+R2-T04_formal_task_completed: true
+R2-T05_allowed_to_start: true
 R2-T06_allowed_to_start: false
 R2-T07_allowed_to_start: false
 R2-T08_allowed_to_start: false
@@ -402,15 +405,15 @@ R2_allowed_to_start: false
 
 ## R2：参数、事件规则与状态版本冻结
 
-状态：R2-T01 与 R2-T02 已完成独立科学审阅和 repository final gate；PR #94 的结果已由 immutable post-merge handoff 持久绑定，R2-T02 author package保持不可变。R2-T03 历史 run `R2-T03-20260712T1205Z` 继续标记为 `author_draft_invalidated_pending_successor_run`。HEAD `6c075d5a...` 的 implementation review为needs revision；当前修订只封闭其列出的六项：sparse `route_source_daily`与`route_dense_input`分离、diagnostic/strict/window公式、12项parameter invariants和具体detectors、independent diagnostics/lineage policy、run-invariant post-validation comparison及扩展anomaly scan。adapter-only复核为13,846,152 sparse rows、14,008,528 dense rows、162,376 expected-empty且sparse expected-empty为0。没有执行successor baseline或真实72-cell run；R2-T04至R2-T08继续关闭。
+状态：R2-T01 至 R2-T04 已完成独立科学审阅和 repository final gate；R2-T04 author package 保持不可变，并由 immutable post-merge handoff 持久绑定。该 handoff 记录复用 T02 consumer 的 `formal_surface_changed_after_artifact_commit` 对 R2-T04 不适用，且不豁免 T04 其余门禁。R2-T03 保留 promoted preserved-fact run；R2-T04 两个 W120 primary 及 strict-core pair 已冻结，R2-T05 已获准启动，R3 继续关闭。
 
 R2-T01 author-draft 历史门禁记录：`current_task: R2-T01 参数候选收敛与 shortlist registry`、`next_planned_task: R2-T02 K/d/g、事件指标、hard gate 与 R3 risk-set 契约`、`R2-T02_allowed_to_start: false`。这些 marker 仅用于复验 author-draft fail-closed 行为，现行状态以“当前阶段”块中的 R2-T02 author package 记录为准。
 
 - `R2-T01` 参数候选收敛与 shortlist registry：completed via PR #91 final gate
 - `R2-T02` confirmed-state 与 event-zone 双层状态机契约：completed via PR #94 and immutable post-merge handoff
 - `R2-T03` 四路线 d×g event-zone 状态机扫描与区间几何审计：implementation-correction-only；v2 adapters implemented and aggregate-validated；历史 1205Z author-draft invalidated；formal rerun not executed；implementation review requested
-- `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：phase B author package complete; pending independent scientific review
-- `R2-T05` canonical 日度状态与事件区间物化：blocked
+- `R2-T04` Hard gate、Pareto 推荐、用户决策与 freeze plan：completed via PR #96 and post-merge final-gate handoff
+- `R2-T05` canonical 日度状态与事件区间物化：allowed to start
 - `R2-T06` canonical 状态机无前视回放与一致性验收：blocked
 - `R2-T07` 状态版本登记册与最终 freeze manifest：blocked
 - `R2-T08` R2 阶段验收与 R3 交接：blocked
