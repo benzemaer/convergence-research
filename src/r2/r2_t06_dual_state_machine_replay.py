@@ -345,8 +345,19 @@ def replay_confirmation_rows(
         eligible = bool(raw["eligible"])
         quality = str(raw["quality_state"])
         raw_state = None if raw["raw_state"] is None else bool(raw["raw_state"])
-        valid_true = eligible and quality == "valid" and raw_state is True
-        hard_break = not (eligible and quality == "valid" and raw_state is not None)
+        source_row_present = bool(raw["source_row_present"])
+        valid_true = (
+            source_row_present
+            and eligible
+            and quality == "valid"
+            and raw_state is True
+        )
+        hard_break = not (
+            source_row_present
+            and eligible
+            and quality == "valid"
+            and raw_state is not None
+        )
         streak = streak + 1 if valid_true else 0
         confirmed = valid_true and streak >= K
         confirmation_time = available if valid_true and streak == K else None
@@ -721,8 +732,65 @@ def _create_route_daily(
 ) -> None:
     marks = ",".join("?" for _ in route_ids)
     con.execute(
-        f"""CREATE TEMP TABLE t06_route_daily AS
-      WITH source AS (SELECT route_id,security_id,trade_date,try_cast(available_time AS TIMESTAMPTZ) available_time,eligible,quality_state,raw_state,source_row_present,expected_empty_reason,row_number() OVER(PARTITION BY route_id,security_id ORDER BY trade_date) row_ordinal FROM src.route_dense_input WHERE route_id IN ({marks})), marked AS (SELECT *,eligible AND quality_state='valid' AND raw_state IS TRUE valid_true,sum(CASE WHEN eligible AND quality_state='valid' AND raw_state IS TRUE THEN 0 ELSE 1 END) OVER(PARTITION BY route_id,security_id ORDER BY trade_date ROWS UNBOUNDED PRECEDING) break_group FROM source), streaked AS (SELECT *,CASE WHEN valid_true THEN row_number() OVER(PARTITION BY route_id,security_id,break_group ORDER BY trade_date) ELSE 0 END streak FROM marked) SELECT route_id,security_id,trade_date,available_time,eligible,quality_state,raw_state,source_row_present,expected_empty_reason,valid_true AND streak>={int(K)} confirmed_state,CASE WHEN valid_true AND streak={int(K)} THEN available_time END confirmation_time,CASE WHEN valid_true AND streak>={int(K)} THEN min(trade_date) OVER(PARTITION BY route_id,security_id,break_group) END confirmed_start_date,NOT(eligible AND quality_state='valid' AND raw_state IS NOT NULL) hard_break,(eligible AND quality_state='valid' AND valid_true AND streak>={int(K)}) state_risk_set_eligible,row_ordinal FROM streaked ORDER BY route_id,security_id,trade_date""",
+        f"""
+        CREATE TEMP TABLE t06_route_daily AS
+        WITH source AS (
+          SELECT route_id,security_id,trade_date,
+                 try_cast(available_time AS TIMESTAMPTZ) available_time,
+                 eligible,quality_state,raw_state,source_row_present,
+                 expected_empty_reason,
+                 row_number() OVER (
+                   PARTITION BY route_id,security_id ORDER BY trade_date
+                 ) row_ordinal
+          FROM src.route_dense_input
+          WHERE route_id IN ({marks})
+        ), marked AS (
+          SELECT *,
+                 source_row_present
+                 AND eligible
+                 AND quality_state='valid'
+                 AND raw_state IS TRUE valid_true,
+                 coalesce(sum(
+                   CASE WHEN source_row_present
+                             AND eligible
+                             AND quality_state='valid'
+                             AND raw_state IS TRUE
+                        THEN 0 ELSE 1 END
+                 ) OVER (
+                   PARTITION BY route_id,security_id ORDER BY trade_date
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                 ),0) break_group
+          FROM source
+        ), streaked AS (
+          SELECT *,
+                 CASE WHEN valid_true THEN row_number() OVER (
+                   PARTITION BY route_id,security_id,break_group
+                   ORDER BY trade_date
+                 ) ELSE 0 END streak
+          FROM marked
+        )
+        SELECT route_id,security_id,trade_date,available_time,eligible,
+               quality_state,raw_state,source_row_present,expected_empty_reason,
+               valid_true AND streak>={int(K)} confirmed_state,
+               CASE WHEN valid_true AND streak={int(K)}
+                    THEN available_time END confirmation_time,
+               CASE WHEN valid_true AND streak>={int(K)}
+                    THEN min(trade_date) OVER (
+                      PARTITION BY route_id,security_id,break_group
+                    ) END confirmed_start_date,
+               NOT (source_row_present
+                    AND eligible
+                    AND quality_state='valid'
+                    AND raw_state IS NOT NULL) hard_break,
+               (source_row_present
+                AND eligible
+                AND quality_state='valid'
+                AND valid_true
+                AND streak>={int(K)}) state_risk_set_eligible,
+               row_ordinal
+        FROM streaked
+        ORDER BY route_id,security_id,trade_date
+        """,
         route_ids,
     )
 
@@ -812,8 +880,153 @@ def _daily_asof(
         "INSERT INTO t06_versions VALUES(?,?,?,?)",
         [version_values[i : i + 4] for i in range(0, len(version_values), 4)],
     )
-    con.execute(f"""CREATE TABLE r2_t06_replayed_daily_state AS
-      WITH primary_rows AS (SELECT v.state_version_id,v.state_line,v.primary_cell candidate_config_id,d.security_id,d.trade_date,d.available_time,d.eligible eligible_state,d.raw_state,d.confirmed_state,d.confirmation_time,d.state_risk_set_eligible,d.quality_state FROM t06_versions v JOIN t06_route_daily d ON d.route_id=(SELECT route_id FROM src.cell_registry WHERE candidate_cell_id=v.primary_cell)), strict_rows AS (SELECT v.state_version_id,s.security_id,s.trade_date,s.confirmed_state strict_core_member FROM t06_versions v JOIN t06_route_daily s ON s.route_id=(SELECT route_id FROM src.cell_registry WHERE candidate_cell_id=v.strict_cell)), current_membership AS (SELECT p.*,m.event_id,m.component_qualified_as_of,m.event_zone_member,m.is_prequalification_confirmed_day,m.is_bridged_gap,m.is_unqualified_reentry_day,m.event_status_as_of,row_number() OVER(PARTITION BY p.state_version_id,p.security_id,p.trade_date ORDER BY m.membership_available_time DESC,m.event_id DESC) rn FROM primary_rows p LEFT JOIN r2_t06_replayed_event_membership m ON m.state_version_id=p.state_version_id AND m.security_id=p.security_id AND m.trade_date=p.trade_date AND m.membership_available_time<=p.available_time), history_raw AS (SELECT state_version_id,event_id,security_id,trade_date,greatest(membership_available_time,trade_date::TIMESTAMPTZ + INTERVAL '15 hours') effective_time,event_status_as_of FROM r2_t06_replayed_event_membership), history AS (SELECT state_version_id,event_id,security_id,effective_time-(row_number() OVER(PARTITION BY state_version_id,security_id,effective_time)-1)*INTERVAL '1 microsecond' effective_time,event_status_as_of FROM history_raw), asof_history AS (SELECT p.state_version_id,p.security_id,p.trade_date,h.event_id,h.event_status_as_of,row_number() OVER(PARTITION BY p.state_version_id,p.security_id,p.trade_date ORDER BY h.effective_time DESC,h.event_id DESC) rn FROM primary_rows p LEFT JOIN history h ON h.state_version_id=p.state_version_id AND h.security_id=p.security_id AND p.available_time>=h.effective_time), joined AS (SELECT c.*,h.event_id history_event_id,h.event_status_as_of history_status,s.strict_core_member FROM current_membership c JOIN asof_history h USING(state_version_id,security_id,trade_date) JOIN strict_rows s USING(state_version_id,security_id,trade_date) WHERE c.rn=1 AND h.rn=1) SELECT state_version_id,state_line,'W120' window_track_id,security_id,trade_date,eligible_state,raw_state,confirmed_state,confirmation_time,coalesce(component_qualified_as_of,false) component_qualified_as_of,coalesce(event_status_as_of,history_status,'NO_EVENT') event_status_as_of,CASE WHEN coalesce(event_status_as_of,history_status) IN ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION') THEN coalesce(event_id,history_event_id) END active_event_id_as_of,state_risk_set_eligible,state_risk_set_eligible AND coalesce(event_zone_member,false) AND coalesce(component_qualified_as_of,false) AND NOT coalesce(is_bridged_gap,false) AND NOT coalesce(is_prequalification_confirmed_day,false) AND NOT coalesce(is_unqualified_reentry_day,false) qualified_event_risk_set_eligible,strict_core_member,quality_state,candidate_config_id,'{run_id}' source_run_id FROM joined""")
+    con.execute(
+        f"""
+        CREATE TABLE r2_t06_replayed_daily_state AS
+        WITH primary_rows AS (
+          SELECT v.state_version_id,v.state_line,
+                 v.primary_cell candidate_config_id,d.security_id,
+                 d.trade_date,d.available_time,d.eligible eligible_state,
+                 d.raw_state,d.confirmed_state,d.confirmation_time,
+                 d.state_risk_set_eligible,d.quality_state
+          FROM t06_versions v
+          JOIN t06_route_daily d
+            ON d.route_id=(SELECT route_id FROM src.cell_registry
+                           WHERE candidate_cell_id=v.primary_cell)
+        ), strict_rows AS (
+          SELECT v.state_version_id,s.security_id,s.trade_date,
+                 s.confirmed_state strict_core_member
+          FROM t06_versions v
+          JOIN t06_route_daily s
+            ON s.route_id=(SELECT route_id FROM src.cell_registry
+                           WHERE candidate_cell_id=v.strict_cell)
+        ), current_membership AS (
+          SELECT p.*,m.event_id,m.component_qualified_as_of,
+                 m.event_zone_member,m.is_prequalification_confirmed_day,
+                 m.is_bridged_gap,m.is_unqualified_reentry_day,
+                 row_number() OVER (
+                   PARTITION BY p.state_version_id,p.security_id,p.trade_date
+                   ORDER BY m.membership_available_time DESC,m.event_id DESC
+                 ) rn
+          FROM primary_rows p
+          LEFT JOIN r2_t06_replayed_event_membership m
+            ON m.state_version_id=p.state_version_id
+           AND m.security_id=p.security_id
+           AND m.trade_date=p.trade_date
+           AND m.membership_available_time<=p.available_time
+        ), source_membership_ranked AS (
+          SELECT p.state_version_id,p.security_id,p.trade_date,
+                 s.scan_event_id source_scan_event_id,
+                 s.zone_status_as_of source_event_status_as_of,
+                 s.event_zone_member source_event_zone_member,
+                 s.is_raw_false_bridge source_is_bridged_gap,
+                 s.prequalification_member source_is_prequalification,
+                 s.unqualified_reentry_member source_is_unqualified_reentry,
+                 row_number() OVER (
+                   PARTITION BY p.state_version_id,p.security_id,p.trade_date
+                   ORDER BY s.available_time DESC,s.evaluation_time DESC,
+                            s.scan_event_id DESC
+                 ) source_rn
+          FROM primary_rows p
+          LEFT JOIN src.event_zone_membership_daily s
+            ON s.candidate_cell_id=p.candidate_config_id
+           AND s.security_id=p.security_id
+           AND s.trade_date=p.trade_date
+           AND s.available_time<=p.available_time
+        ), source_membership AS (
+          SELECT * FROM source_membership_ranked WHERE source_rn=1
+        ), source_event_ranked AS (
+          SELECT s.*,m.event_id current_source_event_id,
+                 row_number() OVER (
+                   PARTITION BY s.state_version_id,s.security_id,s.trade_date
+                   ORDER BY m.membership_available_time DESC,m.event_id DESC
+                 ) event_map_rn
+          FROM source_membership s
+          LEFT JOIN r2_t06_replayed_event_membership m
+            ON s.source_scan_event_id IS NOT NULL
+           AND m.state_version_id=s.state_version_id
+           AND m.security_id=s.security_id
+           AND m.trade_date=s.trade_date
+           AND m.event_status_as_of IS NOT DISTINCT FROM
+               s.source_event_status_as_of
+           AND m.event_zone_member IS NOT DISTINCT FROM
+               s.source_event_zone_member
+           AND m.is_prequalification_confirmed_day IS NOT DISTINCT FROM
+               s.source_is_prequalification
+           AND m.is_bridged_gap IS NOT DISTINCT FROM
+               s.source_is_bridged_gap
+           AND m.is_unqualified_reentry_day IS NOT DISTINCT FROM
+               s.source_is_unqualified_reentry
+        ), source_event AS (
+          SELECT * FROM source_event_ranked WHERE event_map_rn=1
+        ), history_raw AS (
+          SELECT state_version_id,event_id,security_id,trade_date,
+                 greatest(
+                   membership_available_time,
+                   trade_date::TIMESTAMPTZ + INTERVAL '15 hours'
+                 ) effective_time,event_status_as_of
+          FROM r2_t06_replayed_event_membership
+        ), history AS (
+          SELECT state_version_id,event_id,security_id,
+                 effective_time-(row_number() OVER (
+                   PARTITION BY state_version_id,security_id,effective_time
+                   ORDER BY trade_date DESC,event_id DESC
+                 )-1)*INTERVAL '1 microsecond' effective_time,
+                 event_status_as_of
+          FROM history_raw
+        ), asof_history AS (
+          SELECT p.state_version_id,p.security_id,p.trade_date,
+                 h.event_id history_event_id,h.event_status_as_of history_status,
+                 row_number() OVER (
+                   PARTITION BY p.state_version_id,p.security_id,p.trade_date
+                   ORDER BY h.effective_time DESC,h.event_id DESC
+                 ) rn
+          FROM primary_rows p
+          LEFT JOIN history h
+            ON h.state_version_id=p.state_version_id
+           AND h.security_id=p.security_id
+           AND p.available_time>=h.effective_time
+        ), joined AS (
+          SELECT c.*,h.history_event_id,h.history_status,
+                 s.source_scan_event_id,s.source_event_status_as_of,
+                 s.current_source_event_id,strict_core_member
+          FROM current_membership c
+          JOIN asof_history h USING(state_version_id,security_id,trade_date)
+          JOIN source_event s USING(state_version_id,security_id,trade_date)
+          JOIN strict_rows USING(state_version_id,security_id,trade_date)
+          WHERE c.rn=1 AND h.rn=1
+        )
+        SELECT state_version_id,state_line,'W120' window_track_id,security_id,
+               trade_date,eligible_state,raw_state,confirmed_state,
+               confirmation_time,coalesce(component_qualified_as_of,false)
+                 component_qualified_as_of,
+               coalesce(source_event_status_as_of,history_status,'NO_EVENT')
+                 event_status_as_of,
+                 CASE
+                   WHEN source_scan_event_id IS NOT NULL THEN
+                     CASE WHEN source_event_status_as_of IN (
+                       'COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING',
+                       'REENTRY_PENDING_QUALIFICATION'
+                     ) THEN current_source_event_id ELSE NULL END
+                   WHEN history_status IN (
+                     'COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING',
+                     'REENTRY_PENDING_QUALIFICATION'
+                   ) THEN history_event_id
+                   ELSE NULL
+                 END active_event_id_as_of,
+               state_risk_set_eligible,
+               state_risk_set_eligible
+                 AND coalesce(event_zone_member,false)
+                 AND coalesce(component_qualified_as_of,false)
+                 AND NOT coalesce(is_bridged_gap,false)
+                 AND NOT coalesce(is_prequalification_confirmed_day,false)
+                 AND NOT coalesce(is_unqualified_reentry_day,false)
+                 qualified_event_risk_set_eligible,
+               strict_core_member,quality_state,candidate_config_id,
+               '{run_id}' source_run_id
+        FROM joined
+        """
+    )
 
 
 def _compare_table(
