@@ -803,6 +803,25 @@ def _materialize_membership(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
     con.execute(
         """
         INSERT INTO r2_canonical_event_membership
+        WITH current_component AS (
+          SELECT em.state_version_id,em.canonical_event_id,m.security_id,m.trade_date,
+                 coalesce(bool_or(
+                   q.qualified
+                   AND m.trade_date BETWEEN q.start_date AND q.end_date
+                   AND q.event_qualification_time<=m.available_time
+                 ),false) component_qualified_as_of
+          FROM src.event_zone_membership_daily m
+          JOIN t05_event_map em ON em.source_candidate_cell_id=m.candidate_cell_id
+           AND em.security_id=m.security_id AND em.source_scan_event_id=m.scan_event_id
+          LEFT JOIN t05_component_map cm
+            ON cm.state_version_id=em.state_version_id
+           AND cm.canonical_event_id=em.canonical_event_id
+           AND cm.security_id=m.security_id
+          LEFT JOIN src.qualified_component q
+            ON q.candidate_cell_id=cm.source_candidate_cell_id
+           AND q.security_id=cm.security_id AND q.component_id=cm.component_id
+          GROUP BY em.state_version_id,em.canonical_event_id,m.security_id,m.trade_date
+        )
         SELECT em.state_version_id,em.canonical_event_id,m.security_id,m.trade_date,
                m.confirmed_state,
                EXISTS (SELECT 1 FROM t05_component_map cm JOIN src.qualified_component q
@@ -810,16 +829,21 @@ def _materialize_membership(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
                 AND q.component_id=cm.component_id
                 WHERE cm.canonical_event_id=em.canonical_event_id
                   AND m.trade_date BETWEEN q.start_date AND q.end_date),
-               m.retrospective_component_member,m.component_qualified_as_of,m.event_zone_member,
+               m.retrospective_component_member,cc.component_qualified_as_of,m.event_zone_member,
                m.prequalification_member,m.is_raw_false_bridge,m.unqualified_reentry_member,
                m.zone_status_as_of,m.zone_revision_as_of,m.membership_available_time,
                (m.eligible AND m.quality_state='valid' AND m.confirmed_state),
                (m.eligible AND m.quality_state='valid' AND m.confirmed_state
-                AND m.event_zone_member AND m.component_qualified_as_of
-                AND NOT m.is_raw_false_bridge AND NOT m.prequalification_member)
+                AND m.event_zone_member AND cc.component_qualified_as_of
+                AND NOT m.is_raw_false_bridge AND NOT m.prequalification_member
+                AND NOT m.unqualified_reentry_member)
         FROM src.event_zone_membership_daily m
         JOIN t05_event_map em ON em.source_candidate_cell_id=m.candidate_cell_id
          AND em.security_id=m.security_id AND em.source_scan_event_id=m.scan_event_id
+        JOIN current_component cc
+          ON cc.state_version_id=em.state_version_id
+         AND cc.canonical_event_id=em.canonical_event_id
+         AND cc.security_id=m.security_id AND cc.trade_date=m.trade_date
         """
     )
     before = dict(
@@ -876,33 +900,72 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
     )
     con.execute(
         """
+        CREATE TEMP TABLE t05_current_membership AS
+        WITH ranked AS (
+          SELECT d.state_version_id,d.security_id,d.trade_date,d.available_time,
+                 d.candidate_config_id,m.scan_event_id,m.zone_status_as_of,
+                 m.event_zone_member,m.is_raw_false_bridge,m.prequalification_member,
+                 m.unqualified_reentry_member,
+                 row_number() OVER (
+                   PARTITION BY d.state_version_id,d.security_id,d.trade_date
+                   ORDER BY m.available_time DESC,m.evaluation_time DESC,m.scan_event_id DESC
+                 ) rn
+          FROM t05_daily_base d
+          LEFT JOIN src.event_zone_membership_daily m
+            ON m.candidate_cell_id=d.candidate_config_id
+           AND m.security_id=d.security_id
+           AND m.trade_date=d.trade_date
+           AND m.available_time<=d.available_time
+        )
+        SELECT state_version_id,security_id,trade_date,available_time,candidate_config_id,
+               scan_event_id,zone_status_as_of,event_zone_member,is_raw_false_bridge,
+               prequalification_member,unqualified_reentry_member
+        FROM ranked
+        WHERE rn=1
+        """
+    )
+    con.execute(
+        """
+        CREATE TEMP TABLE t05_current_component_qualification AS
+        SELECT m.state_version_id,m.security_id,m.trade_date,
+               em.canonical_event_id current_event_id,
+               coalesce(bool_or(
+                 q.qualified
+                 AND m.trade_date BETWEEN q.start_date AND q.end_date
+                 AND q.event_qualification_time<=m.available_time
+               ),false) current_component_qualified_as_of
+        FROM t05_current_membership m
+        LEFT JOIN t05_event_map em
+          ON em.state_version_id=m.state_version_id
+         AND em.source_candidate_cell_id=m.candidate_config_id
+         AND em.source_scan_event_id=m.scan_event_id
+         AND em.security_id=m.security_id
+        LEFT JOIN t05_component_map cm
+          ON cm.state_version_id=em.state_version_id
+         AND cm.canonical_event_id=em.canonical_event_id
+         AND cm.security_id=m.security_id
+        LEFT JOIN src.qualified_component q
+          ON q.candidate_cell_id=cm.source_candidate_cell_id
+         AND q.security_id=cm.security_id AND q.component_id=cm.component_id
+        GROUP BY m.state_version_id,m.security_id,m.trade_date,em.canonical_event_id
+        """
+    )
+    con.execute(
+        """
         CREATE TEMP TABLE t05_daily_current AS
         SELECT d.*,m.scan_event_id current_source_scan_event_id,
                m.zone_status_as_of current_event_status_as_of,
                m.event_zone_member current_event_zone_member,
-               m.component_qualified_as_of current_component_qualified_as_of,
+               coalesce(q.current_component_qualified_as_of,false)
+                 current_component_qualified_as_of,
                m.is_raw_false_bridge current_is_raw_false_bridge,
                m.prequalification_member current_prequalification_member,
                m.unqualified_reentry_member current_unqualified_reentry_member,
-               em.canonical_event_id current_event_id
+               q.current_event_id
         FROM t05_daily_base d
-        LEFT JOIN LATERAL (
-          SELECT m.scan_event_id,m.zone_status_as_of,m.event_zone_member,
-                 m.component_qualified_as_of,m.is_raw_false_bridge,
-                 m.prequalification_member,m.unqualified_reentry_member
-          FROM src.event_zone_membership_daily m
-          WHERE m.candidate_cell_id=d.candidate_config_id
-            AND m.security_id=d.security_id
-            AND m.trade_date=d.trade_date
-            AND m.available_time<=d.available_time
-          ORDER BY m.available_time DESC,m.evaluation_time DESC,m.scan_event_id DESC
-          LIMIT 1
-        ) m ON true
-        LEFT JOIN t05_event_map em
-          ON em.state_version_id=d.state_version_id
-         AND em.source_candidate_cell_id=d.candidate_config_id
-         AND em.source_scan_event_id=m.scan_event_id
-         AND em.security_id=d.security_id
+        JOIN t05_current_membership m USING(state_version_id,security_id,trade_date)
+        LEFT JOIN t05_current_component_qualification q
+          USING(state_version_id,security_id,trade_date)
         """
     )
     current_event_map_violation = con.execute(
@@ -917,21 +980,51 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
         )
     con.execute(
         """
+        CREATE TEMP TABLE t05_event_history_raw AS
+        SELECT state_version_id,event_id,security_id,trade_date,
+               greatest(
+                 membership_available_time,
+                 CAST(trade_date AS TIMESTAMP) AT TIME ZONE 'Asia/Shanghai'
+               ) effective_time,
+               event_status_as_of
+        FROM r2_canonical_event_membership;
+
+        CREATE TEMP TABLE t05_event_history AS
+        SELECT state_version_id,event_id,security_id,
+               effective_time - ((tie_rank-1) * INTERVAL '1 microsecond') effective_time,
+               event_status_as_of
+        FROM (
+          SELECT *,row_number() OVER (
+            PARTITION BY state_version_id,security_id,effective_time
+            ORDER BY trade_date DESC,event_id DESC
+          ) tie_rank
+          FROM t05_event_history_raw
+        );
+
+        CREATE TEMP TABLE t05_event_history_asof AS
+        SELECT d.state_version_id,d.security_id,d.trade_date,
+               h.event_id history_event_id,h.event_status_as_of history_status
+        FROM t05_daily_base d
+        ASOF LEFT JOIN t05_event_history h
+          ON h.state_version_id=d.state_version_id
+         AND h.security_id=d.security_id
+         AND d.available_time>=h.effective_time;
+
         CREATE TEMP TABLE t05_daily_asof AS
         SELECT d.state_version_id,d.state_line,d.window_track_id,d.security_id,
                d.trade_date,d.eligible,d.raw_state,d.confirmed_state,d.confirmation_time,
                CASE WHEN d.current_source_scan_event_id IS NOT NULL
                     THEN coalesce(d.current_component_qualified_as_of,false)
                     ELSE false END component_qualified_as_of,
-               coalesce(d.current_event_status_as_of,h.event_status_as_of,'NO_EVENT') event_status_as_of,
+               coalesce(d.current_event_status_as_of,h.history_status,'NO_EVENT') event_status_as_of,
                CASE
                  WHEN d.current_source_scan_event_id IS NOT NULL THEN
                    CASE WHEN d.current_event_status_as_of IN
                      ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
                      THEN d.current_event_id ELSE NULL END
-                 WHEN h.event_status_as_of IN
+                 WHEN h.history_status IN
                      ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
-                 THEN h.event_id ELSE NULL
+                 THEN h.history_event_id ELSE NULL
                END active_event_id_as_of,
                d.state_risk_set_eligible,
                d.state_risk_set_eligible
@@ -944,16 +1037,8 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
                  qualified_event_risk_set_eligible,
                d.quality_state,d.candidate_config_id
         FROM t05_daily_current d
-        LEFT JOIN LATERAL (
-          SELECT m.event_id,m.event_status_as_of
-          FROM r2_canonical_event_membership m
-            WHERE m.state_version_id=d.state_version_id
-              AND m.security_id=d.security_id
-            AND m.trade_date<=d.trade_date
-            AND m.membership_available_time<=d.available_time
-          ORDER BY m.membership_available_time DESC,m.trade_date DESC,m.event_id DESC
-          LIMIT 1
-        ) h ON true
+        JOIN t05_event_history_asof h
+          USING(state_version_id,security_id,trade_date)
         """
     )
     con.execute(

@@ -493,6 +493,145 @@ class R2T05CanonicalMaterializationContractTest(unittest.TestCase):
         )
         con.close()
 
+    def test_independent_validator_enforces_reentry_component_semantics(self) -> None:
+        con = duckdb.connect(":memory:")
+        con.execute("CREATE SCHEMA src")
+        con.execute(
+            """
+            CREATE TABLE src.cell_registry(candidate_cell_id VARCHAR,route_id VARCHAR);
+            CREATE TABLE src.route_daily(
+              route_id VARCHAR,security_id VARCHAR,trade_date DATE,
+              available_time TIMESTAMPTZ
+            );
+            CREATE TABLE src.event_zone_membership_daily(
+              candidate_cell_id VARCHAR,security_id VARCHAR,trade_date DATE,
+              available_time TIMESTAMPTZ,evaluation_time TIMESTAMPTZ,
+              scan_event_id VARCHAR,zone_status_as_of VARCHAR,
+              event_zone_member BOOLEAN,is_raw_false_bridge BOOLEAN,
+              prequalification_member BOOLEAN,unqualified_reentry_member BOOLEAN
+            );
+            CREATE TABLE src.event_zone(
+              candidate_cell_id VARCHAR,security_id VARCHAR,scan_event_id VARCHAR,
+              first_component_id VARCHAR,zone_finalization_time TIMESTAMPTZ,
+              status VARCHAR
+            );
+            CREATE TABLE src.event_zone_bridge_segment(
+              candidate_cell_id VARCHAR,security_id VARCHAR,scan_event_id VARCHAR,
+              left_component_id VARCHAR,right_component_id VARCHAR,
+              merge_accepted BOOLEAN
+            );
+            CREATE TABLE src.reentry_attempt(
+              candidate_cell_id VARCHAR,security_id VARCHAR,scan_event_id VARCHAR,
+              source_component_id VARCHAR,start_date DATE,end_date DATE,
+              outcome VARCHAR
+            );
+            CREATE TABLE src.qualified_component(
+              candidate_cell_id VARCHAR,security_id VARCHAR,component_id VARCHAR,
+              start_date DATE,end_date DATE,qualified BOOLEAN,
+              event_qualification_time TIMESTAMPTZ
+            );
+            CREATE TABLE r2_t05_event_id_lineage(
+              state_version_id VARCHAR,source_candidate_cell_id VARCHAR,
+              source_scan_event_id VARCHAR,security_id VARCHAR,
+              first_component_id VARCHAR,canonical_event_id VARCHAR,
+              identity_payload VARCHAR,identity_payload_sha256 VARCHAR,
+              source_run_id VARCHAR
+            );
+            CREATE TABLE r2_canonical_daily_state(
+              state_version_id VARCHAR,security_id VARCHAR,trade_date DATE,
+              candidate_config_id VARCHAR,state_risk_set_eligible BOOLEAN,
+              component_qualified_as_of BOOLEAN,event_status_as_of VARCHAR,
+              active_event_id_as_of VARCHAR,
+              qualified_event_risk_set_eligible BOOLEAN
+            );
+            """
+        )
+        con.executemany(
+            "INSERT INTO src.cell_registry VALUES (?,?)",
+            [("cell-a", "route-a"), ("cell-b", "route-b")],
+        )
+        con.executemany(
+            "INSERT INTO src.route_daily VALUES (?,?,?,?)",
+            [
+                (route, "000001.SZ", date, f"{date} 12:00:00+08:00")
+                for route in ("route-a", "route-b")
+                for date in ("2024-01-03", "2024-01-04")
+            ],
+        )
+        con.executemany(
+            "INSERT INTO src.event_zone VALUES (?,?,?,?,?,?)",
+            [
+                ("cell-a", "000001.SZ", "scan-a", "old-a", None, "QUALIFIED_ACTIVE"),
+                ("cell-b", "000001.SZ", "scan-b", "base-b", None, "REENTRY_PENDING_QUALIFICATION"),
+            ],
+        )
+        con.execute(
+            "INSERT INTO src.event_zone_bridge_segment VALUES (?,?,?,?,?,?)",
+            ("cell-a", "000001.SZ", "scan-a", "old-a", "accepted-a", True),
+        )
+        con.execute(
+            "INSERT INTO src.reentry_attempt VALUES (?,?,?,?,?,?,?)",
+            (
+                "cell-b", "000001.SZ", "scan-b", "unqualified-b",
+                "2024-01-03", "2024-01-04", "unqualified_reentry",
+            ),
+        )
+        con.executemany(
+            "INSERT INTO src.qualified_component VALUES (?,?,?,?,?,?,?)",
+            [
+                ("cell-a", "000001.SZ", "old-a", "2024-01-01", "2024-01-02", False, None),
+                ("cell-a", "000001.SZ", "accepted-a", "2024-01-03", "2024-01-04", True, "2024-01-04 10:00:00+08:00"),
+                ("cell-b", "000001.SZ", "base-b", "2024-01-01", "2024-01-02", False, None),
+                ("cell-b", "000001.SZ", "unqualified-b", "2024-01-03", "2024-01-04", False, None),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO src.event_zone_membership_daily VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            [
+                ("cell-a", "000001.SZ", "2024-01-03", "2024-01-03 12:00:00+08:00", "2024-01-03 12:00:00+08:00", "scan-a", "REENTRY_PENDING_QUALIFICATION", True, False, False, False),
+                ("cell-a", "000001.SZ", "2024-01-04", "2024-01-04 12:00:00+08:00", "2024-01-04 12:00:00+08:00", "scan-a", "QUALIFIED_ACTIVE", True, False, False, False),
+                ("cell-b", "000001.SZ", "2024-01-03", "2024-01-03 12:00:00+08:00", "2024-01-03 12:00:00+08:00", "scan-b", "REENTRY_PENDING_QUALIFICATION", True, False, False, True),
+                ("cell-b", "000001.SZ", "2024-01-04", "2024-01-04 12:00:00+08:00", "2024-01-04 12:00:00+08:00", "scan-b", "REENTRY_PENDING_QUALIFICATION", True, False, False, True),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO r2_t05_event_id_lineage VALUES (?,?,?,?,?,?,?,?,?)",
+            [
+                ("state-a", "cell-a", "scan-a", "000001.SZ", "old-a", "event-a", "{}", "hash-a", "test"),
+                ("state-b", "cell-b", "scan-b", "000001.SZ", "base-b", "event-b", "{}", "hash-b", "test"),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO r2_canonical_daily_state VALUES (?,?,?,?,?,?,?,?,?)",
+            [
+                ("state-a", "000001.SZ", "2024-01-03", "cell-a", True, False, "REENTRY_PENDING_QUALIFICATION", "event-a", False),
+                ("state-a", "000001.SZ", "2024-01-04", "cell-a", True, True, "QUALIFIED_ACTIVE", "event-a", True),
+                ("state-b", "000001.SZ", "2024-01-03", "cell-b", True, False, "REENTRY_PENDING_QUALIFICATION", "event-b", False),
+                ("state-b", "000001.SZ", "2024-01-04", "cell-b", True, False, "REENTRY_PENDING_QUALIFICATION", "event-b", False),
+            ],
+        )
+        self.assertEqual(_independent_daily_asof_mismatch(con, "state-a", "route-a"), 0)
+        self.assertEqual(_independent_daily_asof_mismatch(con, "state-b", "route-b"), 0)
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET component_qualified_as_of=true, qualified_event_risk_set_eligible=true WHERE state_version_id='state-a' AND trade_date='2024-01-03'"
+        )
+        self.assertEqual(_independent_daily_asof_mismatch(con, "state-a", "route-a"), 1)
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET component_qualified_as_of=false, qualified_event_risk_set_eligible=false WHERE state_version_id='state-a' AND trade_date='2024-01-03'"
+        )
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET component_qualified_as_of=true, qualified_event_risk_set_eligible=true WHERE state_version_id='state-b' AND trade_date='2024-01-04'"
+        )
+        self.assertEqual(_independent_daily_asof_mismatch(con, "state-b", "route-b"), 1)
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET component_qualified_as_of=false, qualified_event_risk_set_eligible=false WHERE state_version_id='state-b' AND trade_date='2024-01-04'"
+        )
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET active_event_id_as_of='event-b' WHERE state_version_id='state-a' AND trade_date='2024-01-04'"
+        )
+        self.assertEqual(_independent_daily_asof_mismatch(con, "state-a", "route-a"), 1)
+        con.close()
+
     def test_canonical_serialization_is_sorted_and_compact(self) -> None:
         payload = _canonical_json({"b": 2, "a": 1})
         self.assertEqual(payload, b'{"a":1,"b":2}')

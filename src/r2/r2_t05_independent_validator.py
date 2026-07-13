@@ -330,7 +330,7 @@ def _ensure_independent_daily_component_map(con: duckdb.DuckDBPyConnection) -> N
     """
     con.execute(
         """
-        CREATE OR REPLACE TEMP TABLE iv_daily_component_map AS
+        CREATE OR REPLACE TEMP TABLE iv_component_map AS
         SELECT DISTINCT l.state_version_id,l.canonical_event_id,
                l.source_candidate_cell_id,l.source_scan_event_id,l.security_id,
                e.first_component_id component_id
@@ -370,146 +370,206 @@ def _ensure_independent_daily_component_map(con: duckdb.DuckDBPyConnection) -> N
          AND r.scan_event_id=l.source_scan_event_id
         """
     )
+    con.execute(
+        "CREATE OR REPLACE TEMP VIEW iv_daily_component_map AS SELECT * FROM iv_component_map"
+    )
+
+
+def _ensure_independent_daily_snapshots(con: duckdb.DuckDBPyConnection) -> None:
+    """Materialize source-bound daily expectations with set-based joins only."""
+    _ensure_independent_daily_component_map(con)
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE iv_current_membership AS
+        WITH daily AS (
+          SELECT d.state_version_id,d.security_id,d.trade_date,
+                 d.candidate_config_id,r.available_time
+          FROM r2_canonical_daily_state d
+          JOIN src.cell_registry cr ON cr.candidate_cell_id=d.candidate_config_id
+          JOIN src.route_daily r
+            ON r.route_id=cr.route_id
+           AND r.security_id=d.security_id AND r.trade_date=d.trade_date
+        ), ranked AS (
+          SELECT d.state_version_id,d.security_id,d.trade_date,d.available_time,
+                 d.candidate_config_id,m.scan_event_id,m.zone_status_as_of,
+                 m.event_zone_member,m.is_raw_false_bridge,m.prequalification_member,
+                 m.unqualified_reentry_member,
+                 row_number() OVER (
+                   PARTITION BY d.state_version_id,d.security_id,d.trade_date
+                   ORDER BY m.available_time DESC,m.evaluation_time DESC,m.scan_event_id DESC
+                 ) rn
+          FROM daily d
+          LEFT JOIN src.event_zone_membership_daily m
+            ON m.candidate_cell_id=d.candidate_config_id
+           AND m.security_id=d.security_id
+           AND m.trade_date=d.trade_date
+           AND m.available_time<=d.available_time
+        )
+        SELECT state_version_id,security_id,trade_date,available_time,candidate_config_id,
+               scan_event_id current_source_scan_event_id,
+               zone_status_as_of current_event_status_as_of,
+               event_zone_member current_event_zone_member,
+               is_raw_false_bridge current_is_raw_false_bridge,
+               prequalification_member current_prequalification_member,
+               unqualified_reentry_member current_unqualified_reentry_member
+        FROM ranked
+        WHERE rn=1
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE iv_current_component_qualification AS
+        SELECT c.state_version_id,c.security_id,c.trade_date,c.available_time,
+               c.candidate_config_id,c.current_source_scan_event_id,
+               c.current_event_status_as_of,c.current_event_zone_member,
+               c.current_is_raw_false_bridge,c.current_prequalification_member,
+               c.current_unqualified_reentry_member,
+               l.canonical_event_id current_event_id,
+               coalesce(bool_or(
+                 q.qualified
+                 AND c.trade_date BETWEEN q.start_date AND q.end_date
+                 AND q.event_qualification_time<=c.available_time
+               ),false) current_component_qualified_as_of
+        FROM iv_current_membership c
+        LEFT JOIN r2_t05_event_id_lineage l
+          ON l.state_version_id=c.state_version_id
+         AND l.source_candidate_cell_id=c.candidate_config_id
+         AND l.source_scan_event_id=c.current_source_scan_event_id
+         AND l.security_id=c.security_id
+        LEFT JOIN iv_component_map cm
+          ON cm.state_version_id=l.state_version_id
+         AND cm.canonical_event_id=l.canonical_event_id
+         AND cm.security_id=c.security_id
+        LEFT JOIN src.qualified_component q
+          ON q.candidate_cell_id=cm.source_candidate_cell_id
+         AND q.security_id=cm.security_id AND q.component_id=cm.component_id
+        GROUP BY c.state_version_id,c.security_id,c.trade_date,c.available_time,
+                 c.candidate_config_id,c.current_source_scan_event_id,
+                 c.current_event_status_as_of,c.current_event_zone_member,
+                 c.current_is_raw_false_bridge,c.current_prequalification_member,
+                 c.current_unqualified_reentry_member,l.canonical_event_id
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE iv_event_history_raw AS
+        SELECT l.state_version_id,l.canonical_event_id,m.security_id,
+               greatest(
+                 m.available_time,
+                 CAST(m.trade_date AS TIMESTAMP) AT TIME ZONE 'Asia/Shanghai'
+               ) effective_time,
+               m.trade_date source_trade_date,m.scan_event_id source_scan_event_id,
+               m.zone_status_as_of event_status_as_of
+        FROM src.event_zone_membership_daily m
+        JOIN r2_t05_event_id_lineage l
+          ON l.source_candidate_cell_id=m.candidate_cell_id
+         AND l.source_scan_event_id=m.scan_event_id
+         AND l.security_id=m.security_id
+        UNION ALL
+        SELECT l.state_version_id,l.canonical_event_id,e.security_id,
+               greatest(
+                 e.zone_finalization_time,
+                 CAST(CAST(e.zone_finalization_time AS DATE) AS TIMESTAMP)
+                   AT TIME ZONE 'Asia/Shanghai'
+               ) effective_time,
+               CAST(e.zone_finalization_time AS DATE) source_trade_date,
+               e.scan_event_id source_scan_event_id,
+               e.status event_status_as_of
+        FROM src.event_zone e
+        JOIN r2_t05_event_id_lineage l
+          ON l.source_candidate_cell_id=e.candidate_cell_id
+         AND l.source_scan_event_id=e.scan_event_id
+         AND l.security_id=e.security_id
+        WHERE e.zone_finalization_time IS NOT NULL
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE iv_event_history AS
+        SELECT state_version_id,canonical_event_id,security_id,
+               effective_time - ((tie_rank-1) * INTERVAL '1 microsecond') effective_time,
+               event_status_as_of
+        FROM (
+          SELECT *,row_number() OVER (
+            PARTITION BY state_version_id,security_id,effective_time
+            ORDER BY source_trade_date DESC,canonical_event_id DESC,source_scan_event_id DESC
+          ) tie_rank
+          FROM iv_event_history_raw
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE iv_event_history_asof AS
+        SELECT c.state_version_id,c.security_id,c.trade_date,
+               h.canonical_event_id history_event_id,
+               h.event_status_as_of history_status
+        FROM iv_current_component_qualification c
+        ASOF LEFT JOIN iv_event_history h
+          ON h.state_version_id=c.state_version_id
+         AND h.security_id=c.security_id
+         AND c.available_time>=h.effective_time
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TEMP TABLE iv_expected_daily AS
+        SELECT c.state_version_id,c.security_id,c.trade_date,
+               CASE WHEN c.current_source_scan_event_id IS NOT NULL
+                    THEN c.current_component_qualified_as_of ELSE false END
+                 component_qualified_as_of,
+               coalesce(c.current_event_status_as_of,h.history_status,'NO_EVENT')
+                 event_status_as_of,
+               CASE
+                 WHEN c.current_source_scan_event_id IS NOT NULL THEN
+                   CASE WHEN c.current_event_status_as_of IN
+                     ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
+                     THEN c.current_event_id ELSE NULL END
+                 WHEN h.history_status IN
+                     ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
+                 THEN h.history_event_id ELSE NULL
+               END active_event_id_as_of,
+               c.state_version_id IS NOT NULL
+                 AND d.state_risk_set_eligible
+                 AND c.current_source_scan_event_id IS NOT NULL
+                 AND coalesce(c.current_event_zone_member,false)
+                 AND c.current_component_qualified_as_of
+                 AND NOT coalesce(c.current_is_raw_false_bridge,false)
+                 AND NOT coalesce(c.current_prequalification_member,false)
+                 AND NOT coalesce(c.current_unqualified_reentry_member,false)
+                 qualified_event_risk_set_eligible
+        FROM iv_current_component_qualification c
+        JOIN r2_canonical_daily_state d
+          USING(state_version_id,security_id,trade_date)
+        JOIN iv_event_history_asof h
+          USING(state_version_id,security_id,trade_date)
+        """
+    )
+
+
+def _daily_asof_mismatch_from_snapshot(
+    con: duckdb.DuckDBPyConnection, state_version_id: str
+) -> int:
+    return con.execute(
+        """
+        SELECT count(*)
+        FROM r2_canonical_daily_state d
+        JOIN iv_expected_daily e USING(state_version_id,security_id,trade_date)
+        WHERE d.state_version_id=?
+          AND (d.component_qualified_as_of IS DISTINCT FROM e.component_qualified_as_of
+            OR d.event_status_as_of IS DISTINCT FROM e.event_status_as_of
+            OR d.active_event_id_as_of IS DISTINCT FROM e.active_event_id_as_of
+            OR d.qualified_event_risk_set_eligible IS DISTINCT FROM e.qualified_event_risk_set_eligible)
+        """,
+        [state_version_id],
+    ).fetchone()[0]
 
 
 def _independent_daily_asof_mismatch(
     con: duckdb.DuckDBPyConnection, state_version_id: str, primary_route_id: str
 ) -> int:
-    _ensure_independent_daily_component_map(con)
-    return con.execute(
-        """
-        WITH daily AS (
-          SELECT d.state_version_id,d.security_id,d.trade_date,d.state_risk_set_eligible,
-                 r.available_time,cr.candidate_cell_id
-          FROM r2_canonical_daily_state d
-          JOIN src.route_daily r
-            ON r.route_id=? AND r.security_id=d.security_id AND r.trade_date=d.trade_date
-          JOIN src.cell_registry cr ON cr.route_id=r.route_id
-          WHERE d.state_version_id=?
-        ), current_row AS (
-          SELECT d.*,m.scan_event_id current_scan_event_id,
-                 m.zone_status_as_of current_status,
-                 m.event_zone_member current_event_zone_member,
-                 m.is_raw_false_bridge current_is_raw_false_bridge,
-                 m.prequalification_member current_prequalification_member,
-                 m.unqualified_reentry_member current_unqualified_reentry_member,
-                 l.canonical_event_id current_event_id
-          FROM daily d
-          LEFT JOIN LATERAL (
-            SELECT m.scan_event_id,m.zone_status_as_of,m.event_zone_member,
-                   m.is_raw_false_bridge,m.prequalification_member,
-                   m.unqualified_reentry_member
-            FROM src.event_zone_membership_daily m
-            WHERE m.candidate_cell_id=d.candidate_cell_id
-              AND m.security_id=d.security_id
-              AND m.trade_date=d.trade_date
-              AND m.available_time<=d.available_time
-            ORDER BY m.available_time DESC,m.evaluation_time DESC,m.scan_event_id DESC
-            LIMIT 1
-          ) m ON true
-          LEFT JOIN r2_t05_event_id_lineage l
-            ON l.state_version_id=d.state_version_id
-           AND l.source_candidate_cell_id=d.candidate_cell_id
-           AND l.source_scan_event_id=m.scan_event_id
-           AND l.security_id=d.security_id
-        ), history_row AS (
-          SELECT d.state_version_id,d.security_id,d.trade_date,
-                 h.canonical_event_id history_event_id,h.event_status history_status
-          FROM current_row d
-          LEFT JOIN LATERAL (
-            SELECT x.canonical_event_id,x.event_status,x.available_time,
-                   x.source_trade_date,x.source_scan_event_id
-            FROM (
-              SELECT l.canonical_event_id,m.zone_status_as_of event_status,
-                     m.available_time,m.trade_date source_trade_date,m.scan_event_id source_scan_event_id
-              FROM src.event_zone_membership_daily m
-              JOIN r2_t05_event_id_lineage l
-                ON l.state_version_id=d.state_version_id
-               AND l.source_candidate_cell_id=m.candidate_cell_id
-               AND l.source_scan_event_id=m.scan_event_id
-               AND l.security_id=m.security_id
-              WHERE m.candidate_cell_id=d.candidate_cell_id
-                AND m.security_id=d.security_id
-                AND m.trade_date<=d.trade_date
-                AND m.available_time<=d.available_time
-              UNION ALL
-              SELECT l.canonical_event_id,e.status,e.zone_finalization_time,
-                     CAST(e.zone_finalization_time AS DATE),e.scan_event_id
-              FROM src.event_zone e
-              JOIN r2_t05_event_id_lineage l
-                ON l.state_version_id=d.state_version_id
-               AND l.source_candidate_cell_id=e.candidate_cell_id
-               AND l.source_scan_event_id=e.scan_event_id
-               AND l.security_id=e.security_id
-              WHERE e.candidate_cell_id=d.candidate_cell_id
-                AND e.security_id=d.security_id
-                AND e.zone_finalization_time IS NOT NULL
-                AND CAST(e.zone_finalization_time AS DATE)<=d.trade_date
-                AND e.zone_finalization_time<=d.available_time
-            ) x
-            ORDER BY x.available_time DESC,x.source_trade_date DESC,x.source_scan_event_id DESC
-            LIMIT 1
-          ) h ON true
-        ), expected AS (
-          SELECT c.state_version_id,c.security_id,c.trade_date,
-                 CASE WHEN c.current_scan_event_id IS NOT NULL THEN EXISTS (
-                   SELECT 1
-                   FROM iv_daily_component_map cm
-                   JOIN src.qualified_component q
-                     ON q.candidate_cell_id=cm.source_candidate_cell_id
-                    AND q.security_id=cm.security_id
-                    AND q.component_id=cm.component_id
-                   WHERE cm.state_version_id=c.state_version_id
-                     AND cm.canonical_event_id=c.current_event_id
-                     AND cm.security_id=c.security_id
-                     AND q.qualified
-                     AND c.trade_date BETWEEN q.start_date AND q.end_date
-                     AND q.event_qualification_time<=c.available_time
-                 ) ELSE false END component_qualified_as_of,
-                 coalesce(c.current_status,h.history_status,'NO_EVENT') event_status_as_of,
-                 CASE
-                   WHEN c.current_scan_event_id IS NOT NULL
-                    AND c.current_status IN ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
-                   THEN c.current_event_id
-                   WHEN c.current_scan_event_id IS NULL
-                    AND h.history_status IN ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
-                   THEN h.history_event_id
-                   ELSE NULL
-                 END active_event_id_as_of,
-                 c.state_risk_set_eligible
-                   AND c.current_scan_event_id IS NOT NULL
-                   AND coalesce(c.current_event_zone_member,false)
-                   AND EXISTS (
-                     SELECT 1
-                     FROM iv_daily_component_map cm
-                     JOIN src.qualified_component q
-                       ON q.candidate_cell_id=cm.source_candidate_cell_id
-                      AND q.security_id=cm.security_id
-                      AND q.component_id=cm.component_id
-                     WHERE cm.state_version_id=c.state_version_id
-                       AND cm.canonical_event_id=c.current_event_id
-                       AND cm.security_id=c.security_id
-                       AND q.qualified
-                       AND c.trade_date BETWEEN q.start_date AND q.end_date
-                       AND q.event_qualification_time<=c.available_time
-                   )
-                   AND NOT coalesce(c.current_is_raw_false_bridge,false)
-                   AND NOT coalesce(c.current_prequalification_member,false)
-                   AND NOT coalesce(c.current_unqualified_reentry_member,false)
-                   qualified_event_risk_set_eligible
-          FROM current_row c
-          LEFT JOIN history_row h USING(state_version_id,security_id,trade_date)
-        )
-        SELECT count(*) FROM r2_canonical_daily_state d
-        JOIN expected e USING(state_version_id,security_id,trade_date)
-        WHERE d.component_qualified_as_of IS DISTINCT FROM e.component_qualified_as_of
-           OR d.event_status_as_of IS DISTINCT FROM e.event_status_as_of
-           OR d.active_event_id_as_of IS DISTINCT FROM e.active_event_id_as_of
-           OR d.qualified_event_risk_set_eligible IS DISTINCT FROM e.qualified_event_risk_set_eligible
-        """,
-        [primary_route_id, state_version_id],
-    ).fetchone()[0]
-
+    _ensure_independent_daily_snapshots(con)
+    return _daily_asof_mismatch_from_snapshot(con, state_version_id)
 
 def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
     config = _git_json(
@@ -541,7 +601,10 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
         }
         _refresh_package(run_dir, validation)
         return validation
-    con = duckdb.connect(str(output_db), read_only=False)
+    selected = config["selected_versions"]
+    con = duckdb.connect(str(output_db), read_only=True)
+    con.execute("PRAGMA memory_limit='8GB'")
+    con.execute("PRAGMA threads=1")
     con.execute(f"ATTACH '{_sql_path(source_db)}' AS src (READ_ONLY)")
     output_tables = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
     required_output = {
@@ -569,7 +632,13 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
         "qualified_event_risk_set_eligible" in daily_columns,
         True,
     )
-    selected = config["selected_versions"]
+    _ensure_independent_daily_snapshots(con)
+    daily_asof_mismatches = {
+        version["state_version_id"]: _daily_asof_mismatch_from_snapshot(
+            con, version["state_version_id"]
+        )
+        for version in selected
+    }
     expected_daily = con.execute(
         "SELECT count(*) FROM src.base_expected_security_date"
     ).fetchone()[0]
@@ -702,9 +771,7 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
             daily_mismatch,
             0,
         )
-        daily_asof_mismatch = _independent_daily_asof_mismatch(
-            con, state, primary_route[0]
-        )
+        daily_asof_mismatch = daily_asof_mismatches.get(state, 1)
         _check(
             assertions,
             failures,
@@ -1017,18 +1084,8 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
         ).fetchone()[0],
         0,
     )
-    # Independent source-to-canonical membership comparison. The component join is rebuilt here.
-    con.execute("""
-      CREATE TEMP TABLE iv_component_map AS
-      SELECT DISTINCT l.state_version_id,l.canonical_event_id,l.source_candidate_cell_id,l.source_scan_event_id,l.security_id,e.first_component_id component_id
-      FROM r2_t05_event_id_lineage l JOIN src.event_zone e ON e.candidate_cell_id=l.source_candidate_cell_id AND e.security_id=l.security_id AND e.scan_event_id=l.source_scan_event_id
-      UNION SELECT DISTINCT l.state_version_id,l.canonical_event_id,l.source_candidate_cell_id,l.source_scan_event_id,l.security_id,b.left_component_id
-      FROM r2_t05_event_id_lineage l JOIN src.event_zone_bridge_segment b ON b.candidate_cell_id=l.source_candidate_cell_id AND b.security_id=l.security_id AND b.scan_event_id=l.source_scan_event_id AND b.merge_accepted
-      UNION SELECT DISTINCT l.state_version_id,l.canonical_event_id,l.source_candidate_cell_id,l.source_scan_event_id,l.security_id,b.right_component_id
-      FROM r2_t05_event_id_lineage l JOIN src.event_zone_bridge_segment b ON b.candidate_cell_id=l.source_candidate_cell_id AND b.security_id=l.security_id AND b.scan_event_id=l.source_scan_event_id AND b.merge_accepted
-      UNION SELECT DISTINCT l.state_version_id,l.canonical_event_id,l.source_candidate_cell_id,l.source_scan_event_id,l.security_id,r.source_component_id
-      FROM r2_t05_event_id_lineage l JOIN src.reentry_attempt r ON r.candidate_cell_id=l.source_candidate_cell_id AND r.security_id=l.security_id AND r.scan_event_id=l.source_scan_event_id
-    """)
+    # Independent source-to-canonical membership comparison reuses the
+    # validator-only iv_component_map built from source lineage above.
     member_mismatch = con.execute("""
       SELECT count(*) FROM src.event_zone_membership_daily m
       JOIN r2_t05_event_id_lineage l ON l.source_candidate_cell_id=m.candidate_cell_id AND l.source_scan_event_id=m.scan_event_id AND l.security_id=m.security_id
@@ -1044,7 +1101,7 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
          OR c.zone_revision IS DISTINCT FROM m.zone_revision_as_of
          OR c.membership_available_time IS DISTINCT FROM m.membership_available_time
          OR c.state_risk_set_eligible IS DISTINCT FROM (m.eligible AND m.quality_state='valid' AND m.confirmed_state)
-         OR c.qualified_event_risk_set_eligible IS DISTINCT FROM (m.eligible AND m.quality_state='valid' AND m.confirmed_state AND m.event_zone_member AND m.component_qualified_as_of AND NOT m.is_raw_false_bridge AND NOT m.prequalification_member)
+         OR c.qualified_event_risk_set_eligible IS DISTINCT FROM (m.eligible AND m.quality_state='valid' AND m.confirmed_state AND m.event_zone_member AND m.component_qualified_as_of AND NOT m.is_raw_false_bridge AND NOT m.prequalification_member AND NOT m.unqualified_reentry_member)
     """).fetchone()[0]
     _check(
         assertions, failures, "membership_row_level_reconciliation", member_mismatch, 0
