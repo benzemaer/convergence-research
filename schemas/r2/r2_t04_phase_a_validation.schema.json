@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T04 Phase A validation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "phase", "status", "input_binding_status", "source_readiness_status", "hard_gate_status", "pareto_status", "automatic_recommendation_status", "user_decision_status", "formal_task_completed", "R2-T04_status", "R2-T05_allowed_to_start", "R3_allowed_to_start", "forbidden_outputs_absent"],
+  "properties": {
+    "task_id": {"const": "R2-T04"}, "phase": {"const": "A"}, "status": {"const": "passed"}, "input_binding_status": {"const": "passed"}, "source_readiness_status": {"const": "passed"}, "hard_gate_status": {"const": "passed"}, "pareto_status": {"const": "passed"}, "automatic_recommendation_status": {"const": "recommendation_only"}, "user_decision_status": {"const": "pending"}, "formal_task_completed": {"const": false}, "R2-T04_status": {"const": "awaiting_user_decision"}, "R2-T05_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false}, "forbidden_outputs_absent": {"const": true}
+  }
+}

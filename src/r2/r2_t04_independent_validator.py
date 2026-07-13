@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from jsonschema import ValidationError, validate
+
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def _rows(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8", newline="") as handle:
@@ -25,6 +29,26 @@ def validate_independently(output_dir: Path) -> dict[str, Any]:
     template = json.loads(
         (output_dir / "r2_t04_user_decision_template.json").read_text(encoding="utf-8")
     )
+    schema_pairs = {
+        "r2_t04_input_binding.json": "r2_t04_input_binding.schema.json",
+        "r2_t04_phase_a_validation.json": "r2_t04_phase_a_validation.schema.json",
+        "r2_t04_automatic_recommendation.json": (
+            "r2_t04_automatic_recommendation.schema.json"
+        ),
+        "r2_t04_user_decision_template.json": (
+            "r2_t04_user_decision_template.schema.json"
+        ),
+        "r2_t04_experiment_summary.json": "r2_t04_experiment_summary.schema.json",
+    }
+    for filename, schema_name in schema_pairs.items():
+        try:
+            value = json.loads((output_dir / filename).read_text(encoding="utf-8"))
+            schema = json.loads(
+                (ROOT / "schemas/r2" / schema_name).read_text(encoding="utf-8")
+            )
+            validate(value, schema)
+        except (OSError, json.JSONDecodeError, ValidationError) as exc:
+            errors.append(f"schema_validation:{filename}:{exc}")
     if len(cells) != 72 or len({row["candidate_cell_id"] for row in cells}) != 72:
         errors.append("cell_count_or_duplicate")
     if len(pareto) != 72:
