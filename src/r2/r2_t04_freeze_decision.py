@@ -185,6 +185,21 @@ def _global_gate_evidence(
     return result
 
 
+def _runtime_gate_evidence(
+    config: dict[str, Any], commit: str
+) -> dict[tuple[str, str], list[dict[str, str]]]:
+    rows = _committed_csv(_source(config, "r2_t03_runtime_gate_results.csv"), commit)
+    result: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        result[(row["check_id"], row.get("candidate_cell_id", ""))].append(row)
+    return result
+
+
+def _runtime_threshold(expected_rule: str) -> float | None:
+    match = re.search(r"(?:>=|<=|==|>|<)\s*([0-9]+(?:\.[0-9]+)?)", expected_rule)
+    return float(match.group(1)) if match else None
+
+
 def _hard_gate_report(
     config: dict[str, Any],
     commit: str,
@@ -194,6 +209,7 @@ def _hard_gate_report(
     gates = _committed_csv(_source(config, "r2_t02_hard_gate_registry.csv"), commit)
     metric_rows = profiles["metric_results"]
     globals_ = _global_gate_evidence(config, commit)
+    runtime_ = _runtime_gate_evidence(config, commit)
     report: list[dict[str, Any]] = []
     for gate in gates:
         if gate["state_line"] == "GLOBAL":
@@ -229,9 +245,27 @@ def _hard_gate_report(
             if cell["state_line"] != gate["state_line"]:
                 continue
             row = metric_rows.get(cell["candidate_cell_id"], {})
-            value = _number(row.get(gate["metric_id"]))
-            threshold = _threshold(gate, cell["state_line"], config)
-            passed = _evaluate_operator(value, gate["operator"], threshold)
+            evidence_rows = runtime_.get(
+                (gate["gate_id"], cell["candidate_cell_id"]), []
+            )
+            evidence = evidence_rows[0] if len(evidence_rows) == 1 else None
+            value = (
+                _number(evidence.get("observed_value"))
+                if evidence
+                else _number(row.get(gate["metric_id"]))
+            )
+            threshold = (
+                _runtime_threshold(evidence.get("expected_rule", ""))
+                if evidence
+                else None
+            )
+            if threshold is None and evidence is None:
+                threshold = _threshold(gate, cell["state_line"], config)
+            passed = (
+                bool(evidence)
+                and evidence["status"] == "passed"
+                and _evaluate_operator(value, gate["operator"], threshold)
+            )
             report.append(
                 {
                     "gate_id": gate["gate_id"],
@@ -244,7 +278,7 @@ def _hard_gate_report(
                     "status": "passed"
                     if passed
                     else ("failed_missing_evidence" if value is None else "failed"),
-                    "evidence_check_id": gate["gate_id"],
+                    "evidence_check_id": gate["gate_id"] if evidence else "missing",
                     "fail_closed": gate["fail_closed"],
                     "zero_tolerance": gate["zero_tolerance"],
                 }
