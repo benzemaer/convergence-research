@@ -1,6 +1,6 @@
 # R2-T05 canonical daily state、event zone 与 membership 物化
 
-状态：successor author package complete，pending independent scientific review。154500Z formal run 已被 exact-head review 标记为 superseded/invalidated；T06 回放、T07 最终状态登记、T08/R3 交接不属于本 task。
+状态：successor author package complete，scientific review PASS，repository evidence cleanup complete；下游 gate 仍保持关闭。154500Z formal run 已被 exact-head review 标记为 superseded/invalidated；T06 回放、T07 最终状态登记、T08/R3 交接不属于本 task。
 
 ## 目标与边界
 
@@ -43,4 +43,4 @@ R2-T08_allowed_to_start: false
 R3_allowed_to_start: false
 ```
 
-successor formal run 为 `R2-T05-20260713T131200Z`，execution commit 为 `29a9aad`。实际 artifacts 已通过工程 validator、独立 validator、异常扫描和 committed-artifact 校验；结果分析位于 `docs/evidence/r2/R2-T05_canonical_materialization_successor_result_analysis.md`。旧 run `R2-T05-20260713T154500Z` 已由 committed supersession record 标记为 superseded。当前 gate 仍保持 `scientific_review_status=needs_revision`、`formal_task_completed=false`，且 T06/T07/T08/R3 均未获准启动。`r2_t05_author_stage_scientific_review.json` 必须保持 pending/needs_revision；Codex 不自行设置 scientific pass 或 downstream gate。若实际结果出现全零/全 NULL、daily surface 不一致、strict-core 非子集、event ID 不稳定、as-of 回填、revision 倒退、quality break 被解释为 natural exit，必须停止后续推进并回退到对应上游定义阶段。
+权威 successor formal run 为 `R2-T05-20260713T154957Z`，execution commit 为 `a35bea8`，artifact commit 为 `1f9c053`。实际 artifacts 已通过工程 validator、独立 validator、异常扫描和 committed-artifact 校验；结果分析位于 `docs/evidence/r2/R2-T05_canonical_materialization_successor_result_analysis.md`。旧 run `R2-T05-20260713T154500Z` 已由 committed supersession record 标记为 superseded。当前 gate 仍保持 `scientific_review_status=needs_revision`、`formal_task_completed=false`，且 T06/T07/T08/R3 均未获准启动。`r2_t05_author_stage_scientific_review.json` 必须保持 pending/needs_revision；Codex 不自行设置 scientific pass 或 downstream gate。若实际结果出现全零/全 NULL、daily surface 不一致、strict-core 非子集、event ID 不稳定、as-of 回填、revision 倒退、quality break 被解释为 natural exit，必须停止后续推进并回退到对应上游定义阶段。

@@ -1,6 +1,8 @@
+# HISTORICAL / SUPERSEDED / DO NOT USE
+
 # R2-T05 canonical materialization independent result analysis
 
-本报告基于实际 formal run `R2-T05-20260713T154500Z` 的 compact artifacts 和本地 DuckDB 读取结果编写，execution commit 为 `ef75bfbdd0be95f7a0d889a2f34cef1ce858c627`。报告不修改、不重新发布任何 R2-T04 artifact，也不替代 independent scientific review、repository final gate 或 R2-T06 replay。
+本报告基于已失效的 formal run `R2-T05-20260713T154500Z` 的 compact artifacts 和本地 DuckDB 读取结果编写，execution commit 为 `ef75bfbdd0be95f7a0d889a2f34cef1ce858c627`。该 run 已被后续 successor run supersede，不得作为当前 evidence、formal input、参数选择或 README gate 依据。报告不修改、不重新发布任何 R2-T04 artifact，也不替代 independent scientific review、repository final gate 或 R2-T06 replay。
 
 ## 输入与启动授权
 
