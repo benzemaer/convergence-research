@@ -330,7 +330,8 @@ def _independent_daily_asof_mismatch(
                  coalesce(a.component_qualified_as_of,false) component_qualified_as_of,
                  coalesce(a.event_status_as_of,'NO_EVENT') event_status_as_of,
                  CASE WHEN a.event_status_as_of IN ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION') THEN a.event_id ELSE NULL END active_event_id_as_of,
-                 coalesce(a.qualified_event_risk_set_eligible,false) qualified_event_risk_set_eligible
+                 coalesce(a.qualified_event_risk_set_eligible,false)
+                   AND d.state_risk_set_eligible qualified_event_risk_set_eligible
           FROM r2_canonical_daily_state d
           JOIN src.route_daily r
             ON r.route_id=? AND r.security_id=d.security_id AND r.trade_date=d.trade_date

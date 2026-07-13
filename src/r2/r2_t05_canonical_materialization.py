@@ -880,7 +880,8 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
         SELECT d.*,coalesce(a.component_qualified_as_of,false) component_qualified_as_of,
                coalesce(a.event_status_as_of,'NO_EVENT') event_status_as_of,
                CASE WHEN a.event_status_as_of IN ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION') THEN a.event_id ELSE NULL END active_event_id_as_of,
-               coalesce(a.qualified_event_risk_set_eligible,false) qualified_event_risk_set_eligible
+               coalesce(a.qualified_event_risk_set_eligible,false)
+                 AND d.state_risk_set_eligible qualified_event_risk_set_eligible
         FROM t05_daily_base d
         LEFT JOIN LATERAL (
           SELECT m.event_id,m.component_qualified_as_of,m.event_status_as_of,
