@@ -1,0 +1,3 @@
+source_candidate_cell_id,state_version_id,selected,W,d,g,source_event_count,status
+r2_s_pct_w120_qt25_primary__d2__g1,r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8,True,120,2,1,4561,passed
+r2_s_pcvt_w120_qv30_primary__d2__g1,r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8,True,120,2,1,1086,passed
