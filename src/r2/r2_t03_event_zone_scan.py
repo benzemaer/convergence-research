@@ -12,7 +12,7 @@ import time
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -1025,28 +1025,7 @@ def _execute_routes(
                 route,
                 security_id,
                 rows,
-                [
-                    {
-                        "interval_id": value[0],
-                        "upstream_source_interval_id": value[1],
-                        "start_date": value[2].isoformat(),
-                        "end_date": value[3].isoformat(),
-                        "confirmed_day_count": value[4],
-                        "termination_reason": value[5],
-                        "exit_observation_time": _iso_time(value[6]),
-                        "source_geometry_affected": value[7],
-                        "source_termination_affected": value[8],
-                        "dense_fragment_ordinal": value[9],
-                    }
-                    for value in con.execute(
-                        """SELECT interval_id,upstream_source_interval_id,start_date,end_date,
-                        confirmed_day_count,termination_reason,exit_observation_time,
-                        source_geometry_affected,source_termination_affected,dense_fragment_ordinal
-                        FROM route_atomic_interval WHERE route_id=? AND security_id=?
-                        ORDER BY start_date,end_date,interval_id""",
-                        [route.route_id, security_id],
-                    ).fetchall()
-                ],
+                _fetch_security_intervals(con, route.route_id, security_id),
                 cell_by_route[route.route_id],
                 execution,
                 buffers,
@@ -1064,14 +1043,49 @@ def _execute_routes(
     return [execution[key] for key in sorted(execution)]
 
 
+def _fetch_security_intervals(
+    con: duckdb.DuckDBPyConnection,
+    route_id: str,
+    security_id: str,
+) -> list[dict[str, Any]]:
+    """Fetch intervals without exposing TIMESTAMPTZ conversion to Python."""
+    return [
+        {
+            "interval_id": value[0],
+            "upstream_source_interval_id": value[1],
+            "start_date": value[2].isoformat(),
+            "end_date": value[3].isoformat(),
+            "confirmed_day_count": value[4],
+            "termination_reason": value[5],
+            "exit_observation_time": _iso_time(value[6]),
+            "source_geometry_affected": value[7],
+            "source_termination_affected": value[8],
+            "dense_fragment_ordinal": value[9],
+        }
+        for value in con.execute(
+            """SELECT interval_id,upstream_source_interval_id,start_date,end_date,
+            confirmed_day_count,termination_reason,
+            CAST(exit_observation_time AS VARCHAR) AS exit_observation_time,
+            source_geometry_affected,source_termination_affected,dense_fragment_ordinal
+            FROM route_atomic_interval WHERE route_id=? AND security_id=?
+            ORDER BY start_date,end_date,interval_id""",
+            [route_id, security_id],
+        ).fetchall()
+    ]
+
+
 def _iter_security_timelines(
     con: duckdb.DuckDBPyConnection, route_id: str
 ) -> Iterator[tuple[str, list[tuple[Any, ...]]]]:
     cursor = con.cursor().execute(
         """
-        SELECT security_id, trade_date, available_time, eligible, quality_state,
-               raw_state, confirmed_state, confirmed_start_date, confirmation_time,
-               confirmed_end_date,exit_observation_time,state_risk_set_eligible,
+        SELECT security_id, trade_date,
+               CAST(available_time AS VARCHAR) AS available_time,
+               eligible, quality_state, raw_state, confirmed_state, confirmed_start_date,
+               CAST(confirmation_time AS VARCHAR) AS confirmation_time,
+               confirmed_end_date,
+               CAST(exit_observation_time AS VARCHAR) AS exit_observation_time,
+               state_risk_set_eligible,
                reason_code,hard_break,expected_empty_reason,source_row_present
         FROM route_daily WHERE route_id=? ORDER BY security_id, trade_date
         """,
@@ -2131,9 +2145,23 @@ def _zone_reason(zone: dict[str, Any]) -> str:
 
 
 def _iso_time(value: Any) -> str:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
+    if value is None:
+        return ""
+    text = value.isoformat() if isinstance(value, datetime) else str(value).strip()
+    if not text:
+        return ""
+    text = text.replace(" ", "T", 1)
+    if len(text) >= 3 and text[-3] in "+-" and text[-2:].isdigit():
+        text += ":00"
+    elif (
+        len(text) >= 5 and text[-5] in "+-" and text[-4:].isdigit() and text[-3] != ":"
+    ):
+        text = f"{text[:-2]}:{text[-2:]}"
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        raise R2T03Error("timestamp_offset_required")
+    shanghai = timezone(timedelta(hours=8))
+    return parsed.astimezone(shanghai).isoformat(timespec="seconds")
 
 
 def _sql_path(path: Path) -> str:
