@@ -306,6 +306,10 @@ CONFIGS = (
         ROOT / "configs/r2/r2_t03_four_route_event_zone_scan.v1.json",
     ),
     (
+        ROOT / "schemas/r2/r2_t04_hard_gate_pareto_freeze_plan.schema.json",
+        ROOT / "configs/r2/r2_t04_hard_gate_pareto_freeze_plan.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
