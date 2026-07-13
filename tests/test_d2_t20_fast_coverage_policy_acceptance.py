@@ -639,6 +639,9 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
                     "--",
                     ".",
                     ":(exclude)data/generated/r2/r2_t05/**/r2_t05_event_id_lineage.csv",
+                    # Formal DuckDB evidence is binary and may legitimately
+                    # contain the historical identifier/name under test.
+                    ":(exclude)data/generated/r2/r2_t06/**/r2_t06_dual_state_machine_replay.duckdb",
                 ],
                 check=False,
                 cwd=Path.cwd(),
