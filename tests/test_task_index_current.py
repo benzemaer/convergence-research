@@ -84,7 +84,7 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T02_repository_final_gate_status: passed", current)
         self.assertIn("R2-T02_formal_task_completed: true", current)
         self.assertIn("R2-T02_allowed_to_start: false", current)
-        self.assertIn("R2-T03_allowed_to_start: true", current)
+        self.assertIn("R2-T03_allowed_to_start: false", current)
         self.assertIn("R2-T03_status: completed", current)
         self.assertIn("R2-T03_formal_task_completed: true", current)
         self.assertIn("R2-T03_repository_final_gate_status: passed", current)

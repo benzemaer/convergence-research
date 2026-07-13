@@ -59,7 +59,7 @@ R2-T02_independent_review_status: passed
 R2-T02_repository_final_gate_status: passed
 R2-T02_formal_task_completed: true
 R2-T02_allowed_to_start: false
-R2-T03_allowed_to_start: true
+R2-T03_allowed_to_start: false
 R2-T03_initial_startup_status: blocked_missing_authoritative_t02_final_gate_binding
 R2-T03_resolution_status: resolved
 R2-T03_startup_status: passed
