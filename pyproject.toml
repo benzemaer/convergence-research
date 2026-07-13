@@ -4,3 +4,11 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/r2/r2_t05_canonical_materialization.py" = ["E501"]
+"src/r2/r2_t05_independent_validator.py" = ["E501"]
+"tests/r2/test_r2_t05_canonical_materialization.py" = ["E501"]
+"tests/r2/test_r2_t05_startup_gate_mutations.py" = ["E501"]
+"tests/r2/test_r2_stage_route_contract.py" = ["E501"]
+"tests/test_task_index_current.py" = ["E501"]

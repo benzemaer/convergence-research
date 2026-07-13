@@ -28,7 +28,12 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t04*")))
         self.assertTrue((ROOT / "data/generated/r2/r2_t04").exists())
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t05*")))
-        self.assertTrue((ROOT / "configs/r2/r2_t05_canonical_state_event_zone_materialization.v1.json").is_file())
+        self.assertTrue(
+            (
+                ROOT
+                / "configs/r2/r2_t05_canonical_state_event_zone_materialization.v1.json"
+            ).is_file()
+        )
         for task in range(6, 9):
             self.assertFalse(list((ROOT / "src/r2").glob(f"r2_t{task:02d}*")))
             self.assertFalse((ROOT / f"data/generated/r2/r2_t{task:02d}").exists())
@@ -46,13 +51,14 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertIn("R2-T04_formal_task_completed: true", current)
         self.assertIn("R2-T05_allowed_to_start: true", current)
         self.assertIn(
-            "R2-T05_status: author_package_complete_pending_independent_scientific_review",
+            "R2-T05_status: needs_revision_successor_formal_run_pending",
             current,
         )
         self.assertIn(
             "R2-T05_startup_status: passed",
             current,
         )
+        self.assertIn("R2-T05_scientific_review_status: needs_revision", current)
         self.assertIn("R2-T05_formal_run_executed: true", current)
         self.assertIn("R2-T05_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)

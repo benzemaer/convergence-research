@@ -103,13 +103,14 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T04_formal_task_completed: true", current)
         self.assertIn("R2-T05_allowed_to_start: true", current)
         self.assertIn(
-            "R2-T05_status: author_package_complete_pending_independent_scientific_review",
+            "R2-T05_status: needs_revision_successor_formal_run_pending",
             current,
         )
         self.assertIn(
             "R2-T05_startup_status: passed",
             current,
         )
+        self.assertIn("R2-T05_scientific_review_status: needs_revision", current)
         self.assertIn("R2-T05_formal_run_executed: true", current)
         self.assertIn("R2-T05_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)

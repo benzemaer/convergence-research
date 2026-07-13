@@ -5,8 +5,8 @@ import json
 import subprocess
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from src.r2.r2_t05_canonical_materialization import (
     R2T05Blocked,
@@ -53,7 +53,13 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
     def _write_json(path: Path, value: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(
-            json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+            json.dumps(
+                value,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
             + b"\n"
         )
 
@@ -75,8 +81,12 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
         self._git(repo, "config", "user.email", "r2-t05-mutation@example.invalid")
         decision_rel = "data/generated/r2/r2_t04/r2_t04_freeze_decision.json"
         plan_rel = "data/generated/r2/r2_t04/r2_t04_freeze_plan_manifest.json"
-        phase_b_rel = "data/generated/r2/r2_t04/r2_t04_phase_b_independent_validation.json"
-        handoff_rel = "data/generated/r2/r2_t04/r2_t04_repository_final_gate_handoff.json"
+        phase_b_rel = (
+            "data/generated/r2/r2_t04/r2_t04_phase_b_independent_validation.json"
+        )
+        handoff_rel = (
+            "data/generated/r2/r2_t04/r2_t04_repository_final_gate_handoff.json"
+        )
         validation_rel = "data/generated/r2/r2_t04/r2_t04_repository_final_gate_handoff_validation.json"
         versions = [dict(self.VERSION_A), dict(self.VERSION_B)]
         expected_versions = [dict(version) for version in versions]
@@ -85,7 +95,9 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
                 "decision_unit": "S_PCT×W120",
                 "automatic_recommendation": "shared-a",
                 "primary_candidate_cell_id": versions[0]["source_candidate_cell_id"],
-                "shared_candidate_cell_id": versions[0]["strict_core_source_candidate_cell_id"],
+                "shared_candidate_cell_id": versions[0][
+                    "strict_core_source_candidate_cell_id"
+                ],
                 "primary_disposition": "selected",
                 "selected_d": 2,
                 "selected_g": 1,
@@ -97,7 +109,9 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
                 "decision_unit": "S_PCVT×W120",
                 "automatic_recommendation": "shared-b",
                 "primary_candidate_cell_id": versions[1]["source_candidate_cell_id"],
-                "shared_candidate_cell_id": versions[1]["strict_core_source_candidate_cell_id"],
+                "shared_candidate_cell_id": versions[1][
+                    "strict_core_source_candidate_cell_id"
+                ],
                 "primary_disposition": "selected",
                 "selected_d": 2,
                 "selected_g": 1,
@@ -237,35 +251,52 @@ class R2T05StartupGateMutationTest(unittest.TestCase):
             temp.cleanup()
 
     def test_freeze_decision_counts_fail_closed(self) -> None:
-        for field in ("selected_version_count", "strict_core_only_count", "rejected_decision_unit_count"):
+        for field in (
+            "selected_version_count",
+            "strict_core_only_count",
+            "rejected_decision_unit_count",
+        ):
             with self.subTest(field=field):
                 self._assert_startup_blocked(
-                    mutate_artifacts=lambda decision, plan, phase_b, field=field: decision.__setitem__(field, 99)
+                    mutate_artifacts=lambda decision,
+                    plan,
+                    phase_b,
+                    field=field: decision.__setitem__(field, 99)
                 )
 
     def test_freeze_plan_cardinality_fails_closed(self) -> None:
         self._assert_startup_blocked(
-            mutate_artifacts=lambda decision, plan, phase_b: plan.__setitem__("planned_state_version_count", 3)
+            mutate_artifacts=lambda decision, plan, phase_b: plan.__setitem__(
+                "planned_state_version_count", 3
+            )
         )
 
     def test_version_id_mutation_fails_closed(self) -> None:
         self._assert_startup_blocked(
-            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][0].__setitem__("planned_state_version_id", "tampered")
+            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][
+                0
+            ].__setitem__("planned_state_version_id", "tampered")
         )
 
     def test_candidate_cell_mutation_fails_closed(self) -> None:
         self._assert_startup_blocked(
-            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][0].__setitem__("source_candidate_cell_id", "tampered")
+            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][
+                0
+            ].__setitem__("source_candidate_cell_id", "tampered")
         )
 
     def test_strict_core_pair_mutation_fails_closed(self) -> None:
         self._assert_startup_blocked(
-            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][0].__setitem__("strict_core_source_candidate_cell_id", "tampered")
+            mutate_artifacts=lambda decision, plan, phase_b: plan["planned_versions"][
+                0
+            ].__setitem__("strict_core_source_candidate_cell_id", "tampered")
         )
 
     def test_committed_binding_mutation_fails_closed(self) -> None:
         self._assert_startup_blocked(
-            mutate_binding=lambda bindings: bindings[next(iter(bindings))].__setitem__("git_blob_sha", "0" * 40)
+            mutate_binding=lambda bindings: bindings[next(iter(bindings))].__setitem__(
+                "git_blob_sha", "0" * 40
+            )
         )
 
 

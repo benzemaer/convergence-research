@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.r2.r2_t05_independent_validator import validate_formal_output
+from src.r2.r2_t05_independent_validator import validate_formal_output  # noqa: E402
 
 
 def main() -> int:
