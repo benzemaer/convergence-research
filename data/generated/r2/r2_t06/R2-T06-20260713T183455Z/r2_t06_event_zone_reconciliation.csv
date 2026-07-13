@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+event_zone_geometry,event rows versus event membership,"confirmed component days, bridge days, revisions, membership span",event aggregate fields equal independently queried membership aggregates,0,passed,

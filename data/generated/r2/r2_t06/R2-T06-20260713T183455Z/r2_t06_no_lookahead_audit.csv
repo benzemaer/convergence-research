@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+membership_availability_not_before_source,same security/trade date primary source rows,membership_available_time earlier than source available_time,0,0,passed,

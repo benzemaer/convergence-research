@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+transition_registry_and_event_linkage,replayed transition ledger,invalid_registry=0;orphan_event=0,every transition is in committed registry and links to same-version event,0,passed,

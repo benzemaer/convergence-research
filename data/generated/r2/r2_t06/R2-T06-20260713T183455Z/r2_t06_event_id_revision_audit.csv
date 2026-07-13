@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+event_identity_and_revision,all replayed events,identity_mismatch=0;duplicate_event_ids=0,canonical event hash matches first qualified component identity and IDs are unique,0,passed,

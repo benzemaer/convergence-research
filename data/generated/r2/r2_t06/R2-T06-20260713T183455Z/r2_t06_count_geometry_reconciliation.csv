@@ -1,0 +1,3 @@
+audit,scope,observed,expected,mismatch_count,status,details
+count_and_geometry,r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8,"{""daily"":1751066,""event"":4561,""membership"":22719,""daily_duplicate_excess"":0}","{""daily"":1751066,""event"":4561,""membership_unique_key"":true}",0,passed,event membership cardinality is checked separately by primary-key and zone audits
+count_and_geometry,r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8,"{""daily"":1751066,""event"":1086,""membership"":4669,""daily_duplicate_excess"":0}","{""daily"":1751066,""event"":1086,""membership_unique_key"":true}",0,passed,event membership cardinality is checked separately by primary-key and zone audits

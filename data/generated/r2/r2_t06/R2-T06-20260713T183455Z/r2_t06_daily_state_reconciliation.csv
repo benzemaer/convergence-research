@@ -1,0 +1,4 @@
+check,mismatch_count,status
+t05_canonical_daily_exact,0,passed
+t05_canonical_event_exact,0,passed
+t05_canonical_membership_exact,0,passed

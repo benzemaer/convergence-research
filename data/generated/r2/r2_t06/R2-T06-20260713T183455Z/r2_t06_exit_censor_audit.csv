@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+event_exit_and_censor_semantics,all replayed events,"status, finalization time, right censor flag and exit reason",terminal statuses and timing fields are mutually consistent,0,passed,

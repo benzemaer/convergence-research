@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+selected_state_version_exclusion,replayed output state versions,"[""r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8"",""r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8""]","[""r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8"",""r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8""]",0,passed,

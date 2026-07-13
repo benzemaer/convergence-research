@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+component_qualification_lineage,all replayed components,qualified iff confirmed_day_count >= configured d,qualification_time present exactly for qualified components,0,passed,

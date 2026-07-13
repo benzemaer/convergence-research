@@ -1,0 +1,2 @@
+audit,scope,observed,expected,mismatch_count,status,details
+membership_risk_and_flag_formula,all replayed membership rows,risk flags and bridge/prequalification/reentry exclusions,frozen membership formula with no excluded row in qualified risk,0,passed,
