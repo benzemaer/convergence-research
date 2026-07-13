@@ -67,7 +67,10 @@ def create_handoff(
     promotion = _load_json(root / RUN_DIR / "r2_t03_execution_promotion.json")
     summary = _load_json(root / RUN_DIR / "r2_t03_promoted_execution_summary.json")
     package = _load_json(root / RUN_DIR / "r2_t03_result_package.json")
-    if promotion.get("promotion_id") != RUN_ID or summary.get("run_id") != RUN_ID:
+    if (
+        promotion.get("promotion_id") != RUN_ID
+        or summary.get("promoted_run_id") != RUN_ID
+    ):
         raise R2T03HandoffError("promotion_identity_mismatch")
     if (
         package.get("database_sha256")
