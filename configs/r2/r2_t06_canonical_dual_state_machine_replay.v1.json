@@ -1,0 +1,124 @@
+{
+  "$schema": "../../schemas/r2/r2_t06_canonical_dual_state_machine_replay.schema.json",
+  "task_id": "R2-T06",
+  "config_version": "r2_t06_canonical_dual_state_machine_replay.v1",
+  "contract_version": "r2_t02_confirmed_event_zone_state_machine_contract.v8",
+  "stage": "R2",
+  "startup_authorization_mode": "merged_pr_direct_binding",
+  "t05_binding": {
+    "t05_pr_number": 97,
+    "t05_merge_commit": "db0a44e481b8d7389b3e72f4a2425ad89bf766ef",
+    "t05_final_pr_head": "9ab4ddc77fce8c662e2159ad3f541fe354640b09",
+    "t05_scientifically_reviewed_head": "d3a18236e2c60775c0248642b3fadec2007afd90",
+    "t05_scientific_review_id": "4686515222",
+    "t05_scientific_review_status": "passed",
+    "t05_authoritative_run": "R2-T05-20260713T154957Z",
+    "t05_execution_commit": "a35bea847f8f7b923c1196f1341be32494f394ef",
+    "t05_artifact_commit": "1f9c0538138e829904976308e6c012f67aa249c4"
+  },
+  "t05_artifacts": {
+    "run_dir": "data/generated/r2/r2_t05/R2-T05-20260713T154957Z",
+    "database_path": "data/generated/r2/r2_t05/R2-T05-20260713T154957Z/r2_t05_canonical_materialization.duckdb",
+    "database_sha256": "4488f0cca26f703890dfea8701ed761e7de124467a6d373f2e0264dbd0215129",
+    "committed": [
+      "r2_t05_result_package.json",
+      "r2_t05_output_manifest.json",
+      "r2_t05_table_fingerprint.json",
+      "r2_t05_input_binding.json",
+      "r2_t05_source_readiness.json",
+      "r2_t05_independent_validation.json",
+      "r2_t05_anomaly_scan.json",
+      "r2_t05_committed_artifact_validation.json",
+      "r2_t05_daily_reconciliation.csv",
+      "r2_t05_event_reconciliation.csv",
+      "r2_t05_membership_reconciliation.csv",
+      "r2_t05_risk_set_audit.csv",
+      "r2_t05_strict_core_reconciliation.csv",
+      "r2_t05_availability_time_audit.csv",
+      "r2_t05_event_id_lineage.csv"
+    ]
+  },
+  "t03_input": {
+    "database_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_event_zone_scan.duckdb",
+    "database_sha256": "9e6015a612ad839a386a4300e289be87d9fd3d073658c1b095a7ce02bb3a14e0",
+    "result_package_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_result_package.json",
+    "input_binding_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_input_binding.json"
+  },
+  "t02_contracts": {
+    "confirmed_state": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_confirmed_state_machine_contract.json",
+    "event_zone": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_zone_machine_contract.json",
+    "event_rule": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_rule_contract.json",
+    "transition_registry": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_transition_registry.csv",
+    "risk_set": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_r3_risk_set_contract.json",
+    "t03_output": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json"
+  },
+  "selected_versions": [
+    {
+      "state_version_id": "r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8",
+      "source_candidate_cell_id": "r2_s_pct_w120_qt25_primary__d2__g1",
+      "strict_core_source_candidate_cell_id": "r2_s_pct_w120_q20_shared__d2__g1",
+      "state_line": "S_PCT",
+      "W": 120,
+      "K": 3,
+      "d": 2,
+      "g": 1,
+      "window_track_id": "W120"
+    },
+    {
+      "state_version_id": "r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8",
+      "source_candidate_cell_id": "r2_s_pcvt_w120_qv30_primary__d2__g1",
+      "strict_core_source_candidate_cell_id": "r2_s_pcvt_w120_q20_shared__d2__g1",
+      "state_line": "S_PCVT",
+      "W": 120,
+      "K": 3,
+      "d": 2,
+      "g": 1,
+      "window_track_id": "W120"
+    }
+  ],
+  "expected_exclusions": {
+    "selected_version_count": 2,
+    "W250_independent_version_count": 0,
+    "shared_q_independent_version_count": 0,
+    "PCT_parent_product_count": 0,
+    "additional_state_version_count": 0
+  },
+  "runtime": {
+    "parallel_mode": "single_worker",
+    "worker_count": 1,
+    "duckdb_threads": 1,
+    "duckdb_memory_limit": "8GB",
+    "random_seed": 0,
+    "timezone": "Asia/Shanghai"
+  },
+  "output": {
+    "run_directory_template": "data/generated/r2/r2_t06/R2-T06-<UTC timestamp>",
+    "database_name": "r2_t06_dual_state_machine_replay.duckdb",
+    "compact_artifacts": [
+      "r2_t06_source_readiness.json",
+      "r2_t06_input_binding.json",
+      "r2_t06_replay_version_registry.csv",
+      "r2_t06_daily_state_reconciliation.csv",
+      "r2_t06_atomic_interval_reconciliation.csv",
+      "r2_t06_component_qualification_reconciliation.csv",
+      "r2_t06_event_transition_reconciliation.csv",
+      "r2_t06_event_zone_reconciliation.csv",
+      "r2_t06_membership_reconciliation.csv",
+      "r2_t06_no_lookahead_audit.csv",
+      "r2_t06_exit_censor_audit.csv",
+      "r2_t06_event_id_revision_audit.csv",
+      "r2_t06_strict_core_risk_set_audit.csv",
+      "r2_t06_unselected_exclusion_audit.csv",
+      "r2_t06_count_geometry_reconciliation.csv",
+      "r2_t06_replay_fingerprint.json",
+      "r2_t06_independent_validation.json",
+      "r2_t06_anomaly_scan.json",
+      "r2_t06_result_analysis.md",
+      "r2_t06_experiment_summary.json",
+      "r2_t06_output_manifest.json",
+      "r2_t06_result_package.json",
+      "r2_t06_committed_artifact_validation.json",
+      "r2_t06_author_stage_scientific_review.json"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t06_canonical_dual_state_machine_replay.schema.json",
+  "type": "object",
+  "required": ["task_id", "config_version", "contract_version", "startup_authorization_mode", "t05_binding", "t05_artifacts", "t03_input", "t02_contracts", "selected_versions", "runtime", "output"],
+  "properties": {
+    "task_id": {"const": "R2-T06"},
+    "config_version": {"const": "r2_t06_canonical_dual_state_machine_replay.v1"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "startup_authorization_mode": {"const": "merged_pr_direct_binding"},
+    "selected_versions": {"type": "array", "minItems": 2, "maxItems": 2},
+    "runtime": {"type": "object", "required": ["duckdb_memory_limit", "duckdb_threads"]},
+    "output": {"type": "object", "required": ["run_directory_template", "database_name", "compact_artifacts"]}
+  },
+  "additionalProperties": true
+}
