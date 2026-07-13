@@ -745,11 +745,10 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
     con.execute(
         """
         CREATE TEMP TABLE t05_daily_base AS
-        SELECT v.state_version_id,c.state_line,c.window_track_id,r.security_id,r.trade_date,
+        SELECT v.state_version_id,v.state_line,v.window_track_id,r.security_id,r.trade_date,
                r.available_time,r.eligible,r.raw_state,r.confirmed_state,r.confirmation_time,
                r.state_risk_set_eligible,r.quality_state,v.source_candidate_cell_id candidate_config_id
         FROM t05_selected_versions v JOIN src.route_daily r ON r.route_id=v.primary_route_id
-        JOIN src.cell_registry c ON c.candidate_cell_id=v.source_candidate_cell_id
         """
     )
     con.execute(
