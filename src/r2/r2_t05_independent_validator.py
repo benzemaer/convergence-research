@@ -340,6 +340,7 @@ def _independent_daily_asof_mismatch(
             FROM r2_canonical_event_membership m
             WHERE m.state_version_id=d.state_version_id
               AND m.security_id=d.security_id
+              AND m.trade_date<=d.trade_date
               AND m.membership_available_time<=r.available_time
             ORDER BY m.membership_available_time DESC,m.trade_date DESC,m.event_id DESC
             LIMIT 1
