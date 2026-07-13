@@ -127,8 +127,10 @@ def _decision_units(
         row["decision_unit"]: row for row in recommendation["recommendations"]
     }
     pct_w120 = "r2_s_pct_w120_qt25_primary__d2__g1"
+    pct_w250 = "r2_s_pct_w250_qt25_primary__d2__g1"
     pct_w120_core = "r2_s_pct_w120_q20_shared__d2__g1"
     pcvt_w120 = "r2_s_pcvt_w120_qv30_primary__d2__g1"
+    pcvt_w250 = "r2_s_pcvt_w250_qv30_primary__d2__g1"
     pcvt_w120_core = "r2_s_pcvt_w120_q20_shared__d2__g1"
     units = [
         {
@@ -291,6 +293,10 @@ def _decision_units(
             unit["evidence_values"] = {
                 "selected_primary": _metric_evidence(
                     ROOT / T03_RUN, unit["selected_candidate_cell_id"]
+                ),
+                "comparison_primary": _metric_evidence(
+                    ROOT / T03_RUN,
+                    pct_w250 if unit["decision_unit"] == "S_PCT×W120" else pcvt_w250,
                 ),
                 "strict_core": {"candidate_cell_id": unit["paired_shared_candidate"]},
             }
@@ -520,6 +526,13 @@ def _analysis(output_dir: Path) -> None:
 因为在两条 state line 上保持更高覆盖、证券广度和年份稳定性，同时 density、
 bridge 和 merge geometry 没有退化；W250 的局部 persistence 或 short-drop 优势
 不足以抵消这些差异。
+
+S_PCT W120 d2/g1 的 retained、drop、bridge、merge、density、max-year、events、
+securities 为 0.856501、0.382909、0.009528、0.036835、0.971416、0.171234、
+4561、771；W250 对应为 0.856324、0.378378、0.009953、0.036993、0.970141、
+0.215950、4163、772。S_PCVT W120 对应为 0.765776、0.491260、0.006178、
+0.019337、0.981466、0.153775、1086、579；W250 对应为 0.776045、0.480574、
+0.006338、0.021152、0.980986、0.206816、851、481。
 
 d=2 是 persistence/coverage knee：d=1 保留短暂与 singleton 状态，d=3 带来明显
 过度过滤。g=1 提供单日 gap 容忍，同时 bridged-day ratio 低于 1% 且 density
