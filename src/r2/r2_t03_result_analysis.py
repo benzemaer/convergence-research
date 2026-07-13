@@ -291,6 +291,11 @@ def _build_promoted_package(
     root: Path,
 ) -> dict[str, Any]:
     promotion = _json(output_dir / "r2_t03_execution_promotion.json")
+    committed_validation_path = output_dir / "r2_t03_committed_artifact_validation.json"
+    committed_validation_passed = (
+        committed_validation_path.is_file()
+        and _json(committed_validation_path).get("status") == "passed"
+    )
     review = {
         "task_id": "R2-T03",
         "promoted_run_id": output_dir.name,
@@ -327,11 +332,17 @@ def _build_promoted_package(
         "independent_failure_count": independent["failure_count"],
         "scientific_review_status": review["scientific_review_status"],
         "result_package_status": "passed",
-        "manifest_status": "pending_committed_validation",
+        "manifest_status": "passed"
+        if committed_validation_passed
+        else "pending_committed_validation",
         "forbidden_fields_status": "passed",
-        "artifact_hash_status": "pending_committed_validation",
+        "artifact_hash_status": "passed"
+        if committed_validation_passed
+        else "pending_committed_validation",
         "exact_head_quality_status": "pending",
-        "committed_validation_status": "pending",
+        "committed_validation_status": "passed"
+        if committed_validation_passed
+        else "pending",
         "formal_task_completed": False,
         "R2-T04_allowed_to_start": False,
         "R3_allowed_to_start": False,
@@ -406,6 +417,9 @@ def _build_promoted_package(
         "scientific_gate_failure_count": len(scientific_failures),
         "blocking_failure_count": runtime["blocking_failure_count"],
         "independent_failure_count": independent["failure_count"],
+        "committed_validation_status": (
+            "passed" if committed_validation_passed else "pending"
+        ),
         "promotion_wrapper_schema_status": "passed",
         "formal_task_completed": False,
         "R2-T04_allowed_to_start": False,
@@ -491,11 +505,15 @@ def _promoted_manifest(
             "result_package": "passed",
             "scientific_review": review["scientific_review_status"],
             "final_gate": final_gate["repository_final_gate_status"],
-            "committed_validation": "pending",
+            "committed_validation": final_gate["committed_validation_status"],
         },
         "committed_validation_self_excluded_to_avoid_recursive_hash": True,
         "promotion_wrapper_schema_status": "passed",
-        "status": "passed_pending_independent_scientific_review_and_committed_validation",
+        "status": (
+            "passed_pending_independent_scientific_review_and_exact_head_quality"
+            if final_gate["committed_validation_status"] == "passed"
+            else "passed_pending_independent_scientific_review_and_committed_validation"
+        ),
     }
 
 
