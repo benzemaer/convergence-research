@@ -1028,6 +1028,7 @@ def run_formal(config_path: Path, output_dir: Path, repo: Path = ROOT) -> Path:
         raise R2T05Error("shared_q_canonical_event_materialized")
     reports = _collect_reports(con, output_dir, config, input_binding, source_info, startup, freeze, source_run_id, terminal_added, expected_daily_keys)
     con.close()
+    _write_json(output_dir / "r2_t05_input_binding.json", input_binding)
     _write_packages(repo, output_dir, config, reports, execution_commit, input_binding, source_run_id)
     return output_dir
 
