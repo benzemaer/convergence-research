@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -35,6 +33,7 @@ def main() -> int:
         Path(args.handoff_path), handoff_commit=args.handoff_commit, output_path=output
     )
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
