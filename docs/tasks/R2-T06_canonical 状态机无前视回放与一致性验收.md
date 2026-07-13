@@ -16,6 +16,8 @@ T06 使用 `merged_pr_direct_binding`。启动授权绑定已合并的 PR #97、
 
 必须通过 merged-PR binding、T03/T05 database hash、source committed text binding、双版本 daily exact reconciliation、event/membership exact reconciliation、current-component qualification、accepted reentry 与 unqualified reentry、strict-core subset、event FK、availability-time 和 transition lineage 检查。formal runner、independent validator 与 committed-artifact validator 任一失败均 fail closed。
 
+当前 successor formal evidence 记录于 `docs/evidence/r2/R2-T06_canonical_replay_successor_result_analysis.md`，权威 run 为 `R2-T06-20260713T183455Z`。旧 `R2-T06-20260713T174639Z` 已标记为 incomplete/superseded，不得作为当前 evidence。
+
 author-stage 结果保持：
 
 ```text
