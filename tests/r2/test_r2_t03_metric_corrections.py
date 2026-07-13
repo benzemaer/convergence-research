@@ -243,6 +243,39 @@ class R2T03MetricCorrectionTest(unittest.TestCase):
             0,
         )
 
+    def test_component_diagnostic_uses_frozen_censor_populations(self) -> None:
+        con = duckdb.connect(":memory:")
+        try:
+            con.execute(_FIXTURE_SQL)
+            create_metric_tables(con)
+            actual = con.execute(
+                """SELECT qualified_component_count,unqualified_component_count,
+                component_qualification_rate,prequalification_right_censored_count
+                FROM component_diagnostic_profile"""
+            ).fetchone()
+            self.assertEqual(actual, (2, 1, 2 / 3, 0))
+        finally:
+            con.close()
+
+    def test_mega_zone_concentration_uses_top_one_percent_zones(self) -> None:
+        con = duckdb.connect(":memory:")
+        try:
+            con.execute(_FIXTURE_SQL)
+            for index in range(3, 102):
+                con.execute(
+                    """INSERT INTO event_zone VALUES
+                    ('c','S1',?,'q2',1,0,0,0,0,0,0,1,1,'FINALIZED')""",
+                    [f"e{index}"],
+                )
+            create_metric_tables(con)
+            actual = con.execute(
+                "SELECT mega_zone_concentration FROM event_zone_diagnostic_profile"
+            ).fetchone()[0]
+            self.assertEqual(actual, 5 / 104)
+            self.assertNotEqual(actual, 3 / 104)
+        finally:
+            con.close()
+
 
 def _component(count, qualified, reason, normally_ended, censor_status):
     return {

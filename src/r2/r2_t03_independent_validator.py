@@ -322,6 +322,11 @@ def source_timeline_oracle(
             and component["termination_reason"] == "natural_state_exit"
             for component in components
         ),
+        "prequalification_right_censored_count": sum(
+            not component["qualified"]
+            and component["termination_reason"] == "sample_end_censoring"
+            for component in components
+        ),
         "raw_false_bridged_day_count": sum(
             zone["raw_false_bridged_day_count"] for zone in zones
         ),
@@ -647,11 +652,9 @@ def validate_independently(
                 aggregate["all_unqualified_components"] += sum(
                     not component["qualified"] for component in oracle["components"]
                 )
-                aggregate["prequalification_right_censored"] += sum(
-                    not component["qualified"]
-                    and component["termination_reason"] == "sample_end_censoring"
-                    for component in oracle["components"]
-                )
+                aggregate["prequalification_right_censored"] += oracle[
+                    "prequalification_right_censored_count"
+                ]
                 event_spans.extend(oracle["event_spans"])
                 atomic_spans.extend(oracle["atomic_spans"])
                 atomic_reasons.extend(
@@ -688,7 +691,7 @@ def validate_independently(
                 "g": g,
                 "bridge_count": sum(int(zone["bridge_count"]) for zone in cell_zones),
                 "bridged_days": sum(
-                    int(zone["total_nonconfirmed_gap_day_count"]) for zone in cell_zones
+                    int(zone["raw_false_bridged_day_count"]) for zone in cell_zones
                 ),
                 "zone_span_days": sum(
                     int(zone["zone_span_days"]) for zone in cell_zones
@@ -1137,10 +1140,10 @@ def _append_diagnostic_comparisons(
 
     component_expected = {
         "component_diag_qualified_count": aggregate["qualified_components"],
-        "component_diag_unqualified_count": aggregate["all_unqualified_components"],
+        "component_diag_unqualified_count": aggregate["unqualified_components"],
         "component_diag_qualification_rate": _oracle_ratio(
             aggregate["qualified_components"],
-            aggregate["qualified_components"] + aggregate["all_unqualified_components"],
+            aggregate["qualified_components"] + aggregate["unqualified_components"],
         ),
         "component_diag_qualified_days": aggregate["qualified"],
         "component_diag_retrospective_days": aggregate["qualified"],
@@ -1240,11 +1243,11 @@ def _append_diagnostic_comparisons(
         ),
         "event_diag_confirmed_density": _oracle_ratio(total_confirmed, total_span),
         "event_diag_bridge_count": sum(bridge_counts),
-        "event_diag_bridged_days": total_gap_days,
+        "event_diag_bridged_days": raw_false_days,
         "event_diag_raw_false_days": raw_false_days,
         "event_diag_preconfirmation_days": preconfirmation_days,
         "event_diag_total_gap_days": total_gap_days,
-        "event_diag_bridged_day_ratio": _oracle_ratio(total_gap_days, total_span),
+        "event_diag_bridged_day_ratio": _oracle_ratio(raw_false_days, total_span),
         "event_diag_raw_false_ratio": _oracle_ratio(raw_false_days, total_span),
         "event_diag_nonconfirmed_ratio": _oracle_ratio(total_gap_days, total_span),
         "event_diag_max_single_gap": max(
@@ -1257,8 +1260,8 @@ def _append_diagnostic_comparisons(
             sum(count > 1 for count in component_counts), len(zones)
         ),
         "event_diag_revision_count": sum(bridge_counts),
-        "event_diag_mega_zone_concentration": _oracle_ratio(
-            max(durations, default=0), total_span
+        "event_diag_mega_zone_concentration": _oracle_mega_zone_concentration(
+            durations
         ),
         "event_diag_open_ratio": _oracle_ratio(
             sum(zone["status"] == "RIGHT_CENSORED" for zone in zones), len(zones)
@@ -1562,6 +1565,14 @@ def _oracle_ratio(numerator: Any, denominator: Any) -> float | None:
     if numerator is None or denominator in (None, 0):
         return None
     return float(numerator) / float(denominator)
+
+
+def _oracle_mega_zone_concentration(durations: Sequence[int]) -> float | None:
+    """Independent frozen top-1%-by-count zone span concentration."""
+    if not durations:
+        return None
+    top_n = max(1, math.ceil(0.01 * len(durations)))
+    return _oracle_ratio(sum(sorted(durations, reverse=True)[:top_n]), sum(durations))
 
 
 def _equal(left: Any, right: Any) -> bool:

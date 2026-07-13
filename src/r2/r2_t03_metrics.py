@@ -764,13 +764,17 @@ WITH base AS (
  WHERE outcome='unqualified_reentry' GROUP BY 1
 ) SELECT b.candidate_cell_id,
  count(*) FILTER(WHERE b.qualified) qualified_component_count,
- count(*) FILTER(WHERE NOT b.qualified) unqualified_component_count,
- count(*) FILTER(WHERE b.qualified)::DOUBLE/nullif(count(*),0) component_qualification_rate,
+ count(*) FILTER(WHERE NOT b.qualified AND b.normally_ended
+   AND b.censor_status='not_censored') unqualified_component_count,
+ count(*) FILTER(WHERE b.qualified)::DOUBLE/nullif(
+   count(*) FILTER(WHERE b.qualified OR (NOT b.qualified AND b.normally_ended
+     AND b.censor_status='not_censored')),0) component_qualification_rate,
  sum(b.confirmed_day_count) FILTER(WHERE b.qualified) qualified_confirmed_day_count,
  coalesce(m.retrospective_days,0) retrospective_qualified_confirmed_day_count,
  coalesce(m.asof_days,0) asof_qualified_confirmed_day_count,
  coalesce(m.prequalification_days,0) prequalification_confirmed_day_count,
- count(*) FILTER(WHERE b.censor_status='right_censored') prequalification_right_censored_count,
+ count(*) FILTER(WHERE NOT b.qualified AND b.censor_status='right_censored')
+   prequalification_right_censored_count,
  avg(b.qualification_delay_observations) FILTER(WHERE b.qualified) qualification_delay_observations_mean,
  median(b.qualification_delay_observations) FILTER(WHERE b.qualified) qualification_delay_observations_median,
  max(r.qualification_delay_observations) FILTER(WHERE r.rn=ceil(.90*r.n)) qualification_delay_observations_q90,
@@ -836,7 +840,9 @@ WITH ranked AS (
  sum(r.zone_revision) zone_revision_count,
  max(r.confirmed_day_count)::DOUBLE/nullif(sum(r.confirmed_day_count),0) top_zone_confirmed_day_share,
  count(*) FILTER(WHERE r.status='RIGHT_CENSORED')::DOUBLE/nullif(count(*),0) open_event_ratio,
- max(r.zone_span_days)::DOUBLE/nullif(sum(r.zone_span_days),0) mega_zone_concentration,
+ sum(r.zone_span_days) FILTER(
+   WHERE r.duration_rn > r.n-ceil(.01*r.n))::DOUBLE/
+   nullif(sum(r.zone_span_days),0) mega_zone_concentration,
  p.active_zone_count,p.gap_pending_zone_count,p.reentry_pending_zone_count,
  p.confirmed_event_coverage,
  sum(r.zone_span_days)::DOUBLE/nullif(ab.eligible_days,0) zone_span_coverage,

@@ -1952,6 +1952,7 @@ def _input_binding(
     root: Path,
 ) -> dict[str, Any]:
     return {
+        "status": "passed",
         "task_id": TASK_ID,
         "execution_commit": execution_commit,
         "config_binding": formal_source_binding(

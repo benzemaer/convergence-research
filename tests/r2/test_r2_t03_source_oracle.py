@@ -6,6 +6,7 @@ import src.r2.r2_t03_independent_validator as validator_module
 from src.r2.r2_t03_independent_validator import (
     R2T03IndependentValidationError,
     _independent_dense_input,
+    _oracle_mega_zone_concentration,
     compare_oracle_metric_targets,
     independent_strict_core_oracle,
     independent_window_oracle,
@@ -72,6 +73,7 @@ class R2T03SourceOracleTimelineTest(unittest.TestCase):
         self.assertEqual(
             censored["components"][0]["termination_reason"], "sample_end_censoring"
         )
+        self.assertEqual(censored["prequalification_right_censored_count"], 1)
 
     def test_g0_natural_exit_and_g1_g2_accepted_bridges(self) -> None:
         raw_g1 = [True, True, True, False, True, True, True, False]
@@ -81,6 +83,37 @@ class R2T03SourceOracleTimelineTest(unittest.TestCase):
         self.assertEqual(accepted_g1["bridge_count"], 1)
         raw_g2 = [True, True, True, False, False, True, True, True, False]
         self.assertEqual(self.oracle(raw_g2, g=2)["bridge_count"], 1)
+
+    def test_bridge_day_populations_separate_raw_false_and_preconfirmation(
+        self,
+    ) -> None:
+        actual = self.oracle(
+            [True, True, True, False, True, True, True, False], d=1, g=1
+        )
+        zone = actual["zones"][0]
+        self.assertEqual(zone["raw_false_bridged_day_count"], 1)
+        self.assertEqual(zone["preconfirmation_gap_day_count"], 2)
+        self.assertEqual(zone["total_nonconfirmed_gap_day_count"], 3)
+
+    def test_component_censor_populations_are_disjoint(self) -> None:
+        normal_short = self.oracle([True, True, True, False], d=2)
+        self.assertEqual(normal_short["unqualified_component_count"], 1)
+        quality_short = self.oracle(
+            [True, True, True, None],
+            d=2,
+            qualities=["valid", "valid", "valid", "blocked"],
+        )
+        self.assertEqual(quality_short["unqualified_component_count"], 0)
+        qualified_censored = self.oracle([True, True, True, True], d=2)
+        component = qualified_censored["components"][0]
+        self.assertTrue(component["qualified"])
+        self.assertEqual(component["termination_reason"], "sample_end_censoring")
+        self.assertEqual(qualified_censored["prequalification_right_censored_count"], 0)
+
+    def test_mega_zone_concentration_uses_top_one_percent_by_count(self) -> None:
+        durations = [3, 2] + [1] * 99
+        self.assertEqual(_oracle_mega_zone_concentration(durations), 5 / 104)
+        self.assertNotEqual(_oracle_mega_zone_concentration(durations), 3 / 104)
 
     def test_g_plus_one_finalization_and_quality_break_never_bridge(self) -> None:
         g_plus_one = self.oracle(
