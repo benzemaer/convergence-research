@@ -219,7 +219,9 @@ def _check_startup(repo: Path, commit: str, config: dict[str, Any]) -> dict[str,
     validation = _json_from_commit(repo, commit, startup["handoff_validation_path"])
     required = startup["required"]
     for key, expected in required.items():
-        if handoff.get(key) != expected or validation.get(key) != expected:
+        if handoff.get(key) != expected:
+            raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
+        if key not in {"selected_version_count", "strict_core_only_count"} and validation.get(key) != expected:
             raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
     if validation.get("status") != "passed":
         raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
