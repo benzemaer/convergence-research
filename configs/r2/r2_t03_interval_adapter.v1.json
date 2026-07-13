@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schemas/r2/r2_t03_interval_adapter.schema.json",
+  "adapter_id": "r2_t03_interval_adapter.v1",
+  "normalized_table": "authorized_upstream_interval",
+  "termination_reason_mapping": {
+    "raw_state_false": "natural_state_exit",
+    "end_of_input_open": "sample_end_censoring",
+    "raw_state_blocked": "quality_interruption",
+    "raw_state_diagnostic_required": "quality_interruption",
+    "raw_state_unknown": "quality_interruption"
+  },
+  "legacy_r0_t15_composite_reason_policy": "closed_interval_uses_route_daily_at_last_observed_date_and_open_status_uses_is_open_interval",
+  "route_mappings": [
+    {"route_id":"r2_s_pct_w120_q20_shared","source_kind":"r0_t10_shared_q","source_id":"R0_W120_Q20_K3_WEAK_D010","state_line":"S_PCT","W":120,"K":3,"qP":0.2,"qC":0.2,"qT":0.2,"qV":0.2,"interval_path":"data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/configs/R0_W120_Q20_K3_WEAK_D010/candidate_confirmed_interval.duckdb","source_artifact_sha256":"8a2bd5f022fa9f58fe8be09580f652f2b78f6811ea7138b946dc5b7683fc9d0e"},
+    {"route_id":"r2_s_pct_w120_qt25_primary","source_kind":"r0_t15_primary_q_vector","source_id":"R0T15_30cc9cff66c45b57bc80","state_line":"S_PCT","W":120,"K":3,"qP":0.2,"qC":0.2,"qT":0.25,"qV":0.2,"interval_path":"data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb","source_artifact_sha256":"40c3ec70e68999d0db413a57e79705d85aabd5d0f8c26c498769d4560992a171"},
+    {"route_id":"r2_s_pct_w250_q20_shared","source_kind":"r0_t10_shared_q","source_id":"R0_W250_Q20_K3_WEAK_D010","state_line":"S_PCT","W":250,"K":3,"qP":0.2,"qC":0.2,"qT":0.2,"qV":0.2,"interval_path":"data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/configs/R0_W250_Q20_K3_WEAK_D010/candidate_confirmed_interval.duckdb","source_artifact_sha256":"5fcf14342ef468007833ac7ab4058897129751a6b8814a8c7c69d30850a5bfde"},
+    {"route_id":"r2_s_pct_w250_qt25_primary","source_kind":"r0_t15_primary_q_vector","source_id":"R0T15_67d6724c4be0c280defb","state_line":"S_PCT","W":250,"K":3,"qP":0.2,"qC":0.2,"qT":0.25,"qV":0.2,"interval_path":"data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb","source_artifact_sha256":"40c3ec70e68999d0db413a57e79705d85aabd5d0f8c26c498769d4560992a171"},
+    {"route_id":"r2_s_pcvt_w120_q20_shared","source_kind":"r0_t10_shared_q","source_id":"R0_W120_Q20_K3_WEAK_D010","state_line":"S_PCVT","W":120,"K":3,"qP":0.2,"qC":0.2,"qT":0.2,"qV":0.2,"interval_path":"data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/configs/R0_W120_Q20_K3_WEAK_D010/candidate_confirmed_interval.duckdb","source_artifact_sha256":"8a2bd5f022fa9f58fe8be09580f652f2b78f6811ea7138b946dc5b7683fc9d0e"},
+    {"route_id":"r2_s_pcvt_w120_qv30_primary","source_kind":"r0_t15_primary_q_vector","source_id":"R0T15_60b6c8080a398fa8fed4","state_line":"S_PCVT","W":120,"K":3,"qP":0.2,"qC":0.2,"qT":0.2,"qV":0.3,"interval_path":"data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb","source_artifact_sha256":"40c3ec70e68999d0db413a57e79705d85aabd5d0f8c26c498769d4560992a171"},
+    {"route_id":"r2_s_pcvt_w250_q20_shared","source_kind":"r0_t10_shared_q","source_id":"R0_W250_Q20_K3_WEAK_D010","state_line":"S_PCVT","W":250,"K":3,"qP":0.2,"qC":0.2,"qT":0.2,"qV":0.2,"interval_path":"data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t09_full_grid/configs/R0_W250_Q20_K3_WEAK_D010/candidate_confirmed_interval.duckdb","source_artifact_sha256":"5fcf14342ef468007833ac7ab4058897129751a6b8814a8c7c69d30850a5bfde"},
+    {"route_id":"r2_s_pcvt_w250_qv30_primary","source_kind":"r0_t15_primary_q_vector","source_id":"R0T15_6544fee51f1246d4915d","state_line":"S_PCVT","W":250,"K":3,"qP":0.2,"qC":0.2,"qT":0.2,"qV":0.3,"interval_path":"data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_confirmed_interval_results.duckdb","source_artifact_sha256":"40c3ec70e68999d0db413a57e79705d85aabd5d0f8c26c498769d4560992a171"}
+  ],
+  "multiset_reconciliation_required": false,
+  "dense_replay_reconciliation_policy": "unaffected_sparse_intervals_exact_impacted_dense_intervals_uniquely_contained_with_source_lineage",
+  "component_lineage_source": "actual_source_interval_id_or_unique_exact_interval_key"
+}

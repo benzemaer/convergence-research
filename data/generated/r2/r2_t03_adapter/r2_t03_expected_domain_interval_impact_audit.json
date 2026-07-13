@@ -1,0 +1,38 @@
+{
+  "task_id": "R2-T03",
+  "audit_type": "read_only_expected_domain_classification_and_interval_impact",
+  "formal_scan_performed": false,
+  "source_manifest": {"path":"data/generated/r0/r0_t10/R0-T10-01-20260708T1715Z/r0_t04/r0_t04_raw_metric_results_manifest.json","sha256":"1380d87ffe99215983c026c6a2027ab7b53ce84334b7d7c82ec19a92612d2e1c","size_bytes":354745},
+  "source_duckdb": {"path":"data/generated/d2/d2_t20_fast_coverage_policy_candidate/d2_t15_tnskhdata_staging.duckdb","sha256":"6481eb2cffc4edf566c2b6ee055435c3d0bf23521439781376a999f80cafedbc","size_bytes":297545728,"expected_table":"d2_expected_security_dates"},
+  "base_expected_key_count": 1751066,
+  "sparse_observation_key_count": 1730769,
+  "difference_key_count_per_route": 20297,
+  "difference_key_count_across_8_routes": 162376,
+  "classification": {"suspended_expected_empty":19283,"listing_pause_expected_empty":1014,"listed_open_missing_daily":0,"other":0},
+  "difference_rows_with_staging_daily_raw": 0,
+  "interval_impact": {
+    "difference_rows_inside_existing_confirmed_intervals": 10,
+    "geometry_affected_source_interval_count": 14,
+    "termination_only_affected_source_interval_count": 10,
+    "all_affected_source_interval_count": 24,
+    "source_interval_split_count": 0,
+    "source_interval_eliminated_count": 12,
+    "dense_fragment_count": 31334,
+    "unaffected_exact_interval_count": 31322,
+    "existing_confirmed_intervals_affected": 2,
+    "difference_rows_inside_k3_raw_start_through_interval_end": 30,
+    "source_intervals_with_k3_geometry_affected": 14,
+    "routes": {
+      "r2_s_pct_w120_q20_shared":{"source_interval_count":5528,"inside_row_count":0,"affected_interval_count":0},
+      "r2_s_pct_w120_qt25_primary":{"source_interval_count":7673,"inside_row_count":10,"affected_interval_count":2},
+      "r2_s_pct_w250_q20_shared":{"source_interval_count":4884,"inside_row_count":0,"affected_interval_count":0},
+      "r2_s_pct_w250_qt25_primary":{"source_interval_count":6958,"inside_row_count":0,"affected_interval_count":0},
+      "r2_s_pcvt_w120_q20_shared":{"source_interval_count":1426,"inside_row_count":0,"affected_interval_count":0},
+      "r2_s_pcvt_w120_qv30_primary":{"source_interval_count":2179,"inside_row_count":0,"affected_interval_count":0},
+      "r2_s_pcvt_w250_q20_shared":{"source_interval_count":1024,"inside_row_count":0,"affected_interval_count":0},
+      "r2_s_pcvt_w250_qv30_primary":{"source_interval_count":1674,"inside_row_count":0,"affected_interval_count":0}
+    }
+  },
+  "resolution_policy": "full_expected_surface_dense_hard_break_replay_is_authoritative; sparse_R0_intervals_are_source_lineage; unaffected_intervals_must_reconcile_exactly; impacted_dense_intervals_must_map_uniquely_within_one_source_interval",
+  "status": "passed"
+}

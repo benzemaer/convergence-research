@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "policy_id", "timezone", "utc_offset", "market_information_cutoff", "daily_state_available_time", "policy_class", "physical_ingestion_timestamp_required", "same_timestamp_execution_assumed", "next_stage_execution_policy", "rules", "derived_times"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "policy_id": {"const": "r2_t03_eod_close_1500_asia_shanghai.v1"},
+    "timezone": {"const": "Asia/Shanghai"},
+    "utc_offset": {"const": "+08:00"},
+    "market_information_cutoff": {"const": "15:00:00"},
+    "daily_state_available_time": {"const": "trade_date + 15:00:00 +08:00"},
+    "policy_class": {"const": "research_logical_availability_time"},
+    "physical_ingestion_timestamp_required": {"const": false},
+    "same_timestamp_execution_assumed": {"const": false},
+    "next_stage_execution_policy": {"const": "outside_R2_T03_scope"},
+    "rules": {"type": "array", "minItems": 6, "items": {"type": "string", "minLength": 1}},
+    "derived_times": {"type": "object", "additionalProperties": false, "required": ["daily_row_available_time", "confirmation_time", "event_qualification_time", "exit_observation_time", "zone_finalization_time", "membership_available_time"], "properties": {"daily_row_available_time": {"type": "string"}, "confirmation_time": {"type": "string"}, "event_qualification_time": {"type": "string"}, "exit_observation_time": {"type": "string"}, "zone_finalization_time": {"type": "string"}, "membership_available_time": {"type": "string"}}}
+  }
+}

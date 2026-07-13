@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T03 corrected execution table contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["component_source_lineage", "reentry_attempt", "transition_entity_ledger", "strict_core_shell_profile", "window_overlap_comparison"],
+  "properties": {
+    "component_source_lineage": {
+      "const": ["candidate_cell_id", "security_id", "component_id", "source_atomic_interval_id", "termination_reason", "censor_status", "normally_ended"]
+    },
+    "reentry_attempt": {
+      "const": ["candidate_cell_id", "route_id", "security_id", "scan_event_id", "reentry_attempt_id", "source_component_id", "start_date", "end_date", "termination_reason", "outcome"]
+    },
+    "transition_entity_ledger": {
+      "const": ["candidate_cell_id", "security_id", "transition_ordinal", "entity_kind", "entity_id", "from_state", "to_state", "reason_code"]
+    },
+    "strict_core_shell_profile": {
+      "const": ["primary_candidate_cell_id", "sidecar_candidate_cell_id", "strict_core_confirmed_day_count", "strict_core_confirmed_day_share", "strict_core_event_count", "strict_core_event_share", "shell_only_event_count", "shell_only_confirmed_day_count", "shell_only_confirmed_day_share", "strict_core_subset_status"]
+    },
+    "window_overlap_comparison": {
+      "const": ["primary_candidate_cell_id", "comparison_candidate_cell_id", "intersection_confirmed_days", "W120_only_confirmed_days", "W250_only_confirmed_days", "union_confirmed_days", "confirmed_day_jaccard", "W120_own_eligible_days", "W250_own_eligible_days", "common_eligible_days", "matched_event_count", "overlapping_event_count"]
+    }
+  }
+}

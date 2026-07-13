@@ -12,11 +12,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "current_task: R2-T02 confirmed-state 与 event-zone 双层状态机契约",
+            "current_task: R2-T03 四路线 d×g event-zone 状态机扫描与区间几何审计",
             current,
         )
         self.assertIn(
-            "next_planned_task: R2-T03 四路线 d×g event-zone 状态机扫描与区间几何审计",
+            "next_planned_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan",
             current,
         )
         self.assertIn(
@@ -76,18 +76,30 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T01_scientific_review_status: passed", current)
         self.assertIn("R2-T01_independent_review_status: passed", current)
         self.assertIn(
-            "R2-T02_status: author_analysis_complete_pending_independent_review",
+            "R2-T02_status: completed",
             current,
         )
-        self.assertIn("R2-T02_scientific_review_status: pending", current)
-        self.assertIn("R2-T02_independent_review_status: pending", current)
-        self.assertIn("R2-T02_formal_task_completed: false", current)
-        self.assertIn("R2-T02_allowed_to_start: true", current)
-        self.assertIn("R2-T03_allowed_to_start: false", current)
+        self.assertIn("R2-T02_scientific_review_status: passed", current)
+        self.assertIn("R2-T02_independent_review_status: passed", current)
+        self.assertIn("R2-T02_repository_final_gate_status: passed", current)
+        self.assertIn("R2-T02_formal_task_completed: true", current)
+        self.assertIn("R2-T02_allowed_to_start: false", current)
+        self.assertIn("R2-T03_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T03_initial_startup_status: "
+            "blocked_missing_authoritative_t02_final_gate_binding",
+            current,
+        )
+        self.assertIn("R2-T03_resolution_status: resolved", current)
+        self.assertIn("R2-T03_startup_status: passed", current)
+        self.assertIn(
+            "R2-T03_resolved_by: r2_t02_repository_final_gate_handoff.json",
+            current,
+        )
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn(
-            "R2-T02 进入 author package 阶段",
+            "immutable post-merge handoff 持久绑定",
             text,
         )
 

@@ -22,9 +22,10 @@ class R2StageRouteContract(unittest.TestCase):
         ):
             self.assertIn(task, text)
 
-    def test_t02_is_implemented_and_downstream_remains_closed(self):
+    def test_t03_is_implemented_and_downstream_remains_closed(self):
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t02*")))
-        for task in range(3, 9):
+        self.assertTrue(list((ROOT / "src/r2").glob("r2_t03*")))
+        for task in range(4, 9):
             self.assertFalse(list((ROOT / "src/r2").glob(f"r2_t{task:02d}*")))
             self.assertFalse((ROOT / f"data/generated/r2/r2_t{task:02d}").exists())
         current = (
@@ -33,9 +34,10 @@ class R2StageRouteContract(unittest.TestCase):
             .split("## 当前阶段", 1)[1]
             .split("## 命名与路径规则", 1)[0]
         )
-        self.assertIn("R2-T02_allowed_to_start: true", current)
-        self.assertIn("R2-T02_formal_task_completed: false", current)
-        self.assertIn("R2-T03_allowed_to_start: false", current)
+        self.assertIn("R2-T02_formal_task_completed: true", current)
+        self.assertIn("R2-T03_allowed_to_start: true", current)
+        self.assertIn("R2-T03_formal_task_completed: false", current)
+        self.assertIn("R2-T04_allowed_to_start: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
 
 

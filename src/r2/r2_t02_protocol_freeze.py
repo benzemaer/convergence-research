@@ -746,7 +746,10 @@ def group_event_zones(
                 gap_rows = _rows_between(
                     timeline, previous_component["end_index"], component["start_index"]
                 )
-                ledger.extend(_gap_entry_ledger(gap_rows))
+                ledger.extend(
+                    {**row, "scan_event_id": zone["scan_event_id"]}
+                    for row in _gap_entry_ledger(gap_rows)
+                )
                 gap = _gap_segment(gap_rows, g)
                 early_gap_decision = _earliest_gap_decision(gap_rows, gap)
                 if early_gap_decision is not None:
@@ -760,6 +763,7 @@ def group_event_zones(
                             "from_state": "GAP_PENDING",
                             "to_state": early_gap_decision["status"],
                             "reason_code": early_gap_decision["reason_code"],
+                            "scan_event_id": zone["scan_event_id"],
                         }
                     )
                     zone = None
@@ -769,6 +773,7 @@ def group_event_zones(
                             "from_state": "GAP_PENDING",
                             "to_state": "REENTRY_PENDING_QUALIFICATION",
                             "reason_code": "unqualified_reentry_observed",
+                            "scan_event_id": zone["scan_event_id"],
                         }
                     )
                     right_censored_reentry = (
@@ -818,6 +823,7 @@ def group_event_zones(
                             "from_state": "REENTRY_PENDING_QUALIFICATION",
                             "to_state": to_state,
                             "reason_code": reason_code,
+                            "scan_event_id": zone["scan_event_id"],
                         }
                     )
                     zone = None
@@ -871,6 +877,7 @@ def group_event_zones(
                     "from_state": "COMPONENT_FORMING",
                     "to_state": "QUALIFIED_ACTIVE",
                     "reason_code": "d_qualification",
+                    "scan_event_id": zone["scan_event_id"],
                 }
             )
             previous_component = component
@@ -885,7 +892,10 @@ def group_event_zones(
             previous_component is not None
             and previous_component.get("qualified") is False
         )
-        ledger.extend(_gap_entry_ledger(gap_rows))
+        ledger.extend(
+            {**row, "scan_event_id": zone["scan_event_id"]}
+            for row in _gap_entry_ledger(gap_rows)
+        )
         if decisive_gap_event is not None:
             zone["status"] = decisive_gap_event["status"]
             zone["zone_finalization_time"] = decisive_gap_event["available_time"]
@@ -895,6 +905,7 @@ def group_event_zones(
                     "from_state": "GAP_PENDING",
                     "to_state": decisive_gap_event["status"],
                     "reason_code": decisive_gap_event["reason_code"],
+                    "scan_event_id": zone["scan_event_id"],
                 }
             )
             event_id = scan_event_id(
@@ -927,6 +938,14 @@ def group_event_zones(
                     prequalification_status="COMPONENT_FORMING",
                 ),
             }
+            ledger.append(
+                {
+                    "from_state": "COMPONENT_FORMING",
+                    "to_state": "QUALIFIED_ACTIVE",
+                    "reason_code": "d_qualification",
+                    "scan_event_id": event_id,
+                }
+            )
         elif (
             not gap["exceeds_g"]
             and not intervening_unqualified
@@ -937,6 +956,7 @@ def group_event_zones(
                     "from_state": "GAP_PENDING",
                     "to_state": "REENTRY_PENDING_QUALIFICATION",
                     "reason_code": "reentry_pending",
+                    "scan_event_id": zone["scan_event_id"],
                 }
             )
             zone["component_count"] += 1
@@ -993,6 +1013,7 @@ def group_event_zones(
                     "from_state": "REENTRY_PENDING_QUALIFICATION",
                     "to_state": "QUALIFIED_ACTIVE",
                     "reason_code": "reentry_reaches_d_merge",
+                    "scan_event_id": zone["scan_event_id"],
                 }
             )
         else:
@@ -1009,6 +1030,7 @@ def group_event_zones(
                     "reason_code": "raw_false_gap_exceeds_g"
                     if gap["exceeds_g"]
                     else "unqualified_reentry_blocks_merge",
+                    "scan_event_id": zone["scan_event_id"],
                 }
             )
             event_id = scan_event_id(
@@ -1041,6 +1063,14 @@ def group_event_zones(
                     prequalification_status="COMPONENT_FORMING",
                 ),
             }
+            ledger.append(
+                {
+                    "from_state": "COMPONENT_FORMING",
+                    "to_state": "QUALIFIED_ACTIVE",
+                    "reason_code": "d_qualification",
+                    "scan_event_id": event_id,
+                }
+            )
         previous_component = component
     if zone is not None:
         trailing = [
@@ -1065,6 +1095,7 @@ def group_event_zones(
                 "from_state": "GAP_PENDING",
                 "to_state": to_state,
                 "reason_code": reason_code,
+                "scan_event_id": zone["scan_event_id"],
             }
         )
     return components, zones, ledger

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "source_commit", "git_blob_sha", "committed_byte_sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "committed_byte_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id", "run_id", "handoff_version", "handoff_source_commit",
+    "author_package_lifecycle", "scientific_review_status",
+    "repository_final_gate_status", "formal_task_completed",
+    "R2-T03_allowed_to_start", "R2-T04_allowed_to_start", "R3_allowed_to_start",
+    "selection_path_not_independently_confirmed", "repository",
+    "pull_request_number", "workflow_name", "workflow_run_id", "premerge_job_id",
+    "reviewed_head_sha", "merge_commit", "merge_parents", "scientific_review_id",
+    "workflow_artifact", "workflow_evidence_path", "committed_inputs",
+    "validation_assertions"
+  ],
+  "properties": {
+    "task_id": {"const": "R2-T02"},
+    "run_id": {"const": "R2-T02-20260712T1700Z"},
+    "handoff_version": {"const": "r2_t02_repository_final_gate_handoff.v1"},
+    "handoff_source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "author_package_lifecycle": {"const": "immutable_author_stage"},
+    "scientific_review_status": {"const": "passed"},
+    "repository_final_gate_status": {"const": "passed"},
+    "formal_task_completed": {"const": true},
+    "R2-T03_allowed_to_start": {"const": true},
+    "R2-T04_allowed_to_start": {"const": false},
+    "R3_allowed_to_start": {"const": false},
+    "selection_path_not_independently_confirmed": {"const": true},
+    "repository": {"const": "benzemaer/convergence-research"},
+    "pull_request_number": {"const": 94},
+    "workflow_name": {"const": "Quality"},
+    "workflow_run_id": {"const": 29189876487},
+    "premerge_job_id": {"const": 86642565197},
+    "reviewed_head_sha": {"const": "a98d2a14e8828585e6b4283efee6afdf2db8672d"},
+    "merge_commit": {"const": "04530181e7cd80b8805f279dbac5eb5afb70c21d"},
+    "merge_parents": {
+      "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+      "contains": {"const": "a98d2a14e8828585e6b4283efee6afdf2db8672d"}
+    },
+    "scientific_review_id": {"const": 4679909839},
+    "workflow_artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_name", "artifact_digest", "expired_at_handoff", "workflow_run_id", "head_sha"],
+      "properties": {
+        "artifact_id": {"const": 8259206209},
+        "artifact_name": {"const": "r2-t02-premerge-full-evidence"},
+        "artifact_digest": {"const": "sha256:baa3d5f0fee84fe001ffb83c379e5c370c48491c9ceccb10172a2195e64d7223"},
+        "expired_at_handoff": {"const": false},
+        "workflow_run_id": {"const": 29189876487},
+        "head_sha": {"const": "a98d2a14e8828585e6b4283efee6afdf2db8672d"}
+      }
+    },
+    "workflow_evidence_path": {"const": "artifacts/r2_t02_premerge/r2_t02_premerge_full_evidence.json"},
+    "committed_inputs": {
+      "type": "object", "minProperties": 12,
+      "additionalProperties": {"$ref": "#/$defs/binding"}
+    },
+    "validation_assertions": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "existing_validate_final_gate_called", "github_review_snapshot_revalidated",
+        "author_package_immutable", "committed_artifact_sidecar_revalidated",
+        "exact_head_verified", "merge_ancestry_verified", "artifact_metadata_verified",
+        "all_committed_sha_verified"
+      ],
+      "properties": {
+        "existing_validate_final_gate_called": {"const": true},
+        "github_review_snapshot_revalidated": {"const": true},
+        "author_package_immutable": {"const": true},
+        "committed_artifact_sidecar_revalidated": {"const": true},
+        "exact_head_verified": {"const": true},
+        "merge_ancestry_verified": {"const": true},
+        "artifact_metadata_verified": {"const": true},
+        "all_committed_sha_verified": {"const": true}
+      }
+    }
+  }
+}

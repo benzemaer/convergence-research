@@ -1,0 +1,30 @@
+{
+  "task_id": "R2-T03",
+  "adapter_id": "r2_t03_interval_adapter.v1",
+  "validation_scope": "actual_source_identity_schema_reason_vocabulary_and_route_mapping_aggregate_only",
+  "source_manifests": [
+    {"task_id":"R0-T10","path":"data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t10_05_authorized_input_manifest.json","sha256":"d18d4841476abb80da804635d15d9b9b853e5fb9e40545288c445be27af713f9"},
+    {"task_id":"R0-T15","path":"data/generated/r0/r0_t15/R0-T15-20260710T2136Z/r0_t15_artifact_manifest.json","sha256":"664b6d4558978806db80912aa5e544e0c81824b188a5ea71fece8e20507a8c51"}
+  ],
+  "source_interval_count": 31346,
+  "route_count": 8,
+  "mapped_route_count": 8,
+  "unmapped_route_count": 0,
+  "multiple_mapped_route_count": 0,
+  "source_reason_vocabulary": ["raw_state_false", "raw_state_blocked", "raw_state_false_or_invalid"],
+  "legacy_composite_reason_disambiguation": "route_daily_at_last_observed_date_for_closed_interval; upstream_is_open_interval_for_open_status",
+  "route_interval_counts": {
+    "r2_s_pct_w120_q20_shared": 5528,
+    "r2_s_pct_w120_qt25_primary": 7673,
+    "r2_s_pct_w250_q20_shared": 4884,
+    "r2_s_pct_w250_qt25_primary": 6958,
+    "r2_s_pcvt_w120_q20_shared": 1426,
+    "r2_s_pcvt_w120_qv30_primary": 2179,
+    "r2_s_pcvt_w250_q20_shared": 1024,
+    "r2_s_pcvt_w250_qv30_primary": 1674
+  },
+  "row_payload_committed": false,
+  "successor_multiset_reconciliation_performed": false,
+  "dense_expected_domain_impact_audit_path": "data/generated/r2/r2_t03_adapter/r2_t03_expected_domain_interval_impact_audit.json",
+  "status": "passed"
+}

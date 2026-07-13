@@ -1,0 +1,22 @@
+{
+  "task_id": "R2-T03",
+  "promoted_run_id": "R2-T03-PROMOTED-20260713T050903Z",
+  "execution_mode": "promoted_preserved_fact_run_plus_current_postscan",
+  "source_fact_run_id": "R2-T03-BASELINE-20260713T012944Z",
+  "postscan_execution_round": "round_11",
+  "promotion_record_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_execution_promotion.json",
+  "database_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_event_zone_scan.duckdb",
+  "database_sha256": "9e6015a612ad839a386a4300e289be87d9fd3d073658c1b095a7ce02bb3a14e0",
+  "original_experiment_summary_path": "data/interim/r2_t03_postscan_rehearsal/round_11/r2_t03_experiment_summary.json",
+  "original_experiment_summary_sha256": "77cd6acace09dfa0f272e9174620160f92b8e6397602f6ed2734cd8e64038a85",
+  "original_runtime_validation_path": "data/interim/r2_t03_postscan_rehearsal/round_11/r2_t03_runtime_gate_validation.json",
+  "original_runtime_validation_sha256": "1191092955f2739d1bec2625cc6e47916d164d63ca137e24843e49c3be63640f",
+  "original_independent_validation_path": "data/interim/r2_t03_postscan_rehearsal/round_11/r2_t03_independent_validation.json",
+  "original_independent_validation_sha256": "a0feff3ef844f3ecf3366cdf95657433c53f462978bf7f78cb5cf4b20c9d483e",
+  "original_post_validation_fingerprint_path": "data/interim/r2_t03_postscan_rehearsal/round_11/r2_t03_post_validation_fingerprint.json",
+  "original_post_validation_fingerprint_sha256": "9573334665aeafa09022dee162d6ecadcecfc9373d87f36e331c05e35b66afcd",
+  "current_repository_head": "5014bc8ef5f7d2b1c168077939ba39b1125ce414",
+  "formal_source_binding_commit": "89056881ff336455aa2545b14b4f713343c8026b",
+  "status": "executed_and_validated_pending_scientific_review",
+  "formal_task_completed": false
+}

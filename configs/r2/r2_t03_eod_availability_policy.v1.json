@@ -1,0 +1,28 @@
+{
+  "$schema": "../../schemas/r2/r2_t03_eod_availability_policy.schema.json",
+  "policy_id": "r2_t03_eod_close_1500_asia_shanghai.v1",
+  "timezone": "Asia/Shanghai",
+  "utc_offset": "+08:00",
+  "market_information_cutoff": "15:00:00",
+  "daily_state_available_time": "trade_date + 15:00:00 +08:00",
+  "policy_class": "research_logical_availability_time",
+  "physical_ingestion_timestamp_required": false,
+  "same_timestamp_execution_assumed": false,
+  "next_stage_execution_policy": "outside_R2_T03_scope",
+  "rules": [
+    "raw_state, rolling features, and confirmed_state use only information formed by the same trade-date close",
+    "available_time=15:00:00+08:00 is the research information-set formation time",
+    "local calculation after 15:00 does not create look-ahead",
+    "calculation and execution at the same 15:00:00 instant are not assumed",
+    "R2-T03 does not study after-close execution capability and does not output trading returns",
+    "later trading stages must separately freeze calculation latency and execution latency"
+  ],
+  "derived_times": {
+    "daily_row_available_time": "current_trade_date_close_1500",
+    "confirmation_time": "Kth_consecutive_raw_true_trade_date_close_1500",
+    "event_qualification_time": "dth_confirmed_true_trade_date_close_1500",
+    "exit_observation_time": "first_confirmed_exit_decision_row_close_1500",
+    "zone_finalization_time": "g_plus_1_or_quality_break_decision_row_close_1500",
+    "membership_available_time": "frozen_T02_qualification_and_bridge_rules_no_first_day_backfill"
+  }
+}
