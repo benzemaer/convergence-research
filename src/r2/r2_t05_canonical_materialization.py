@@ -1027,8 +1027,8 @@ def run_formal(config_path: Path, output_dir: Path, repo: Path = ROOT) -> Path:
     if con.execute("SELECT count(*) FROM r2_t05_event_id_lineage WHERE source_candidate_cell_id LIKE '%shared%'").fetchone()[0]:
         raise R2T05Error("shared_q_canonical_event_materialized")
     reports = _collect_reports(con, output_dir, config, input_binding, source_info, startup, freeze, source_run_id, terminal_added, expected_daily_keys)
-    _write_packages(repo, output_dir, config, reports, execution_commit, input_binding, source_run_id)
     con.close()
+    _write_packages(repo, output_dir, config, reports, execution_commit, input_binding, source_run_id)
     return output_dir
 
 
