@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from src.r2.r2_t06_dual_state_machine_replay import run_formal
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.r2.r2_t06_dual_state_machine_replay import run_formal  # noqa: E402
 
 
 def main() -> int:

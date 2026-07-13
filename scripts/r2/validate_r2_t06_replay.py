@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
-from src.r2.r2_t06_independent_validator import validate_run
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.r2.r2_t06_independent_validator import validate_run  # noqa: E402
 
 
 def main() -> int:
