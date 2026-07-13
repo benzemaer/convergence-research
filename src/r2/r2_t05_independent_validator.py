@@ -571,6 +571,7 @@ def _independent_daily_asof_mismatch(
     _ensure_independent_daily_snapshots(con)
     return _daily_asof_mismatch_from_snapshot(con, state_version_id)
 
+
 def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
     config = _git_json(
         repo, "configs/r2/r2_t05_canonical_state_event_zone_materialization.v1.json"

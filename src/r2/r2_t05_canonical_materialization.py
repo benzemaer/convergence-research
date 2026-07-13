@@ -1337,9 +1337,7 @@ def _collect_reports(
         min(membership_available_time-trade_date::TIMESTAMPTZ),max(membership_available_time-trade_date::TIMESTAMPTZ)
       FROM r2_canonical_event_membership GROUP BY 1 ORDER BY 1
     """).fetchall()
-    semantic_audits = {
-        state: _daily_semantic_audit(con, state) for state in versions
-    }
+    semantic_audits = {state: _daily_semantic_audit(con, state) for state in versions}
     _write_csv(
         run_dir / "r2_t05_daily_reconciliation.csv",
         [
