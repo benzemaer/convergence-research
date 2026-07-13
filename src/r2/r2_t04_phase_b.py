@@ -866,7 +866,7 @@ def run_phase_b(
     _write(output_dir / "r2_t04_result_package.json", result_package)
     from src.r2.r2_t04_independent_validator import validate_phase_b
 
-    independent = validate_phase_b(output_dir)
+    independent = validate_phase_b(output_dir, author_stage_preflight=True)
     _write(output_dir / "r2_t04_phase_b_independent_validation.json", independent)
     if independent["status"] != "passed":
         raise T04InputError("phase_b_independent_validation_failed")

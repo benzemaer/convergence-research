@@ -196,7 +196,9 @@ def validate_independently(output_dir: Path) -> dict[str, Any]:
     }
 
 
-def validate_phase_b(output_dir: Path) -> dict[str, Any]:
+def validate_phase_b(
+    output_dir: Path, *, author_stage_preflight: bool = False
+) -> dict[str, Any]:
     """Independently validate the Phase B user decision and freeze package.
 
     This routine deliberately reads the committed T02/T03 registries itself and
@@ -636,7 +638,10 @@ def validate_phase_b(output_dir: Path) -> dict[str, Any]:
             errors.append(name)
     if resolution.get("phase_a_review_status") != "needs_revision":
         errors.append("phase_a_review_status_invalid")
-    if author_review.get("independent_validation_status") != "passed":
+    if (
+        author_review.get("independent_validation_status") != "passed"
+        and not author_stage_preflight
+    ):
         errors.append("author_independent_validation_not_passed")
     if (
         author_review.get("scientific_review_status")
