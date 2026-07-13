@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -139,14 +140,20 @@ def _threshold(
     text = gate["threshold"]
     if text.startswith("max("):
         minimum = float(text.split("(", 1)[1].split(",", 1)[0])
-        fraction = float(text.split("*", 1)[1].split(")", 1)[0])
+        match = re.search(r"ceil\(([^*]+)\*", text)
+        if not match:
+            raise T04InputError(f"unavailable_threshold:{gate['gate_id']}")
+        fraction = float(match.group(1))
         upstream = float(
             config["upstream_threshold_inputs"]["upstream_confirmed_interval_count"]
         )
         return max(minimum, math.ceil(fraction * upstream))
     if "upstream_unique_securities" in text:
         minimum = float(text.split("(", 1)[1].split(",", 1)[0])
-        fraction = float(text.split("*", 1)[1].split(")", 1)[0])
+        match = re.search(r"ceil\(([^*]+)\*", text)
+        if not match:
+            raise T04InputError(f"unavailable_threshold:{gate['gate_id']}")
+        fraction = float(match.group(1))
         upstream = float(
             config["upstream_threshold_inputs"]["upstream_unique_securities"][
                 state_line
