@@ -579,11 +579,18 @@ def _event_rows_for_security(
             for c in components
             if c["component_id"] == first["component_id"]
         )
-        last_end = max(
-            c["end_index"]
-            for c in components
-            if c["component_id"] in {x["component_id"] for x in qualified_components}
+        event_end_date = _date(
+            zone["zone_finalization_time"] or last_component["end_date"]
         )
+        exit_times = [
+            _timestamp(row["available_time"])
+            for index, row in enumerate(timeline)
+            if index > 0
+            and _date(row["trade_date"]) <= event_end_date
+            and _date(row["trade_date"]) >= _date(first["start_date"])
+            and timeline[index - 1]["confirmed_state"]
+            and not row["confirmed_state"]
+        ]
         span = sum(
             1
             for row in timeline
@@ -599,9 +606,7 @@ def _event_rows_for_security(
                 "first_component_start_date": first["start_date"],
                 "first_qualification_time": first["event_qualification_time"],
                 "last_confirmed_end_date": last_component["end_date"],
-                "last_exit_observation_time": timeline[last_end + 1]["available_time"]
-                if last_end + 1 < len(timeline)
-                else timeline[last_end]["available_time"],
+                "last_exit_observation_time": max(exit_times) if exit_times else None,
                 "zone_finalization_time": zone["zone_finalization_time"] or None,
                 "zone_status": zone["status"],
                 "exit_reason": exit_reason,
@@ -639,7 +644,8 @@ def _event_rows_for_security(
                     "security_id": timeline[0]["security_id"],
                     "trade_date": _date(member["trade_date"]),
                     "confirmed_state": bool(source["confirmed_state"]),
-                    "component_member": retrospective,
+                    "component_member": retrospective
+                    or bool(member["unqualified_reentry_member"]),
                     "retrospective_component_member": retrospective,
                     "component_qualified_as_of": bool(
                         member["component_qualified_as_of"]
@@ -663,6 +669,35 @@ def _event_rows_for_security(
                     ),
                 }
             )
+        if zone["zone_finalization_time"]:
+            terminal_date = _date(zone["zone_finalization_time"])
+            if not any(row["trade_date"] == terminal_date for row in membership_rows):
+                terminal = next(
+                    row for row in timeline if _date(row["trade_date"]) == terminal_date
+                )
+                membership_rows.append(
+                    {
+                        "state_version_id": version["state_version_id"],
+                        "event_id": event_id,
+                        "security_id": timeline[0]["security_id"],
+                        "trade_date": terminal_date,
+                        "confirmed_state": bool(terminal["confirmed_state"]),
+                        "component_member": False,
+                        "retrospective_component_member": False,
+                        "component_qualified_as_of": False,
+                        "event_zone_member": False,
+                        "is_prequalification_confirmed_day": False,
+                        "is_bridged_gap": False,
+                        "is_unqualified_reentry_day": False,
+                        "event_status_as_of": zone["status"],
+                        "zone_revision": zone["zone_revision"],
+                        "membership_available_time": _timestamp(
+                            zone["zone_finalization_time"]
+                        ),
+                        "state_risk_set_eligible": False,
+                        "qualified_event_risk_set_eligible": False,
+                    }
+                )
         for transition in ledger:
             if transition.get("scan_event_id") == zone["scan_event_id"]:
                 transition_rows.append(
