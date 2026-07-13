@@ -22,7 +22,7 @@ class R2StageRouteContract(unittest.TestCase):
         ):
             self.assertIn(task, text)
 
-    def test_t03_is_implemented_and_t05_is_authorized(self):
+    def test_t03_is_implemented_and_t05_startup_gate_is_blocked(self):
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t02*")))
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t03*")))
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t04*")))
@@ -44,7 +44,17 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertIn("R2-T04_allowed_to_start: true", current)
         self.assertIn("R2-T04_status: completed", current)
         self.assertIn("R2-T04_formal_task_completed: true", current)
-        self.assertIn("R2-T05_allowed_to_start: true", current)
+        self.assertIn("R2-T05_allowed_to_start: false", current)
+        self.assertIn(
+            "R2-T05_status: blocked_missing_authoritative_t04_final_gate_binding",
+            current,
+        )
+        self.assertIn(
+            "R2-T05_startup_status: blocked_missing_authoritative_t04_final_gate_binding",
+            current,
+        )
+        self.assertIn("R2-T05_formal_run_executed: false", current)
+        self.assertIn("R2-T05_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
 
 
