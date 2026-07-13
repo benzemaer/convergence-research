@@ -26,7 +26,7 @@ T03 row-level 数据库按 T03 result package 读取路径和 SHA-256，不能�
 
 ## Author-stage gate
 
-当前 blocked marker 为：
+当前 author-stage marker 为：
 
 ```text
 current_stage: R2
