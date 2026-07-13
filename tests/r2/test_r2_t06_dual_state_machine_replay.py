@@ -17,6 +17,7 @@ from src.r2.r2_t06_dual_state_machine_replay import (
     check_merged_pr_binding,
     replay_confirmation_rows,
 )
+from src.r2.r2_t06_independent_validator import _audit_status_errors
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs/r2/r2_t06_canonical_dual_state_machine_replay.v1.json"
@@ -78,8 +79,9 @@ def test_quality_break_and_natural_exit_are_distinct() -> None:
     assert quality[-1].confirmed_state is False
 
 
-def test_daily_overlay_uses_visible_source_row_before_retrospective_membership(
-) -> None:
+def test_daily_overlay_uses_visible_source_row_before_retrospective_membership() -> (
+    None
+):
     con = duckdb.connect()
     try:
         con.execute("CREATE SCHEMA src")
@@ -223,9 +225,7 @@ def test_daily_overlay_uses_visible_source_row_before_retrospective_membership(
 def test_d2_qualification_and_accepted_reentry_first_day_are_false() -> None:
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     version = config["selected_versions"][0]
-    rows = _rows(
-        [True, True, True, True, False, True, True, True, True, False, False]
-    )
+    rows = _rows([True, True, True, True, False, True, True, True, True, False, False])
     timeline = _source_to_timeline(rows, 3)
     _, _, events, memberships, _ = _event_rows_for_security(timeline, "route", version)
     assert events
@@ -255,6 +255,30 @@ def test_event_id_changes_when_identity_changes() -> None:
         replay_confirmation_rows(_rows([True, True, True]))[-1].available_time,
     )[0]
     assert first != second
+
+
+def test_replay_uses_t06_owned_fsm_module() -> None:
+    source = (ROOT / "src/r2/r2_t06_dual_state_machine_replay.py").read_text(
+        encoding="utf-8"
+    )
+    assert "r2_t02_protocol_freeze" not in source
+    assert "r2_t06_independent_fsm" in source
+
+
+def test_missing_formal_audit_is_fail_closed(tmp_path: Path) -> None:
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    errors = _audit_status_errors(tmp_path, config)
+    assert "audit_missing:r2_t06_event_transition_reconciliation.csv" in errors
+
+
+def test_committed_artifact_validator_uses_git_blobs() -> None:
+    source = (ROOT / "scripts/r2/validate_r2_t06_committed_artifacts.py").read_text(
+        encoding="utf-8"
+    )
+    assert '["git", *args]' in source
+    assert '"show"' in source
+    assert '"rev-parse"' in source
+    assert "committed_byte_sha256" in source
 
 
 @pytest.mark.parametrize(

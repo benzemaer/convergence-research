@@ -12,14 +12,29 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import duckdb
 
-from src.common.canonical_io import ROOT, write_json, write_markdown
+from src.common.canonical_io import ROOT, read_csv, write_json, write_markdown
 
 TASK_ID = "R2-T06"
+
+AUDIT_FILES = (
+    "r2_t06_atomic_interval_reconciliation.csv",
+    "r2_t06_component_qualification_reconciliation.csv",
+    "r2_t06_event_transition_reconciliation.csv",
+    "r2_t06_event_zone_reconciliation.csv",
+    "r2_t06_membership_reconciliation.csv",
+    "r2_t06_no_lookahead_audit.csv",
+    "r2_t06_exit_censor_audit.csv",
+    "r2_t06_event_id_revision_audit.csv",
+    "r2_t06_strict_core_risk_set_audit.csv",
+    "r2_t06_unselected_exclusion_audit.csv",
+    "r2_t06_count_geometry_reconciliation.csv",
+)
 
 
 class T06ValidationError(RuntimeError):
@@ -57,6 +72,282 @@ def _exact_mismatch(
 def _attach_readonly(con: duckdb.DuckDBPyConnection, path: str, alias: str) -> None:
     literal = path.replace("'", "''")
     con.execute(f"ATTACH '{literal}' AS {alias} (READ_ONLY)")
+
+
+def _independent_intervals(
+    rows: list[tuple[Any, ...]], d: int
+) -> tuple[list[tuple[Any, ...]], list[tuple[Any, ...]]]:
+    intervals: list[tuple[Any, ...]] = []
+    components: list[tuple[Any, ...]] = []
+    streak = 0
+    current: dict[str, Any] | None = None
+    interval_ordinal = 0
+    for index, row in enumerate(rows):
+        trade_date, available_time, eligible, quality, raw_state, source_present = row
+        valid_true = bool(
+            source_present and eligible and quality == "valid" and raw_state is True
+        )
+        hard_break = not (
+            source_present and eligible and quality == "valid" and raw_state is not None
+        )
+        streak = streak + 1 if valid_true else 0
+        confirmed = valid_true and streak >= 3
+        if confirmed and current is None:
+            interval_ordinal += 1
+            current = {
+                "ordinal": interval_ordinal,
+                "start_index": index,
+                "start_date": trade_date,
+                "end_date": trade_date,
+                "count": 1,
+            }
+        elif confirmed and current is not None:
+            current["end_date"] = trade_date
+            current["count"] += 1
+        elif current is not None:
+            termination = "quality_interruption" if hard_break else "natural_state_exit"
+            intervals.append(
+                (
+                    current["ordinal"],
+                    current["start_date"],
+                    current["end_date"],
+                    current["count"],
+                    termination,
+                )
+            )
+            current = None
+        if current is not None and confirmed:
+            qualification_index = current["start_index"] + d - 1
+            if current["count"] >= d:
+                components.append(
+                    (
+                        f"component_{current['ordinal']:03d}",
+                        current["start_date"],
+                        current["end_date"],
+                        current["count"],
+                        True,
+                    )
+                )
+            elif index >= qualification_index:
+                components.append(
+                    (
+                        f"component_{current['ordinal']:03d}",
+                        current["start_date"],
+                        current["end_date"],
+                        current["count"],
+                        True,
+                    )
+                )
+    if current is not None:
+        intervals.append(
+            (
+                current["ordinal"],
+                current["start_date"],
+                current["end_date"],
+                current["count"],
+                "sample_end_censoring",
+            )
+        )
+    # Components are interval-level identities; rebuild them from the completed
+    # interval list so an interval that exits on its first non-confirmed row is
+    # never accidentally retained as qualified.
+    components = [
+        (
+            f"component_{ordinal:03d}",
+            start_date,
+            end_date,
+            count,
+            count >= d,
+        )
+        for ordinal, start_date, end_date, count, _termination in intervals
+    ]
+    return intervals, components
+
+
+def _independent_lineage_checks(
+    con: duckdb.DuckDBPyConnection,
+    config: dict[str, Any],
+    root: Path,
+    checks: dict[str, int],
+) -> None:
+    route_map: dict[str, tuple[str, str, int]] = {}
+    for version in config["selected_versions"]:
+        route = con.execute(
+            "SELECT route_id FROM src.cell_registry WHERE candidate_cell_id=?",
+            [version["source_candidate_cell_id"]],
+        ).fetchone()
+        if route is None:
+            checks["independent_route_binding"] = 1
+            continue
+        route_map[version["state_version_id"]] = (
+            route[0],
+            version["source_candidate_cell_id"],
+            int(version["d"]),
+        )
+    interval_mismatch = 0
+    component_mismatch = 0
+    components_by_route_security: dict[tuple[str, str], list[tuple[Any, ...]]] = {}
+    for state, (route, _cell, d) in route_map.items():
+        source_rows = con.execute(
+            """
+            SELECT route_id,security_id,trade_date,available_time,
+                   eligible,quality_state,raw_state,source_row_present
+            FROM src.route_dense_input WHERE route_id=? ORDER BY security_id,trade_date
+            """,
+            [route],
+        ).fetchall()
+        current_security: str | None = None
+        bucket: list[tuple[Any, ...]] = []
+        for row in source_rows + [(None, None, None, None, None, None, None, None)]:
+            if current_security is not None and row[1] != current_security:
+                intervals, components = _independent_intervals(bucket, d)
+                observed_intervals = [
+                    tuple(item)
+                    for item in con.execute(
+                        "SELECT ordinal,start_date,end_date,confirmed_day_count,termination_reason FROM r2_t06_replayed_atomic_interval WHERE route_id=? AND security_id=?",
+                        [route, current_security],
+                    ).fetchall()
+                ]
+                interval_mismatch += len(set(intervals) ^ set(observed_intervals))
+                observed_components = [
+                    tuple(item)
+                    for item in con.execute(
+                        "SELECT component_id,start_date,end_date,confirmed_day_count,qualified FROM r2_t06_replayed_component WHERE route_id=? AND security_id=?",
+                        [route, current_security],
+                    ).fetchall()
+                ]
+                component_mismatch += len(set(components) ^ set(observed_components))
+                components_by_route_security[(route, current_security)] = components
+                bucket = []
+            if row[1] is None:
+                break
+            current_security = row[1]
+            bucket.append(row[2:])
+    checks["independent_interval_lineage_mismatch"] = interval_mismatch
+    checks["independent_component_lineage_mismatch"] = component_mismatch
+
+    event_identity_mismatch = 0
+    for state, (route, cell, _d) in route_map.items():
+        event_rows = con.execute(
+            """
+            SELECT event_id,security_id,
+                   CAST(first_component_start_date AS VARCHAR),
+                   CAST(first_qualification_time AS VARCHAR)
+            FROM r2_t06_replayed_event_zone WHERE state_version_id=?
+            """,
+            [state],
+        ).fetchall()
+        for event_id, security, start_date, qtime in event_rows:
+            components = components_by_route_security.get((route, security), [])
+            component = next(
+                (item for item in components if str(item[1]) == start_date and item[4]),
+                None,
+            )
+            if component is None or qtime is None:
+                event_identity_mismatch += 1
+                continue
+            payload = {
+                "contract_version": config["contract_version"],
+                "state_version_id": state,
+                "security_id": security,
+                "first_qualified_component_identity": {
+                    "source_candidate_cell_id": cell,
+                    "first_component_id": component[0],
+                    "first_component_start_date": str(start_date),
+                    "first_qualification_time": str(
+                        datetime.fromisoformat(str(qtime).replace("Z", "+00:00"))
+                    ),
+                },
+            }
+            expected = hashlib.sha256(
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            event_identity_mismatch += int(expected != event_id)
+    checks["independent_event_identity_mismatch"] = event_identity_mismatch
+
+    transition_path = root / config["t02_contracts"]["transition_registry"]
+    if not transition_path.exists():
+        checks["independent_transition_registry_mismatch"] = 1
+    else:
+        allowed = {
+            (row["from_state"], row["to_state"], row["reason_code"])
+            for row in read_csv(transition_path)
+        }
+        checks["independent_transition_registry_mismatch"] = sum(
+            int((from_state, to_state, reason) not in allowed)
+            for from_state, to_state, reason in con.execute(
+                "SELECT from_state,to_state,reason_code FROM r2_t06_replayed_transition_ledger"
+            ).fetchall()
+        )
+
+    source_overlay_mismatch = 0
+    for state, (route, cell, _d) in route_map.items():
+        source_overlay_mismatch += int(
+            con.execute(
+                """
+                WITH ranked AS (
+                  SELECT d.event_status_as_of,s.zone_status_as_of,
+                         row_number() OVER (
+                           PARTITION BY d.security_id,d.trade_date
+                           ORDER BY s.available_time DESC,s.evaluation_time DESC,
+                                    s.scan_event_id DESC
+                         ) rn
+                  FROM r2_t06_replayed_daily_state d
+                  JOIN src.route_dense_input r
+                    ON r.route_id=? AND r.security_id=d.security_id
+                   AND r.trade_date=d.trade_date
+                  JOIN src.event_zone_membership_daily s
+                    ON s.candidate_cell_id=? AND s.security_id=d.security_id
+                   AND s.trade_date=d.trade_date
+                   AND s.available_time<=try_cast(r.available_time AS TIMESTAMPTZ)
+                  WHERE d.state_version_id=?
+                )
+                SELECT count(*) FROM ranked
+                WHERE rn=1 AND event_status_as_of IS DISTINCT FROM zone_status_as_of
+                """,
+                [route, cell, state],
+            ).fetchone()[0]
+        )
+    checks["independent_current_event_overlay_mismatch"] = source_overlay_mismatch
+
+
+def _audit_status_errors(output_dir: Path, config: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for name in AUDIT_FILES:
+        path = output_dir / name
+        if not path.exists():
+            errors.append(f"audit_missing:{name}")
+            continue
+        rows = read_csv(path)
+        if not rows:
+            errors.append(f"audit_empty:{name}")
+        for index, row in enumerate(rows):
+            if row.get("status") != "passed":
+                errors.append(f"audit_failed:{name}:{index}")
+            try:
+                if int(row.get("mismatch_count", "1")) != 0:
+                    errors.append(f"audit_mismatch:{name}:{index}")
+            except ValueError:
+                errors.append(f"audit_mismatch_not_integer:{name}:{index}")
+    configured = {
+        name
+        for name in config["output"]["compact_artifacts"]
+        if name.endswith(".csv")
+        and name
+        not in {
+            "r2_t06_replay_version_registry.csv",
+            "r2_t06_daily_state_reconciliation.csv",
+        }
+    }
+    errors.extend(
+        f"audit_not_registered:{name}" for name in configured - set(AUDIT_FILES)
+    )
+    return errors
 
 
 def _startup_checks(root: Path, config: dict[str, Any], errors: list[str]) -> None:
@@ -208,8 +499,10 @@ def validate_run(
                 "SELECT CASE WHEN count(*)=0 THEN 1 ELSE 0 END FROM r2_t06_replayed_transition_ledger"
             ).fetchone()[0]
         )
+        _independent_lineage_checks(con, config, root, checks)
     finally:
         con.close()
+    errors.extend(_audit_status_errors(output_dir, config))
     errors.extend(name for name, value in checks.items() if value)
     result = {
         "task_id": TASK_ID,

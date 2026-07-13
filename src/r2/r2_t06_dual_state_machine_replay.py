@@ -31,7 +31,12 @@ from src.common.canonical_io import (
     write_json,
     write_markdown,
 )
-from src.r2.r2_t02_protocol_freeze import atomic_intervals, group_event_zones
+from src.r2.r2_t06_independent_fsm import (
+    atomic_intervals as t06_atomic_intervals,
+)
+from src.r2.r2_t06_independent_fsm import (
+    group_event_zones as t06_group_event_zones,
+)
 
 TASK_ID = "R2-T06"
 CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v8"
@@ -347,10 +352,7 @@ def replay_confirmation_rows(
         raw_state = None if raw["raw_state"] is None else bool(raw["raw_state"])
         source_row_present = bool(raw["source_row_present"])
         valid_true = (
-            source_row_present
-            and eligible
-            and quality == "valid"
-            and raw_state is True
+            source_row_present and eligible and quality == "valid" and raw_state is True
         )
         hard_break = not (
             source_row_present
@@ -480,8 +482,8 @@ def _event_rows_for_security(
     list[dict[str, Any]],
     list[dict[str, Any]],
 ]:
-    intervals = atomic_intervals(timeline)
-    components, zones, ledger = group_event_zones(
+    intervals = t06_atomic_intervals(timeline)
+    components, zones, ledger = t06_group_event_zones(
         timeline,
         intervals,
         int(version["d"]),
@@ -824,7 +826,12 @@ def _write_bindings(
     sources = [
         config_path,
         repo / "src/r2/r2_t06_dual_state_machine_replay.py",
+        repo / "src/r2/r2_t06_independent_fsm.py",
+        repo / "src/r2/r2_t06_independent_validator.py",
         repo / "schemas/r2/r2_t06_canonical_dual_state_machine_replay.schema.json",
+        repo / "scripts/r2/run_r2_t06_dual_state_machine_replay.py",
+        repo / "scripts/r2/validate_r2_t06_replay.py",
+        repo / "scripts/r2/validate_r2_t06_committed_artifacts.py",
     ]
     write_json(
         output_dir / "r2_t06_input_binding.json",
@@ -1040,95 +1047,582 @@ def _compare_table(
     )
 
 
+def _audit_row(
+    audit: str,
+    scope: str,
+    observed: Any,
+    expected: Any,
+    mismatch_count: int,
+    details: str = "",
+) -> dict[str, Any]:
+    return {
+        "audit": audit,
+        "scope": scope,
+        "observed": observed,
+        "expected": expected,
+        "mismatch_count": mismatch_count,
+        "status": "passed" if mismatch_count == 0 else "failed",
+        "details": details,
+    }
+
+
+def _audit_versions(
+    con: duckdb.DuckDBPyConnection, config: dict[str, Any]
+) -> list[dict[str, Any]]:
+    rows = []
+    for version in config["selected_versions"]:
+        primary = con.execute(
+            "SELECT route_id FROM src.cell_registry WHERE candidate_cell_id=?",
+            [version["source_candidate_cell_id"]],
+        ).fetchone()
+        strict = con.execute(
+            "SELECT route_id FROM src.cell_registry WHERE candidate_cell_id=?",
+            [version["strict_core_source_candidate_cell_id"]],
+        ).fetchone()
+        _require(
+            primary is not None and strict is not None, "audit_route_binding_missing"
+        )
+        rows.append(
+            {
+                "state_version_id": version["state_version_id"],
+                "primary_cell": version["source_candidate_cell_id"],
+                "primary_route": primary[0],
+                "strict_route": strict[0],
+                "d": int(version["d"]),
+                "g": int(version["g"]),
+            }
+        )
+    con.execute(
+        "CREATE TEMP TABLE t06_audit_versions(state_version_id VARCHAR,primary_cell VARCHAR,primary_route VARCHAR,strict_route VARCHAR,d INTEGER,g INTEGER)"
+    )
+    con.executemany(
+        "INSERT INTO t06_audit_versions VALUES(?,?,?,?,?,?)",
+        [
+            [
+                row["state_version_id"],
+                row["primary_cell"],
+                row["primary_route"],
+                row["strict_route"],
+                row["d"],
+                row["g"],
+            ]
+            for row in rows
+        ],
+    )
+    return rows
+
+
+def _event_identity_mismatch(con: duckdb.DuckDBPyConnection) -> int:
+    rows = con.execute(
+        """
+        SELECT e.state_version_id,e.event_id,e.security_id,
+               CAST(e.first_component_start_date AS VARCHAR),
+               CAST(e.first_qualification_time AS VARCHAR),
+               c.component_id,v.primary_cell
+        FROM r2_t06_replayed_event_zone e
+        JOIN t06_audit_versions v USING(state_version_id)
+        LEFT JOIN r2_t06_replayed_component c
+          ON c.route_id=v.primary_route
+         AND c.security_id=e.security_id
+         AND c.start_date=e.first_component_start_date
+        """
+    ).fetchall()
+    mismatches = 0
+    for state, event_id, security, start_date, qtime, component_id, cell in rows:
+        if component_id is None or qtime is None:
+            mismatches += 1
+            continue
+        expected, _ = canonical_event_id(
+            state, cell, security, component_id, _date(start_date), _timestamp(qtime)
+        )
+        mismatches += int(expected != event_id)
+    return mismatches
+
+
+def _read_transition_registry(
+    repo: Path, config: dict[str, Any]
+) -> set[tuple[str, str, str]]:
+    path = repo / config["t02_contracts"]["transition_registry"]
+    _require(path.exists(), "transition_registry_missing")
+    with path.open(encoding="utf-8", newline="") as handle:
+        return {
+            (row["from_state"], row["to_state"], row["reason_code"])
+            for row in csv.DictReader(handle)
+        }
+
+
+def _build_audits(
+    con: duckdb.DuckDBPyConnection,
+    config: dict[str, Any],
+    repo: Path,
+    mismatches: dict[str, int],
+) -> dict[str, list[dict[str, Any]]]:
+    versions = _audit_versions(con, config)
+    audits: dict[str, list[dict[str, Any]]] = {}
+    audits["r2_t06_atomic_interval_reconciliation.csv"] = []
+    interval_mismatch = int(
+        con.execute(
+            """
+            WITH expected AS (
+              SELECT route_id,security_id,
+                     row_number() OVER (
+                       PARTITION BY route_id,security_id ORDER BY start_date,end_date
+                     ) ordinal,start_date,end_date,confirmed_day_count,termination_reason
+              FROM src.route_atomic_interval
+              WHERE route_id IN (SELECT primary_route FROM t06_audit_versions)
+            ), observed AS (
+              SELECT route_id,security_id,ordinal,start_date,end_date,
+                     confirmed_day_count,termination_reason
+              FROM r2_t06_replayed_atomic_interval
+            )
+            SELECT (SELECT count(*) FROM (SELECT * FROM expected EXCEPT ALL SELECT * FROM observed))
+                 + (SELECT count(*) FROM (SELECT * FROM observed EXCEPT ALL SELECT * FROM expected))
+            """
+        ).fetchone()[0]
+    )
+    audits["r2_t06_atomic_interval_reconciliation.csv"].append(
+        _audit_row(
+            "atomic_interval_geometry",
+            "selected_primary_routes",
+            "replayed route/security/start/end/count/termination",
+            "committed T03 route_atomic_interval semantic rows",
+            interval_mismatch,
+        )
+    )
+
+    component_mismatch = int(
+        con.execute(
+            """
+            SELECT count(*)
+            FROM r2_t06_replayed_component c
+            JOIN t06_audit_versions v ON v.primary_route=c.route_id
+            WHERE c.qualified IS DISTINCT FROM (c.confirmed_day_count >= v.d)
+               OR (c.qualified AND c.qualification_time IS NULL)
+               OR (NOT c.qualified AND c.qualification_time IS NOT NULL)
+            """
+        ).fetchone()[0]
+    )
+    audits["r2_t06_component_qualification_reconciliation.csv"] = [
+        _audit_row(
+            "component_qualification_lineage",
+            "all replayed components",
+            "qualified iff confirmed_day_count >= configured d",
+            "qualification_time present exactly for qualified components",
+            component_mismatch,
+        )
+    ]
+
+    allowed_transitions = _read_transition_registry(repo, config)
+    invalid_transitions = 0
+    for from_state, to_state, reason in con.execute(
+        "SELECT from_state,to_state,reason_code FROM r2_t06_replayed_transition_ledger"
+    ).fetchall():
+        invalid_transitions += int(
+            (from_state, to_state, reason) not in allowed_transitions
+        )
+    orphan_transitions = int(
+        con.execute(
+            """
+            SELECT count(*) FROM r2_t06_replayed_transition_ledger t
+            LEFT JOIN r2_t06_replayed_event_zone e
+              ON e.state_version_id=t.state_version_id AND e.event_id=t.event_id
+             AND e.security_id=t.security_id
+            WHERE t.event_id IS NOT NULL AND e.event_id IS NULL
+            """
+        ).fetchone()[0]
+    )
+    transition_mismatch = invalid_transitions + orphan_transitions
+    audits["r2_t06_event_transition_reconciliation.csv"] = [
+        _audit_row(
+            "transition_registry_and_event_linkage",
+            "replayed transition ledger",
+            f"invalid_registry={invalid_transitions};orphan_event={orphan_transitions}",
+            "every transition is in committed registry and links to same-version event",
+            transition_mismatch,
+        )
+    ]
+
+    zone_mismatch = int(
+        con.execute(
+            """
+            WITH m AS (
+              SELECT state_version_id,event_id,security_id,
+                     sum(CASE WHEN retrospective_component_member AND confirmed_state
+                              THEN 1 ELSE 0 END) qualified_confirmed_days,
+                     sum(CASE WHEN is_bridged_gap THEN 1 ELSE 0 END) bridge_days,
+                     max(zone_revision)+1 revisions,
+                     count(*) membership_rows
+              FROM r2_t06_replayed_event_membership
+              GROUP BY ALL
+            )
+            SELECT count(*) FROM r2_t06_replayed_event_zone e
+            LEFT JOIN m USING(state_version_id,event_id,security_id)
+            WHERE coalesce(m.qualified_confirmed_days,0) <> e.zone_confirmed_day_count
+               OR coalesce(m.bridge_days,0) <> e.bridged_gap_days
+               OR coalesce(m.revisions,0) <> e.zone_revision_count
+               OR coalesce(m.membership_rows,0) < e.zone_trading_span
+               OR coalesce(m.membership_rows,0) > e.zone_trading_span + 2
+            """
+        ).fetchone()[0]
+    )
+    audits["r2_t06_event_zone_reconciliation.csv"] = [
+        _audit_row(
+            "event_zone_geometry",
+            "event rows versus event membership",
+            "confirmed component days, bridge days, revisions, membership span",
+            "event aggregate fields equal independently queried membership aggregates",
+            zone_mismatch,
+        )
+    ]
+
+    membership_mismatch = int(
+        con.execute(
+            """
+            SELECT count(*)
+            FROM r2_t06_replayed_event_membership
+            WHERE qualified_event_risk_set_eligible IS DISTINCT FROM (
+                state_risk_set_eligible AND event_zone_member
+                AND component_qualified_as_of
+                AND NOT is_bridged_gap
+                AND NOT is_prequalification_confirmed_day
+                AND NOT is_unqualified_reentry_day
+            )
+               OR (is_bridged_gap AND state_risk_set_eligible)
+               OR (is_prequalification_confirmed_day AND qualified_event_risk_set_eligible)
+               OR (is_unqualified_reentry_day AND qualified_event_risk_set_eligible)
+            """
+        ).fetchone()[0]
+    )
+    audits["r2_t06_membership_reconciliation.csv"] = [
+        _audit_row(
+            "membership_risk_and_flag_formula",
+            "all replayed membership rows",
+            "risk flags and bridge/prequalification/reentry exclusions",
+            "frozen membership formula with no excluded row in qualified risk",
+            membership_mismatch,
+        )
+    ]
+
+    lookahead_mismatch = int(
+        con.execute(
+            """
+            SELECT count(*)
+            FROM r2_t06_replayed_event_membership m
+            JOIN t06_audit_versions v USING(state_version_id)
+            JOIN src.route_dense_input r
+              ON r.route_id=v.primary_route AND r.security_id=m.security_id
+             AND r.trade_date=m.trade_date
+            WHERE m.membership_available_time < try_cast(r.available_time AS TIMESTAMPTZ)
+            """
+        ).fetchone()[0]
+    )
+    audits["r2_t06_no_lookahead_audit.csv"] = [
+        _audit_row(
+            "membership_availability_not_before_source",
+            "same security/trade date primary source rows",
+            "membership_available_time earlier than source available_time",
+            0,
+            lookahead_mismatch,
+        )
+    ]
+
+    exit_mismatch = int(
+        con.execute(
+            """
+            SELECT count(*) FROM r2_t06_replayed_event_zone
+            WHERE zone_status NOT IN ('FINALIZED','FINALIZED_WITH_QUALITY_BREAK','RIGHT_CENSORED')
+               OR (right_censored AND zone_finalization_time IS NOT NULL)
+               OR (NOT right_censored AND zone_finalization_time IS NULL)
+               OR exit_reason IS NULL OR exit_reason=''
+            """
+        ).fetchone()[0]
+    )
+    audits["r2_t06_exit_censor_audit.csv"] = [
+        _audit_row(
+            "event_exit_and_censor_semantics",
+            "all replayed events",
+            "status, finalization time, right censor flag and exit reason",
+            "terminal statuses and timing fields are mutually consistent",
+            exit_mismatch,
+        )
+    ]
+
+    identity_mismatch = _event_identity_mismatch(con)
+    duplicate_event_ids = int(
+        con.execute(
+            "SELECT count(*)-count(DISTINCT event_id) FROM r2_t06_replayed_event_zone"
+        ).fetchone()[0]
+    )
+    revision_mismatch = identity_mismatch + max(duplicate_event_ids, 0)
+    audits["r2_t06_event_id_revision_audit.csv"] = [
+        _audit_row(
+            "event_identity_and_revision",
+            "all replayed events",
+            f"identity_mismatch={identity_mismatch};duplicate_event_ids={duplicate_event_ids}",
+            "canonical event hash matches first qualified component identity and IDs are unique",
+            revision_mismatch,
+        )
+    ]
+
+    strict_mismatch = int(
+        con.execute(
+            "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE strict_core_member AND NOT confirmed_state"
+        ).fetchone()[0]
+    )
+    audits["r2_t06_strict_core_risk_set_audit.csv"] = [
+        _audit_row(
+            "strict_core_subset",
+            "daily strict-core rows",
+            "strict_core_member rows outside confirmed state",
+            0,
+            strict_mismatch,
+        )
+    ]
+
+    selected_states = {v["state_version_id"] for v in config["selected_versions"]}
+    unselected_mismatch = int(
+        con.execute(
+            "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE state_version_id NOT IN (SELECT state_version_id FROM t06_audit_versions)"
+        ).fetchone()[0]
+    )
+    observed_states = {
+        row[0]
+        for row in con.execute(
+            "SELECT DISTINCT state_version_id FROM r2_t06_replayed_daily_state"
+        ).fetchall()
+    }
+    unselected_mismatch += int(observed_states != selected_states)
+    audits["r2_t06_unselected_exclusion_audit.csv"] = [
+        _audit_row(
+            "selected_state_version_exclusion",
+            "replayed output state versions",
+            sorted(observed_states),
+            sorted(selected_states),
+            unselected_mismatch,
+        )
+    ]
+
+    geometry_rows: list[dict[str, Any]] = []
+    for version in versions:
+        state = version["state_version_id"]
+        observed = {
+            "daily": int(
+                con.execute(
+                    "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE state_version_id=?",
+                    [state],
+                ).fetchone()[0]
+            ),
+            "event": int(
+                con.execute(
+                    "SELECT count(*) FROM r2_t06_replayed_event_zone WHERE state_version_id=?",
+                    [state],
+                ).fetchone()[0]
+            ),
+            "membership": int(
+                con.execute(
+                    "SELECT count(*) FROM r2_t06_replayed_event_membership WHERE state_version_id=?",
+                    [state],
+                ).fetchone()[0]
+            ),
+            "daily_duplicate_excess": int(
+                con.execute(
+                    "SELECT count(*)-count(DISTINCT security_id || '|' || trade_date) FROM r2_t06_replayed_daily_state WHERE state_version_id=?",
+                    [state],
+                ).fetchone()[0]
+            ),
+        }
+        expected = {
+            "daily": int(
+                con.execute(
+                    "SELECT count(*) FROM src.route_dense_input WHERE route_id=?",
+                    [version["primary_route"]],
+                ).fetchone()[0]
+            ),
+            "event": int(
+                con.execute(
+                    "SELECT count(*) FROM src.event_zone WHERE candidate_cell_id=?",
+                    [version["primary_cell"]],
+                ).fetchone()[0]
+            ),
+            "membership_unique_key": True,
+        }
+        mismatch = int(observed["daily"] != expected["daily"])
+        mismatch += int(observed["event"] != expected["event"])
+        mismatch += max(observed["daily_duplicate_excess"], 0)
+        geometry_rows.append(
+            _audit_row(
+                "count_and_geometry",
+                state,
+                observed,
+                expected,
+                mismatch,
+                "event membership cardinality is checked separately by primary-key and zone audits",
+            )
+        )
+    audits["r2_t06_count_geometry_reconciliation.csv"] = geometry_rows
+
+    mismatches.update(
+        {
+            "atomic_interval": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_atomic_interval_reconciliation.csv"]
+            ),
+            "component": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_component_qualification_reconciliation.csv"]
+            ),
+            "transition": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_event_transition_reconciliation.csv"]
+            ),
+            "event_zone": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_event_zone_reconciliation.csv"]
+            ),
+            "membership": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_membership_reconciliation.csv"]
+            ),
+            "no_lookahead": sum(
+                r["mismatch_count"] for r in audits["r2_t06_no_lookahead_audit.csv"]
+            ),
+            "exit_censor": sum(
+                r["mismatch_count"] for r in audits["r2_t06_exit_censor_audit.csv"]
+            ),
+            "event_id": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_event_id_revision_audit.csv"]
+            ),
+            "strict_core": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_strict_core_risk_set_audit.csv"]
+            ),
+            "unselected": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_unselected_exclusion_audit.csv"]
+            ),
+            "count_geometry": sum(
+                r["mismatch_count"]
+                for r in audits["r2_t06_count_geometry_reconciliation.csv"]
+            ),
+        }
+    )
+    return audits
+
+
 def _write_compact(
     output_dir: Path,
-    con: duckdb.DuckDBPyConnection,
     config: dict[str, Any],
     run_id: str,
     startup: dict[str, Any],
     elapsed: float,
+    repo: Path,
 ) -> None:
-    daily_columns = (
-        "state_version_id,security_id,trade_date,eligible_state,raw_state,"
-        "confirmed_state,confirmation_time,component_qualified_as_of,"
-        "event_status_as_of,active_event_id_as_of,state_risk_set_eligible,"
-        "qualified_event_risk_set_eligible,strict_core_member,quality_state,"
-        "candidate_config_id"
-    )
-    event_columns = (
-        "state_version_id,event_id,security_id,first_component_start_date,"
-        "first_qualification_time,last_confirmed_end_date,last_exit_observation_time,"
-        "zone_finalization_time,zone_status,exit_reason,left_censored,right_censored,"
-        "component_interval_count,bridge_count,bridged_gap_days,zone_confirmed_day_count,"
-        "zone_trading_span,confirmed_density,bridged_gap_ratio,zone_revision_count"
-    )
-    membership_columns = (
-        "state_version_id,event_id,security_id,trade_date,confirmed_state,"
-        "component_member,retrospective_component_member,component_qualified_as_of,"
-        "event_zone_member,is_prequalification_confirmed_day,is_bridged_gap,"
-        "is_unqualified_reentry_day,event_status_as_of,zone_revision,"
-        "membership_available_time,state_risk_set_eligible,"
-        "qualified_event_risk_set_eligible"
-    )
-    mismatches = {
-        "daily": _compare_table(
-            con,
-            "r2_t06_replayed_daily_state",
-            "canon.r2_canonical_daily_state",
-            daily_columns.split(","),
-        ),
-        "event": _compare_table(
-            con,
-            "r2_t06_replayed_event_zone",
-            "canon.r2_canonical_event_zone",
-            event_columns.split(","),
-        ),
-        "membership": _compare_table(
-            con,
-            "r2_t06_replayed_event_membership",
-            "canon.r2_canonical_event_membership",
-            membership_columns.split(","),
-        ),
-    }
-    _require(
-        not any(mismatches.values()), f"t05_exact_reconciliation_failed:{mismatches}"
-    )
-    counts = []
-    for version in config["selected_versions"]:
-        state = version["state_version_id"]
-        counts.append(
-            {
-                "state_version_id": state,
-                "daily_rows": con.execute(
-                    "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE state_version_id=?",
-                    [state],
-                ).fetchone()[0],
-                "qualified_risk_rows": con.execute(
-                    "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE state_version_id=? AND qualified_event_risk_set_eligible",
-                    [state],
-                ).fetchone()[0],
-                "event_rows": con.execute(
-                    "SELECT count(*) FROM r2_t06_replayed_event_zone WHERE state_version_id=?",
-                    [state],
-                ).fetchone()[0],
-                "membership_rows": con.execute(
-                    "SELECT count(*) FROM r2_t06_replayed_event_membership WHERE state_version_id=?",
-                    [state],
-                ).fetchone()[0],
-                "status": "passed",
-            }
+    database = output_dir / config["output"]["database_name"]
+    con = duckdb.connect(str(database), read_only=True)
+    _attach_readonly(con, startup["t03_database_path"], "src")
+    _attach_readonly(con, startup["t05_database_path"], "canon")
+    try:
+        daily_columns = (
+            "state_version_id,security_id,trade_date,eligible_state,raw_state,"
+            "confirmed_state,confirmation_time,component_qualified_as_of,"
+            "event_status_as_of,active_event_id_as_of,state_risk_set_eligible,"
+            "qualified_event_risk_set_eligible,strict_core_member,quality_state,"
+            "candidate_config_id"
         )
-    rows = [
-        {
-            "check": f"t05_canonical_{key}_exact",
-            "mismatch_count": value,
-            "status": "passed",
+        event_columns = (
+            "state_version_id,event_id,security_id,first_component_start_date,"
+            "first_qualification_time,last_confirmed_end_date,last_exit_observation_time,"
+            "zone_finalization_time,zone_status,exit_reason,left_censored,right_censored,"
+            "component_interval_count,bridge_count,bridged_gap_days,zone_confirmed_day_count,"
+            "zone_trading_span,confirmed_density,bridged_gap_ratio,zone_revision_count"
+        )
+        membership_columns = (
+            "state_version_id,event_id,security_id,trade_date,confirmed_state,"
+            "component_member,retrospective_component_member,component_qualified_as_of,"
+            "event_zone_member,is_prequalification_confirmed_day,is_bridged_gap,"
+            "is_unqualified_reentry_day,event_status_as_of,zone_revision,"
+            "membership_available_time,state_risk_set_eligible,"
+            "qualified_event_risk_set_eligible"
+        )
+        mismatches = {
+            "daily": _compare_table(
+                con,
+                "r2_t06_replayed_daily_state",
+                "canon.r2_canonical_daily_state",
+                daily_columns.split(","),
+            ),
+            "event": _compare_table(
+                con,
+                "r2_t06_replayed_event_zone",
+                "canon.r2_canonical_event_zone",
+                event_columns.split(","),
+            ),
+            "membership": _compare_table(
+                con,
+                "r2_t06_replayed_event_membership",
+                "canon.r2_canonical_event_membership",
+                membership_columns.split(","),
+            ),
         }
-        for key, value in mismatches.items()
-    ]
-    for name, fieldnames, data in [
-        (
-            "r2_t06_replay_version_registry.csv",
+        _require(
+            not any(mismatches.values()),
+            f"t05_exact_reconciliation_failed:{mismatches}",
+        )
+        audit_rows = _build_audits(con, config, repo, mismatches)
+        required_audits = {
+            name
+            for name in config["output"]["compact_artifacts"]
+            if name.endswith(".csv")
+            and name
+            not in {
+                "r2_t06_replay_version_registry.csv",
+                "r2_t06_daily_state_reconciliation.csv",
+            }
+        }
+        _require(
+            set(audit_rows) == required_audits,
+            "formal_audit_registry_incomplete",
+        )
+        audit_fields = [
+            "audit",
+            "scope",
+            "observed",
+            "expected",
+            "mismatch_count",
+            "status",
+            "details",
+        ]
+        for name, rows in audit_rows.items():
+            write_csv(output_dir / name, rows, audit_fields)
+        counts = []
+        for version in config["selected_versions"]:
+            state = version["state_version_id"]
+            counts.append(
+                {
+                    "state_version_id": state,
+                    "daily_rows": con.execute(
+                        "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE state_version_id=?",
+                        [state],
+                    ).fetchone()[0],
+                    "qualified_risk_rows": con.execute(
+                        "SELECT count(*) FROM r2_t06_replayed_daily_state WHERE state_version_id=? AND qualified_event_risk_set_eligible",
+                        [state],
+                    ).fetchone()[0],
+                    "event_rows": con.execute(
+                        "SELECT count(*) FROM r2_t06_replayed_event_zone WHERE state_version_id=?",
+                        [state],
+                    ).fetchone()[0],
+                    "membership_rows": con.execute(
+                        "SELECT count(*) FROM r2_t06_replayed_event_membership WHERE state_version_id=?",
+                        [state],
+                    ).fetchone()[0],
+                    "status": "passed",
+                }
+            )
+        write_csv(
+            output_dir / "r2_t06_replay_version_registry.csv",
+            counts,
             [
                 "state_version_id",
                 "daily_rows",
@@ -1137,87 +1631,130 @@ def _write_compact(
                 "membership_rows",
                 "status",
             ],
-            counts,
-        ),
-        (
-            "r2_t06_daily_state_reconciliation.csv",
-            ["check", "mismatch_count", "status"],
-            rows,
-        ),
-    ]:
-        write_csv(output_dir / name, data, fieldnames)
-    for name in config["output"]["compact_artifacts"]:
-        path = output_dir / name
-        if path.exists():
-            continue
-        if name.endswith(".csv"):
-            write_csv(
-                path,
-                [{"check": name, "mismatch_count": 0, "status": "passed"}],
-                ["check", "mismatch_count", "status"],
-            )
-        elif name.endswith(".md"):
-            write_markdown(
-                path,
-                f"# R2-T06 实际结果分析\n\n正式回放 `{run_id}` 已生成。结果分析在产物关闭前基于实际 DuckDB 与 compact artifacts 完成。\n",
-            )
-        else:
-            write_json(
-                path,
+        )
+        write_csv(
+            output_dir / "r2_t06_daily_state_reconciliation.csv",
+            [
                 {
-                    "task_id": TASK_ID,
-                    "run_id": run_id,
-                    "status": "passed",
-                    "startup_authorization_mode": "merged_pr_direct_binding",
-                    "elapsed_seconds": elapsed,
-                },
-            )
+                    "check": f"t05_canonical_{key}_exact",
+                    "mismatch_count": value,
+                    "status": "passed" if value == 0 else "failed",
+                }
+                for key, value in mismatches.items()
+                if key in {"daily", "event", "membership"}
+            ],
+            ["check", "mismatch_count", "status"],
+        )
+        write_json(
+            output_dir / "r2_t06_source_readiness.json",
+            {
+                "task_id": TASK_ID,
+                "status": "passed",
+                "startup_status": "passed",
+                "startup_authorization_mode": "merged_pr_direct_binding",
+                "t05_authoritative_run": startup["authoritative_run"],
+            },
+        )
+        write_json(
+            output_dir / "r2_t06_replay_fingerprint.json",
+            {
+                "task_id": TASK_ID,
+                "run_id": run_id,
+                "database_sha256": json.loads(
+                    (output_dir / "r2_t06_materialization_complete.json").read_text(
+                        encoding="utf-8"
+                    )
+                )["database_sha256"],
+                "row_counts": counts,
+            },
+        )
+        write_markdown(
+            output_dir / "r2_t06_result_analysis.md",
+            "# R2-T06 实际结果分析\n\n"
+            f"正式回放 `{run_id}` 的 compact audits 均来自关闭后的只读 DuckDB 查询。"
+            "本文件只记录 author-stage 实际结果，不推进科学审阅或下游 gate。\n",
+        )
+        write_json(
+            output_dir / "r2_t06_experiment_summary.json",
+            {
+                "task_id": TASK_ID,
+                "run_id": run_id,
+                "status": "executed_pending_independent_validation",
+                "execution_commit": str(_git(repo, "rev-parse", "HEAD")),
+                "elapsed_seconds": elapsed,
+                "formal_run_executed": True,
+                "formal_task_completed": False,
+                "R2-T07_allowed_to_start": False,
+                "R3_allowed_to_start": False,
+            },
+        )
+        write_json(
+            output_dir / "r2_t06_result_package.json",
+            {
+                "task_id": TASK_ID,
+                "run_id": run_id,
+                "status": "executed_pending_independent_validation",
+                "scientific_review_status": "pending_independent_scientific_review",
+                "formal_task_completed": False,
+                "R2-T06_formal_run_allowed": True,
+                "R2-T07_allowed_to_start": False,
+                "R3_allowed_to_start": False,
+            },
+        )
+        write_json(
+            output_dir / "r2_t06_author_stage_scientific_review.json",
+            {
+                "task_id": TASK_ID,
+                "run_id": run_id,
+                "status": "pending_independent_scientific_review",
+                "scientific_review_status": "pending_independent_scientific_review",
+                "formal_task_completed": False,
+                "R2-T07_allowed_to_start": False,
+                "R3_allowed_to_start": False,
+            },
+        )
+    finally:
+        con.close()
+
+
+def _write_materialization_complete(
+    output_dir: Path,
+    config: dict[str, Any],
+    run_id: str,
+    execution_commit: str,
+) -> None:
+    database = output_dir / config["output"]["database_name"]
+    required_tables = {
+        "r2_t06_replayed_atomic_interval",
+        "r2_t06_replayed_component",
+        "r2_t06_replayed_event_zone",
+        "r2_t06_replayed_event_membership",
+        "r2_t06_replayed_transition_ledger",
+        "r2_t06_replayed_daily_state",
+    }
+    con = duckdb.connect(str(database), read_only=True)
+    try:
+        actual_tables = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
+        _require(
+            required_tables <= actual_tables, "materialization_required_table_missing"
+        )
+        row_counts = {
+            table: int(con.execute(f"SELECT count(*) FROM {table}").fetchone()[0])
+            for table in required_tables
+        }
+    finally:
+        con.close()
     write_json(
-        output_dir / "r2_t06_source_readiness.json",
+        output_dir / "r2_t06_materialization_complete.json",
         {
             "task_id": TASK_ID,
+            "run_id": run_id,
             "status": "passed",
-            "startup_status": "passed",
-            "startup_authorization_mode": "merged_pr_direct_binding",
-            "t05_authoritative_run": startup["authoritative_run"],
-        },
-    )
-    write_json(
-        output_dir / "r2_t06_replay_fingerprint.json",
-        {
-            "task_id": TASK_ID,
-            "run_id": run_id,
-            "database_sha256": _sha256_file(
-                output_dir / config["output"]["database_name"]
-            ),
-            "row_counts": counts,
-        },
-    )
-    write_json(
-        output_dir / "r2_t06_experiment_summary.json",
-        {
-            "task_id": TASK_ID,
-            "run_id": run_id,
-            "status": "executed_pending_independent_validation",
-            "execution_commit": str(_git(ROOT, "rev-parse", "HEAD")),
-            "elapsed_seconds": elapsed,
-            "formal_run_executed": True,
-            "formal_task_completed": False,
-            "R2-T07_allowed_to_start": False,
-            "R3_allowed_to_start": False,
-        },
-    )
-    write_json(
-        output_dir / "r2_t06_result_package.json",
-        {
-            "task_id": TASK_ID,
-            "run_id": run_id,
-            "status": "executed_pending_independent_validation",
-            "scientific_review_status": "pending_independent_scientific_review",
-            "formal_task_completed": False,
-            "R2-T06_formal_run_allowed": True,
-            "R2-T07_allowed_to_start": False,
-            "R3_allowed_to_start": False,
+            "execution_commit": execution_commit,
+            "database_sha256": _sha256_file(database),
+            "required_tables": sorted(required_tables),
+            "row_counts": row_counts,
+            "connection_closed_before_finalization": True,
         },
     )
 
@@ -1230,13 +1767,14 @@ def run_formal(config_path: Path, output_dir: Path, repo: Path = ROOT) -> Path:
     _require(not output_dir.exists(), "formal_output_directory_already_exists")
     output_dir.mkdir(parents=True)
     run_id = output_dir.name
-    con = duckdb.connect(str(output_dir / config["output"]["database_name"]))
-    con.execute("SET threads=1")
-    con.execute("SET memory_limit='8GB'")
-    con.execute("SET TimeZone='Asia/Shanghai'")
-    _attach_readonly(con, startup["t03_database_path"], "src")
-    _attach_readonly(con, startup["t05_database_path"], "canon")
+    database = output_dir / config["output"]["database_name"]
+    con: duckdb.DuckDBPyConnection | None = duckdb.connect(str(database))
     try:
+        con.execute("SET threads=1")
+        con.execute("SET memory_limit='8GB'")
+        con.execute("SET TimeZone='Asia/Shanghai'")
+        _attach_readonly(con, startup["t03_database_path"], "src")
+        _attach_readonly(con, startup["t05_database_path"], "canon")
         primary_routes = [
             con.execute(
                 "SELECT route_id FROM src.cell_registry WHERE candidate_cell_id=?",
@@ -1372,10 +1910,56 @@ def run_formal(config_path: Path, output_dir: Path, repo: Path = ROOT) -> Path:
         )
         _daily_asof(con, config["selected_versions"], run_id)
         _write_bindings(output_dir, config_path, config, startup, repo)
-        _write_compact(output_dir, con, config, run_id, startup, time.time() - started)
+        con.execute("CHECKPOINT")
+    except BaseException as exc:
+        if con is not None:
+            con.close()
+            con = None
+        write_json(
+            output_dir / "r2_t06_run_failure.json",
+            {
+                "task_id": TASK_ID,
+                "run_id": run_id,
+                "status": "incomplete",
+                "failure_type": type(exc).__name__,
+                "failure": str(exc),
+                "formal_run_executed": False,
+            },
+        )
+        raise
     finally:
-        con.close()
-    return output_dir / config["output"]["database_name"]
+        if con is not None:
+            con.close()
+    execution_commit = str(_git(repo, "rev-parse", "HEAD"))
+    _write_materialization_complete(output_dir, config, run_id, execution_commit)
+    try:
+        _write_compact(
+            output_dir,
+            config,
+            run_id,
+            startup,
+            time.time() - started,
+            repo,
+        )
+    except BaseException as exc:
+        for name in config["output"]["compact_artifacts"]:
+            path = output_dir / name
+            if path.exists() and path.name != "r2_t06_materialization_complete.json":
+                path.unlink()
+        write_json(
+            output_dir / "r2_t06_finalization_failure.json",
+            {
+                "task_id": TASK_ID,
+                "run_id": run_id,
+                "status": "incomplete",
+                "failure_type": type(exc).__name__,
+                "failure": str(exc),
+                "materialization_complete": True,
+                "formal_run_executed": False,
+            },
+        )
+        raise
+    return database
 
 
 __all__ = [
