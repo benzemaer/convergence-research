@@ -25,7 +25,9 @@ class R2StageRouteContract(unittest.TestCase):
     def test_t03_is_implemented_and_downstream_remains_closed(self):
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t02*")))
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t03*")))
-        for task in range(4, 9):
+        self.assertTrue(list((ROOT / "src/r2").glob("r2_t04*")))
+        self.assertTrue((ROOT / "data/generated/r2/r2_t04").exists())
+        for task in range(5, 9):
             self.assertFalse(list((ROOT / "src/r2").glob(f"r2_t{task:02d}*")))
             self.assertFalse((ROOT / f"data/generated/r2/r2_t{task:02d}").exists())
         current = (
