@@ -1,0 +1,3 @@
+state_version_id,source_event_rows,canonical_event_rows,security_count,component_count,bridge_count,bridged_gap_days,confirmed_days,trading_span,density_min,density_max,revision_min,revision_max,status
+r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8,4561,4561,771,4733,172,172,17536,18052,0.5714285714285714,1.0,1,3,passed
+r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8,1086,1086,579,1108,22,22,3495,3561,0.5714285714285714,1.0,1,3,passed

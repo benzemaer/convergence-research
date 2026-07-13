@@ -1,0 +1,3 @@
+state_version_id,expected_daily_rows,actual_daily_rows,eligible_rows,valid_rows,raw_true_rows,confirmed_rows,state_risk_rows,strict_core_rows,status
+r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8,1751066,1751066,1602732,1602732,52420,20474,20474,12476,passed
+r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8,1751066,1751066,1601692,1601692,16073,4564,4564,2939,passed

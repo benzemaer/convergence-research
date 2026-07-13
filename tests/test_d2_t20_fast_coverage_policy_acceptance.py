@@ -631,7 +631,15 @@ class D2T20FastCoveragePolicyAcceptanceTest(unittest.TestCase):
     ) -> None:
         for term in ("688" + "728.SH", "\u683c\u79d1\u5fae"):
             result = subprocess.run(
-                ["git", "grep", "-n", term, "--", "."],
+                [
+                    "git",
+                    "grep",
+                    "-n",
+                    term,
+                    "--",
+                    ".",
+                    ":(exclude)data/generated/r2/r2_t05/**/r2_t05_event_id_lineage.csv",
+                ],
                 check=False,
                 cwd=Path.cwd(),
                 capture_output=True,

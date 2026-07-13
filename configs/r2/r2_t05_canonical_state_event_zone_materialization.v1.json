@@ -1,0 +1,219 @@
+{
+  "$schema": "../../schemas/r2/r2_t05_canonical_materialization.schema.json",
+  "task_id": "R2-T05",
+  "config_version": "r2_t05_canonical_state_event_zone_materialization.v1",
+  "contract_version": "r2_t02_confirmed_event_zone_state_machine_contract.v8",
+  "stage": "R2",
+  "artifact_lifecycle": "author_stage",
+  "startup": {
+    "handoff_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_repository_final_gate_handoff.json",
+    "handoff_validation_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_repository_final_gate_handoff_validation.json",
+    "required": {
+      "scientific_review_status": "passed",
+      "repository_final_gate_status": "passed",
+      "formal_task_completed": true,
+      "R2-T05_allowed_to_start": true,
+      "R3_allowed_to_start": false
+    },
+    "required_committed_inputs": [
+      "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_decision.json",
+      "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_plan_manifest.json",
+      "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_phase_b_independent_validation.json"
+    ]
+  },
+  "inputs": {
+    "t04_user_decision_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_user_decision_record.json",
+    "t04_freeze_decision_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_decision.json",
+    "t04_freeze_plan_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_plan_manifest.json",
+    "t04_phase_b_independent_validation_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_phase_b_independent_validation.json",
+    "t04_result_package_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_result_package.json",
+    "t04_output_manifest_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_output_manifest.json",
+    "t03_result_package_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_result_package.json",
+    "t03_input_binding_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_input_binding.json",
+    "t03_source_readiness_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_source_readiness.json",
+    "t03_cell_execution_registry_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_cell_execution_registry.csv",
+    "t03_metric_results_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_metric_results.csv",
+    "t03_runtime_gate_results_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_runtime_gate_results.csv",
+    "t03_independent_validation_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_independent_validation.json",
+    "t03_anomaly_scan_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_anomaly_scan.json",
+    "t03_event_zone_scan_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_event_zone_scan.duckdb",
+    "t02_confirmed_state_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_confirmed_state_machine_contract.json",
+    "t02_event_zone_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_zone_machine_contract.json",
+    "t02_event_rule_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_rule_contract.json",
+    "t02_transition_registry_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_transition_registry.csv",
+    "t02_risk_set_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_r3_risk_set_contract.json",
+    "t02_output_contract_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json",
+    "t02_repository_final_gate_handoff_path": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_repository_final_gate_handoff.json"
+  },
+  "runtime": {
+    "parallel_mode": "single_worker",
+    "worker_count": 1,
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "8GB",
+    "timezone": "Asia/Shanghai",
+    "random_seed": 0
+  },
+  "selected_versions": [
+    {
+      "state_version_id": "r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8",
+      "source_candidate_cell_id": "r2_s_pct_w120_qt25_primary__d2__g1",
+      "state_line": "S_PCT",
+      "window_track_id": "W120",
+      "W": 120,
+      "K": 3,
+      "qP": 0.2,
+      "qC": 0.2,
+      "qT": 0.25,
+      "qV": 0.2,
+      "d": 2,
+      "g": 1,
+      "strict_core_enabled": true,
+      "strict_core_source_candidate_cell_id": "r2_s_pct_w120_q20_shared__d2__g1"
+    },
+    {
+      "state_version_id": "r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8",
+      "source_candidate_cell_id": "r2_s_pcvt_w120_qv30_primary__d2__g1",
+      "state_line": "S_PCVT",
+      "window_track_id": "W120",
+      "W": 120,
+      "K": 3,
+      "qP": 0.2,
+      "qC": 0.2,
+      "qT": 0.2,
+      "qV": 0.3,
+      "d": 2,
+      "g": 1,
+      "strict_core_enabled": true,
+      "strict_core_source_candidate_cell_id": "r2_s_pcvt_w120_q20_shared__d2__g1"
+    }
+  ],
+  "exclusions": {
+    "W250_materialized_version_count": 0,
+    "shared_q_independent_state_version_count": 0,
+    "PCT_parent_product_count": 0,
+    "additional_selected_candidate_count": 0,
+    "shared_q_event_count": 0
+  },
+  "event_id": {
+    "algorithm": "sha256",
+    "serialization": "utf8_json_sort_keys_compact_no_nan",
+    "identity_inputs": [
+      "contract_version",
+      "state_version_id",
+      "security_id",
+      "first_qualified_component_identity"
+    ],
+    "first_qualified_component_identity_fields": [
+      "source_candidate_cell_id",
+      "first_component_id",
+      "first_component_start_date",
+      "first_qualification_time"
+    ],
+    "zone_revision_excluded": true,
+    "later_components_excluded": true,
+    "source_scan_event_excluded": true
+  },
+  "mapping": {
+    "retrospective_component_member": "source.event_zone_membership_daily.retrospective_component_member",
+    "is_prequalification_confirmed_day": "source.event_zone_membership_daily.prequalification_member",
+    "is_unqualified_reentry_day": "source.event_zone_membership_daily.unqualified_reentry_member",
+    "is_bridged_gap": "source.event_zone_membership_daily.is_raw_false_bridge",
+    "component_member_definition": "trade_date is within a component interval explicitly attached to the source event by first component, accepted bridge endpoints, or reentry source component",
+    "left_censored_definition": "first qualified component start_date equals the first observed route_daily trade_date for the same security and selected route",
+    "right_censored_definition": "source event status is RIGHT_CENSORED or attached component lineage censor_status is right_censored",
+    "terminal_membership_definition": "one explicit decision row at zone_finalization_time for finalized source zones when the source membership ledger has no row at that trade_date"
+  },
+  "canonical_enums": {
+    "event_status_as_of": [
+      "NO_EVENT",
+      "COMPONENT_FORMING",
+      "QUALIFIED_ACTIVE",
+      "GAP_PENDING",
+      "REENTRY_PENDING_QUALIFICATION",
+      "FINALIZED",
+      "FINALIZED_WITH_QUALITY_BREAK",
+      "RIGHT_CENSORED"
+    ],
+    "zone_status": [
+      "FINALIZED",
+      "FINALIZED_WITH_QUALITY_BREAK",
+      "RIGHT_CENSORED"
+    ],
+    "quality_state": [
+      "valid",
+      "unknown",
+      "blocked",
+      "diagnostic_required",
+      "expected_empty",
+      "missing_expected_trading_row"
+    ],
+    "exit_reason": [
+      "raw_false_gap_exceeds_g",
+      "quality_break",
+      "unqualified_reentry_blocks_merge",
+      "sample_end_open_zone",
+      "sample_end_before_requalification",
+      "sample_end_before_qualification"
+    ]
+  },
+  "formal_source_paths": [
+    "configs/r2/r2_t05_canonical_state_event_zone_materialization.v1.json",
+    "schemas/r2/r2_t05_canonical_materialization.schema.json",
+    "src/r2/r2_t05_canonical_materialization.py",
+    "src/r2/r2_t05_independent_validator.py",
+    "scripts/r2/run_r2_t05_canonical_materialization.py",
+    "scripts/r2/validate_r2_t05_materialization.py",
+    "scripts/r2/validate_r2_t05_committed_artifacts.py"
+  ],
+  "output": {
+    "database_name": "r2_t05_canonical_materialization.duckdb",
+    "run_directory_template": "data/generated/r2/r2_t05/R2-T05-<UTC timestamp>",
+    "compact_artifacts": [
+      "r2_t05_source_readiness.json",
+      "r2_t05_input_binding.json",
+      "r2_t05_version_materialization_map.csv",
+      "r2_t05_event_id_lineage.csv",
+      "r2_t05_selected_cell_reconciliation.csv",
+      "r2_t05_daily_reconciliation.csv",
+      "r2_t05_event_reconciliation.csv",
+      "r2_t05_membership_reconciliation.csv",
+      "r2_t05_strict_core_reconciliation.csv",
+      "r2_t05_availability_time_audit.csv",
+      "r2_t05_risk_set_audit.csv",
+      "r2_t05_exit_censor_reason_profile.csv",
+      "r2_t05_table_fingerprint.json",
+      "r2_t05_independent_validation.json",
+      "r2_t05_anomaly_scan.json",
+      "r2_t05_result_analysis.md",
+      "r2_t05_experiment_summary.json",
+      "r2_t05_output_manifest.json",
+      "r2_t05_result_package.json",
+      "r2_t05_committed_artifact_validation.json",
+      "r2_t05_author_stage_scientific_review.json"
+    ]
+  },
+  "tables": {
+    "r2_canonical_daily_state": {
+      "primary_key": ["state_version_id", "security_id", "trade_date"],
+      "sorting": ["state_version_id", "security_id", "trade_date"],
+      "denominator": "authoritative base_expected_security_date keys per selected route",
+      "source_table": "route_daily plus as-of event membership and selected shared route",
+      "lineage_key": ["state_version_id", "candidate_config_id", "security_id", "trade_date"],
+      "required_fields": ["state_version_id", "state_line", "window_track_id", "security_id", "trade_date", "eligible_state", "raw_state", "confirmed_state", "confirmation_time", "component_qualified_as_of", "event_status_as_of", "active_event_id_as_of", "state_risk_set_eligible", "qualified_event_risk_set_eligible", "strict_core_member", "quality_state", "candidate_config_id", "source_run_id"]
+    },
+    "r2_canonical_event_zone": {
+      "primary_key": ["state_version_id", "event_id"],
+      "sorting": ["state_version_id", "security_id", "first_component_start_date", "event_id"],
+      "denominator": "selected primary source event zones",
+      "source_table": "event_zone plus qualified_component, component_source_lineage, route_daily, event_zone_bridge_segment and reentry_attempt",
+      "lineage_key": ["state_version_id", "source_candidate_cell_id", "source_scan_event_id"]
+    },
+    "r2_canonical_event_membership": {
+      "primary_key": ["state_version_id", "event_id", "security_id", "trade_date"],
+      "sorting": ["state_version_id", "security_id", "trade_date", "event_id"],
+      "denominator": "source membership ledger rows plus explicit terminal decision rows",
+      "source_table": "event_zone_membership_daily plus terminal route_daily rows",
+      "lineage_key": ["state_version_id", "event_id", "security_id", "trade_date"]
+    }
+  }
+}
