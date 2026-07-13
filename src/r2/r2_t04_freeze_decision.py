@@ -114,17 +114,12 @@ def _metric_profiles(
         key = "candidate_cell_id"
         if name == "atomic_interval_diagnostic_profile":
             key = "route_id"
-        elif name in {
-            "parameter_invariant_profile",
-            "window_diagnostic_profile",
-            "strict_core_diagnostic_profile",
-            "strict_core_shell_profile",
-        }:
-            key = (
-                "candidate_cell_id"
-                if "candidate_cell_id" in rows[0]
-                else "primary_candidate_cell_id"
-            )
+        elif "candidate_cell_id" not in rows[0]:
+            key = "primary_candidate_cell_id"
+        if key not in rows[0]:
+            for index, row in enumerate(rows):
+                row["_row_index"] = str(index)
+            key = "_row_index"
         result[name] = {row[key]: row for row in rows}
     return result
 
