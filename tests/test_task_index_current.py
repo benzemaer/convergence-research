@@ -12,11 +12,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "current_task: R2-T05 canonical daily state、event zone 与 membership 物化",
+            "current_task: R2-T06 canonical 状态机无前视回放与一致性验收",
             current,
         )
         self.assertIn(
-            "next_planned_task: R2-T06 canonical 状态机无前视回放与一致性验收",
+            "next_planned_task: R2-T07",
             current,
         )
         self.assertIn(
