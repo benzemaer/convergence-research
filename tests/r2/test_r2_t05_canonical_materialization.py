@@ -9,6 +9,7 @@ import duckdb
 from src.r2.r2_t05_canonical_materialization import (
     _canonical_json,
     _create_output_schema,
+    _daily_semantic_audit,
     _event_identity,
     _materialize_daily,
 )
@@ -103,6 +104,45 @@ class R2T05CanonicalMaterializationContractTest(unittest.TestCase):
     def test_daily_asof_join_is_scoped_by_state_version(self) -> None:
         con = duckdb.connect(":memory:")
         con.execute("CREATE SCHEMA src")
+        con.execute(
+            """
+            CREATE TABLE src.cell_registry(
+              candidate_cell_id VARCHAR, route_id VARCHAR
+            );
+            CREATE TABLE src.qualified_component(
+              candidate_cell_id VARCHAR, security_id VARCHAR, component_id VARCHAR,
+              start_date DATE, end_date DATE, qualified BOOLEAN,
+              event_qualification_time TIMESTAMPTZ
+            );
+            CREATE TABLE src.event_zone(
+              candidate_cell_id VARCHAR, security_id VARCHAR, scan_event_id VARCHAR,
+              first_component_id VARCHAR, zone_finalization_time TIMESTAMPTZ,
+              status VARCHAR
+            );
+            CREATE TABLE src.event_zone_bridge_segment(
+              candidate_cell_id VARCHAR, security_id VARCHAR, scan_event_id VARCHAR,
+              left_component_id VARCHAR, right_component_id VARCHAR,
+              merge_accepted BOOLEAN
+            );
+            CREATE TABLE src.reentry_attempt(
+              candidate_cell_id VARCHAR, security_id VARCHAR, scan_event_id VARCHAR,
+              source_component_id VARCHAR, start_date DATE, end_date DATE,
+              outcome VARCHAR
+            );
+            CREATE TABLE src.event_zone_membership_daily(
+              candidate_cell_id VARCHAR, security_id VARCHAR, trade_date DATE,
+              available_time TIMESTAMPTZ, evaluation_time TIMESTAMPTZ,
+              scan_event_id VARCHAR, zone_status_as_of VARCHAR,
+              event_zone_member BOOLEAN, component_qualified_as_of BOOLEAN,
+              is_raw_false_bridge BOOLEAN, prequalification_member BOOLEAN,
+              unqualified_reentry_member BOOLEAN
+            );
+            """
+        )
+        con.executemany(
+            "INSERT INTO src.cell_registry VALUES (?,?)",
+            [("cell-a", "primary-a"), ("cell-b", "primary-b")],
+        )
         con.execute(
             """
             CREATE TABLE src.route_daily(
@@ -287,7 +327,7 @@ class R2T05CanonicalMaterializationContractTest(unittest.TestCase):
                     True,
                     True,
                     False,
-                    True,
+                    False,
                     True,
                     False,
                     False,
@@ -296,7 +336,7 @@ class R2T05CanonicalMaterializationContractTest(unittest.TestCase):
                     1,
                     "2024-01-02 11:00:00+08:00",
                     True,
-                    True,
+                    False,
                 ),
                 (
                     "state-b",
@@ -319,6 +359,99 @@ class R2T05CanonicalMaterializationContractTest(unittest.TestCase):
                 ),
             ],
         )
+        con.executemany(
+            "INSERT INTO src.event_zone VALUES (?,?,?,?,?,?)",
+            [
+                (
+                    "cell-a",
+                    "000001.SZ",
+                    "scan-a",
+                    "comp-a",
+                    "2024-01-02 12:00:00+08:00",
+                    "FINALIZED",
+                ),
+                (
+                    "cell-b",
+                    "000001.SZ",
+                    "scan-b",
+                    "comp-b",
+                    "2024-01-02 10:00:00+08:00",
+                    "FINALIZED",
+                ),
+            ],
+        )
+        con.executemany(
+            "INSERT INTO src.qualified_component VALUES (?,?,?,?,?,?,?)",
+            [
+                (
+                    "cell-a",
+                    "000001.SZ",
+                    "comp-a",
+                    "2024-01-02",
+                    "2024-01-02",
+                    True,
+                    "2024-01-02 10:00:00+08:00",
+                ),
+                (
+                    "cell-b",
+                    "000001.SZ",
+                    "comp-b",
+                    "2024-01-02",
+                    "2024-01-02",
+                    False,
+                    "2024-01-02 10:00:00+08:00",
+                ),
+            ],
+        )
+        con.execute(
+            """
+            CREATE TEMP TABLE t05_event_map(
+              state_version_id VARCHAR, source_candidate_cell_id VARCHAR,
+              source_scan_event_id VARCHAR, security_id VARCHAR,
+              first_component_id VARCHAR, first_component_start_date DATE,
+              first_qualification_time TIMESTAMPTZ, canonical_event_id VARCHAR,
+              identity_payload VARCHAR, identity_payload_sha256 VARCHAR
+            )
+            """
+        )
+        con.executemany(
+            "INSERT INTO t05_event_map VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                (
+                    "state-a", "cell-a", "scan-a", "000001.SZ", "comp-a",
+                    "2024-01-02", "2024-01-02 10:00:00+08:00", "event-a", "{}", "hash-a",
+                ),
+                (
+                    "state-b", "cell-b", "scan-b", "000001.SZ", "comp-b",
+                    "2024-01-02", "2024-01-02 10:00:00+08:00", "event-b", "{}", "hash-b",
+                ),
+            ],
+        )
+        con.execute(
+            """
+            CREATE TEMP TABLE t05_component_map AS
+            SELECT canonical_event_id,state_version_id,source_candidate_cell_id,
+                   source_scan_event_id,security_id,first_component_id component_id
+            FROM t05_event_map
+            """
+        )
+        con.execute(
+            """
+            INSERT INTO r2_t05_event_id_lineage
+            SELECT state_version_id,source_candidate_cell_id,source_scan_event_id,
+                   security_id,first_component_id,canonical_event_id,
+                   identity_payload,identity_payload_sha256,'synthetic-run'
+            FROM t05_event_map
+            """
+        )
+        con.execute(
+            """
+            INSERT INTO src.event_zone_membership_daily VALUES
+            ('cell-a','000001.SZ','2024-01-02','2024-01-02 11:00:00+08:00',
+             '2024-01-02 11:00:00+08:00','scan-a','QUALIFIED_ACTIVE',true,true,
+             false,false,false)
+            """
+        )
         _materialize_daily(con, "synthetic-run")
         rows = con.execute(
             """
@@ -339,6 +472,18 @@ class R2T05CanonicalMaterializationContractTest(unittest.TestCase):
         )
         self.assertEqual(
             _independent_daily_asof_mismatch(con, "state-b", "primary-b"), 0
+        )
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET component_qualified_as_of=false, qualified_event_risk_set_eligible=false WHERE state_version_id='state-a'"
+        )
+        semantic = _daily_semantic_audit(con, "state-a")
+        self.assertGreater(semantic["daily_component_qualified_key_mismatch"], 0)
+        self.assertGreater(semantic["qualified_component_transition_mismatch"], 0)
+        self.assertEqual(
+            _independent_daily_asof_mismatch(con, "state-a", "primary-a"), 1
+        )
+        con.execute(
+            "UPDATE r2_canonical_daily_state SET component_qualified_as_of=true, qualified_event_risk_set_eligible=true WHERE state_version_id='state-a'"
         )
         con.execute(
             "UPDATE r2_canonical_daily_state SET active_event_id_as_of='event-b' WHERE state_version_id='state-a'"

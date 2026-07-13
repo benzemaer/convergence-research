@@ -876,24 +876,84 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
     )
     con.execute(
         """
-        CREATE TEMP TABLE t05_daily_asof AS
-        SELECT d.*,coalesce(a.component_qualified_as_of,false) component_qualified_as_of,
-               coalesce(a.event_status_as_of,'NO_EVENT') event_status_as_of,
-               CASE WHEN a.event_status_as_of IN ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION') THEN a.event_id ELSE NULL END active_event_id_as_of,
-               coalesce(a.qualified_event_risk_set_eligible,false)
-                 AND d.state_risk_set_eligible qualified_event_risk_set_eligible
+        CREATE TEMP TABLE t05_daily_current AS
+        SELECT d.*,m.scan_event_id current_source_scan_event_id,
+               m.zone_status_as_of current_event_status_as_of,
+               m.event_zone_member current_event_zone_member,
+               m.component_qualified_as_of current_component_qualified_as_of,
+               m.is_raw_false_bridge current_is_raw_false_bridge,
+               m.prequalification_member current_prequalification_member,
+               m.unqualified_reentry_member current_unqualified_reentry_member,
+               em.canonical_event_id current_event_id
         FROM t05_daily_base d
         LEFT JOIN LATERAL (
-          SELECT m.event_id,m.component_qualified_as_of,m.event_status_as_of,
-                 m.qualified_event_risk_set_eligible
-          FROM r2_canonical_event_membership m
-          WHERE m.state_version_id=d.state_version_id
+          SELECT m.scan_event_id,m.zone_status_as_of,m.event_zone_member,
+                 m.component_qualified_as_of,m.is_raw_false_bridge,
+                 m.prequalification_member,m.unqualified_reentry_member
+          FROM src.event_zone_membership_daily m
+          WHERE m.candidate_cell_id=d.candidate_config_id
             AND m.security_id=d.security_id
+            AND m.trade_date=d.trade_date
+            AND m.available_time<=d.available_time
+          ORDER BY m.available_time DESC,m.evaluation_time DESC,m.scan_event_id DESC
+          LIMIT 1
+        ) m ON true
+        LEFT JOIN t05_event_map em
+          ON em.state_version_id=d.state_version_id
+         AND em.source_candidate_cell_id=d.candidate_config_id
+         AND em.source_scan_event_id=m.scan_event_id
+         AND em.security_id=d.security_id
+        """
+    )
+    current_event_map_violation = con.execute(
+        """
+        SELECT count(*) FROM t05_daily_current
+        WHERE current_source_scan_event_id IS NOT NULL AND current_event_id IS NULL
+        """
+    ).fetchone()[0]
+    if current_event_map_violation:
+        raise R2T05Error(
+            f"daily_current_source_event_unmapped:{current_event_map_violation}"
+        )
+    con.execute(
+        """
+        CREATE TEMP TABLE t05_daily_asof AS
+        SELECT d.state_version_id,d.state_line,d.window_track_id,d.security_id,
+               d.trade_date,d.eligible,d.raw_state,d.confirmed_state,d.confirmation_time,
+               CASE WHEN d.current_source_scan_event_id IS NOT NULL
+                    THEN coalesce(d.current_component_qualified_as_of,false)
+                    ELSE false END component_qualified_as_of,
+               coalesce(d.current_event_status_as_of,h.event_status_as_of,'NO_EVENT') event_status_as_of,
+               CASE
+                 WHEN d.current_source_scan_event_id IS NOT NULL THEN
+                   CASE WHEN d.current_event_status_as_of IN
+                     ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
+                     THEN d.current_event_id ELSE NULL END
+                 WHEN h.event_status_as_of IN
+                     ('COMPONENT_FORMING','QUALIFIED_ACTIVE','GAP_PENDING','REENTRY_PENDING_QUALIFICATION')
+                 THEN h.event_id ELSE NULL
+               END active_event_id_as_of,
+               d.state_risk_set_eligible,
+               d.state_risk_set_eligible
+                 AND d.current_source_scan_event_id IS NOT NULL
+                 AND coalesce(d.current_event_zone_member,false)
+                 AND coalesce(d.current_component_qualified_as_of,false)
+                 AND NOT coalesce(d.current_is_raw_false_bridge,false)
+                 AND NOT coalesce(d.current_prequalification_member,false)
+                 AND NOT coalesce(d.current_unqualified_reentry_member,false)
+                 qualified_event_risk_set_eligible,
+               d.quality_state,d.candidate_config_id
+        FROM t05_daily_current d
+        LEFT JOIN LATERAL (
+          SELECT m.event_id,m.event_status_as_of
+          FROM r2_canonical_event_membership m
+            WHERE m.state_version_id=d.state_version_id
+              AND m.security_id=d.security_id
             AND m.trade_date<=d.trade_date
             AND m.membership_available_time<=d.available_time
           ORDER BY m.membership_available_time DESC,m.trade_date DESC,m.event_id DESC
           LIMIT 1
-        ) a ON true
+        ) h ON true
         """
     )
     con.execute(
@@ -947,6 +1007,159 @@ def _materialize_daily(con: duckdb.DuckDBPyConnection, source_run_id: str) -> No
         raise R2T05Error(
             f"canonical_daily_active_event_fk_failure:{active_fk_violation}"
         )
+    for state in (
+        row[0]
+        for row in con.execute(
+            "SELECT DISTINCT state_version_id FROM r2_canonical_daily_state ORDER BY 1"
+        ).fetchall()
+    ):
+        semantic = _daily_semantic_audit(con, state)
+        violations = {key: value for key, value in semantic.items() if value}
+        if violations:
+            raise R2T05Error(f"daily_current_component_semantic_failure:{violations}")
+
+
+def _daily_semantic_audit(
+    con: duckdb.DuckDBPyConnection, state_version_id: str
+) -> dict[str, int]:
+    key_mismatch = con.execute(
+        """
+        WITH daily_keys AS (
+          SELECT state_version_id,security_id,trade_date
+          FROM r2_canonical_daily_state
+          WHERE state_version_id=? AND qualified_event_risk_set_eligible
+        ), membership_keys AS (
+          SELECT state_version_id,security_id,trade_date
+          FROM r2_canonical_event_membership
+          WHERE state_version_id=? AND qualified_event_risk_set_eligible
+        )
+        SELECT (SELECT count(*) FROM (SELECT * FROM daily_keys EXCEPT SELECT * FROM membership_keys))
+             + (SELECT count(*) FROM (SELECT * FROM membership_keys EXCEPT SELECT * FROM daily_keys))
+        """,
+        [state_version_id] * 2,
+    ).fetchone()[0]
+    component_key_mismatch = con.execute(
+        """
+        WITH daily_keys AS (
+          SELECT state_version_id,security_id,trade_date
+          FROM r2_canonical_daily_state
+          WHERE state_version_id=? AND component_qualified_as_of
+        ), membership_keys AS (
+          SELECT state_version_id,security_id,trade_date
+          FROM r2_canonical_event_membership
+          WHERE state_version_id=? AND component_qualified_as_of
+        )
+        SELECT (SELECT count(*) FROM (SELECT * FROM daily_keys EXCEPT SELECT * FROM membership_keys))
+             + (SELECT count(*) FROM (SELECT * FROM membership_keys EXCEPT SELECT * FROM daily_keys))
+        """,
+        [state_version_id] * 2,
+    ).fetchone()[0]
+    transition_mismatch = con.execute(
+        """
+        SELECT count(*)
+        FROM r2_canonical_event_membership m
+        JOIN t05_component_map cm
+          ON cm.state_version_id=m.state_version_id
+         AND cm.canonical_event_id=m.event_id
+         AND cm.security_id=m.security_id
+        JOIN src.qualified_component q
+          ON q.candidate_cell_id=cm.source_candidate_cell_id
+         AND q.security_id=cm.security_id
+         AND q.component_id=cm.component_id
+        JOIN r2_canonical_daily_state d
+          ON d.state_version_id=m.state_version_id
+         AND d.security_id=m.security_id
+         AND d.trade_date=m.trade_date
+        JOIN src.cell_registry cr ON cr.candidate_cell_id=cm.source_candidate_cell_id
+        JOIN src.route_daily r
+          ON r.route_id=cr.route_id AND r.security_id=m.security_id
+         AND r.trade_date=m.trade_date
+        WHERE m.state_version_id=? AND q.qualified
+          AND d.component_qualified_as_of IS DISTINCT FROM
+              (q.event_qualification_time<=r.available_time)
+        """,
+        [state_version_id],
+    ).fetchone()[0]
+    unqualified_reentry_risk = con.execute(
+        """
+        SELECT count(*)
+        FROM r2_canonical_daily_state d
+        JOIN src.reentry_attempt r
+          ON r.candidate_cell_id=d.candidate_config_id
+         AND r.security_id=d.security_id
+         AND d.trade_date BETWEEN r.start_date AND r.end_date
+         AND r.outcome='unqualified_reentry'
+        WHERE d.state_version_id=?
+          AND (d.component_qualified_as_of OR d.qualified_event_risk_set_eligible)
+        """,
+        [state_version_id],
+    ).fetchone()[0]
+    accepted_reentry_first_day = con.execute(
+        """
+        SELECT count(*)
+        FROM r2_canonical_event_membership m
+        JOIN t05_component_map cm
+          ON cm.state_version_id=m.state_version_id
+         AND cm.canonical_event_id=m.event_id
+         AND cm.security_id=m.security_id
+        JOIN src.event_zone e
+          ON e.candidate_cell_id=cm.source_candidate_cell_id
+         AND e.security_id=cm.security_id
+         AND e.scan_event_id=cm.source_scan_event_id
+        JOIN src.qualified_component q
+          ON q.candidate_cell_id=cm.source_candidate_cell_id
+         AND q.security_id=cm.security_id
+         AND q.component_id=cm.component_id
+        JOIN r2_canonical_daily_state d
+          ON d.state_version_id=m.state_version_id
+         AND d.security_id=m.security_id
+         AND d.trade_date=m.trade_date
+        WHERE m.state_version_id=? AND q.qualified
+          AND cm.component_id<>e.first_component_id
+          AND m.trade_date=q.start_date
+          AND d.component_qualified_as_of
+        """,
+        [state_version_id],
+    ).fetchone()[0]
+    accepted_reentry_qualification_day = con.execute(
+        """
+        SELECT count(*)
+        FROM r2_canonical_event_membership m
+        JOIN t05_component_map cm
+          ON cm.state_version_id=m.state_version_id
+         AND cm.canonical_event_id=m.event_id
+         AND cm.security_id=m.security_id
+        JOIN src.event_zone e
+          ON e.candidate_cell_id=cm.source_candidate_cell_id
+         AND e.security_id=cm.security_id
+         AND e.scan_event_id=cm.source_scan_event_id
+        JOIN src.qualified_component q
+          ON q.candidate_cell_id=cm.source_candidate_cell_id
+         AND q.security_id=cm.security_id
+         AND q.component_id=cm.component_id
+        JOIN r2_canonical_daily_state d
+          ON d.state_version_id=m.state_version_id
+         AND d.security_id=m.security_id
+         AND d.trade_date=m.trade_date
+        JOIN src.cell_registry cr ON cr.candidate_cell_id=cm.source_candidate_cell_id
+        JOIN src.route_daily r
+          ON r.route_id=cr.route_id AND r.security_id=m.security_id
+         AND r.trade_date=m.trade_date
+        WHERE m.state_version_id=? AND q.qualified
+          AND cm.component_id<>e.first_component_id
+          AND q.event_qualification_time<=r.available_time
+          AND NOT d.component_qualified_as_of
+        """,
+        [state_version_id],
+    ).fetchone()[0]
+    return {
+        "daily_qualified_key_mismatch": key_mismatch,
+        "daily_component_qualified_key_mismatch": component_key_mismatch,
+        "qualified_component_transition_mismatch": transition_mismatch,
+        "unqualified_reentry_daily_qualified_rows": unqualified_reentry_risk,
+        "accepted_reentry_first_day_qualified_rows": accepted_reentry_first_day,
+        "accepted_reentry_qualification_day_unqualified_rows": accepted_reentry_qualification_day,
+    }
 
 
 def _compact_audit_statuses(run_dir: Path) -> dict[str, dict[str, Any]]:
@@ -1036,6 +1249,9 @@ def _collect_reports(
         min(membership_available_time-trade_date::TIMESTAMPTZ),max(membership_available_time-trade_date::TIMESTAMPTZ)
       FROM r2_canonical_event_membership GROUP BY 1 ORDER BY 1
     """).fetchall()
+    semantic_audits = {
+        state: _daily_semantic_audit(con, state) for state in versions
+    }
     _write_csv(
         run_dir / "r2_t05_daily_reconciliation.csv",
         [
@@ -1050,7 +1266,11 @@ def _collect_reports(
                 "state_risk_rows": row[6],
                 "qualified_event_risk_rows": row[7],
                 "strict_core_rows": row[8],
-                "status": "passed" if row[1] == expected_daily_keys else "failed",
+                **semantic_audits[row[0]],
+                "status": "passed"
+                if row[1] == expected_daily_keys
+                and all(value == 0 for value in semantic_audits[row[0]].values())
+                else "failed",
             }
             for row in daily_rows
         ],
@@ -1065,6 +1285,12 @@ def _collect_reports(
             "state_risk_rows",
             "qualified_event_risk_rows",
             "strict_core_rows",
+            "daily_qualified_key_mismatch",
+            "daily_component_qualified_key_mismatch",
+            "qualified_component_transition_mismatch",
+            "unqualified_reentry_daily_qualified_rows",
+            "accepted_reentry_first_day_qualified_rows",
+            "accepted_reentry_qualification_day_unqualified_rows",
             "status",
         ],
     )
@@ -1296,6 +1522,20 @@ def _collect_reports(
     for row in daily_rows:
         analysis_lines.append(
             f"| {row[0]} | {row[1]} | {row[2]} | {row[3]} | {row[4]} | {row[5]} | {row[6]} | {row[7]} | {row[8]} |"
+        )
+    analysis_lines += [
+        "",
+        "## Current-component qualification audit",
+        "",
+        "Daily qualification is reconstructed from the exact current source component/transition row, while event status and active-event as-of state use the event-level history fallback only when no current source row exists. The following checks are all required to be zero:",
+        "",
+        "| state_version_id | qualified-key mismatch | component-qualified-key mismatch | component transition mismatch | unqualified reentry qualified rows | accepted reentry first-day qualified rows | accepted reentry qualification-day false rows |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for state in versions:
+        audit = semantic_audits[state]
+        analysis_lines.append(
+            f"| {state} | {audit['daily_qualified_key_mismatch']} | {audit['daily_component_qualified_key_mismatch']} | {audit['qualified_component_transition_mismatch']} | {audit['unqualified_reentry_daily_qualified_rows']} | {audit['accepted_reentry_first_day_qualified_rows']} | {audit['accepted_reentry_qualification_day_unqualified_rows']} |"
         )
     analysis_lines += [
         "",
