@@ -13,15 +13,19 @@
       "repository_final_gate_status": "passed",
       "formal_task_completed": true,
       "R2-T05_allowed_to_start": true,
-      "R3_allowed_to_start": false,
-      "selected_version_count": 2,
-      "strict_core_only_count": 2
-    }
+      "R3_allowed_to_start": false
+    },
+    "required_committed_inputs": [
+      "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_decision.json",
+      "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_plan_manifest.json",
+      "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_phase_b_independent_validation.json"
+    ]
   },
   "inputs": {
     "t04_user_decision_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_user_decision_record.json",
     "t04_freeze_decision_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_decision.json",
     "t04_freeze_plan_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_plan_manifest.json",
+    "t04_phase_b_independent_validation_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_phase_b_independent_validation.json",
     "t04_result_package_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_result_package.json",
     "t04_output_manifest_path": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_output_manifest.json",
     "t03_result_package_path": "data/generated/r2/r2_t03/R2-T03-PROMOTED-20260713T050903Z/r2_t03_result_package.json",

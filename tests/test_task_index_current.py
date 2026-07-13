@@ -101,13 +101,13 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T04_scientific_review_status: passed", current)
         self.assertIn("R2-T04_repository_final_gate_status: passed", current)
         self.assertIn("R2-T04_formal_task_completed: true", current)
-        self.assertIn("R2-T05_allowed_to_start: false", current)
+        self.assertIn("R2-T05_allowed_to_start: true", current)
         self.assertIn(
-            "R2-T05_status: blocked_missing_authoritative_t04_final_gate_binding",
+            "R2-T05_status: startup_contract_corrected_formal_run_pending",
             current,
         )
         self.assertIn(
-            "R2-T05_startup_status: blocked_missing_authoritative_t04_final_gate_binding",
+            "R2-T05_startup_status: passed",
             current,
         )
         self.assertIn("R2-T05_formal_run_executed: false", current)

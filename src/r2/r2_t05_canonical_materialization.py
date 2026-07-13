@@ -161,6 +161,40 @@ def _json_from_commit(repo: Path, commit: str, rel: str) -> dict[str, Any]:
     return value
 
 
+def _bound_input(repo: Path, rel: str, binding: dict[str, Any]) -> dict[str, Any]:
+    """Read one handoff-bound artifact from its committed Git blob only."""
+    if not isinstance(binding, dict):
+        raise R2T05Blocked(f"startup_committed_binding_missing:{rel}")
+    source_commit = str(binding.get("source_commit") or "")
+    expected_blob = str(binding.get("git_blob_sha") or "")
+    expected_bytes = str(binding.get("committed_byte_sha256") or "")
+    if len(source_commit) != 40 or len(expected_blob) != 40 or len(expected_bytes) != 64:
+        raise R2T05Blocked(f"startup_committed_binding_malformed:{rel}")
+    payload = _git_blob(repo, source_commit, rel)
+    actual_blob = str(_git(repo, "rev-parse", f"{source_commit}:{rel}"))
+    actual_bytes = _sha256_bytes(payload)
+    if actual_blob != expected_blob or actual_bytes != expected_bytes:
+        raise R2T05Blocked(f"startup_committed_binding_mismatch:{rel}")
+    _validate_canonical_text(payload, rel)
+    return {
+        "path": rel,
+        "source_commit": source_commit,
+        "git_blob_sha": expected_blob,
+        "committed_byte_sha256": expected_bytes,
+        "payload": payload,
+    }
+
+
+def _bound_json(repo: Path, rel: str, binding: dict[str, Any]) -> dict[str, Any]:
+    bound = _bound_input(repo, rel, binding)
+    value = json.loads(bound["payload"].decode("utf-8"))
+    if not isinstance(value, dict):
+        raise R2T05Blocked(f"formal_json_not_object:{rel}")
+    bound["document"] = value
+    del bound["payload"]
+    return bound
+
+
 def _csv_from_commit(repo: Path, commit: str, rel: str) -> list[dict[str, str]]:
     payload = _git_blob(repo, commit, rel)
     _validate_canonical_text(payload, rel)
@@ -219,12 +253,23 @@ def _check_startup(repo: Path, commit: str, config: dict[str, Any]) -> dict[str,
     validation = _json_from_commit(repo, commit, startup["handoff_validation_path"])
     required = startup["required"]
     for key, expected in required.items():
-        if handoff.get(key) != expected:
-            raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
-        if key not in {"selected_version_count", "strict_core_only_count"} and validation.get(key) != expected:
+        if handoff.get(key) != expected or validation.get(key) != expected:
             raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
     if validation.get("status") != "passed":
         raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
+    if handoff.get("status") not in {None, "passed"}:
+        raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
+    committed_inputs = handoff.get("committed_inputs")
+    required_paths = startup["required_committed_inputs"]
+    if not isinstance(committed_inputs, dict):
+        raise R2T05Blocked("startup_status=blocked_missing_authoritative_t04_final_gate_binding")
+    bound_artifacts = {}
+    for rel in required_paths:
+        bound_artifacts[rel] = _bound_json(repo, rel, committed_inputs.get(rel))
+    committed_input_bindings = [
+        {key: value for key, value in bound.items() if key != "document"}
+        for bound in bound_artifacts.values()
+    ]
     return {
         "status": "passed",
         "handoff_path": startup["handoff_path"],
@@ -236,22 +281,103 @@ def _check_startup(repo: Path, commit: str, config: dict[str, Any]) -> dict[str,
         "scientific_review_status": handoff.get("scientific_review_status"),
         "repository_final_gate_status": handoff.get("repository_final_gate_status"),
         "formal_task_completed": handoff.get("formal_task_completed"),
+        "R2-T05_allowed_to_start": handoff.get("R2-T05_allowed_to_start"),
+        "committed_inputs": committed_input_bindings,
+        "bound_artifacts": bound_artifacts,
     }
 
 
-def _check_freeze_plan(repo: Path, commit: str, config: dict[str, Any]) -> dict[str, Any]:
-    inputs = config["inputs"]
-    plan = _json_from_commit(repo, commit, inputs["t04_freeze_plan_path"])
-    decision = _json_from_commit(repo, commit, inputs["t04_freeze_decision_path"])
+def _check_freeze_plan(config: dict[str, Any], startup: dict[str, Any]) -> dict[str, Any]:
+    required_paths = config["startup"]["required_committed_inputs"]
+    bound = startup["bound_artifacts"]
+    plan_rel = config["inputs"]["t04_freeze_plan_path"]
+    decision_rel = config["inputs"]["t04_freeze_decision_path"]
+    phase_b_rel = config["inputs"]["t04_phase_b_independent_validation_path"]
+    if set(required_paths) != {plan_rel, decision_rel, phase_b_rel}:
+        raise R2T05Blocked("t04_startup_bound_input_contract_mismatch")
+    plan = bound[plan_rel]["document"]
+    decision = bound[decision_rel]["document"]
+    phase_b = bound[phase_b_rel]["document"]
     expected = config["selected_versions"]
     actual = plan.get("planned_versions")
-    if actual != expected or plan.get("planned_state_version_count") != 2:
-        raise R2T05Blocked("t04_freeze_plan_selected_versions_mismatch")
-    if decision.get("selected_version_count") != 2 or decision.get("strict_core_only_count") != 2:
-        raise R2T05Blocked("t04_freeze_decision_count_mismatch")
     if plan.get("freeze_plan_status") != "passed":
         raise R2T05Blocked("t04_freeze_plan_not_passed")
-    return {"status": "passed", "freeze_plan": plan, "freeze_decision": decision}
+    if actual != expected or plan.get("planned_state_version_count") != 2 or len(actual or []) != 2:
+        raise R2T05Blocked("t04_freeze_plan_selected_versions_mismatch")
+    if (
+        decision.get("freeze_decision_status") != "passed"
+        or decision.get("selected_version_count") != 2
+        or decision.get("strict_core_only_count") != 2
+        or decision.get("rejected_decision_unit_count") != 2
+    ):
+        raise R2T05Blocked("t04_freeze_decision_count_mismatch")
+    if (
+        phase_b.get("task_id") != "R2-T04"
+        or phase_b.get("phase") != "B"
+        or phase_b.get("status") != "passed"
+        or phase_b.get("selected_cell_count") != 2
+        or phase_b.get("strict_core_only_count") != 2
+        or phase_b.get("rejected_pair_count") != 2
+    ):
+        raise R2T05Blocked("t04_phase_b_independent_validation_mismatch")
+    units = decision.get("decision_units")
+    if not isinstance(units, list) or len(units) != 4:
+        raise R2T05Blocked("t04_freeze_decision_unit_cardinality_mismatch")
+    expected_by_cell = {version["source_candidate_cell_id"]: version for version in expected}
+    selected_units = [unit for unit in units if unit.get("primary_disposition") == "selected"]
+    rejected_units = [unit for unit in units if unit.get("primary_disposition") == "rejected"]
+    if len(selected_units) != 2 or len(rejected_units) != 2:
+        raise R2T05Blocked("t04_freeze_decision_selection_cardinality_mismatch")
+    for version in expected:
+        matches = [
+            unit for unit in selected_units
+            if unit.get("primary_candidate_cell_id") == version["source_candidate_cell_id"]
+        ]
+        if len(matches) != 1:
+            raise R2T05Blocked("t04_freeze_decision_candidate_cell_mismatch")
+        unit = matches[0]
+        if (
+            unit.get("pair_disposition") != "selected"
+            or unit.get("shared_disposition") != "retain_as_strict_core_only"
+            or unit.get("shared_candidate_cell_id") != version["strict_core_source_candidate_cell_id"]
+            or unit.get("selected_d") != version["d"]
+            or unit.get("selected_g") != version["g"]
+            or not unit.get("strict_core_enabled")
+        ):
+            raise R2T05Blocked("t04_freeze_decision_strict_core_pair_mismatch")
+    if set(unit.get("primary_candidate_cell_id") for unit in selected_units) != set(expected_by_cell):
+        raise R2T05Blocked("t04_freeze_decision_additional_selected_candidate")
+    exclusions = {
+        "W250_materialized_version_count": sum(version.get("W") != 120 for version in actual),
+        "shared_q_independent_state_version_count": sum(
+            unit.get("shared_disposition") == "selected" for unit in units
+        ),
+        "PCT_parent_product_count": sum(
+            version.get("state_line") not in {"S_PCT", "S_PCVT"}
+            or "parent" in str(version.get("state_version_id", "")).lower()
+            for version in actual
+        ),
+        "additional_selected_candidate_count": sum(
+            version.get("source_candidate_cell_id") not in expected_by_cell for version in actual
+        ),
+        "shared_q_event_count": sum(
+            "shared" in str(version.get("source_candidate_cell_id", "")).lower()
+            for version in actual
+        ),
+    }
+    if any(value != 0 for value in exclusions.values()):
+        raise R2T05Blocked("t04_freeze_exclusion_mismatch")
+    return {
+        "status": "passed",
+        "freeze_plan": plan,
+        "freeze_decision": decision,
+        "phase_b_independent_validation": phase_b,
+        "bound_input_bindings": {
+            rel: {key: value for key, value in bound[rel].items() if key != "document"}
+            for rel in required_paths
+        },
+        "exclusions": exclusions,
+    }
 
 
 def _create_output_schema(con: duckdb.DuckDBPyConnection) -> None:
@@ -796,7 +922,8 @@ def _collect_reports(
     lineage_fields = [item[0] for item in lineage_cursor.description]
     lineage_rows = [dict(zip(lineage_fields, row)) for row in lineage_cursor.fetchall()]
     _write_csv(run_dir / "r2_t05_event_id_lineage.csv", lineage_rows, lineage_fields)
-    _write_json(run_dir / "r2_t05_source_readiness.json", {"task_id": "R2-T05", "run_id": run_dir.name, "status": "passed", "startup": startup, "freeze_plan_status": freeze["freeze_plan"].get("freeze_plan_status"), "selected_version_count": 2, "strict_core_only_count": 2, "source_database": source_info, "required_source_tables": sorted(SOURCE_TABLES)})
+    startup_report = {key: value for key, value in startup.items() if key != "bound_artifacts"}
+    _write_json(run_dir / "r2_t05_source_readiness.json", {"task_id": "R2-T05", "run_id": run_dir.name, "status": "passed", "startup": startup_report, "freeze_plan_status": freeze["freeze_plan"].get("freeze_plan_status"), "selected_version_count": 2, "strict_core_only_count": 2, "source_database": source_info, "required_source_tables": sorted(SOURCE_TABLES)})
     return {"daily_rows": daily_rows, "event_rows": event_rows, "membership_rows": membership_rows, "anomaly": anomaly, "versions": versions, "source_info": source_info, "startup": startup, "freeze": freeze, "input_binding": input_binding}
 
 
@@ -840,16 +967,19 @@ def run_formal(config_path: Path, output_dir: Path, repo: Path = ROOT) -> Path:
             source_bindings.append(_formal_binding(repo, execution_commit, rel))
     input_bindings = {"execution_commit": execution_commit, "source_bindings": source_bindings, "input_bindings": []}
     startup = _check_startup(repo, execution_commit, config)
-    freeze = _check_freeze_plan(repo, execution_commit, config)
+    freeze = _check_freeze_plan(config, startup)
+    startup_bound_paths = set(config["startup"]["required_committed_inputs"])
+    input_bindings["input_bindings"].extend(startup["committed_inputs"])
     for rel in config["inputs"].values():
-        if rel.endswith(".duckdb"):
+        if rel in startup_bound_paths or rel.endswith(".duckdb"):
             continue
         binding = _formal_binding(repo, execution_commit, rel)
         input_bindings["input_bindings"].append(binding)
     t03_package = _json_from_commit(repo, execution_commit, config["inputs"]["t03_result_package_path"])
     database, source_info = _source_hash_and_tables(repo, execution_commit, t03_package, config["inputs"]["t03_event_zone_scan_path"])
     source_run_id = str(t03_package.get("run_id") or "R2-T03-PROMOTED-20260713T050903Z")
-    input_binding = {**input_bindings, "t03_database": source_info, "startup": startup, "freeze_plan_hash": _sha256_bytes(_git_blob(repo, execution_commit, config["inputs"]["t04_freeze_plan_path"]))}
+    startup_report = {key: value for key, value in startup.items() if key != "bound_artifacts"}
+    input_binding = {**input_bindings, "t03_database": source_info, "startup": startup_report, "freeze_plan_hash": freeze["bound_input_bindings"][config["inputs"]["t04_freeze_plan_path"]]["committed_byte_sha256"]}
     output_dir = output_dir.resolve()
     if output_dir.exists():
         raise R2T05Error("output_directory_must_be_new_and_non_overwriting")

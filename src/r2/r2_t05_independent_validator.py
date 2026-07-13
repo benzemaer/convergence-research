@@ -52,6 +52,68 @@ def _check(assertions: list[dict[str, Any]], failures: list[str], name: str, act
         failures.append(name)
 
 
+def _validate_startup_contract(
+    config: dict[str, Any],
+    input_binding: dict[str, Any],
+    repo: Path,
+    assertions: list[dict[str, Any]],
+    failures: list[str],
+) -> None:
+    """Independently verify T04 handoff-bound blobs used by the T05 startup gate."""
+    import subprocess
+
+    startup = input_binding.get("startup", {})
+    for key, expected in config["startup"]["required"].items():
+        _check(assertions, failures, f"startup_{key}", startup.get(key), expected)
+    _check(assertions, failures, "startup_status", startup.get("status"), "passed")
+    required = config["startup"]["required_committed_inputs"]
+    rows = startup.get("committed_inputs", [])
+    by_path = {row.get("path"): row for row in rows if isinstance(row, dict)}
+    _check(assertions, failures, "startup_bound_input_cardinality", len(by_path), len(required))
+    documents: dict[str, dict[str, Any]] = {}
+    for rel in required:
+        binding = by_path.get(rel)
+        if not binding:
+            failures.append(f"startup_bound_input_missing:{rel}")
+            continue
+        try:
+            payload = subprocess.run(
+                ["git", "show", f"{binding['source_commit']}:{rel}"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            ).stdout
+            blob_sha = subprocess.run(
+                ["git", "rev-parse", f"{binding['source_commit']}:{rel}"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            _check(assertions, failures, f"startup_git_blob_sha:{rel}", blob_sha, binding.get("git_blob_sha"))
+            _check(assertions, failures, f"startup_committed_byte_sha256:{rel}", hashlib.sha256(payload).hexdigest(), binding.get("committed_byte_sha256"))
+            documents[rel] = json.loads(payload.decode("utf-8"))
+        except (KeyError, subprocess.CalledProcessError, UnicodeDecodeError, json.JSONDecodeError):
+            failures.append(f"startup_bound_input_invalid:{rel}")
+    decision = documents.get(config["inputs"]["t04_freeze_decision_path"])
+    plan = documents.get(config["inputs"]["t04_freeze_plan_path"])
+    phase_b = documents.get(config["inputs"]["t04_phase_b_independent_validation_path"])
+    if decision is not None:
+        _check(assertions, failures, "startup_freeze_decision_status", decision.get("freeze_decision_status"), "passed")
+        _check(assertions, failures, "startup_freeze_decision_selected_count", decision.get("selected_version_count"), 2)
+        _check(assertions, failures, "startup_freeze_decision_strict_core_count", decision.get("strict_core_only_count"), 2)
+        _check(assertions, failures, "startup_freeze_decision_rejected_count", decision.get("rejected_decision_unit_count"), 2)
+    if plan is not None:
+        _check(assertions, failures, "startup_freeze_plan_status", plan.get("freeze_plan_status"), "passed")
+        _check(assertions, failures, "startup_freeze_plan_cardinality", plan.get("planned_state_version_count"), 2)
+        _check(assertions, failures, "startup_freeze_plan_exact_versions", plan.get("planned_versions"), config["selected_versions"])
+    if phase_b is not None:
+        _check(assertions, failures, "startup_phase_b_status", phase_b.get("status"), "passed")
+        _check(assertions, failures, "startup_phase_b_selected_count", phase_b.get("selected_cell_count"), 2)
+        _check(assertions, failures, "startup_phase_b_strict_core_count", phase_b.get("strict_core_only_count"), 2)
+        _check(assertions, failures, "startup_phase_b_rejected_pair_count", phase_b.get("rejected_pair_count"), 2)
+
+
 def _independent_event_id(contract_version: str, state_version_id: str, security_id: str, cell_id: str, component_id: str, start_date: Any, qualification_time: Any) -> str:
     payload = {
         "contract_version": contract_version,
@@ -97,6 +159,7 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
     t03_package = _git_json(repo, config["inputs"]["t03_result_package_path"])
     failures: list[str] = []
     assertions: list[dict[str, Any]] = []
+    _validate_startup_contract(config, input_binding, repo, assertions, failures)
     expected_sha = t03_package.get("database_sha256")
     actual_sha = _sha256_file(source_db) if source_db.is_file() else None
     _check(assertions, failures, "source_db_sha256", actual_sha, expected_sha)
