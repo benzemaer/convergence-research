@@ -103,15 +103,28 @@ def _metric_profiles(
         "atomic_interval_diagnostic_profile": (
             "r2_t03_atomic_interval_diagnostic_profile.csv"
         ),
+        "parameter_invariant_profile": "r2_t03_parameter_invariant_profile.csv",
+        "window_diagnostic_profile": "r2_t03_window_diagnostic_profile.csv",
+        "strict_core_diagnostic_profile": "r2_t03_strict_core_diagnostic_profile.csv",
+        "strict_core_shell_profile": "r2_t03_strict_core_shell_profile.csv",
     }
     result: dict[str, dict[str, dict[str, Any]]] = {}
     for name, suffix in files.items():
         rows = _committed_csv(_source(config, suffix), commit)
-        key = (
-            "route_id"
-            if name == "atomic_interval_diagnostic_profile"
-            else "candidate_cell_id"
-        )
+        key = "candidate_cell_id"
+        if name == "atomic_interval_diagnostic_profile":
+            key = "route_id"
+        elif name in {
+            "parameter_invariant_profile",
+            "window_diagnostic_profile",
+            "strict_core_diagnostic_profile",
+            "strict_core_shell_profile",
+        }:
+            key = (
+                "candidate_cell_id"
+                if "candidate_cell_id" in rows[0]
+                else "primary_candidate_cell_id"
+            )
         result[name] = {row[key]: row for row in rows}
     return result
 
@@ -499,6 +512,30 @@ def run_phase_a(config_path: Path, output_dir: Path) -> dict[str, Any]:
     handoff = _committed_json(
         _source(config, "r2_t03_repository_final_gate_handoff_validation.json"), commit
     )
+    parameter_rows = _committed_csv(
+        _source(config, "r2_t03_parameter_invariant_profile.csv"), commit
+    )
+    window_rows = _committed_csv(
+        _source(config, "r2_t03_window_diagnostic_profile.csv"), commit
+    )
+    strict_rows = _committed_csv(
+        _source(config, "r2_t03_strict_core_diagnostic_profile.csv"), commit
+    )
+    anomaly_checks = anomaly.get("checks", {})
+    if anomaly.get("status") != "passed" or anomaly.get("failures"):
+        raise T04InputError("t03_anomaly_scan_not_passed")
+    if any(_number(row.get("observed_violations")) != 0 for row in parameter_rows):
+        raise T04InputError("t03_parameter_invariant_violation")
+    if len(window_rows) != 36 or any(
+        _number(row.get("confirmed_day_jaccard")) is None for row in window_rows
+    ):
+        raise T04InputError("t03_window_diagnostic_incomplete")
+    if len(strict_rows) != 36 or any(
+        row.get("strict_core_subset_status") != "passed" for row in strict_rows
+    ):
+        raise T04InputError("t03_strict_core_diagnostic_incomplete")
+    if any(_number(value) not in {0, 0.0} for value in anomaly_checks.values()):
+        raise T04InputError("t03_anomaly_check_nonzero")
     readiness = {
         "task_id": "R2-T04",
         "phase": "A",
@@ -507,6 +544,10 @@ def run_phase_a(config_path: Path, output_dir: Path) -> dict[str, Any]:
         "t03_independent_validation_status": independent.get("status"),
         "t03_anomaly_scan_status": anomaly.get("status"),
         "diagnostic_profiles_consumed": sorted(profiles),
+        "parameter_invariant_status": "passed",
+        "window_diagnostic_status": "passed",
+        "strict_core_diagnostic_status": "passed",
+        "anomaly_check_count": len(anomaly_checks),
         "missing_metric_ids": [],
         "local_duckdb_used": False,
         "cell_count": len(cells),
