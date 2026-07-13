@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T04 hard gate Pareto freeze plan config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "task_id", "config_version", "phase", "retained_cell_count", "decision_units", "hash_authority", "sources", "objective_registry", "automatic_recommendation_order", "phase_a_stop"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "task_id": {"const": "R2-T04"},
+    "config_version": {"const": "r2_t04_hard_gate_pareto_freeze_plan.v1"},
+    "phase": {"const": "A"},
+    "retained_cell_count": {"const": 72},
+    "decision_units": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string"}},
+    "execution_commit_required": {"type": "boolean"},
+    "hash_authority": {"const": "committed_git_blob_only"},
+    "upstream_threshold_inputs": {"type": "object"},
+    "objective_registry": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["metric_id", "direction", "source_profile", "material_advantage"], "properties": {"metric_id": {"type": "string"}, "direction": {"enum": ["min", "max"]}, "source_profile": {"type": "string"}, "material_advantage": {"type": "number", "minimum": 0}}}},
+    "sources": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "role"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "role": {"type": "string"}}}},
+    "automatic_recommendation_order": {"type": "array", "const": ["hard_gate_pass", "pareto_non_dominated", "material_advantage", "neighborhood_support", "fewer_warnings", "lower_complexity", "baseline_proximity"]},
+    "phase_a_stop": {"type": "object", "additionalProperties": false, "required": ["R2-T04_status", "formal_task_completed", "R2-T05_allowed_to_start", "R3_allowed_to_start"], "properties": {"R2-T04_status": {"const": "awaiting_user_decision"}, "formal_task_completed": {"const": false}, "R2-T05_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false}}}
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T04 user decision template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "phase", "decision_units", "user_decision_status", "formal_task_completed", "R2-T05_allowed_to_start", "R3_allowed_to_start"],
+  "properties": {"task_id": {"const": "R2-T04"}, "phase": {"const": "A"}, "decision_units": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "object", "required": ["decision_unit", "selected_candidate_cell_id", "decision", "decision_vocabulary", "rationale"], "properties": {"decision_unit": {"type": "string"}, "selected_candidate_cell_id": {"type": ["string", "null"]}, "decision": {"type": ["string", "null"]}, "decision_vocabulary": {"const": ["accept", "reject", "defer"]}, "rationale": {"type": ["string", "null"]}}, "additionalProperties": false}}, "user_decision_status": {"const": "pending"}, "formal_task_completed": {"const": false}, "R2-T05_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false}}
+}

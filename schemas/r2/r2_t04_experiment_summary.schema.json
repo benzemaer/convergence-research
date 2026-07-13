@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T04 experiment summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "phase", "cell_count", "decision_unit_count", "hard_gate_report_sha256", "status", "formal_task_completed", "R2-T05_allowed_to_start", "R3_allowed_to_start"],
+  "properties": {"task_id": {"const": "R2-T04"}, "run_id": {"type": "string", "pattern": "^R2-T04-"}, "phase": {"const": "A"}, "cell_count": {"const": 72}, "decision_unit_count": {"const": 4}, "hard_gate_report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "status": {"const": "awaiting_user_decision"}, "formal_task_completed": {"const": false}, "R2-T05_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false}}
+}

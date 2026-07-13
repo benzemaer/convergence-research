@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "checks", "blocking_failure_count", "scientific_investigation_item_count", "failures", "R2-T05_allowed_to_start", "R3_allowed_to_start"],
+  "properties": {
+    "task_id": {"const": "R2-T04"}, "run_id": {"const": "R2-T04-20260713T120000Z"}, "status": {"enum": ["passed", "investigation_required"]}, "checks": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}, "blocking_failure_count": {"type": "integer", "minimum": 0}, "scientific_investigation_item_count": {"type": "integer", "minimum": 0}, "failures": {"type": "array", "items": {"type": "string"}}, "R2-T05_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false}
+  }
+}

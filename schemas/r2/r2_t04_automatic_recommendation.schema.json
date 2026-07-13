@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T04 automatic recommendation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "phase", "status", "recommendations", "user_decision_required", "formal_task_completed", "R2-T05_allowed_to_start", "R3_allowed_to_start"],
+  "properties": {
+    "task_id": {"const": "R2-T04"}, "phase": {"const": "A"}, "status": {"const": "awaiting_user_decision"}, "user_decision_required": {"const": true}, "formal_task_completed": {"const": false}, "R2-T05_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false},
+    "recommendations": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "object", "required": ["decision_unit", "status", "selection_path_not_independently_confirmed"], "properties": {"decision_unit": {"type": "string"}, "status": {"type": "string"}, "selection_path_not_independently_confirmed": {"const": true}, "automatic_recommendation": {}}, "additionalProperties": true}}
+  }
+}
