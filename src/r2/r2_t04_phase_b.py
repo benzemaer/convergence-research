@@ -382,6 +382,8 @@ def _gate_rows(
             failures.append(f"cell_registry_missing:{cell_id}")
             continue
         for gate in gates:
+            if gate["state_line"] not in {"GLOBAL", contract["state_line"]}:
+                continue
             if gate["state_line"] == "GLOBAL":
                 evidence = global_runtime.get(_global_alias(gate["metric_id"]), [])
                 inherited = True
