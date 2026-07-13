@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2-T05 canonical state, event zone and membership materialization contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "config_version", "contract_version", "selected_versions", "event_id", "exclusions", "mapping", "tables", "formal_source_paths"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "task_id": {"const": "R2-T05"},
+    "config_version": {"const": "r2_t05_canonical_state_event_zone_materialization.v1"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "stage": {"const": "R2"},
+    "artifact_lifecycle": {"const": "author_stage"},
+    "startup": {"type": "object", "additionalProperties": false, "required": ["handoff_path", "handoff_validation_path", "required"], "properties": {"handoff_path": {"type": "string"}, "handoff_validation_path": {"type": "string"}, "required": {"type": "object", "additionalProperties": false}}},
+    "inputs": {"type": "object", "additionalProperties": false},
+    "runtime": {"type": "object", "additionalProperties": false, "required": ["parallel_mode", "worker_count", "duckdb_threads", "duckdb_memory_limit", "timezone", "random_seed"], "properties": {"parallel_mode": {"const": "single_worker"}, "worker_count": {"const": 1}, "duckdb_threads": {"type": "integer", "minimum": 1}, "duckdb_memory_limit": {"type": "string"}, "timezone": {"const": "Asia/Shanghai"}, "random_seed": {"type": "integer"}}},
+    "selected_versions": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object", "additionalProperties": false, "required": ["state_version_id", "source_candidate_cell_id", "state_line", "window_track_id", "W", "K", "qP", "qC", "qT", "qV", "d", "g", "strict_core_enabled", "strict_core_source_candidate_cell_id"], "properties": {"state_version_id": {"type": "string"}, "source_candidate_cell_id": {"type": "string"}, "state_line": {"enum": ["S_PCT", "S_PCVT"]}, "window_track_id": {"const": "W120"}, "W": {"const": 120}, "K": {"const": 3}, "qP": {"type": "number"}, "qC": {"type": "number"}, "qT": {"type": "number"}, "qV": {"type": "number"}, "d": {"const": 2}, "g": {"const": 1}, "strict_core_enabled": {"const": true}, "strict_core_source_candidate_cell_id": {"type": "string"}}}},
+    "exclusions": {"type": "object", "additionalProperties": false, "required": ["W250_materialized_version_count", "shared_q_independent_state_version_count", "PCT_parent_product_count", "additional_selected_candidate_count", "shared_q_event_count"], "properties": {"W250_materialized_version_count": {"const": 0}, "shared_q_independent_state_version_count": {"const": 0}, "PCT_parent_product_count": {"const": 0}, "additional_selected_candidate_count": {"const": 0}, "shared_q_event_count": {"const": 0}}},
+    "event_id": {"type": "object", "additionalProperties": false, "required": ["algorithm", "serialization", "identity_inputs", "first_qualified_component_identity_fields", "zone_revision_excluded", "later_components_excluded", "source_scan_event_excluded"], "properties": {"algorithm": {"const": "sha256"}, "serialization": {"const": "utf8_json_sort_keys_compact_no_nan"}, "identity_inputs": {"const": ["contract_version", "state_version_id", "security_id", "first_qualified_component_identity"]}, "first_qualified_component_identity_fields": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "zone_revision_excluded": {"const": true}, "later_components_excluded": {"const": true}, "source_scan_event_excluded": {"const": true}}},
+    "mapping": {"type": "object", "additionalProperties": false, "required": ["retrospective_component_member", "is_prequalification_confirmed_day", "is_unqualified_reentry_day", "is_bridged_gap", "component_member_definition", "left_censored_definition", "right_censored_definition", "terminal_membership_definition"], "properties": {"retrospective_component_member": {"type": "string"}, "is_prequalification_confirmed_day": {"type": "string"}, "is_unqualified_reentry_day": {"type": "string"}, "is_bridged_gap": {"type": "string"}, "component_member_definition": {"type": "string"}, "left_censored_definition": {"type": "string"}, "right_censored_definition": {"type": "string"}, "terminal_membership_definition": {"type": "string"}}},
+    "canonical_enums": {"type": "object", "additionalProperties": false},
+    "formal_source_paths": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "output": {"type": "object", "additionalProperties": false, "required": ["database_name", "run_directory_template", "compact_artifacts"], "properties": {"database_name": {"type": "string"}, "run_directory_template": {"type": "string"}, "compact_artifacts": {"type": "array", "items": {"type": "string"}}}},
+    "tables": {"type": "object", "additionalProperties": false, "required": ["r2_canonical_daily_state", "r2_canonical_event_zone", "r2_canonical_event_membership"], "properties": {
+      "r2_canonical_daily_state": {"$ref": "#/$defs/tableContract"},
+      "r2_canonical_event_zone": {"$ref": "#/$defs/tableContract"},
+      "r2_canonical_event_membership": {"$ref": "#/$defs/tableContract"}
+    }}
+  },
+  "$defs": {
+    "tableContract": {"type": "object", "additionalProperties": false, "required": ["primary_key", "sorting", "denominator", "source_table", "lineage_key"], "properties": {"primary_key": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "sorting": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "denominator": {"type": "string"}, "source_table": {"type": "string"}, "lineage_key": {"type": "array", "minItems": 1, "items": {"type": "string"}}}}
+  }
+}

@@ -12,7 +12,7 @@ class TaskIndexCurrentTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "current_task: R2-T05 canonical 日度状态与事件区间物化",
+            "current_task: R2-T05 canonical daily state、event zone 与 membership 物化",
             current,
         )
         self.assertIn(
@@ -102,6 +102,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T04_repository_final_gate_status: passed", current)
         self.assertIn("R2-T04_formal_task_completed: true", current)
         self.assertIn("R2-T05_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T05_status: author_package_complete_pending_independent_scientific_review",
+            current,
+        )
+        self.assertIn("R2-T05_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn(

@@ -18,7 +18,7 @@
 
 ```text
 current_stage: R2
-current_task: R2-T05 canonical 日度状态与事件区间物化
+current_task: R2-T05 canonical daily state、event zone 与 membership 物化
 next_planned_task: R2-T06 canonical 状态机无前视回放与一致性验收
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
@@ -84,6 +84,8 @@ R2-T04_repository_final_gate_status: passed
 R2-T04_repository_final_gate_binding: r2_t04_repository_final_gate_handoff.json
 R2-T04_formal_task_completed: true
 R2-T05_allowed_to_start: true
+R2-T05_status: author_package_complete_pending_independent_scientific_review
+R2-T05_formal_task_completed: false
 R2-T06_allowed_to_start: false
 R2-T07_allowed_to_start: false
 R2-T08_allowed_to_start: false
