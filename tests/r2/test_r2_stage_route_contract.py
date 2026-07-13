@@ -36,8 +36,10 @@ class R2StageRouteContract(unittest.TestCase):
         )
         self.assertIn("R2-T02_formal_task_completed: true", current)
         self.assertIn("R2-T03_allowed_to_start: true", current)
-        self.assertIn("R2-T03_formal_task_completed: false", current)
-        self.assertIn("R2-T04_allowed_to_start: false", current)
+        self.assertIn("R2-T03_formal_task_completed: true", current)
+        self.assertIn("R2-T04_allowed_to_start: true", current)
+        self.assertIn("R2-T04_status: in_progress", current)
+        self.assertIn("R2-T04_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
 
 

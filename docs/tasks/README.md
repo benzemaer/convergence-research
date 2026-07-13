@@ -18,8 +18,8 @@
 
 ```text
 current_stage: R2
-current_task: R2-T03 四路线 d×g event-zone 状态机扫描与区间几何审计
-next_planned_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
+current_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
+next_planned_task: R2-T05 canonical 日度状态与事件区间物化
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
 R1-T06 completed via PR #82
@@ -64,16 +64,21 @@ R2-T03_initial_startup_status: blocked_missing_authoritative_t02_final_gate_bind
 R2-T03_resolution_status: resolved
 R2-T03_startup_status: passed
 R2-T03_resolved_by: r2_t02_repository_final_gate_handoff.json
-R2-T03_status: needs_revision_six_closed_implementation_corrections_submitted
+R2-T03_status: completed
 R2-T03_historical_run_id: R2-T03-20260712T1205Z
 R2-T03_historical_run_status: author_draft_invalidated_pending_successor_run
-R2-T03_formal_rerun_executed: false
+R2-T03_formal_rerun_executed: true
 R2-T03_availability_adapter_status: resolved_research_policy
 R2-T03_expected_key_adapter_status: resolved_upstream_adapter
 R2-T03_interval_reconciliation_adapter_status: resolved_upstream_adapter
 R2-T03_scientific_review_scope: implementation_only
-R2-T03_formal_task_completed: false
-R2-T04_allowed_to_start: false
+R2-T03_formal_task_completed: true
+R2-T03_scientific_review_status: passed
+R2-T03_repository_final_gate_status: passed
+R2-T03_repository_final_gate_binding: r2_t03_repository_final_gate_handoff.json
+R2-T04_allowed_to_start: true
+R2-T04_status: in_progress
+R2-T04_formal_task_completed: false
 R2-T05_allowed_to_start: false
 R2-T06_allowed_to_start: false
 R2-T07_allowed_to_start: false
