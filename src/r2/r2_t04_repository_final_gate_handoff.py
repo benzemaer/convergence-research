@@ -249,7 +249,8 @@ def validate_handoff(
             if _sha256(data) != binding["committed_byte_sha256"]:
                 raise R2T04HandoffError(f"committed_sha_mismatch:{path}")
         committed_handoff = _git_bytes(handoff_commit, HANDOFF_REL)
-        if committed_handoff != handoff_path.read_bytes():
+        worktree_handoff = handoff_path.read_bytes().replace(b"\r\n", b"\n")
+        if committed_handoff != worktree_handoff:
             raise R2T04HandoffError("handoff_worktree_commit_mismatch")
     except (
         OSError,
