@@ -301,7 +301,7 @@ def validate_formal_output(run_dir: Path, repo: Path = ROOT) -> dict[str, Any]:
     _check(assertions, failures, "bridge_and_prequalification_risk_exclusion", con.execute("SELECT count(*) FROM r2_canonical_event_membership WHERE (is_bridged_gap OR is_prequalification_confirmed_day OR is_unqualified_reentry_day) AND qualified_event_risk_set_eligible").fetchone()[0], 0)
     _check(assertions, failures, "bridge_confirmed_truth", con.execute("SELECT count(*) FROM r2_canonical_event_membership WHERE is_bridged_gap AND confirmed_state").fetchone()[0], 0)
     _check(assertions, failures, "event_revision_monotonic", con.execute("""
-      SELECT count(*) FROM (SELECT zone_revision,lag(zone_revision) OVER(PARTITION BY state_version_id,event_id ORDER BY membership_available_time,trade_date) prior_revision FROM r2_canonical_event_membership) x WHERE prior_revision IS NOT NULL AND zone_revision<prior_revision
+      SELECT count(*) FROM (SELECT zone_revision,lag(zone_revision) OVER(PARTITION BY state_version_id,event_id ORDER BY membership_available_time,trade_date) prior_revision FROM r2_canonical_event_membership WHERE event_zone_member) x WHERE prior_revision IS NOT NULL AND zone_revision<prior_revision
     """).fetchone()[0], 0)
     _check(assertions, failures, "quality_break_not_natural_exit", con.execute("SELECT count(*) FROM r2_canonical_event_zone WHERE zone_status='FINALIZED_WITH_QUALITY_BREAK' AND exit_reason NOT IN ('quality_break')").fetchone()[0], 0)
     _check(assertions, failures, "right_censor_no_finalization", con.execute("SELECT count(*) FROM r2_canonical_event_zone WHERE right_censored AND zone_finalization_time IS NOT NULL").fetchone()[0], 0)

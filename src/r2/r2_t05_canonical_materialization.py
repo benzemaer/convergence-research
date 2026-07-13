@@ -282,6 +282,7 @@ def _check_startup(repo: Path, commit: str, config: dict[str, Any]) -> dict[str,
         "repository_final_gate_status": handoff.get("repository_final_gate_status"),
         "formal_task_completed": handoff.get("formal_task_completed"),
         "R2-T05_allowed_to_start": handoff.get("R2-T05_allowed_to_start"),
+        "R3_allowed_to_start": handoff.get("R3_allowed_to_start"),
         "committed_inputs": committed_input_bindings,
         "bound_artifacts": bound_artifacts,
     }
@@ -886,6 +887,13 @@ def _collect_reports(
     ], ["state_version_id","zone_status","exit_reason","event_count","right_censored_count","quality_break_count"])
     strict_fail = con.execute("SELECT count(*) FROM r2_canonical_daily_state WHERE strict_core_member AND NOT confirmed_state").fetchone()[0]
     risk_fail = con.execute("SELECT count(*) FROM r2_canonical_event_membership WHERE (is_bridged_gap OR is_prequalification_confirmed_day OR is_unqualified_reentry_day) AND qualified_event_risk_set_eligible").fetchone()[0]
+    revision_fail = con.execute("""
+      SELECT count(*) FROM (
+        SELECT zone_revision,
+          lag(zone_revision) OVER(PARTITION BY state_version_id,event_id ORDER BY membership_available_time,trade_date) prior_revision
+        FROM r2_canonical_event_membership WHERE event_zone_member
+      ) x WHERE prior_revision IS NOT NULL AND zone_revision<prior_revision
+    """).fetchone()[0]
     anomalies = []
     if len(versions) != 2:
         anomalies.append("canonical_daily_version_count_not_two")
@@ -893,6 +901,8 @@ def _collect_reports(
         anomalies.append("strict_core_subset_violation")
     if risk_fail:
         anomalies.append("risk_set_expansion_on_bridge_or_prequalification")
+    if revision_fail:
+        anomalies.append("event_zone_revision_regression")
     if con.execute("SELECT count(*) FROM r2_canonical_event_zone WHERE zone_status='FINALIZED' AND exit_reason='quality_break'").fetchone()[0]:
         anomalies.append("quality_break_natural_exit_conflict")
     anomaly = {"task_id": "R2-T05", "run_id": run_dir.name, "status": "passed" if not anomalies else "failed", "blocking_failure_count": len(anomalies), "anomalies": anomalies, "scientific_review_status": "pending_independent_scientific_review"}
