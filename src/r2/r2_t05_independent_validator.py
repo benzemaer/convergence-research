@@ -368,7 +368,14 @@ def validate_committed_artifacts(run_dir: Path, repo: Path = ROOT, commit: str |
         rel = binding["path"]
         try:
             blob = subprocess.run(["git", "show", f"{binding['source_commit']}:{rel}"], cwd=repo, check=True, capture_output=True).stdout
-            if hashlib.sha1(blob).hexdigest() != binding.get("git_blob_sha"):
+            blob_sha = subprocess.run(
+                ["git", "rev-parse", f"{binding['source_commit']}:{rel}"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if blob_sha != binding.get("git_blob_sha"):
                 failures.append(f"input_blob_mismatch:{rel}")
             if hashlib.sha256(blob).hexdigest() != binding.get("committed_byte_sha256"):
                 failures.append(f"input_byte_hash_mismatch:{rel}")
