@@ -148,7 +148,8 @@ def run_scan(
         except Exception:
             connection.execute("ROLLBACK")
             raise
-        _create_profiles_and_comparisons(connection)
+        _write_cell_execution_registry(output_dir, execution_rows)
+        _build_postscan_profiles_transactionally(connection)
         fingerprint = _database_fingerprint(connection)
         config_sha = _actual_sha256(config_path)
         readiness_sha = _actual_sha256(output_dir / "r2_t03_source_readiness.json")
@@ -189,21 +190,6 @@ def run_scan(
                 },
             )
         _export_compact_tables(connection, output_dir)
-        write_csv(
-            output_dir / "r2_t03_cell_execution_registry.csv",
-            execution_rows,
-            [
-                "candidate_cell_id",
-                "route_id",
-                "d",
-                "g",
-                "status",
-                "security_count",
-                "component_count",
-                "event_count",
-                "error",
-            ],
-        )
         summary = {
             "task_id": TASK_ID,
             "run_id": run_id,
@@ -1861,6 +1847,221 @@ def _create_profiles_and_comparisons(con: duckdb.DuckDBPyConnection) -> None:
     from src.r2.r2_t03_metrics import create_metric_tables
 
     create_metric_tables(con)
+
+
+def _write_cell_execution_registry(
+    output_dir: Path, execution_rows: list[dict[str, Any]]
+) -> None:
+    write_csv(
+        output_dir / "r2_t03_cell_execution_registry.csv",
+        execution_rows,
+        [
+            "candidate_cell_id",
+            "route_id",
+            "d",
+            "g",
+            "status",
+            "security_count",
+            "component_count",
+            "event_count",
+            "error",
+        ],
+    )
+
+
+def _build_postscan_profiles_transactionally(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    con.execute("BEGIN TRANSACTION")
+    try:
+        _assert_postscan_interface_integrity(con)
+        _create_profiles_and_comparisons(con)
+        _assert_profile_surface_cardinality(con)
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+
+
+def _assert_postscan_interface_integrity(con: duckdb.DuckDBPyConnection) -> None:
+    duplicate_checks = {
+        "cell_registry": "candidate_cell_id",
+        "qualified_component": "(candidate_cell_id,security_id,component_id)",
+        "component_source_lineage": "(candidate_cell_id,security_id,component_id)",
+        "event_zone": "(candidate_cell_id,security_id,scan_event_id)",
+        "event_zone_membership_daily": "(candidate_cell_id,security_id,scan_event_id,trade_date)",
+        "event_zone_bridge_segment": "(candidate_cell_id,security_id,scan_event_id,bridge_segment_id)",
+        "reentry_attempt": "(candidate_cell_id,security_id,reentry_attempt_id)",
+        "transition_entity_ledger": "(candidate_cell_id,security_id,entity_kind,entity_id,transition_ordinal)",
+        "transition_profile": "(candidate_cell_id,security_id,transition_ordinal)",
+    }
+    for table, identity in duplicate_checks.items():
+        duplicate_count = con.execute(
+            f"SELECT count(*)-count(DISTINCT {identity}) FROM {table}"
+        ).fetchone()[0]
+        if duplicate_count:
+            raise R2T03Error(
+                f"postscan_composite_identity_duplicate:{table}:{duplicate_count}"
+            )
+    if con.execute("SELECT count(*) FROM cell_registry").fetchone()[0] != 72:
+        raise R2T03Error("postscan_cell_registry_not_exactly_72")
+    if (
+        con.execute("SELECT count(DISTINCT route_id) FROM cell_registry").fetchone()[0]
+        != 8
+    ):
+        raise R2T03Error("postscan_route_registry_not_exactly_8")
+    orphan_checks = {
+        "component_without_lineage": """SELECT count(*) FROM qualified_component q
+            LEFT JOIN component_source_lineage l USING(candidate_cell_id,security_id,component_id)
+            WHERE l.component_id IS NULL""",
+        "lineage_without_component": """SELECT count(*) FROM component_source_lineage l
+            LEFT JOIN qualified_component q USING(candidate_cell_id,security_id,component_id)
+            WHERE q.component_id IS NULL""",
+        "event_first_component": """SELECT count(*) FROM event_zone e
+            LEFT JOIN qualified_component q
+              ON q.candidate_cell_id=e.candidate_cell_id AND q.security_id=e.security_id
+             AND q.component_id=e.first_component_id
+            WHERE q.component_id IS NULL""",
+        "event_membership": """SELECT count(*) FROM event_zone_membership_daily m
+            LEFT JOIN event_zone e USING(candidate_cell_id,security_id,scan_event_id)
+            WHERE e.scan_event_id IS NULL""",
+        "event_bridge": """SELECT count(*) FROM event_zone_bridge_segment b
+            LEFT JOIN event_zone e USING(candidate_cell_id,security_id,scan_event_id)
+            WHERE e.scan_event_id IS NULL""",
+        "bridge_left_component": """SELECT count(*) FROM event_zone_bridge_segment b
+            LEFT JOIN qualified_component q
+              ON q.candidate_cell_id=b.candidate_cell_id AND q.security_id=b.security_id
+             AND q.component_id=b.left_component_id WHERE q.component_id IS NULL""",
+        "bridge_right_component": """SELECT count(*) FROM event_zone_bridge_segment b
+            LEFT JOIN qualified_component q
+              ON q.candidate_cell_id=b.candidate_cell_id AND q.security_id=b.security_id
+             AND q.component_id=b.right_component_id WHERE q.component_id IS NULL""",
+        "reentry_source_component": """SELECT count(*) FROM reentry_attempt r
+            LEFT JOIN qualified_component q
+              ON q.candidate_cell_id=r.candidate_cell_id AND q.security_id=r.security_id
+             AND q.component_id=r.source_component_id WHERE q.component_id IS NULL""",
+        "transition_component": """SELECT count(*) FROM transition_entity_ledger t
+            LEFT JOIN qualified_component q
+              ON q.candidate_cell_id=t.candidate_cell_id AND q.security_id=t.security_id
+             AND q.component_id=t.entity_id
+            WHERE t.entity_kind='component' AND q.component_id IS NULL""",
+        "transition_event": """SELECT count(*) FROM transition_entity_ledger t
+            LEFT JOIN event_zone e
+              ON e.candidate_cell_id=t.candidate_cell_id AND e.security_id=t.security_id
+             AND e.scan_event_id=t.entity_id
+            WHERE t.entity_kind='event_zone' AND e.scan_event_id IS NULL""",
+        "transition_bridge": """SELECT count(*) FROM transition_entity_ledger t
+            LEFT JOIN event_zone_bridge_segment b
+              ON b.candidate_cell_id=t.candidate_cell_id AND b.security_id=t.security_id
+             AND b.bridge_segment_id=t.entity_id
+            WHERE t.entity_kind='bridge' AND b.bridge_segment_id IS NULL""",
+        "transition_reentry": """SELECT count(*) FROM transition_entity_ledger t
+            LEFT JOIN reentry_attempt r
+              ON r.candidate_cell_id=t.candidate_cell_id AND r.security_id=t.security_id
+             AND r.reentry_attempt_id=t.entity_id
+            WHERE t.entity_kind='reentry' AND r.reentry_attempt_id IS NULL""",
+    }
+    for label, query in orphan_checks.items():
+        orphan_count = con.execute(query).fetchone()[0]
+        if orphan_count:
+            raise R2T03Error(f"postscan_orphan_reference:{label}:{orphan_count}")
+
+
+def _assert_profile_surface_cardinality(con: duckdb.DuckDBPyConnection) -> None:
+    g_scope_count = con.execute(
+        "SELECT count(*) FROM (SELECT DISTINCT route_id,d FROM cell_registry)"
+    ).fetchone()[0]
+    d_scope_count = con.execute(
+        "SELECT count(*) FROM (SELECT DISTINCT route_id,g FROM cell_registry)"
+    ).fetchone()[0]
+    parameter_invariant_rows = 7 * g_scope_count + 4 * d_scope_count + g_scope_count
+    expected_rows = {
+        "atomic_baseline_profile": 72,
+        "d_qualification_profile": 72,
+        "dg_event_zone_profile": 72,
+        "strict_core_shell_profile": 36,
+        "window_overlap_comparison": 36,
+        "window_supplemental_source": 36,
+        "atomic_interval_diagnostic_profile": 8,
+        "component_diagnostic_profile": 72,
+        "event_zone_diagnostic_profile": 72,
+        "strict_core_diagnostic_profile": 36,
+        "window_diagnostic_profile": 36,
+        "parameter_response_audit": 24,
+        "parameter_invariant_profile": parameter_invariant_rows,
+        "metric_results": 72,
+    }
+    for table, expected in expected_rows.items():
+        actual = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        if actual != expected:
+            raise R2T03Error(
+                f"postscan_profile_row_count_mismatch:{table}:{actual}:{expected}"
+            )
+    pair_checks = {
+        "strict_core_shell_profile": (
+            "(primary_candidate_cell_id,sidecar_candidate_cell_id)",
+            "primary_candidate_cell_id IS NULL OR sidecar_candidate_cell_id IS NULL",
+        ),
+        "window_overlap_comparison": (
+            "(primary_candidate_cell_id,comparison_candidate_cell_id)",
+            "primary_candidate_cell_id IS NULL OR comparison_candidate_cell_id IS NULL",
+        ),
+        "window_supplemental_source": (
+            "(primary_candidate_cell_id,comparison_candidate_cell_id)",
+            "primary_candidate_cell_id IS NULL OR comparison_candidate_cell_id IS NULL",
+        ),
+    }
+    for table, (identity, null_predicate) in pair_checks.items():
+        duplicates, nulls = con.execute(
+            f"SELECT count(*)-count(DISTINCT {identity}),count(*) FILTER "
+            f"(WHERE {null_predicate}) FROM {table}"
+        ).fetchone()
+        if duplicates or nulls:
+            raise R2T03Error(
+                f"postscan_pair_identity_failed:{table}:{duplicates}:{nulls}"
+            )
+    invalid_window = con.execute(
+        """SELECT count(*) FROM window_supplemental_source w
+        WHERE W120_only_event_count<0 OR W250_only_event_count<0
+           OR component_overlap_count<0 OR W120_only_component_count<0
+           OR W250_only_component_count<0
+           OR component_overlap_count<>(SELECT count(*) FROM qualified_component p
+             WHERE p.candidate_cell_id=w.primary_candidate_cell_id AND p.qualified
+               AND EXISTS(SELECT 1 FROM qualified_component c
+                 WHERE c.candidate_cell_id=w.comparison_candidate_cell_id AND c.qualified
+                   AND c.security_id=p.security_id
+                   AND c.start_date<=p.end_date AND p.start_date<=c.end_date))
+           OR W120_only_component_count<>(SELECT count(*) FROM qualified_component p
+             WHERE p.candidate_cell_id=w.primary_candidate_cell_id AND p.qualified
+               AND NOT EXISTS(SELECT 1 FROM qualified_component c
+                 WHERE c.candidate_cell_id=w.comparison_candidate_cell_id AND c.qualified
+                   AND c.security_id=p.security_id
+                   AND c.start_date<=p.end_date AND p.start_date<=c.end_date))
+           OR W250_only_component_count<>(SELECT count(*) FROM qualified_component c
+             WHERE c.candidate_cell_id=w.comparison_candidate_cell_id AND c.qualified
+               AND NOT EXISTS(SELECT 1 FROM qualified_component p
+                 WHERE p.candidate_cell_id=w.primary_candidate_cell_id AND p.qualified
+                   AND p.security_id=c.security_id
+                   AND p.start_date<=c.end_date AND c.start_date<=p.end_date))"""
+    ).fetchone()[0]
+    invalid_events = con.execute(
+        """SELECT count(*) FROM window_overlap_comparison w
+        JOIN window_supplemental_source s
+          USING(primary_candidate_cell_id,comparison_candidate_cell_id)
+        WHERE matched_event_count<0 OR overlapping_event_count<0
+           OR matched_event_count+s.W120_only_event_count<>(
+             SELECT count(*) FROM event_zone e
+             WHERE e.candidate_cell_id=w.primary_candidate_cell_id)
+           OR matched_event_count+s.W250_only_event_count<>(
+             SELECT count(*) FROM event_zone e
+             WHERE e.candidate_cell_id=w.comparison_candidate_cell_id)
+           OR overlapping_event_count>(SELECT count(*) FROM event_zone e
+             WHERE e.candidate_cell_id=w.primary_candidate_cell_id)"""
+    ).fetchone()[0]
+    if invalid_window or invalid_events:
+        raise R2T03Error(
+            f"postscan_comparison_reconciliation_failed:{invalid_window}:{invalid_events}"
+        )
 
 
 def _export_compact_tables(con: duckdb.DuckDBPyConnection, output_dir: Path) -> None:

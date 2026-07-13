@@ -10,7 +10,11 @@ from pathlib import Path
 import duckdb
 
 from src.r2.r2_t03_event_zone_scan import _input_binding
-from src.r2.r2_t03_runtime_gates import _binding_checks, _structural_check_specs
+from src.r2.r2_t03_runtime_gates import (
+    _binding_checks,
+    _evaluate_frozen_gates,
+    _structural_check_specs,
+)
 
 
 class R2T03RuntimeDetectorTest(unittest.TestCase):
@@ -33,13 +37,52 @@ class R2T03RuntimeDetectorTest(unittest.TestCase):
         con = duckdb.connect(":memory:")
         con.execute(
             """CREATE TABLE event_zone_membership_daily(candidate_cell_id VARCHAR,
-            security_id VARCHAR,scan_event_id VARCHAR,trade_date DATE,zone_revision_as_of INTEGER)"""
+            security_id VARCHAR,scan_event_id VARCHAR,trade_date DATE,
+            zone_revision_as_of INTEGER,event_zone_member BOOLEAN)"""
         )
         con.execute(
-            "INSERT INTO event_zone_membership_daily VALUES ('c','S','e','2026-01-01',2),('c','S','e','2026-01-02',1)"
+            "INSERT INTO event_zone_membership_daily VALUES "
+            "('c','S','e','2026-01-01',2,true),"
+            "('c','S','e','2026-01-02',1,true)"
         )
         self.assertEqual(
             con.execute(self._sql("event_zone_revision_regression")).fetchone()[0], 1
+        )
+
+    def test_revision_detector_ignores_nonmember_reentry_rows(self) -> None:
+        con = duckdb.connect(":memory:")
+        con.execute(
+            """CREATE TABLE event_zone_membership_daily(candidate_cell_id VARCHAR,
+            security_id VARCHAR,scan_event_id VARCHAR,trade_date DATE,
+            zone_revision_as_of INTEGER,event_zone_member BOOLEAN);
+            INSERT INTO event_zone_membership_daily VALUES
+            ('c','S','e','2026-01-01',1,true),
+            ('c','S','e','2026-01-02',0,false);"""
+        )
+        self.assertEqual(
+            con.execute(self._sql("event_zone_revision_regression")).fetchone()[0], 0
+        )
+
+    def test_bridge_bounds_use_frozen_segment_granularity(self) -> None:
+        con = duckdb.connect(":memory:")
+        con.execute(
+            """CREATE TABLE event_zone_bridge_segment(merge_accepted BOOLEAN,
+            preconfirmation_gap_day_count INTEGER,raw_false_gap_day_count INTEGER,
+            total_nonconfirmed_gap_day_count INTEGER,K INTEGER,g INTEGER);
+            INSERT INTO event_zone_bridge_segment VALUES
+            (true,4,2,6,3,2),(true,5,2,7,3,2);"""
+        )
+        self.assertEqual(
+            con.execute(
+                self._sql("preconfirmation_days_exceed_k_minus_one_bound")
+            ).fetchone()[0],
+            1,
+        )
+        self.assertEqual(
+            con.execute(
+                self._sql("total_nonconfirmed_gap_days_exceed_k_bound")
+            ).fetchone()[0],
+            1,
         )
 
     def test_forbidden_field_detector_scans_all_output_tables(self) -> None:
@@ -62,6 +105,30 @@ class R2T03RuntimeDetectorTest(unittest.TestCase):
         self.assertEqual(
             con.execute(self._sql("unqualified_reentry_unfinalized")).fetchone()[0], 1
         )
+
+    def test_global_engineering_rules_are_not_metric_column_lookups(self) -> None:
+        con = duckdb.connect(":memory:")
+        con.execute(
+            """CREATE TABLE metric_results(candidate_cell_id VARCHAR,route_id VARCHAR,
+            state_line VARCHAR,qualified_event_count INTEGER);
+            INSERT INTO metric_results VALUES ('c','r','S_PCT',10);
+            CREATE TABLE atomic_baseline_profile(candidate_cell_id VARCHAR,
+            atomic_confirmed_interval_count INTEGER,confirmed_state_days INTEGER);
+            INSERT INTO atomic_baseline_profile VALUES ('c',1,1);
+            CREATE TABLE route_daily(route_id VARCHAR,security_id VARCHAR,
+            confirmed_state BOOLEAN);
+            INSERT INTO route_daily VALUES ('r','S',true);"""
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            registry = Path(tmp) / "registry.csv"
+            registry.write_text(
+                "gate_id,metric_id,operator,threshold,state_line,implementation_stage\n"
+                "duplicate_primary_key,duplicate_primary_key,==,0,GLOBAL,"
+                "r2_t02_reference_executable\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(_evaluate_frozen_gates(con, registry), [])
+        con.close()
 
     def test_real_input_binding_payload_closes_runtime_detector(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

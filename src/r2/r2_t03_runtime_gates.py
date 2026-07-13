@@ -311,14 +311,21 @@ def _structural_check_specs() -> list[tuple[str, str, str, int, str]]:
         (
             "preconfirmation_days_exceed_k_minus_one_bound",
             "global",
-            "SELECT count(*) FROM event_zone WHERE preconfirmation_gap_day_count>2*greatest(component_count-1,0)",
+            """SELECT count(*) FROM event_zone_bridge_segment
+            WHERE merge_accepted AND preconfirmation_gap_day_count>
+              (K-1)*raw_false_gap_day_count""",
             0,
             "=0",
         ),
         (
             "total_nonconfirmed_gap_days_exceed_k_bound",
             "global",
-            "SELECT count(*) FROM event_zone WHERE total_nonconfirmed_gap_day_count>raw_false_bridged_day_count+2*greatest(component_count-1,0)",
+            """SELECT count(*) FROM event_zone_bridge_segment
+            WHERE merge_accepted AND (
+              total_nonconfirmed_gap_day_count<>
+                raw_false_gap_day_count+preconfirmation_gap_day_count
+              OR total_nonconfirmed_gap_day_count>K*raw_false_gap_day_count
+              OR total_nonconfirmed_gap_day_count>K*g)""",
             0,
             "=0",
         ),
@@ -335,7 +342,7 @@ def _structural_check_specs() -> list[tuple[str, str, str, int, str]]:
             """SELECT count(*) FROM (
               SELECT zone_revision_as_of,
                lag(zone_revision_as_of) OVER(PARTITION BY candidate_cell_id,security_id,scan_event_id ORDER BY trade_date) prior_revision
-              FROM event_zone_membership_daily)
+              FROM event_zone_membership_daily WHERE event_zone_member)
               WHERE zone_revision_as_of<0 OR zone_revision_as_of<prior_revision""",
             0,
             "=0",
@@ -735,7 +742,10 @@ def _evaluate_frozen_gates(
     }
     output = []
     for rule in rules:
-        if rule["implementation_stage"] != "r2_t02_reference_executable":
+        if (
+            rule["implementation_stage"] != "r2_t02_reference_executable"
+            or rule["state_line"] == "GLOBAL"
+        ):
             continue
         for cell_id, metric in metrics.items():
             if (

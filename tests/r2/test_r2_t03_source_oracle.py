@@ -6,6 +6,7 @@ import src.r2.r2_t03_independent_validator as validator_module
 from src.r2.r2_t03_independent_validator import (
     R2T03IndependentValidationError,
     _independent_dense_input,
+    _normalize_daily_comparison_value,
     _oracle_mega_zone_concentration,
     compare_oracle_metric_targets,
     independent_strict_core_oracle,
@@ -15,6 +16,17 @@ from src.r2.r2_t03_independent_validator import (
 
 
 class R2T03SourceOracleTimelineTest(unittest.TestCase):
+    def test_daily_comparison_normalizes_nullable_text_and_timestamp_rendering(
+        self,
+    ) -> None:
+        self.assertIsNone(_normalize_daily_comparison_value("reason_code", ""))
+        self.assertEqual(
+            _normalize_daily_comparison_value(
+                "confirmation_time", "2026-01-01 15:00:00+08"
+            ),
+            "2026-01-01T15:00:00+08:00",
+        )
+
     def test_dense_input_is_built_from_sparse_rows_and_d2_status(self) -> None:
         sparse = [
             {
@@ -109,6 +121,38 @@ class R2T03SourceOracleTimelineTest(unittest.TestCase):
         self.assertTrue(component["qualified"])
         self.assertEqual(component["termination_reason"], "sample_end_censoring")
         self.assertEqual(qualified_censored["prequalification_right_censored_count"], 0)
+
+    def test_quality_interrupted_unqualified_component_closes_transition(self) -> None:
+        actual = self.oracle(
+            [True, True, True, None],
+            d=4,
+            qualities=["valid", "valid", "valid", "blocked"],
+        )
+        self.assertEqual(actual["qualified_event_count"], 0)
+        self.assertEqual(actual["transition_closure"]["unqualified_close"], 1)
+
+    def test_unqualified_reentry_days_are_prequalification_days(self) -> None:
+        actual = self.oracle(
+            [
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                False,
+                True,
+                True,
+                True,
+                True,
+                True,
+                False,
+            ],
+            d=4,
+            g=1,
+        )
+        self.assertEqual(actual["unqualified_reentry_count"], 1)
+        self.assertEqual(len(actual["prequalification_confirmed_keys"]), 6)
 
     def test_mega_zone_concentration_uses_top_one_percent_by_count(self) -> None:
         durations = [3, 2] + [1] * 99

@@ -8,6 +8,37 @@ from typing import Any
 import duckdb
 
 ExactKey = tuple[str, str]
+ScopedEntityKey = tuple[str, str]
+
+STRICT_CORE_OUTPUT_FIELDS = (
+    "strict_core_confirmed_day_count",
+    "strict_core_confirmed_day_share",
+    "strict_core_event_count",
+    "strict_core_event_share",
+    "shell_only_event_count",
+    "shell_only_confirmed_day_count",
+    "shell_only_confirmed_day_share",
+    "strict_core_subset_status",
+)
+WINDOW_CORE_OUTPUT_FIELDS = (
+    "intersection_confirmed_days",
+    "W120_only_confirmed_days",
+    "W250_only_confirmed_days",
+    "union_confirmed_days",
+    "confirmed_day_jaccard",
+    "W120_own_eligible_days",
+    "W250_own_eligible_days",
+    "common_eligible_days",
+    "matched_event_count",
+    "overlapping_event_count",
+)
+WINDOW_SUPPLEMENTAL_OUTPUT_FIELDS = (
+    "W120_only_event_count",
+    "W250_only_event_count",
+    "component_overlap_count",
+    "W120_only_component_count",
+    "W250_only_component_count",
+)
 
 # Frozen source: R2-T02 metric dictionary, run R2-T02-20260712T1700Z.
 # Each entry binds metric_id -> evaluator_id, numerator, denominator, population.
@@ -178,13 +209,15 @@ def reference_hard_gate_metrics(
 
 
 def strict_core_comparison(
-    primary_events: Mapping[str, set[ExactKey]],
-    strict_events: Mapping[str, set[ExactKey]],
+    primary_events: Mapping[str | ScopedEntityKey, set[ExactKey]],
+    strict_events: Mapping[str | ScopedEntityKey, set[ExactKey]],
     *,
     primary_confirmed_keys: set[ExactKey],
     strict_confirmed_keys: set[ExactKey],
 ) -> dict[str, int | float | str | None]:
     """Compare strict-core containment using exact security-date membership."""
+    primary_events = _scoped_entity_map(primary_events, "primary_event")
+    strict_events = _scoped_entity_map(strict_events, "strict_event")
     strict_core_keys = primary_confirmed_keys & strict_confirmed_keys
     strict_component_keys = (
         set().union(*strict_events.values()) if strict_events else set()
@@ -228,49 +261,64 @@ def deterministic_window_comparison(
     *,
     primary_eligible: set[ExactKey],
     comparison_eligible: set[ExactKey],
-    primary_events: Mapping[str, set[ExactKey]],
-    comparison_events: Mapping[str, set[ExactKey]],
-    primary_event_spans: Mapping[str, set[ExactKey]] | None = None,
-    comparison_event_spans: Mapping[str, set[ExactKey]] | None = None,
-    primary_components: Mapping[str, set[ExactKey]] | None = None,
-    comparison_components: Mapping[str, set[ExactKey]] | None = None,
+    primary_events: Mapping[str | ScopedEntityKey, set[ExactKey]],
+    comparison_events: Mapping[str | ScopedEntityKey, set[ExactKey]],
+    primary_event_spans: Mapping[str | ScopedEntityKey, set[ExactKey]] | None = None,
+    comparison_event_spans: Mapping[str | ScopedEntityKey, set[ExactKey]] | None = None,
+    primary_components: Mapping[str | ScopedEntityKey, set[ExactKey]] | None = None,
+    comparison_components: Mapping[str | ScopedEntityKey, set[ExactKey]] | None = None,
 ) -> dict[str, int | float | None]:
     """Frozen exact-key daily comparison and deterministic greedy 1:1 event match."""
     intersection = primary_confirmed & comparison_confirmed
     union = primary_confirmed | comparison_confirmed
-    primary_spans = primary_event_spans or primary_events
-    comparison_spans = comparison_event_spans or comparison_events
-    candidates: list[tuple[str, str, str, str, str]] = []
-    overlapping_primary: set[str] = set()
+    primary_events = _scoped_entity_map(primary_events, "primary_event")
+    comparison_events = _scoped_entity_map(comparison_events, "comparison_event")
+    primary_spans = _scoped_entity_map(
+        primary_event_spans or primary_events, "primary_event_span"
+    )
+    comparison_spans = _scoped_entity_map(
+        comparison_event_spans or comparison_events, "comparison_event_span"
+    )
+    candidates: list[tuple[str, str, ScopedEntityKey, ScopedEntityKey]] = []
+    overlapping_primary: set[ScopedEntityKey] = set()
+    comparison_events_by_security = _entities_by_security(comparison_events)
     for primary_id, pkeys in primary_events.items():
         pspan = primary_spans[primary_id]
         pstart = min(date for _, date in pspan)
-        security = _single_security(primary_id, pkeys)
-        for comparison_id, ckeys in comparison_events.items():
+        security = primary_id[0]
+        for comparison_id, ckeys in comparison_events_by_security.get(
+            security, {}
+        ).items():
             cspan = comparison_spans[comparison_id]
-            if security != _single_security(comparison_id, ckeys):
-                continue
             if _date_spans_overlap(pspan, cspan):
                 overlapping_primary.add(primary_id)
             if not pkeys & ckeys:
                 continue
             cstart = min(date for _, date in cspan)
-            candidates.append((pstart, cstart, primary_id, comparison_id, security))
-    matched_primary: set[str] = set()
-    matched_comparison: set[str] = set()
-    for _, _, primary_id, comparison_id, _ in sorted(candidates):
+            candidates.append((pstart, cstart, primary_id, comparison_id))
+    matched_primary: set[ScopedEntityKey] = set()
+    matched_comparison: set[ScopedEntityKey] = set()
+    for _, _, primary_id, comparison_id in sorted(candidates):
         if primary_id in matched_primary or comparison_id in matched_comparison:
             continue
         matched_primary.add(primary_id)
         matched_comparison.add(comparison_id)
-    primary_component_map = primary_components or {}
-    comparison_component_map = comparison_components or {}
+    primary_component_map = _scoped_entity_map(
+        primary_components or {}, "primary_component"
+    )
+    comparison_component_map = _scoped_entity_map(
+        comparison_components or {}, "comparison_component"
+    )
+    comparison_components_by_security = _entities_by_security(comparison_component_map)
+    primary_components_by_security = _entities_by_security(primary_component_map)
     overlapping_components = {
         primary_id
         for primary_id, primary_span in primary_component_map.items()
         if any(
             _date_spans_overlap(primary_span, comparison_span)
-            for comparison_span in comparison_component_map.values()
+            for comparison_span in comparison_components_by_security.get(
+                primary_id[0], {}
+            ).values()
         )
     }
     overlapping_comparison_components = {
@@ -278,7 +326,9 @@ def deterministic_window_comparison(
         for comparison_id, comparison_span in comparison_component_map.items()
         if any(
             _date_spans_overlap(comparison_span, primary_span)
-            for primary_span in primary_component_map.values()
+            for primary_span in primary_components_by_security.get(
+                comparison_id[0], {}
+            ).values()
         )
     }
     return {
@@ -374,7 +424,15 @@ def _create_strict_core_profile(con: duckdb.DuckDBPyConnection) -> None:
         )
         con.execute(
             "INSERT INTO strict_core_shell_profile VALUES (?,?,?,?,?,?,?,?,?,?)",
-            [primary, sidecar, *value.values()],
+            [
+                primary,
+                sidecar,
+                *_contract_values(
+                    value,
+                    STRICT_CORE_OUTPUT_FIELDS,
+                    "strict_core_comparison",
+                ),
+            ],
         )
 
 
@@ -414,18 +472,30 @@ def _create_window_profile(con: duckdb.DuckDBPyConnection) -> None:
         )
         con.execute(
             "INSERT INTO window_overlap_comparison VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            [primary, comparison, *list(value.values())[:10]],
+            [
+                primary,
+                comparison,
+                *_contract_values(
+                    value,
+                    WINDOW_CORE_OUTPUT_FIELDS + WINDOW_SUPPLEMENTAL_OUTPUT_FIELDS,
+                    "deterministic_window_comparison",
+                )[: len(WINDOW_CORE_OUTPUT_FIELDS)],
+            ],
         )
         con.execute(
             "INSERT INTO window_supplemental_source VALUES (?,?,?,?,?,?,?)",
-            [primary, comparison, *list(value.values())[10:]],
+            [
+                primary,
+                comparison,
+                *[value[field] for field in WINDOW_SUPPLEMENTAL_OUTPUT_FIELDS],
+            ],
         )
 
 
 def _event_key_sets(
     con: duckdb.DuckDBPyConnection, cell: str
-) -> dict[str, set[ExactKey]]:
-    output: dict[str, set[ExactKey]] = {}
+) -> dict[ScopedEntityKey, set[ExactKey]]:
+    output: dict[ScopedEntityKey, set[ExactKey]] = {}
     rows = con.execute(
         """SELECT scan_event_id,security_id,CAST(trade_date AS VARCHAR)
         FROM event_zone_membership_daily
@@ -434,27 +504,69 @@ def _event_key_sets(
         [cell],
     ).fetchall()
     for event_id, security, trade_date in rows:
-        output.setdefault(event_id, set()).add((security, trade_date))
+        output.setdefault((security, event_id), set()).add((security, trade_date))
     return output
 
 
 def _component_span_sets(
     con: duckdb.DuckDBPyConnection, cell: str
-) -> dict[str, set[ExactKey]]:
-    output: dict[str, set[ExactKey]] = {}
+) -> dict[ScopedEntityKey, set[ExactKey]]:
+    output: dict[ScopedEntityKey, set[ExactKey]] = {}
     if not _table_exists(con, "qualified_component"):
         return output
+    component_columns = {
+        row[1]
+        for row in con.execute("PRAGMA table_info('qualified_component')").fetchall()
+    }
+    confirmed_count_expression = (
+        "q.confirmed_day_count"
+        if "confirmed_day_count" in component_columns
+        else "NULL::BIGINT"
+    )
     rows = con.execute(
-        """SELECT q.component_id,m.security_id,CAST(m.trade_date AS VARCHAR)
-        FROM qualified_component q JOIN event_zone_membership_daily m
-          ON m.candidate_cell_id=q.candidate_cell_id AND m.security_id=q.security_id
-         AND m.trade_date BETWEEN q.start_date AND q.end_date
-        WHERE q.candidate_cell_id=? AND q.qualified AND m.confirmed_state
-        ORDER BY 1,2,3""",
+        f"""SELECT q.security_id,q.component_id,CAST(q.start_date AS VARCHAR),
+                  CAST(q.end_date AS VARCHAR),{confirmed_count_expression}
+        FROM qualified_component q
+        WHERE q.candidate_cell_id=? AND q.qualified ORDER BY 1,2""",
         [cell],
     ).fetchall()
-    for component_id, security, trade_date in rows:
-        output.setdefault(component_id, set()).add((security, trade_date))
+    membership = {
+        (security, component_id): (first_date, last_date, confirmed_count)
+        for security, component_id, first_date, last_date, confirmed_count in con.execute(
+            """SELECT q.security_id,q.component_id,
+                      CAST(min(m.trade_date) FILTER (WHERE m.confirmed_state
+                        AND m.retrospective_component_member) AS VARCHAR),
+                      CAST(max(m.trade_date) FILTER (WHERE m.confirmed_state
+                        AND m.retrospective_component_member) AS VARCHAR),
+                      count(DISTINCT m.trade_date) FILTER (WHERE m.confirmed_state
+                        AND m.retrospective_component_member)
+            FROM qualified_component q JOIN event_zone_membership_daily m
+              ON m.candidate_cell_id=q.candidate_cell_id
+             AND m.security_id=q.security_id
+             AND m.trade_date BETWEEN q.start_date AND q.end_date
+            WHERE q.candidate_cell_id=? AND q.qualified GROUP BY 1,2""",
+            [cell],
+        ).fetchall()
+    }
+    for security, component_id, start_date, end_date, confirmed_count in rows:
+        key = (security, component_id)
+        if key in output:
+            raise ValueError(
+                f"component_identity_not_unique:{cell}:{security}:{component_id}"
+            )
+        member_value = membership.get(key)
+        if start_date > end_date or member_value is None or int(member_value[2]) < 1:
+            raise ValueError(
+                f"qualified_component_contract_failed:{cell}:{security}:{component_id}"
+            )
+        expected_count = (
+            int(confirmed_count) if confirmed_count is not None else member_value[2]
+        )
+        if member_value != (start_date, end_date, expected_count):
+            raise ValueError(
+                f"component_membership_mismatch:{cell}:{security}:{component_id}"
+            )
+        output[key] = {(security, start_date), (security, end_date)}
     return output
 
 
@@ -469,8 +581,8 @@ def _table_exists(con: duckdb.DuckDBPyConnection, table: str) -> bool:
 
 def _event_span_sets(
     con: duckdb.DuckDBPyConnection, cell: str
-) -> dict[str, set[ExactKey]]:
-    output: dict[str, set[ExactKey]] = {}
+) -> dict[ScopedEntityKey, set[ExactKey]]:
+    output: dict[ScopedEntityKey, set[ExactKey]] = {}
     rows = con.execute(
         """SELECT scan_event_id,security_id,CAST(trade_date AS VARCHAR)
         FROM event_zone_membership_daily
@@ -478,8 +590,49 @@ def _event_span_sets(
         [cell],
     ).fetchall()
     for event_id, security, trade_date in rows:
-        output.setdefault(event_id, set()).add((security, trade_date))
+        output.setdefault((security, event_id), set()).add((security, trade_date))
     return output
+
+
+def _scoped_entity_map(
+    values: Mapping[str | ScopedEntityKey, set[ExactKey]], label: str
+) -> dict[ScopedEntityKey, set[ExactKey]]:
+    output: dict[ScopedEntityKey, set[ExactKey]] = {}
+    for local_key, exact_keys in values.items():
+        security = _single_security(str(local_key), exact_keys)
+        if isinstance(local_key, tuple):
+            if len(local_key) != 2 or str(local_key[0]) != security:
+                raise ValueError(f"{label}_scope_mismatch:{local_key}")
+            scoped_key = (security, str(local_key[1]))
+        else:
+            scoped_key = (security, str(local_key))
+        if scoped_key in output:
+            raise ValueError(f"{label}_identity_not_unique:{scoped_key}")
+        output[scoped_key] = exact_keys
+    return output
+
+
+def _entities_by_security(
+    values: Mapping[ScopedEntityKey, set[ExactKey]],
+) -> dict[str, dict[ScopedEntityKey, set[ExactKey]]]:
+    output: dict[str, dict[ScopedEntityKey, set[ExactKey]]] = {}
+    for key, exact_keys in values.items():
+        output.setdefault(key[0], {})[key] = exact_keys
+    return output
+
+
+def _contract_values(
+    value: Mapping[str, Any], fields: tuple[str, ...], label: str
+) -> list[Any]:
+    actual = set(value)
+    expected = set(fields)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise ValueError(
+            f"{label}_field_contract_failed:missing={missing}:extra={extra}"
+        )
+    return [value[field] for field in fields]
 
 
 def _confirmed_keys(con: duckdb.DuckDBPyConnection, cell: str) -> set[ExactKey]:
