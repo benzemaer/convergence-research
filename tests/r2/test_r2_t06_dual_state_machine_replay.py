@@ -6,7 +6,6 @@ from datetime import date
 from pathlib import Path
 
 import duckdb
-import pytest
 
 from src.r2.r2_t06_dual_state_machine_replay import (
     T06Blocked,
@@ -281,23 +280,22 @@ def test_committed_artifact_validator_uses_git_blobs() -> None:
     assert "committed_byte_sha256" in source
 
 
-@pytest.mark.parametrize(
-    ("path", "value"),
-    [
+def test_startup_binding_mutations_fail_closed() -> None:
+    mutations = [
         (("t05_binding", "t05_scientific_review_id"), "mutated"),
         (("t05_binding", "t05_authoritative_run"), "R2-T05-mutated"),
         (("t05_artifacts", "database_sha256"), "0" * 64),
         (("selected_versions", 0, "state_version_id"), "mutated"),
-    ],
-)
-def test_startup_binding_mutations_fail_closed(
-    path: tuple[object, ...], value: str
-) -> None:
-    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    mutated = copy.deepcopy(config)
-    cursor: object = mutated
-    for key in path[:-1]:
-        cursor = cursor[key]  # type: ignore[index]
-    cursor[path[-1]] = value  # type: ignore[index]
-    with pytest.raises(T06Blocked):
-        check_merged_pr_binding(ROOT, mutated)
+    ]
+    for path, value in mutations:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        mutated = copy.deepcopy(config)
+        cursor: object = mutated
+        for key in path[:-1]:
+            cursor = cursor[key]  # type: ignore[index]
+        cursor[path[-1]] = value  # type: ignore[index]
+        try:
+            check_merged_pr_binding(ROOT, mutated)
+        except T06Blocked:
+            continue
+        raise AssertionError(f"mutation did not fail closed: {path}")
