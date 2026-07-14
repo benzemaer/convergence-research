@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "minItems": 2,
+  "maxItems": 2,
+  "items": {"type": "object", "additionalProperties": false, "required": ["state_line", "frozen_state_version_ids", "frozen_windows", "overlap_handling_required", "status", "reason"], "properties": {"state_line": {"enum": ["S_PCT", "S_PCVT"]}, "frozen_state_version_ids": {"type": "string"}, "frozen_windows": {"type": "string"}, "overlap_handling_required": {"type": "string"}, "status": {"const": "not_applicable_single_frozen_window"}, "reason": {"type": "string"}}}
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "execution_commit", "config_binding", "t07_merge_commit", "t07_reviewed_head", "t07_authoritative_run", "source_artifacts", "forbidden_inputs"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"const": "passed"}, "execution_commit": {"type": "string"}, "config_binding": {"$ref": "#/$defs/ref"}, "t07_merge_commit": {"type": "string"}, "t07_reviewed_head": {"type": "string"}, "t07_authoritative_run": {"type": "string"}, "source_artifacts": {"type": "array", "items": {"$ref": "#/$defs/ref"}}, "forbidden_inputs": {"type": "array", "items": {"type": "string"}}},
+  "$defs": {"ref": {"type": "object", "additionalProperties": false, "required": ["path", "source_commit", "git_blob_sha", "committed_byte_sha256", "size_bytes"], "properties": {"path": {"type": "string"}, "source_commit": {"type": "string"}, "git_blob_sha": {"type": "string"}, "committed_byte_sha256": {"type": "string"}, "size_bytes": {"type": "integer"}}}}
+}

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "anomaly_count", "anomalies"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"enum": ["passed", "failed"]}, "anomaly_count": {"type": "integer"}, "anomalies": {"type": "array", "items": {"type": "string"}}}
+}

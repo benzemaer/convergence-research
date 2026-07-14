@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "execution_commit", "status", "acceptance_matrix_ref", "t07_final_freeze_manifest_ref", "frozen_version_count", "frozen_state_version_ids", "canonical_interfaces", "r2_evidence_chain_passed", "r3_handoff_eligible", "formal_task_completed", "R3_allowed_to_start", "activation_mode", "warnings", "limitations", "forbidden_reinterpretations"],
+  "properties": {
+    "task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "execution_commit": {"type": "string"}, "status": {"const": "passed_author_stage_pending_scientific_review_and_merge"},
+    "acceptance_matrix_ref": {"type": "object", "additionalProperties": false, "properties": {"path": {"type": "string"}, "gate_count": {"type": "integer"}, "mismatch_count": {"type": "integer"}}, "required": ["path", "gate_count", "mismatch_count"]},
+    "t07_final_freeze_manifest_ref": {"$ref": "#/$defs/ref"}, "frozen_version_count": {"const": 2}, "frozen_state_version_ids": {"type": "array", "items": {"type": "string"}},
+    "canonical_interfaces": {"$ref": "#/$defs/interfaces"}, "r2_evidence_chain_passed": {"const": true}, "r3_handoff_eligible": {"const": true}, "formal_task_completed": {"const": false}, "R3_allowed_to_start": {"const": false}, "activation_mode": {"const": "merged_pr_direct_binding"},
+    "warnings": {"type": "object", "additionalProperties": false, "patternProperties": {"^r2_": {"type": "array", "items": {"type": "string"}}}}, "limitations": {"type": "array", "items": {"type": "string"}}, "forbidden_reinterpretations": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {"ref": {"type": "object", "additionalProperties": false, "required": ["path", "source_commit", "git_blob_sha", "committed_byte_sha256", "size_bytes"], "properties": {"path": {"type": "string"}, "source_commit": {"type": "string"}, "git_blob_sha": {"type": "string"}, "committed_byte_sha256": {"type": "string"}, "size_bytes": {"type": "integer"}}}, "interface": {"type": "object", "additionalProperties": false, "required": ["logical_table_name", "database_path", "database_sha256", "stable_multiset_sha256", "row_count", "primary_key", "source_run_id", "availability_policy"], "properties": {"logical_table_name": {"type": "string"}, "database_path": {"type": "string"}, "database_sha256": {"type": "string"}, "stable_multiset_sha256": {"type": "string"}, "row_count": {"type": "integer"}, "primary_key": {"type": "array", "items": {"type": "string"}}, "source_run_id": {"type": "string"}, "availability_policy": {"type": "string"}}}, "interfaces": {"type": "object", "additionalProperties": false, "required": ["daily", "event", "membership"], "properties": {"daily": {"$ref": "#/$defs/interface"}, "event": {"$ref": "#/$defs/interface"}, "membership": {"$ref": "#/$defs/interface"}}}}
+}

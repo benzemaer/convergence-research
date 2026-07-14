@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "failure_count", "failures", "validated_commit", "validation_mode", "validated_artifacts"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"enum": ["passed", "failed"]}, "failure_count": {"type": "integer"}, "failures": {"type": "array", "items": {"type": "string"}}, "validated_commit": {"type": "string"}, "validated_manifest_path": {"type": "string"}, "validated_manifest_blob_sha": {"type": "string"}, "validated_manifest_committed_byte_sha256": {"type": "string"}, "validated_manifest_size_bytes": {"type": "integer"}, "validation_mode": {"const": "git_show_committed_blob_bytes"}, "validated_artifacts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "git_blob_sha", "committed_byte_sha256", "size_bytes"], "properties": {"path": {"type": "string"}, "git_blob_sha": {"type": "string"}, "committed_byte_sha256": {"type": "string"}, "size_bytes": {"type": "integer"}}}}}
+}

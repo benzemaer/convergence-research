@@ -310,6 +310,10 @@ CONFIGS = (
         ROOT / "configs/r2/r2_t04_hard_gate_pareto_freeze_plan.v1.json",
     ),
     (
+        ROOT / "schemas/r2/r2_t08_r2_gate_r3_handoff.schema.json",
+        ROOT / "configs/r2/r2_t08_r2_gate_r3_handoff.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),

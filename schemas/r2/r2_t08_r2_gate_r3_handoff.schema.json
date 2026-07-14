@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "config_version", "t07_binding", "expected_frozen_versions", "expected_counts", "canonical_contract", "frozen_window_matrix", "strict_core_contract", "release_anchor_obligation", "global_limitations", "forbidden_reinterpretations", "outputs"],
+  "properties": {
+    "task_id": {"const": "R2-T08"}, "config_version": {"type": "string"}, "t07_binding": {"type": "object", "additionalProperties": true}, "expected_frozen_versions": {"type": "array", "minItems": 2, "maxItems": 2}, "expected_counts": {"type": "object", "additionalProperties": true}, "canonical_contract": {"type": "object", "additionalProperties": true}, "frozen_window_matrix": {"type": "array", "minItems": 2, "maxItems": 2}, "strict_core_contract": {"type": "object", "additionalProperties": true}, "release_anchor_obligation": {"type": "object", "additionalProperties": true}, "global_limitations": {"type": "array", "items": {"type": "string"}}, "forbidden_reinterpretations": {"type": "array", "items": {"type": "string"}}, "outputs": {"type": "object", "additionalProperties": true}
+  }
+}
