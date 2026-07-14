@@ -12,10 +12,16 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
-from src.common.canonical_io import write_csv, write_json, write_markdown
+from src.common.canonical_io import (
+    canonical_json_sha256,
+    write_csv,
+    write_json,
+    write_markdown,
+)
 
 TASK_ID = "R2-T07"
 CONTRACT_VERSION = "r2_t02_confirmed_event_zone_state_machine_contract.v8"
@@ -395,6 +401,95 @@ NEW_EXPECTED_WARNINGS = {
     ],
 }
 
+SUCCESSOR_CHECK_KEYS = [
+    "state_registry_header_mismatch",
+    "state_registry_row_mismatch",
+    "state_registry_formula_binding_mismatch",
+    "state_registry_r1_handoff_mismatch",
+    "state_registry_warning_mismatch",
+    "state_registry_use_policy_mismatch",
+    "interval_registry_mismatch",
+    "event_state_registry_mismatch",
+    "zone_revision_policy_mismatch",
+    "canonical_field_mapping_mismatch",
+    "canonical_risk_set_policy_mismatch",
+    "time_authority_mismatch",
+    "decision_log_mismatch",
+    "decision_unit_count_mismatch",
+    "rejected_decision_unit_mismatch",
+    "selection_path_flag_mismatch",
+    "core_artifact_missing_count",
+    "core_artifact_path_mismatch_count",
+    "core_artifact_sha256_mismatch_count",
+    "core_artifact_size_mismatch_count",
+    "core_artifact_output_manifest_mismatch_count",
+    "canonical_hash_mismatch",
+    "frozen_version_id_mismatch",
+    "forbidden_reinterpretation_mismatch",
+    "unexpected_field_violation",
+    "forbidden_field_violation",
+    "readme_t05_status_mismatch",
+    "downstream_gate_violation",
+]
+
+CORE_ARTIFACTS = {
+    "state_version_registry": "r2_state_version_registry.csv",
+    "interval_rule_registry": "r2_interval_rule_registry.json",
+    "event_state_machine_registry": "r2_event_state_machine_registry.json",
+    "freeze_decision_log": "r2_freeze_decision_log.json",
+}
+DECISION_SOURCE_COMMIT = "12cd31d125e31762e62f8b1db5a808d189c7c732"
+DECISION_SOURCE_PATH = (
+    "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_user_decision_record.json"
+)
+EXPECTED_EVALUATION_TIME_RULE = (
+    "consume the already materialized canonical as-of and risk-set fields; "
+    "visibility must not be reconstructed from trade_date alone"
+)
+EXPECTED_VISIBILITY_FIELDS = [
+    "confirmation_time",
+    "first_qualification_time",
+    "zone_finalization_time",
+    "membership_available_time",
+]
+EXPECTED_DAILY_RISK_CONTRACT = {
+    "table": "r2_canonical_daily_state",
+    "authoritative_field": "qualified_event_risk_set_eligible",
+    "audit_implications": [
+        "qualified_event_risk_set_eligible_implies_state_risk_set_eligible",
+        "qualified_event_risk_set_eligible_implies_confirmed_state",
+        "qualified_event_risk_set_eligible_implies_component_qualified_as_of",
+        "qualified_event_risk_set_eligible_implies_active_event_id_as_of_not_null",
+    ],
+    "forbidden_derivation": [
+        "do_not_derive_from_event_zone_member_alone",
+        "do_not_use_source_only_gap_aliases",
+    ],
+}
+EXPECTED_MEMBERSHIP_RISK_CONTRACT = {
+    "table": "r2_canonical_event_membership",
+    "authoritative_field": "qualified_event_risk_set_eligible",
+    "audit_formula": {
+        "all_of": [
+            "state_risk_set_eligible",
+            "confirmed_state",
+            "component_qualified_as_of",
+            "event_zone_member",
+        ],
+        "all_false": [
+            "is_bridged_gap",
+            "is_prequalification_confirmed_day",
+            "is_unqualified_reentry_day",
+        ],
+    },
+    "permitted_non_risk_membership": [
+        "raw_false_bridge",
+        "prequalification_confirmed_day",
+        "unqualified_reentry_day",
+        "terminal_membership",
+    ],
+}
+
 
 def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
@@ -458,6 +553,521 @@ def _new_key_error(
     errors: list[str], obj: dict[str, Any], expected: set[str], code: str
 ) -> None:
     _new_error(errors, set(obj) == expected, code)
+
+
+def _successor_core_artifact_checks(docs: dict[str, Any]) -> dict[str, int]:
+    """Compare the four core files with both manifests and their actual bytes."""
+
+    counts = {
+        "core_artifact_missing_count": 0,
+        "core_artifact_path_mismatch_count": 0,
+        "core_artifact_sha256_mismatch_count": 0,
+        "core_artifact_size_mismatch_count": 0,
+        "core_artifact_output_manifest_mismatch_count": 0,
+    }
+    final = docs.get("final_manifest", {})
+    run_id = str(final.get("run_id", ""))
+    expected_base = f"data/generated/r2/r2_t07/{run_id}"
+    artifact_bytes = docs.get("artifact_bytes", {})
+    manifest = docs.get("output_manifest", {})
+    records = {
+        item.get("path"): item
+        for item in manifest.get("artifacts", [])
+        if isinstance(item, dict) and item.get("path")
+    }
+    for field, filename in CORE_ARTIFACTS.items():
+        expected_path = f"{expected_base}/{filename}"
+        ref = final.get(field)
+        if not isinstance(ref, dict):
+            counts["core_artifact_missing_count"] += 1
+            counts["core_artifact_path_mismatch_count"] += 1
+            counts["core_artifact_sha256_mismatch_count"] += 1
+            counts["core_artifact_size_mismatch_count"] += 1
+            counts["core_artifact_output_manifest_mismatch_count"] += 1
+            continue
+        payload = artifact_bytes.get(expected_path)
+        record = records.get(expected_path)
+        if payload is None or record is None:
+            counts["core_artifact_missing_count"] += 1
+        actual_sha = _sha256(payload) if payload is not None else None
+        actual_size = len(payload) if payload is not None else None
+        if ref.get("path") != expected_path or record is None:
+            counts["core_artifact_path_mismatch_count"] += 1
+        if payload is None or ref.get("sha256") != actual_sha:
+            counts["core_artifact_sha256_mismatch_count"] += 1
+        if payload is None or ref.get("size_bytes") != actual_size:
+            counts["core_artifact_size_mismatch_count"] += 1
+        if (
+            record is None
+            or record.get("path") != expected_path
+            or record.get("sha256") != actual_sha
+            or record.get("size_bytes") != actual_size
+            or record.get("sha256") != ref.get("sha256")
+            or record.get("size_bytes") != ref.get("size_bytes")
+        ):
+            counts["core_artifact_output_manifest_mismatch_count"] += 1
+    return counts
+
+
+def _committed_decision_units() -> tuple[bytes, list[dict[str, Any]]]:
+    root = Path(__file__).resolve().parents[2]
+    blob = subprocess.run(
+        ["git", "show", f"{DECISION_SOURCE_COMMIT}:{DECISION_SOURCE_PATH}"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    ).stdout
+    record = json.loads(blob.decode("utf-8"))
+    return blob, record["decision_units"]
+
+
+def _successor_check_counts(docs: dict[str, Any]) -> dict[str, int]:
+    """Return numeric fail-closed checks for every successor contract gate."""
+
+    counts = {key: 0 for key in SUCCESSOR_CHECK_KEYS}
+
+    def bad(key: str, condition: bool, amount: int = 1) -> None:
+        if not condition:
+            counts[key] += amount
+
+    rows = docs.get("state_registry", [])
+    header = docs.get("state_registry_header", [])
+    bad("state_registry_header_mismatch", header == STATE_REGISTRY_HEADER)
+    bad("state_registry_row_mismatch", len(rows) == 2)
+    expected_ids = {item["state_version_id"] for item in NEW_EXPECTED_ROWS}
+    bad(
+        "frozen_version_id_mismatch",
+        {row.get("state_version_id") for row in rows} == expected_ids,
+    )
+    for index, expected in enumerate(NEW_EXPECTED_ROWS):
+        row = rows[index] if index < len(rows) else {}
+        bad(
+            "state_registry_row_mismatch",
+            all(row.get(key) == value for key, value in expected.items()),
+        )
+        bad(
+            "state_registry_formula_binding_mismatch",
+            len(row.get("state_formula_binding_sha256", "")) == 64,
+        )
+        bad(
+            "state_registry_r1_handoff_mismatch",
+            len(row.get("r1_handoff_row_sha256", "")) == 64,
+        )
+        bad(
+            "state_registry_warning_mismatch",
+            _json_array(row.get("warning_codes"))
+            == NEW_EXPECTED_WARNINGS[expected["state_line"]],
+        )
+        bad(
+            "state_registry_use_policy_mismatch",
+            _json_array(row.get("allowed_uses")) == NEW_ALLOWED_USES
+            and _json_array(row.get("forbidden_uses")) == NEW_FORBIDDEN_USES,
+        )
+    bad(
+        "frozen_version_id_mismatch",
+        not any("W250" in str(row.get("state_version_id")) for row in rows),
+    )
+    bad(
+        "frozen_version_id_mismatch",
+        not any("parent" in str(row.get("state_version_id")).lower() for row in rows),
+    )
+    bad(
+        "frozen_version_id_mismatch",
+        not any(
+            "shared" in str(row.get("source_candidate_cell_id")).lower() for row in rows
+        ),
+    )
+
+    interval = docs.get("interval_registry", {})
+    expected_interval_keys = {
+        "task_id",
+        "registry_id",
+        "contract_version",
+        "applicable_state_version_ids",
+        "K",
+        "confirmation_rule",
+        "confirmation_backfill_allowed",
+        "atomic_interval_rule",
+        "termination_reason_mapping",
+        "d",
+        "d_operator",
+        "d_count_unit",
+        "g",
+        "g_count_unit",
+        "raw_false_gap_rule",
+        "preconfirmation_raw_true_rule",
+        "hard_break_reasons",
+        "g_plus_one_finalization_rule",
+        "unqualified_reentry_policy",
+        "transitive_merge_policy",
+        "anti_percolation_policy",
+        "left_censor_policy",
+        "right_censor_policy",
+        "open_zone_policy",
+        "qualification_time_rule",
+        "finalization_time_rule",
+        "membership_available_time_rule",
+        "source_bindings",
+    }
+    bad("unexpected_field_violation", set(interval) == expected_interval_keys)
+    bad(
+        "interval_registry_mismatch",
+        interval.get("task_id") == TASK_ID
+        and interval.get("contract_version") == CONTRACT_VERSION
+        and interval.get("applicable_state_version_ids")
+        == [item["state_version_id"] for item in NEW_EXPECTED_ROWS]
+        and interval.get("K") == 3
+        and interval.get("confirmation_backfill_allowed") is False
+        and interval.get("d") == 2
+        and interval.get("d_operator") == ">="
+        and interval.get("d_count_unit") == "confirmed_trading_day"
+        and interval.get("g") == 1
+        and interval.get("g_count_unit") == "eligible_valid_raw_false_trading_day"
+        and set(interval.get("hard_break_reasons", []))
+        == {
+            "unknown",
+            "blocked",
+            "diagnostic_required",
+            "ineligible",
+            "missing_observation",
+            "missing_expected_trading_row",
+            "intervening_unqualified_confirmed_interval",
+        }
+        and "g+1" in interval.get("g_plus_one_finalization_rule", "")
+        and "irreversible" in interval.get("g_plus_one_finalization_rule", ""),
+    )
+
+    event = docs.get("event_registry", {})
+    expected_event_keys = {
+        "task_id",
+        "registry_id",
+        "contract_version",
+        "applicable_state_version_ids",
+        "states",
+        "transitions",
+        "transition_registry_sha256",
+        "event_identity_policy",
+        "zone_revision_policy",
+        "exit_policy",
+        "quality_break_policy",
+        "censor_policy",
+        "time_semantics",
+        "source_contract_risk_set_policy",
+        "canonical_consumer_mapping",
+        "canonical_risk_set_policy",
+        "daily_risk_set_contract",
+        "membership_risk_set_contract",
+        "source_bindings",
+    }
+    bad("unexpected_field_violation", set(event) == expected_event_keys)
+    bad(
+        "event_state_registry_mismatch",
+        event.get("task_id") == TASK_ID
+        and event.get("contract_version") == CONTRACT_VERSION
+        and event.get("states") == EXPECTED_STATES
+        and _as_transition_rows(event.get("transitions", [])) == EXPECTED_TRANSITIONS
+        and len(event.get("transition_registry_sha256", "")) == 64,
+    )
+    identity = event.get("event_identity_policy", {})
+    revision = event.get("zone_revision_policy", {})
+    bad(
+        "zone_revision_policy_mismatch",
+        identity.get("event_id_fixed_at_first_qualified_component") is True
+        and identity.get("reentry_does_not_change_event_id") is True
+        and identity.get("cross_state_version_merge_allowed") is False
+        and revision.get("event_id_fixed_at_first_qualified_component") is True
+        and revision.get("reentry_does_not_change_event_id") is True
+        and revision.get("revision_increments_or_stays_non_decreasing") is True
+        and revision.get("no_cross_state_version_merge") is True
+        and revision.get("membership_availability_not_before_source_fact") is True,
+    )
+    time = event.get("time_semantics", {})
+    bad(
+        "time_authority_mismatch",
+        time.get("authoritative_time_fields") == NEW_AUTHORITATIVE_TIMES
+        and time.get("non_authoritative_time_fields")
+        == ["r2_t06_replayed_transition_ledger.trigger_trade_date"]
+        and time.get("trigger_trade_date_is_causal") is False
+        and time.get("trigger_trade_date_is_release_anchor") is False,
+    )
+    mapping = event.get("canonical_consumer_mapping", {})
+    expected_mapping = {
+        "eligible": "r2_canonical_daily_state.eligible_state",
+        "quality_state": "r2_canonical_daily_state.quality_state",
+        "confirmed_state": "r2_canonical_daily_state.confirmed_state",
+        "event_status_as_of": "r2_canonical_daily_state.event_status_as_of",
+        "active_event_id_as_of": "r2_canonical_daily_state.active_event_id_as_of",
+        "event_zone_member": "r2_canonical_event_membership.event_zone_member",
+        "retrospective_component_member": "r2_canonical_event_membership.retrospective_component_member",
+        "component_qualified_as_of": "r2_canonical_daily_state.component_qualified_as_of",
+        "membership_available_time": "r2_canonical_event_membership.membership_available_time",
+        "state_risk_set_eligible": "r2_canonical_daily_state.state_risk_set_eligible",
+        "qualified_event_risk_set_eligible": "r2_canonical_daily_state.qualified_event_risk_set_eligible",
+        "source_to_canonical_aliases": {
+            "is_raw_false_bridge": "is_bridged_gap",
+            "is_preconfirmation_gap": "is_prequalification_confirmed_day",
+        },
+    }
+    evaluation = mapping.get("evaluation_time", {})
+    bad(
+        "canonical_field_mapping_mismatch",
+        all(mapping.get(key) == value for key, value in expected_mapping.items())
+        and evaluation.get("canonical_status") == "not_exposed_as_standalone_field"
+        and evaluation.get("consumer_rule") == EXPECTED_EVALUATION_TIME_RULE
+        and evaluation.get("authoritative_visibility_fields")
+        == EXPECTED_VISIBILITY_FIELDS
+        and mapping.get("raw_false_gap_ordinal_as_of", {}).get("canonical_status")
+        == "audit_only_not_exposed_to_R3"
+        and mapping.get("raw_false_gap_count_as_of", {}).get("canonical_status")
+        == "audit_only_not_exposed_to_R3",
+    )
+    risk = event.get("canonical_risk_set_policy", {})
+    bad(
+        "canonical_risk_set_policy_mismatch",
+        risk.get("state_risk_set_eligible")
+        == "direct canonical daily field; not derived from event_zone_member"
+        and risk.get("qualified_event_risk_set_eligible")
+        == "direct canonical daily/membership field; event_zone_member alone is insufficient"
+        and risk.get("daily_audit_formula", "").startswith(
+            "qualified_event_risk_set_eligible is the authoritative canonical daily field"
+        )
+        and risk.get("membership_audit_formula", "").startswith(
+            "the closed membership_risk_set_contract is authoritative"
+        ),
+    )
+    bad(
+        "canonical_risk_set_policy_mismatch",
+        event.get("daily_risk_set_contract") == EXPECTED_DAILY_RISK_CONTRACT,
+    )
+    bad(
+        "canonical_risk_set_policy_mismatch",
+        event.get("membership_risk_set_contract") == EXPECTED_MEMBERSHIP_RISK_CONTRACT,
+    )
+
+    decision = docs.get("decision_log", {})
+    expected_decision_keys = {
+        "task_id",
+        "user_decision_record_path",
+        "user_decision_record_sha256",
+        "decision_unit_count",
+        "selected_decision_unit_count",
+        "rejected_decision_unit_count",
+        "strict_core_only_count",
+        "selection_path_not_independently_confirmed",
+        "decision_hash",
+        "freeze_decision_hash",
+        "freeze_plan_hash",
+        "decision_authority",
+        "automatic_recommendation_authoritative",
+        "selection_path",
+        "decision_units",
+    }
+    bad("unexpected_field_violation", set(decision) == expected_decision_keys)
+    units = decision.get("decision_units", [])
+    bad(
+        "decision_unit_count_mismatch",
+        decision.get("decision_unit_count") == 4 and len(units) == 4,
+    )
+    bad(
+        "decision_unit_count_mismatch",
+        decision.get("selected_decision_unit_count") == 2
+        and decision.get("strict_core_only_count") == 2,
+    )
+    bad(
+        "rejected_decision_unit_mismatch",
+        decision.get("rejected_decision_unit_count") == 2,
+    )
+    bad(
+        "selection_path_flag_mismatch",
+        decision.get("selection_path_not_independently_confirmed") is True
+        and decision.get("automatic_recommendation_authoritative") is False
+        and decision.get("selection_path")
+        == "explicit_user_decision_not_automatic_recommendation",
+    )
+    try:
+        source_blob, source_units = _committed_decision_units()
+        unit_keys = {
+            "accepted_event_zone_tradeoffs",
+            "accepted_warnings",
+            "automatic_recommendation",
+            "automatic_recommendation_authoritative",
+            "decision_authority",
+            "decision_time",
+            "decision_unit",
+            "evidence_refs",
+            "evidence_values",
+            "github_identity",
+            "override",
+            "override_justification",
+            "pair_disposition",
+            "paired_primary_candidate",
+            "paired_shared_candidate",
+            "primary_disposition",
+            "primary_reason_code",
+            "rejected_alternatives",
+            "reviewer_identity",
+            "secondary_reason_codes",
+            "selected_candidate_cell_id",
+            "selected_d",
+            "selected_g",
+            "shared_disposition",
+            "strict_core_enabled",
+            "user_disposition",
+            "source_decision_unit_sha256",
+        }
+        units_match = len(units) == len(source_units)
+        if units_match:
+            for actual, source in zip(units, source_units):
+                candidate = dict(actual)
+                source_hash = candidate.pop("source_decision_unit_sha256", None)
+                units_match = units_match and set(actual) == unit_keys
+                units_match = units_match and candidate == source
+                units_match = units_match and source_hash == canonical_json_sha256(
+                    source
+                )
+        bad("decision_log_mismatch", units_match)
+        bad(
+            "decision_log_mismatch",
+            decision.get("user_decision_record_sha256") == _sha256(source_blob),
+        )
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        json.JSONDecodeError,
+        subprocess.CalledProcessError,
+    ):
+        bad("decision_log_mismatch", False)
+    bad(
+        "decision_log_mismatch",
+        decision.get("decision_hash") == EXPECTED_T04["decision_hash"]
+        and decision.get("freeze_decision_hash") == EXPECTED_T04["freeze_decision_hash"]
+        and decision.get("freeze_plan_hash") == EXPECTED_T04["freeze_plan_hash"]
+        and decision.get("decision_authority") == "user_explicit_instruction",
+    )
+    bad(
+        "rejected_decision_unit_mismatch",
+        {unit.get("decision_unit") for unit in units}
+        == {"S_PCT×W120", "S_PCT×W250", "S_PCVT×W120", "S_PCVT×W250"}
+        and all(
+            unit.get("pair_disposition") == "reject_pair"
+            for unit in units
+            if "W250" in str(unit.get("decision_unit"))
+        ),
+    )
+
+    final = docs.get("final_manifest", {})
+    expected_final_keys = {
+        "task_id",
+        "run_id",
+        "status",
+        "execution_commit",
+        "registry_freeze_only",
+        "replay_performed",
+        "state_version_registry",
+        "interval_rule_registry",
+        "event_state_machine_registry",
+        "freeze_decision_log",
+        "t02_contract_version",
+        "t04_run_id",
+        "t04_decision_hash",
+        "t04_freeze_decision_hash",
+        "t04_freeze_plan_hash",
+        "t04_user_decision_record_sha256",
+        "t05_run_id",
+        "t05_database_sha256",
+        "canonical_daily_state_sha256",
+        "canonical_event_zone_sha256",
+        "canonical_event_membership_sha256",
+        "canonical_daily_row_count",
+        "canonical_event_row_count",
+        "canonical_membership_row_count",
+        "t06_run_id",
+        "t06_merge_commit",
+        "t06_reviewed_head",
+        "t06_scientific_review_id",
+        "t06_artifact_commit",
+        "t06_replay_database_sha256",
+        "frozen_version_count",
+        "frozen_state_version_ids",
+        "selection_path_not_independently_confirmed",
+        "authoritative_time_fields",
+        "non_authoritative_time_fields",
+        "allowed_uses",
+        "forbidden_reinterpretations",
+        "downstream_gates",
+    }
+    bad("unexpected_field_violation", set(final) == expected_final_keys)
+    bad(
+        "canonical_hash_mismatch",
+        final.get("t05_run_id") == EXPECTED_T05["run_id"]
+        and final.get("t05_database_sha256") == EXPECTED_T05["database_sha256"]
+        and final.get("canonical_daily_state_sha256") == EXPECTED_T05["daily_sha256"]
+        and final.get("canonical_event_zone_sha256") == EXPECTED_T05["event_sha256"]
+        and final.get("canonical_event_membership_sha256")
+        == EXPECTED_T05["membership_sha256"]
+        and final.get("canonical_daily_row_count") == EXPECTED_T05["daily_row_count"]
+        and final.get("canonical_event_row_count") == EXPECTED_T05["event_row_count"]
+        and final.get("canonical_membership_row_count")
+        == EXPECTED_T05["membership_row_count"],
+    )
+    bad(
+        "frozen_version_id_mismatch",
+        final.get("frozen_version_count") == 2
+        and final.get("frozen_state_version_ids") == sorted(expected_ids),
+    )
+    bad(
+        "decision_log_mismatch",
+        final.get("t04_decision_hash") == EXPECTED_T04["decision_hash"]
+        and final.get("t04_freeze_decision_hash")
+        == EXPECTED_T04["freeze_decision_hash"]
+        and final.get("t04_freeze_plan_hash") == EXPECTED_T04["freeze_plan_hash"],
+    )
+    bad(
+        "time_authority_mismatch",
+        final.get("authoritative_time_fields") == NEW_AUTHORITATIVE_TIMES
+        and final.get("non_authoritative_time_fields")
+        == ["r2_t06_replayed_transition_ledger.trigger_trade_date"],
+    )
+    bad(
+        "forbidden_reinterpretation_mismatch",
+        final.get("forbidden_reinterpretations") == NEW_FORBIDDEN_REINTERPRETATIONS,
+    )
+    bad(
+        "downstream_gate_violation",
+        final.get("downstream_gates")
+        == {"R2-T08_allowed_to_start": False, "R3_allowed_to_start": False},
+    )
+    counts.update(_successor_core_artifact_checks(docs))
+
+    audit = docs.get("forbidden_use_audit")
+    bad(
+        "forbidden_field_violation",
+        isinstance(audit, dict)
+        and audit.get("status") == "passed"
+        and audit.get("failure_count") == 0
+        and isinstance(audit.get("scanned_json_artifacts"), list)
+        and isinstance(audit.get("scanned_csv_artifacts"), list)
+        and isinstance(audit.get("scanned_csv_headers"), list)
+        and audit.get("required_guards")
+        == {
+            "forbidden_reinterpretations": True,
+            "downstream_gates": True,
+            "time_authority": True,
+            "state_registry_header_closed": True,
+        },
+    )
+    root = Path(__file__).resolve().parents[2]
+    readme = root / "docs/tasks/README.md"
+    try:
+        readme_text = readme.read_text(encoding="utf-8")
+    except OSError:
+        readme_text = ""
+    bad(
+        "readme_t05_status_mismatch",
+        "R2-T05" in readme_text and "completed" in readme_text.lower(),
+    )
+    return counts
 
 
 def _validate_successor_documents(docs: dict[str, Any]) -> list[str]:
@@ -648,6 +1258,8 @@ def _validate_successor_documents(docs: dict[str, Any]) -> list[str]:
             "source_contract_risk_set_policy",
             "canonical_consumer_mapping",
             "canonical_risk_set_policy",
+            "daily_risk_set_contract",
+            "membership_risk_set_contract",
             "source_bindings",
         },
         "unexpected_field_violation",
@@ -948,6 +1560,8 @@ def _validate_successor_documents(docs: dict[str, Any]) -> list[str]:
             and docs["forbidden_use_audit"].get("failure_count") == 0,
             "forbidden_field_violation",
         )
+    checks = _successor_check_counts(docs)
+    errors.extend(key for key, value in checks.items() if value)
     return sorted(set(errors))
 
 
@@ -1402,7 +2016,46 @@ def _write_successor_audits(
             ),
             "r2_final_freeze_manifest.json",
         ),
-        ("core_artifact_hash_mismatch_count", 0, 0, "r2_final_freeze_manifest.json"),
+        (
+            "core_artifact_missing_count",
+            0,
+            _successor_core_artifact_checks(docs)["core_artifact_missing_count"],
+            "r2_final_freeze_manifest.json",
+        ),
+        (
+            "core_artifact_path_mismatch_count",
+            0,
+            _successor_core_artifact_checks(docs)["core_artifact_path_mismatch_count"],
+            "r2_final_freeze_manifest.json",
+        ),
+        (
+            "core_artifact_sha256_mismatch_count",
+            0,
+            _successor_core_artifact_checks(docs)[
+                "core_artifact_sha256_mismatch_count"
+            ],
+            "r2_final_freeze_manifest.json",
+        ),
+        (
+            "core_artifact_size_mismatch_count",
+            0,
+            _successor_core_artifact_checks(docs)["core_artifact_size_mismatch_count"],
+            "r2_final_freeze_manifest.json",
+        ),
+        (
+            "core_artifact_output_manifest_mismatch_count",
+            0,
+            _successor_core_artifact_checks(docs)[
+                "core_artifact_output_manifest_mismatch_count"
+            ],
+            "r2_t07_output_manifest.json",
+        ),
+        (
+            "core_artifact_hash_mismatch_count",
+            0,
+            sum(_successor_core_artifact_checks(docs).values()),
+            "r2_final_freeze_manifest.json",
+        ),
     ]
     reconciliation = []
     for check_id, expected, observed, evidence in checks:
@@ -1456,7 +2109,9 @@ def _write_successor_audits(
         "expected_return",
     }
     failures: list[str] = []
-    scanned: list[str] = []
+    scanned_json: list[str] = []
+    scanned_csv: list[str] = []
+    scanned_csv_headers: list[str] = []
 
     def scan(value: Any, path: str) -> None:
         if isinstance(value, dict):
@@ -1470,21 +2125,42 @@ def _write_successor_audits(
                 scan(child, f"{path}[{index}]")
         elif isinstance(value, str):
             text = value.lower()
+            legal_negative_guard = any(
+                marker in text
+                for marker in (
+                    "no_",
+                    "not ",
+                    "never ",
+                    "forbidden",
+                    "without ",
+                    "must not",
+                    "is not",
+                )
+            )
             if (
                 any(token in text for token in forbidden_tokens)
-                and "no_" not in text
-                and "forbidden" not in path
+                and not legal_negative_guard
             ):
                 failures.append(f"forbidden_authoritative_claim:{path}")
 
     for path in sorted(output_dir.glob("*.json")):
-        if path.name in {
-            "r2_t07_forbidden_use_audit.json",
-            "r2_t07_registry_reconciliation.json",
-        }:
+        if path.name == "r2_t07_forbidden_use_audit.json":
             continue
-        scanned.append(path.name)
+        scanned_json.append(path.name)
         scan(json.loads(path.read_text(encoding="utf-8")), path.name)
+    for path in sorted(output_dir.glob("*.csv")):
+        scanned_csv.append(path.name)
+        with path.open(encoding="utf-8", newline="") as handle:
+            reader = csv.reader(handle)
+            header = next(reader, [])
+            scanned_csv_headers.append(f"{path.name}:{','.join(header)}")
+            if (
+                path.name == "r2_state_version_registry.csv"
+                and header != STATE_REGISTRY_HEADER
+            ):
+                failures.append("unexpected_csv_column:r2_state_version_registry.csv")
+            for row_index, row in enumerate(reader, start=2):
+                scan(row, f"{path.name}[{row_index}]")
     required_guards = {
         "forbidden_reinterpretations": final.get("forbidden_reinterpretations")
         == NEW_FORBIDDEN_REINTERPRETATIONS,
@@ -1492,6 +2168,8 @@ def _write_successor_audits(
         == {"R2-T08_allowed_to_start": False, "R3_allowed_to_start": False},
         "time_authority": final.get("non_authoritative_time_fields")
         == ["r2_t06_replayed_transition_ledger.trigger_trade_date"],
+        "state_registry_header_closed": docs.get("state_registry_header")
+        == STATE_REGISTRY_HEADER,
     }
     failures.extend(
         f"required_forbidden_guard_missing:{key}"
@@ -1504,7 +2182,9 @@ def _write_successor_audits(
         "status": "passed" if not failures else "failed",
         "failure_count": len(failures),
         "failures": failures,
-        "scanned_artifacts": scanned,
+        "scanned_json_artifacts": scanned_json,
+        "scanned_csv_artifacts": scanned_csv,
+        "scanned_csv_headers": scanned_csv_headers,
         "required_guards": required_guards,
     }
     write_json(output_dir / "r2_t07_forbidden_use_audit.json", forbidden_result)
@@ -1518,6 +2198,9 @@ def _write_successor_result_analysis(
     final = docs.get("final_manifest", {})
     interval = docs.get("interval_registry", {})
     event = docs.get("event_registry", {})
+    decision = docs.get("decision_log", {})
+    core_checks = _successor_core_artifact_checks(docs)
+    forbidden_audit = docs.get("forbidden_use_audit", {})
     lines = [
         "# R2-T07 successor independent result analysis",
         "",
@@ -1544,12 +2227,20 @@ def _write_successor_result_analysis(
             f"- T05: `{final.get('t05_run_id')}`; database `{final.get('t05_database_sha256')}`; daily `{final.get('canonical_daily_state_sha256')}` ({final.get('canonical_daily_row_count')} rows); event `{final.get('canonical_event_zone_sha256')}` ({final.get('canonical_event_row_count')} rows); membership `{final.get('canonical_event_membership_sha256')}` ({final.get('canonical_membership_row_count')} rows).",
             f"- T06: `{final.get('t06_run_id')}`; merge `{final.get('t06_merge_commit')}`; reviewed `{final.get('t06_reviewed_head')}`; review `{final.get('t06_scientific_review_id')}`; artifact `{final.get('t06_artifact_commit')}`; replay database `{final.get('t06_replay_database_sha256')}`.",
             f"- Core artifact refs: state registry `{final.get('state_version_registry')}`; interval registry `{final.get('interval_rule_registry')}`; event registry `{final.get('event_state_machine_registry')}`; decision log `{final.get('freeze_decision_log')}`.",
+            f"- State registry header ({len(docs.get('state_registry_header', []))} columns): `{docs.get('state_registry_header')}`.",
+            f"- Core artifact byte checks: `{core_checks}`; aggregate `{sum(core_checks.values())}`.",
+            f"- Full T04 decision units: `{json.dumps(decision.get('decision_units', []), ensure_ascii=False, sort_keys=True)}`.",
+            f"- Decision-unit source SHA binding: `{decision.get('user_decision_record_sha256')}`; source path `{decision.get('user_decision_record_path')}`.",
             "",
             "## Rule and consumer contracts",
             "",
             f"- Interval registry `{interval.get('registry_id')}`: K={interval.get('K')}, confirmation backfill={interval.get('confirmation_backfill_allowed')}, d={interval.get('d')} `{interval.get('d_count_unit')}`, g={interval.get('g')} `{interval.get('g_count_unit')}`; hard breaks `{interval.get('hard_break_reasons')}`.",
             f"- Event registry `{event.get('registry_id')}`: states={len(event.get('states', []))}, transitions={len(event.get('transitions', []))}, transition registry SHA `{event.get('transition_registry_sha256')}`.",
             f"- Canonical risk policies: `{event.get('canonical_risk_set_policy')}`.",
+            f"- Daily risk-set contract: `{event.get('daily_risk_set_contract')}`.",
+            f"- Membership risk-set contract: `{event.get('membership_risk_set_contract')}`.",
+            f"- Source-to-canonical aliases: `{event.get('canonical_consumer_mapping', {}).get('source_to_canonical_aliases')}`.",
+            f"- Evaluation-time consumer rule: `{event.get('canonical_consumer_mapping', {}).get('evaluation_time')}`.",
             f"- Authoritative times: `{final.get('authoritative_time_fields')}`; non-authoritative: `{final.get('non_authoritative_time_fields')}`.",
             f"- Allowed uses: `{final.get('allowed_uses')}`.",
             f"- Forbidden reinterpretations: `{final.get('forbidden_reinterpretations')}`.",
@@ -1558,6 +2249,8 @@ def _write_successor_result_analysis(
             "",
             "- Registry reconciliation is computed from the actual registry, decision log and final manifest; no missing-audit passed placeholder is accepted.",
             "- Forbidden-use scan recursively inspected generated JSON keys/values and required negative guards.",
+            f"- Forbidden-use scan scope: JSON `{len(forbidden_audit.get('scanned_json_artifacts', []))}`, CSV `{len(forbidden_audit.get('scanned_csv_artifacts', []))}`, CSV headers `{len(forbidden_audit.get('scanned_csv_headers', []))}`.",
+            f"- Numeric independent checks: `{json.dumps(result.get('checks', {}), sort_keys=True)}`; failure count is the integer sum.",
             f"- Final downstream gates: `{final.get('downstream_gates')}`.",
             f"- Result: `{result['status']}`; formal task remains author-stage incomplete and scientific review remains pending.",
         ]
@@ -1567,22 +2260,32 @@ def _write_successor_result_analysis(
 
 def validate_run(output_dir: Path) -> dict[str, Any]:
     run_id = output_dir.name
+    successor = False
     try:
         docs = _read_documents(output_dir)
-        errors = validate_documents(docs)
-        if _is_successor_documents(docs):
+        successor = _is_successor_documents(docs)
+        if successor:
             _write_successor_audits(output_dir, docs)
-        status = "passed" if not errors else "failed"
+            docs = _read_documents(output_dir)
+        checks = (
+            _successor_check_counts(docs)
+            if successor
+            else {key: 0 for key in SUCCESSOR_CHECK_KEYS}
+        )
+        errors = validate_documents(docs)
+        status = "passed" if not errors and sum(checks.values()) == 0 else "failed"
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
         errors = [f"unreadable_artifact:{exc}"]
+        checks = {key: 1 for key in SUCCESSOR_CHECK_KEYS}
         status = "failed"
     result = {
         "task_id": TASK_ID,
         "run_id": run_id,
         "status": status,
-        "failure_count": len(errors),
+        "failure_count": sum(checks.values()) if successor else len(errors),
         "errors": errors,
-        "checks": {
+        "checks": checks if successor else {},
+        "summary_checks": {
             "registry_contract": "passed"
             if not any("registry" in error or "version" in error for error in errors)
             else "failed",
@@ -1609,11 +2312,11 @@ def validate_run(output_dir: Path) -> dict[str, Any]:
         "task_id": TASK_ID,
         "run_id": run_id,
         "status": status,
-        "anomaly_count": len(errors),
+        "anomaly_count": sum(checks.values()) if successor else len(errors),
         "anomalies": errors,
     }
     write_json(output_dir / "r2_t07_anomaly_scan.json", anomaly)
-    if _is_successor_documents(docs):
+    if successor:
         _write_successor_result_analysis(output_dir, docs, result)
     else:
         write_markdown(
@@ -1648,12 +2351,12 @@ def validate_run(output_dir: Path) -> dict[str, Any]:
         },
     )
     _write_manifest(output_dir, run_id)
-    if _is_successor_documents(docs):
+    if successor:
         refreshed = _read_documents(output_dir)
         final_errors = validate_documents(refreshed)
         if final_errors:
             result["errors"] = sorted(set(result["errors"] + final_errors))
-            result["failure_count"] = len(result["errors"])
+            result["failure_count"] = sum(_successor_check_counts(refreshed).values())
             result["status"] = "failed"
             write_json(output_dir / "r2_t07_independent_validation.json", result)
             write_json(

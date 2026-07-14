@@ -9,6 +9,7 @@ state-machine implementation used by T03/T06.
 
 from __future__ import annotations
 
+import copy
 import csv
 import io
 import json
@@ -540,19 +541,24 @@ def _canonical_mapping() -> dict[str, Any]:
     return {
         "evaluation_time": {
             "canonical_status": "not_exposed_as_standalone_field",
-            "consumer_rule": "use daily.available_time/evaluation_time semantics; do not expose evaluation_time as a standalone R3 causal field",
+            "consumer_rule": "consume the already materialized canonical as-of and risk-set fields; visibility must not be reconstructed from trade_date alone",
+            "authoritative_visibility_fields": AUTHORITATIVE_TIMES,
         },
         "eligible": "r2_canonical_daily_state.eligible_state",
         "quality_state": "r2_canonical_daily_state.quality_state",
         "confirmed_state": "r2_canonical_daily_state.confirmed_state",
+        "event_status_as_of": "r2_canonical_daily_state.event_status_as_of",
+        "active_event_id_as_of": "r2_canonical_daily_state.active_event_id_as_of",
         "event_zone_member": "r2_canonical_event_membership.event_zone_member",
-        "is_raw_false_bridge": "r2_canonical_event_membership.is_bridged_gap",
-        "is_preconfirmation_gap": "r2_canonical_event_membership.is_prequalification_confirmed_day",
         "retrospective_component_member": "r2_canonical_event_membership.retrospective_component_member",
-        "component_qualified_as_of": "r2_canonical_event_membership.component_qualified_as_of",
+        "component_qualified_as_of": "r2_canonical_daily_state.component_qualified_as_of",
         "membership_available_time": "r2_canonical_event_membership.membership_available_time",
         "state_risk_set_eligible": "r2_canonical_daily_state.state_risk_set_eligible",
         "qualified_event_risk_set_eligible": "r2_canonical_daily_state.qualified_event_risk_set_eligible",
+        "source_to_canonical_aliases": {
+            "is_raw_false_bridge": "is_bridged_gap",
+            "is_preconfirmation_gap": "is_prequalification_confirmed_day",
+        },
         "raw_false_gap_ordinal_as_of": {
             "canonical_status": "audit_only_not_exposed_to_R3"
         },
@@ -618,8 +624,8 @@ def _event_registry(
         "canonical_risk_set_policy": {
             "state_risk_set_eligible": "direct canonical daily field; not derived from event_zone_member",
             "qualified_event_risk_set_eligible": "direct canonical daily/membership field; event_zone_member alone is insufficient",
-            "daily_audit_formula": "qualified_event_risk_set_eligible => state_risk_set_eligible AND component_qualified_as_of AND event_zone_member AND NOT is_raw_false_bridge AND NOT is_preconfirmation_gap",
-            "membership_audit_formula": "event_zone_member AND NOT state_risk_set_eligible is permitted for bridge/preconfirmation rows and is not an audit failure",
+            "daily_audit_formula": "qualified_event_risk_set_eligible is the authoritative canonical daily field and implies state_risk_set_eligible, confirmed_state, component_qualified_as_of, and active_event_id_as_of_not_null",
+            "membership_audit_formula": "the closed membership_risk_set_contract is authoritative; bridge, prequalification, unqualified reentry, and terminal membership may be non-risk",
             "required_canonical_fields": [
                 "state_risk_set_eligible",
                 "qualified_event_risk_set_eligible",
@@ -627,6 +633,43 @@ def _event_registry(
             "excluded_source_only_fields": [
                 "raw_false_gap_ordinal_as_of",
                 "raw_false_gap_count_as_of",
+            ],
+        },
+        "daily_risk_set_contract": {
+            "table": "r2_canonical_daily_state",
+            "authoritative_field": "qualified_event_risk_set_eligible",
+            "audit_implications": [
+                "qualified_event_risk_set_eligible_implies_state_risk_set_eligible",
+                "qualified_event_risk_set_eligible_implies_confirmed_state",
+                "qualified_event_risk_set_eligible_implies_component_qualified_as_of",
+                "qualified_event_risk_set_eligible_implies_active_event_id_as_of_not_null",
+            ],
+            "forbidden_derivation": [
+                "do_not_derive_from_event_zone_member_alone",
+                "do_not_use_source_only_gap_aliases",
+            ],
+        },
+        "membership_risk_set_contract": {
+            "table": "r2_canonical_event_membership",
+            "authoritative_field": "qualified_event_risk_set_eligible",
+            "audit_formula": {
+                "all_of": [
+                    "state_risk_set_eligible",
+                    "confirmed_state",
+                    "component_qualified_as_of",
+                    "event_zone_member",
+                ],
+                "all_false": [
+                    "is_bridged_gap",
+                    "is_prequalification_confirmed_day",
+                    "is_unqualified_reentry_day",
+                ],
+            },
+            "permitted_non_risk_membership": [
+                "raw_false_bridge",
+                "prequalification_confirmed_day",
+                "unqualified_reentry_day",
+                "terminal_membership",
             ],
         },
         "source_bindings": sorted(
@@ -650,14 +693,9 @@ def _decision_log(
 ) -> dict[str, Any]:
     units = []
     for unit in user["decision_units"]:
-        units.append(
-            {
-                "decision_unit": unit["decision_unit"],
-                "pair_disposition": unit["pair_disposition"],
-                "strict_core_enabled": unit["strict_core_enabled"],
-                "accepted_warnings": sorted(unit.get("accepted_warnings", [])),
-            }
-        )
+        preserved = copy.deepcopy(unit)
+        preserved["source_decision_unit_sha256"] = canonical_json_sha256(unit)
+        units.append(preserved)
     return {
         "task_id": TASK_ID,
         "user_decision_record_path": config["upstream_artifacts"][

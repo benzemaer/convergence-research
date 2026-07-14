@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_forbidden_use_audit.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "failure_count", "failures", "scanned_json_artifacts", "scanned_csv_artifacts", "scanned_csv_headers", "required_guards"],
+  "properties": {
+    "task_id": {"const": "R2-T07"}, "run_id": {"type": "string"}, "status": {"enum": ["passed", "failed"]}, "failure_count": {"type": "integer", "minimum": 0}, "failures": {"type": "array", "items": {"type": "string"}}, "scanned_json_artifacts": {"type": "array", "items": {"type": "string"}}, "scanned_csv_artifacts": {"type": "array", "items": {"type": "string"}}, "scanned_csv_headers": {"type": "array", "items": {"type": "string"}},
+    "required_guards": {"type": "object", "additionalProperties": false, "required": ["forbidden_reinterpretations", "downstream_gates", "time_authority", "state_registry_header_closed"], "properties": {"forbidden_reinterpretations": {"const": true}, "downstream_gates": {"const": true}, "time_authority": {"const": true}, "state_registry_header_closed": {"const": true}}}
+  }
+}

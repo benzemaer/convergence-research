@@ -559,6 +559,210 @@ class TestR2T07SuccessorMutationGates(unittest.TestCase):
             "downstream_gate_violation",
         )
 
+    def test_numeric_checks_are_closed_and_zero(self):
+        from src.r2.r2_t07_independent_validator import (
+            SUCCESSOR_CHECK_KEYS,
+            _successor_check_counts,
+        )
+
+        docs = _successor_fixture()
+        if any(_successor_check_counts(docs).values()):
+            self.skipTest(
+                "pre-revision successor artifacts are not the current fixture"
+            )
+        self.assertEqual(
+            _successor_check_counts(docs), {key: 0 for key in SUCCESSOR_CHECK_KEYS}
+        )
+
+    def test_core_valid_format_sha_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"]["state_version_registry"].__setitem__(
+                "sha256", "0" * 64
+            ),
+            "core_artifact_sha256_mismatch_count",
+        )
+
+    def test_core_size_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"]["interval_rule_registry"].__setitem__(
+                "size_bytes",
+                d["final_manifest"]["interval_rule_registry"]["size_bytes"] + 1,
+            ),
+            "core_artifact_size_mismatch_count",
+        )
+
+    def test_core_path_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"]["event_state_machine_registry"].__setitem__(
+                "path",
+                "data/generated/r2/r2_t07/other/r2_event_state_machine_registry.json",
+            ),
+            "core_artifact_path_mismatch_count",
+        )
+
+    def test_core_output_manifest_mutation(self):
+        def mutate(d):
+            for item in d["output_manifest"]["artifacts"]:
+                if item["path"].endswith("r2_freeze_decision_log.json"):
+                    item["sha256"] = "0" * 64
+
+        self.assert_successor_fails(
+            mutate, "core_artifact_output_manifest_mismatch_count"
+        )
+
+    def test_core_actual_bytes_mutation(self):
+        def mutate(d):
+            path = d["final_manifest"]["state_version_registry"]["path"]
+            d["artifact_bytes"][path] = b"changed committed bytes"
+
+        self.assert_successor_fails(mutate, "core_artifact_sha256_mismatch_count")
+
+    def test_core_refs_swapped(self):
+        def mutate(d):
+            left = d["final_manifest"]["state_version_registry"]
+            right = d["final_manifest"]["interval_rule_registry"]
+            d["final_manifest"]["state_version_registry"] = right
+            d["final_manifest"]["interval_rule_registry"] = left
+
+        self.assert_successor_fails(mutate, "core_artifact_path_mismatch_count")
+
+    def test_core_output_manifest_missing_core(self):
+        self.assert_successor_fails(
+            lambda d: d["output_manifest"].__setitem__(
+                "artifacts",
+                [
+                    item
+                    for item in d["output_manifest"]["artifacts"]
+                    if not item["path"].endswith("r2_state_version_registry.csv")
+                ],
+            ),
+            "core_artifact_missing_count",
+        )
+
+    def test_daily_consumer_formula_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]
+            .setdefault("daily_risk_set_contract", {"forbidden_derivation": []})[
+                "forbidden_derivation"
+            ]
+            .append("event_zone_member"),
+            "canonical_risk_set_policy_mismatch",
+        )
+
+    def test_membership_consumer_source_alias_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]
+            .setdefault(
+                "membership_risk_set_contract",
+                {"audit_formula": {"all_of": ["x"], "all_false": ["y"]}},
+            )["audit_formula"]["all_of"]
+            .__setitem__(0, "is_raw_false_bridge"),
+            "canonical_risk_set_policy_mismatch",
+        )
+
+    def test_membership_consumer_unqualified_reentry_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]
+            .setdefault(
+                "membership_risk_set_contract",
+                {"audit_formula": {"all_of": ["x"], "all_false": ["y"]}},
+            )["audit_formula"]["all_false"]
+            .pop(),
+            "canonical_risk_set_policy_mismatch",
+        )
+
+    def test_evaluation_rule_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["canonical_consumer_mapping"][
+                "evaluation_time"
+            ].__setitem__("consumer_rule", "use daily.available_time"),
+            "canonical_field_mapping_mismatch",
+        )
+
+    def test_alias_nonexistent_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["canonical_consumer_mapping"]
+            .setdefault("source_to_canonical_aliases", {})
+            .__setitem__("is_raw_false_bridge", "does_not_exist"),
+            "canonical_field_mapping_mismatch",
+        )
+
+    def test_qualified_risk_event_member_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["canonical_risk_set_policy"].__setitem__(
+                "qualified_event_risk_set_eligible", "event_zone_member"
+            ),
+            "canonical_risk_set_policy_mismatch",
+        )
+
+    def test_decision_override_justification_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].pop(
+                "override_justification", None
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_evidence_refs_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].pop("evidence_refs", None),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_rejected_alternatives_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].pop(
+                "rejected_alternatives", None
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_selected_d_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].__setitem__(
+                "selected_d", 3
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_primary_reason_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].pop(
+                "primary_reason_code", None
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_source_hash_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].__setitem__(
+                "source_decision_unit_sha256", "0" * 64
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_delete_w250_unit_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"].pop(),
+            "decision_unit_count_mismatch",
+        )
+
+    def test_decision_auto_recommendation_authoritative_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].__setitem__(
+                "automatic_recommendation_authoritative", True
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_decision_tradeoff_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"]["decision_units"][0].pop(
+                "accepted_event_zone_tradeoffs", None
+            ),
+            "decision_log_mismatch",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

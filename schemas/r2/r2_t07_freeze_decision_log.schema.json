@@ -1,7 +1,59 @@
 {
-  "$schema":"https://json-schema.org/draft/2020-12/schema",
-  "$id":"r2_t07_freeze_decision_log.schema.json",
-  "type":"object","additionalProperties":false,
-  "required":["task_id","user_decision_record_path","user_decision_record_sha256","decision_unit_count","selected_decision_unit_count","rejected_decision_unit_count","strict_core_only_count","selection_path_not_independently_confirmed","decision_hash","freeze_decision_hash","freeze_plan_hash","decision_authority","automatic_recommendation_authoritative","selection_path","decision_units"],
-  "properties":{"task_id":{"const":"R2-T07"},"user_decision_record_path":{"type":"string"},"user_decision_record_sha256":{"type":"string"},"decision_unit_count":{"const":4},"selected_decision_unit_count":{"const":2},"rejected_decision_unit_count":{"const":2},"strict_core_only_count":{"const":2},"selection_path_not_independently_confirmed":{"const":true},"decision_hash":{"type":"string"},"freeze_decision_hash":{"type":"string"},"freeze_plan_hash":{"type":"string"},"decision_authority":{"type":"string"},"automatic_recommendation_authoritative":{"const":false},"selection_path":{"const":"explicit_user_decision_not_automatic_recommendation"},"decision_units":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"object","additionalProperties":false,"required":["decision_unit","pair_disposition","strict_core_enabled","accepted_warnings"],"properties":{"decision_unit":{"type":"string"},"pair_disposition":{"type":"string"},"strict_core_enabled":{"type":"boolean"},"accepted_warnings":{"type":"array","items":{"type":"string"}}}}}}
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_freeze_decision_log.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "user_decision_record_path", "user_decision_record_sha256", "decision_unit_count", "selected_decision_unit_count", "rejected_decision_unit_count", "strict_core_only_count", "selection_path_not_independently_confirmed", "decision_hash", "freeze_decision_hash", "freeze_plan_hash", "decision_authority", "automatic_recommendation_authoritative", "selection_path", "decision_units"],
+  "properties": {
+    "task_id": {"const": "R2-T07"},
+    "user_decision_record_path": {"type": "string"},
+    "user_decision_record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision_unit_count": {"const": 4},
+    "selected_decision_unit_count": {"const": 2},
+    "rejected_decision_unit_count": {"const": 2},
+    "strict_core_only_count": {"const": 2},
+    "selection_path_not_independently_confirmed": {"const": true},
+    "decision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "freeze_decision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "freeze_plan_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision_authority": {"const": "user_explicit_instruction"},
+    "automatic_recommendation_authoritative": {"const": false},
+    "selection_path": {"const": "explicit_user_decision_not_automatic_recommendation"},
+    "decision_units": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/decisionUnit"}}
+  },
+  "$defs": {
+    "decisionUnit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["accepted_event_zone_tradeoffs", "accepted_warnings", "automatic_recommendation", "automatic_recommendation_authoritative", "decision_authority", "decision_time", "decision_unit", "evidence_refs", "evidence_values", "github_identity", "override", "override_justification", "pair_disposition", "paired_primary_candidate", "paired_shared_candidate", "primary_disposition", "primary_reason_code", "rejected_alternatives", "reviewer_identity", "secondary_reason_codes", "selected_candidate_cell_id", "selected_d", "selected_g", "shared_disposition", "strict_core_enabled", "user_disposition", "source_decision_unit_sha256"],
+      "properties": {
+        "accepted_event_zone_tradeoffs": {"type": "array", "items": {"type": "string"}},
+        "accepted_warnings": {"type": "array", "items": {"type": "string"}},
+        "automatic_recommendation": {"type": "string"},
+        "automatic_recommendation_authoritative": {"const": false},
+        "decision_authority": {"const": "user_explicit_instruction"},
+        "decision_time": {"type": "string"},
+        "decision_unit": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_values": {"type": "object"},
+        "github_identity": {"type": "string"},
+        "override": {"const": true},
+        "override_justification": {"type": "string", "minLength": 1},
+        "pair_disposition": {"type": "string"},
+        "paired_primary_candidate": {"type": "string"},
+        "paired_shared_candidate": {"type": "string"},
+        "primary_disposition": {"type": "string"},
+        "primary_reason_code": {"type": "string", "minLength": 1},
+        "rejected_alternatives": {"type": "array", "items": {"type": "string"}},
+        "reviewer_identity": {"type": "string"},
+        "secondary_reason_codes": {"type": "array", "items": {"type": "string"}},
+        "selected_candidate_cell_id": {"type": ["string", "null"]},
+        "selected_d": {"type": ["integer", "null"]},
+        "selected_g": {"type": ["integer", "null"]},
+        "shared_disposition": {"type": "string"},
+        "strict_core_enabled": {"type": "boolean"},
+        "user_disposition": {"type": "string"},
+        "source_decision_unit_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
 }

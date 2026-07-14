@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_output_manifest.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "artifact_hash_basis", "artifact_count", "artifacts"],
+  "properties": {
+    "task_id": {"const": "R2-T07"}, "run_id": {"type": "string"}, "status": {"const": "passed"}, "artifact_hash_basis": {"const": "committed_artifact_bytes"}, "artifact_count": {"type": "integer", "minimum": 1},
+    "artifacts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "size_bytes"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "size_bytes": {"type": "integer", "minimum": 0}}}}
+  }
+}
