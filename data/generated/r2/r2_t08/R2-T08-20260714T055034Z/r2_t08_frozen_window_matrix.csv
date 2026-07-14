@@ -1,0 +1,3 @@
+state_line,frozen_state_version_ids,frozen_windows,overlap_handling_required,status,reason
+S_PCT,"[""r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8""]","[""W120""]",False,not_applicable_single_frozen_window,Only W120 is frozen for this state line; W250 is rejected and is not a frozen window.
+S_PCVT,"[""r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8""]","[""W120""]",False,not_applicable_single_frozen_window,Only W120 is frozen for this state line; W250 is rejected and is not a frozen window.
