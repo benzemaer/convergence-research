@@ -178,7 +178,10 @@ def _t07_status_mismatch(config: dict[str, Any], t07: dict[str, Any]) -> int:
 
 
 def _version_mismatch(
-    config: dict[str, Any], rows: list[dict[str, str]], handoff: dict[str, Any]
+    config: dict[str, Any],
+    rows: list[dict[str, str]],
+    handoff: dict[str, Any],
+    final_acceptance: dict[str, Any],
 ) -> int:
     expected = config["expected_frozen_versions"]
     observed = [
@@ -188,6 +191,9 @@ def _version_mismatch(
         0
         if len(rows) == 2
         and observed == [item["state_version_id"] for item in expected]
+        and final_acceptance.get("frozen_version_count") == 2
+        and final_acceptance.get("frozen_state_version_ids")
+        == [item["state_version_id"] for item in expected]
         else 1
     )
     for spec, row in zip(expected, rows, strict=False):
@@ -202,6 +208,24 @@ def _version_mismatch(
                 and row.get("g") == str(spec["g"])
                 and row.get("strict_core_source_candidate_cell_id")
                 == spec["strict_core_source"]
+            )
+            else 1
+        )
+    for spec, version in zip(
+        expected, handoff.get("frozen_versions", []), strict=False
+    ):
+        mismatch += (
+            0
+            if (
+                version.get("state_version_id") == spec["state_version_id"]
+                and version.get("state_line") == spec["state_line"]
+                and version.get("W") == spec["W"]
+                and version.get("K") == spec["K"]
+                and version.get("q") == spec["q"]
+                and version.get("d") == spec["d"]
+                and version.get("g") == spec["g"]
+                and version.get("strict_core_source") == spec["strict_core_source"]
+                and version.get("warnings") == spec["warning_codes"]
             )
             else 1
         )
@@ -330,7 +354,9 @@ def _compute_checks(
         == config["t07_binding"]["final_manifest_sha256"]
     )
     validation_ok = _t07_status_mismatch(config, t07) == 0
-    versions_ok = _version_mismatch(config, t07["state"], handoff) == 0
+    versions_ok = (
+        _version_mismatch(config, t07["state"], handoff, final_acceptance) == 0
+    )
     canonical_ok = _canonical_mismatch(config, handoff, final_acceptance) == 0
     registry_ok = (
         t07["interval"].get("K") == 3
