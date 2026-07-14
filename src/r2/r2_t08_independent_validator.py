@@ -342,7 +342,7 @@ def _compute_checks(
         .get("cross_state_version_merge_allowed")
         is False
         and t07["event"]
-        .get("canonical_risk_set_policy", {})
+        .get("source_contract_risk_set_policy", {})
         .get("missing_field_policy")
         == "fail_closed"
         and handoff.get("qualified_event_risk_set_contract", {}).get(

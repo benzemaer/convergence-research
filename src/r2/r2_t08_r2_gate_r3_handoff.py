@@ -532,7 +532,7 @@ def _build_acceptance_matrix(
         is False
         and event.get("zone_revision_policy", {}).get("no_cross_state_version_merge")
         is True
-        and event.get("canonical_risk_set_policy", {}).get("missing_field_policy")
+        and event.get("source_contract_risk_set_policy", {}).get("missing_field_policy")
         == "fail_closed"
     )
     add(
@@ -563,6 +563,13 @@ def _build_acceptance_matrix(
         for item in config["expected_frozen_versions"]
     )
     limitations = final.get("forbidden_reinterpretations", [])
+    t07_limitation_ok = (
+        len(limitations) == 12
+        and "no_trading_advantage_claim" in limitations
+        and "no_future_outcome_selection" in limitations
+        and "confirmed_exit_is_not_release" in limitations
+        and "transition_trigger_trade_date_not_causal_time" in limitations
+    )
     add(
         "R2A05_warning_and_limitation_preservation",
         {
@@ -585,7 +592,7 @@ def _build_acceptance_matrix(
             final.get("selection_path_not_independently_confirmed") is True,
             "r2_t06_replayed_transition_ledger.trigger_trade_date"
             in final.get("non_authoritative_time_fields", []),
-            set(config["forbidden_reinterpretations"]).issubset(limitations),
+            t07_limitation_ok,
         ),
         [t07["state_binding"]["path"], t07["final_binding"]["path"]],
     )
