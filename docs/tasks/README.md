@@ -100,10 +100,12 @@ R2-T06_startup_status: passed
 R2-T06_formal_run_executed: true
 R2-T06_formal_task_completed: true
 R2-T07_allowed_to_start: true
-R2-T07_status: implementation_complete_pending_formal_registry_freeze
-R2-T07_scientific_review_status: not_started
+R2-T07_status: author_stage_package_complete_pending_independent_scientific_review
+R2-T07_scientific_review_status: pending_independent_scientific_review
 R2-T07_startup_status: passed_merged_pr_direct_binding
-R2-T07_formal_run_executed: false
+R2-T07_authoritative_run: R2-T07-20260714T015043Z
+R2-T07_execution_commit: 50d97a8921be08b40bafcaa5e28cfda6b60e2704
+R2-T07_formal_run_executed: true
 R2-T07_formal_task_completed: false
 R2-T08_allowed_to_start: false
 R3_allowed_to_start: false

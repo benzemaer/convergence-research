@@ -53,7 +53,7 @@ T04 的四个 decision unit 必须保留在 decision log：S_PCT×W120 和 S_PCV
 
 ## 产物和门禁
 
-formal output 位于 `data/generated/r2/r2_t07/R2-T07-<UTC timestamp>/`。核心产物为 state version registry、interval rule registry、event-state machine registry、freeze decision log 和 final freeze manifest；supporting artifacts 包括 source readiness、input binding、canonical artifact binding、registry reconciliation、forbidden-use audit、independent validation、anomaly scan、result analysis、experiment summary、output manifest、result package、committed-artifact validation 和 author-stage scientific review。
+formal output 位于 `data/generated/r2/r2_t07/R2-T07-20260714T015043Z/`，execution commit 为 `50d97a8921be08b40bafcaa5e28cfda6b60e2704`。核心产物为 state version registry、interval rule registry、event-state machine registry、freeze decision log 和 final freeze manifest；supporting artifacts 包括 source readiness、input binding、canonical artifact binding、registry reconciliation、forbidden-use audit、independent validation、anomaly scan、result analysis、experiment summary、output manifest、result package、committed-artifact validation 和 author-stage scientific review。实际独立 validator status 为 `passed`，anomaly_count 为 0，正式数据库生成标记为 `replay_performed=false`。
 
 所有 compact audit 必须来自实际检查；缺失或无法读取的输入只能 fail closed，不能生成 passed placeholder。independent validator 不得导入 T07 generator。mutation tests 覆盖冻结版本 cardinality、W250/shared-q/PCT parent exclusion、version ID、q/K/d/g、strict-core pair、decision warnings、selection authority、transition registry、event ID/revision policy、semantic hash、T04 binding、rejected unit、time authority、release reinterpretation、risk-set reinterpretation、R3 gate、manifest hash 和 committed bytes mismatch，并包括合法的 zero-version synthetic case：`completed_no_frozen_version` 且 T08/R3 均关闭。
 
