@@ -678,7 +678,7 @@ def _canonical_refs(config: dict[str, Any]) -> dict[str, Any]:
             "stable_multiset_sha256": spec["stable_multiset_sha256"],
             "row_count": spec["row_count"],
             "source_run_id": config["canonical_contract"]["source_run_id"],
-            "availability_policy": canonical["availability_policy"],
+            "availability_policy": config["canonical_contract"]["availability_policy"],
         }
     return result
 
