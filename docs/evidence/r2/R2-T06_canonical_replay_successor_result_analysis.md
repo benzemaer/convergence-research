@@ -2,7 +2,7 @@
 
 ## Authoritative successor
 
-本次 successor formal run 为 `R2-T06-20260713T183455Z`。execution commit 为 `b2b1b193ded0040c9695bca1ad98d22c10263044`，artifact commit 为 `0bfa2c5`。runner 在关闭 DuckDB connection、写出 `r2_t06_materialization_complete.json` 后完成 compact finalization；marker 与 committed DuckDB 的 SHA-256 均为 `671b1a1027c1e56af0a551142fc35e31a399d699d732fc145d36c189973ccea1`。
+本次 successor formal run 为 `R2-T06-20260713T183455Z`。formal execution commit 为 `b2b1b193ded0040c9695bca1ad98d22c10263044`，validator commit 为 `8920a3cd3abfcc15ecd337ef6116d7fe286d5c01`，validator 生成的 artifact commit 为 `07f4771ea78038d230e1dba62c2494614b4553aa`。runner 在关闭 DuckDB connection、写出 `r2_t06_materialization_complete.json` 后完成 compact finalization；materialization marker 与 committed DuckDB 的 SHA-256 均为 `671b1a1027c1e56af0a551142fc35e31a399d699d732fc145d36c189973ccea1`。本次只在既有 DuckDB 上运行只读 validator，没有重新执行 formal replay，没有生成新的 run ID。
 
 本 evidence 只记录 author-stage 的可复核事实，不构成 scientific PASS，不打开 R2-T07、R2-T08 或 R3 gate。
 
@@ -10,13 +10,13 @@
 
 两个 state version 的 daily surface 均为 `1,751,066` 行。S_PCT 的 confirmed/state-risk/qualified-event-risk/event/membership 数量为 `20,474 / 20,474 / 12,803 / 4,561 / 22,719`；S_PCVT 为 `4,564 / 4,564 / 2,387 / 1,086 / 4,669`。总表行数为 daily `3,502,132`、event `5,647`、membership `27,388`、component `9,848`、atomic interval `9,848`、transition ledger `16,815`；daily、event、membership 主键 duplicate excess 均为 0。
 
-independent validator 的 exact reconciliation、独立 interval/component/event identity、transition registry、current-source event overlay、qualification/risk、FK 和 no-lookahead checks 全部为 0，`r2_t06_anomaly_scan.json` 的 anomaly count 为 0。
+independent validator 的 exact reconciliation、独立 interval/component/event identity、transition registry、current-source event overlay、qualification/risk、FK 和 no-lookahead checks 全部为 0，`r2_t06_anomaly_scan.json` 的 anomaly count 为 0。新增的 source-trigger oracle 只读取 committed `src.route_dense_input` 与 transition registry，独立派生 confirmation、atomic interval、component、gap trigger、maximal partition、event 和 membership，再与回放结果对账；以下 16 项 mismatch 全部为 0：atomic interval、component、event partition、event boundary、transition、transition time、membership key、membership flag、membership availability、finalization time、bridge、accepted reentry、unqualified reentry、quality break、right censor、maximal partition。
 
-11 个 compact audit 均由实际 DuckDB 查询生成，且均为 `status=passed`、`mismatch_count=0`：atomic interval、component qualification、event transition、event zone、membership、no-lookahead、exit/censor、event ID/revision、strict-core/risk-set、unselected exclusion、count/geometry。
+11 个 compact audit 均由实际检查生成，且均为 `status=passed`、`mismatch_count=0`：atomic interval、component qualification、event transition、event zone、membership、no-lookahead、exit/censor、event ID/revision、strict-core/risk-set、unselected exclusion、count/geometry。其中 event transition、event zone、membership、no-lookahead 和 exit/censor 审计消费 source-trigger oracle；其余审计继续执行实际 DuckDB 查询，不使用缺失文件自动补写 passed 的路径。配套 focused suite 共 17/17 通过，包括 16 个篡改 fail-closed mutation cases 和 1 个 production-FSM import isolation test。
 
 ## Committed-byte validation
 
-`r2_t06_committed_artifact_validation.json` 使用 `git show <artifact_commit>:<path>` 和 `git rev-parse <artifact_commit>:<path>` 读取并验证 manifest 中的 23 个 artifact；`validated_commit=0bfa2c5`、`validation_mode=git_show_committed_blob_bytes`、`failure_count=0`。验证同时复核每个 artifact 的 Git blob SHA、committed byte SHA-256 和 manifest SHA/size。
+`r2_t06_committed_artifact_validation.json` 使用 `git show <artifact_commit>:<path>` 和 `git rev-parse <artifact_commit>:<path>` 读取并验证 manifest 中的 23 个 artifact；`validated_commit=07f4771ea78038d230e1dba62c2494614b4553aa`、`validation_mode=git_show_committed_blob_bytes`、`failure_count=0`。验证同时复核每个 artifact 的 Git blob SHA、committed byte SHA-256 和 manifest SHA/size；其中 DuckDB committed byte SHA 仍为 `671b1a1027c1e56af0a551142fc35e31a399d699d732fc145d36c189973ccea1`。
 
 ## Superseded runs
 
