@@ -990,6 +990,24 @@ def finalize_formal(context: dict[str, Any]) -> None:
         committed,
     )
     write_markdown(output_dir / "r2_t08_result_analysis.md", analysis)
+    package_path = output_dir / "r2_t08_result_package.json"
+    write_json(
+        package_path,
+        {
+            "task_id": TASK_ID,
+            "run_id": run_id,
+            "status": "passed_author_stage_pending_scientific_review_and_merge",
+            "artifact_count": 0,
+            "acceptance_gate_count": 8,
+            "r2_evidence_chain_passed": True,
+            "r3_handoff_eligible": True,
+            "formal_task_completed": False,
+            "R3_allowed_to_start": False,
+            "independent_validation_status": independent.get("status"),
+            "anomaly_count": anomaly.get("anomaly_count"),
+            "committed_artifact_validation_status": "pending_artifact_commit",
+        },
+    )
     artifact_paths = [
         p
         for p in sorted(output_dir.iterdir())
@@ -1010,17 +1028,8 @@ def finalize_formal(context: dict[str, Any]) -> None:
                 "size_bytes": len(payload),
             }
         )
-    manifest = {
-        "task_id": TASK_ID,
-        "run_id": run_id,
-        "status": "passed",
-        "artifact_count": len(artifacts),
-        "artifact_hash_basis": "committed_artifact_bytes",
-        "artifacts": artifacts,
-    }
-    write_json(output_dir / "r2_t08_output_manifest.json", manifest)
     write_json(
-        output_dir / "r2_t08_result_package.json",
+        package_path,
         {
             "task_id": TASK_ID,
             "run_id": run_id,
@@ -1036,6 +1045,25 @@ def finalize_formal(context: dict[str, Any]) -> None:
             "committed_artifact_validation_status": "pending_artifact_commit",
         },
     )
+    artifacts = []
+    for path in artifact_paths:
+        payload = path.read_bytes()
+        artifacts.append(
+            {
+                "path": repo_rel(path, ROOT),
+                "sha256": sha256_bytes(payload),
+                "size_bytes": len(payload),
+            }
+        )
+    manifest = {
+        "task_id": TASK_ID,
+        "run_id": run_id,
+        "status": "passed",
+        "artifact_count": len(artifacts),
+        "artifact_hash_basis": "committed_artifact_bytes",
+        "artifacts": artifacts,
+    }
+    write_json(output_dir / "r2_t08_output_manifest.json", manifest)
 
 
 def utc_run_id() -> str:
