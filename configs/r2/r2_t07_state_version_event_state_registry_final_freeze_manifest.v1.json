@@ -46,7 +46,19 @@
     "event_rule": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_rule_contract.json",
     "transition_registry": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_transition_registry.csv",
     "risk_set": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_r3_risk_set_contract.json",
-    "t03_output": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json"
+    "t03_output": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json",
+    "t02_cell_registry": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_cell_registry.csv",
+    "t03_interval_adapter": "configs/r2/r2_t03_interval_adapter.v1.json",
+    "r1_candidate_registry": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_candidate_registry.csv"
+  },
+  "supersession_record": {
+    "old_run_id": "R2-T07-20260714T015043Z",
+    "old_execution_commit": "50d97a8921be08b40bafcaa5e28cfda6b60e2704",
+    "old_artifact_commit": "782f4d0b78d2569485793f0b6b828edc8751663c",
+    "status": "superseded_author_draft",
+    "reason": "incomplete_final_freeze_interface",
+    "scientific_review_id": "4690338316",
+    "authoritative_for_T08": false
   },
   "upstream_artifacts": {
     "t04_freeze_decision": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_decision.json",
@@ -78,7 +90,10 @@
       "g": 1,
       "source_candidate_cell_id": "r2_s_pct_w120_qt25_primary__d2__g1",
       "strict_core_source_candidate_cell_id": "r2_s_pct_w120_q20_shared__d2__g1",
-      "strict_core_enabled": true
+      "strict_core_enabled": true,
+      "r1_handoff_row_id": "q_W120_K3_P20_C20_T25_V20_S_PCT",
+      "formula_route_id": "r2_s_pct_w120_qt25_primary",
+      "strict_core_route_id": "r2_s_pct_w120_q20_shared"
     },
     {
       "state_version_id": "r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8",
@@ -94,7 +109,10 @@
       "g": 1,
       "source_candidate_cell_id": "r2_s_pcvt_w120_qv30_primary__d2__g1",
       "strict_core_source_candidate_cell_id": "r2_s_pcvt_w120_q20_shared__d2__g1",
-      "strict_core_enabled": true
+      "strict_core_enabled": true,
+      "r1_handoff_row_id": "q_W120_K3_P20_C20_T20_V30_S_PCVT",
+      "formula_route_id": "r2_s_pcvt_w120_qv30_primary",
+      "strict_core_route_id": "r2_s_pcvt_w120_q20_shared"
     }
   ],
   "expected_exclusions": {
@@ -117,6 +135,35 @@
       "last_exit_observation_time",
       "zone_finalization_time",
       "membership_available_time"
+    ],
+    "state_registry_id": "r2_t07_state_version_registry.v2",
+    "interval_rule_registry_id": "r2_t07_interval_rule_registry.v2",
+    "event_state_machine_registry_id": "r2_t07_event_state_machine_registry.v2",
+    "state_risk_set_rule_id": "r2_t07_state_risk_set_eligible.v2",
+    "qualified_event_risk_set_rule_id": "r2_t07_qualified_event_risk_set_eligible.v2",
+    "allowed_uses": [
+      "T08_R2_final_acceptance_input",
+      "T08_R3_handoff_source",
+      "canonical_daily_state_consumption",
+      "canonical_event_zone_consumption",
+      "canonical_event_membership_consumption",
+      "state_risk_set_consumption",
+      "qualified_event_risk_set_consumption",
+      "R3_contract_design_only"
+    ],
+    "forbidden_uses": [
+      "no_trading_advantage_claim",
+      "no_global_optimum_claim",
+      "no_future_outcome_selection",
+      "confirmed_exit_is_not_release",
+      "quality_interruption_is_not_natural_release",
+      "event_zone_member_is_not_risk_set",
+      "no_finalization_time_backfill",
+      "no_risk_set_mixing",
+      "strict_core_is_not_independent_product",
+      "no_PCT_parent_product",
+      "transition_trigger_trade_date_not_causal_time",
+      "no_cross_state_version_event_merge"
     ]
   },
   "output": {

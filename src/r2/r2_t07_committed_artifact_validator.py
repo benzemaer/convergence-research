@@ -55,12 +55,18 @@ def validate_committed_artifacts(
         manifest_blob_sha = str(
             _git(root, "rev-parse", f"{artifact_commit}:{manifest_rel}")
         )
+        manifest_byte_sha = _sha256(blob)
         manifest = json.loads(blob.decode("utf-8"))
         artifacts = manifest.get("artifacts", [])
         if manifest.get("artifact_hash_basis") != "committed_artifact_bytes":
             failures.append("manifest_hash_basis")
         if manifest.get("artifact_count") != len(artifacts):
             failures.append("manifest_artifact_count")
+        if (
+            manifest.get("task_id") != "R2-T07"
+            or manifest.get("run_id") != output_dir.name
+        ):
+            failures.append("manifest_identity")
         paths = [item.get("path") for item in artifacts]
         if len(paths) != len(set(paths)):
             failures.append("manifest_duplicate_path")
@@ -105,6 +111,10 @@ def validate_committed_artifacts(
         "validated_commit": artifact_commit,
         "validated_manifest_path": manifest_rel,
         "validated_manifest_blob_sha": manifest_blob_sha,
+        "validated_manifest_committed_byte_sha256": manifest_byte_sha
+        if manifest_blob_sha
+        else None,
+        "validated_manifest_size_bytes": len(blob) if manifest_blob_sha else None,
         "validated_artifacts": records,
     }
     write_json(output_dir / "r2_t07_committed_artifact_validation.json", result)

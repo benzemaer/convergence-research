@@ -54,16 +54,17 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertIn("R2-T04_formal_task_completed: true", current)
         self.assertIn("R2-T05_allowed_to_start: true", current)
         self.assertIn(
-            "R2-T05_status: successor_author_package_complete_pending_independent_scientific_review",
+            "R2-T05_status: completed_via_PR_97_merged_pr_direct_binding",
             current,
         )
         self.assertIn(
             "R2-T05_startup_status: passed",
             current,
         )
-        self.assertIn("R2-T05_scientific_review_status: needs_revision", current)
+        self.assertIn("R2-T05_scientific_review_status: passed", current)
+        self.assertIn("R2-T05_repository_final_gate_status: passed", current)
         self.assertIn("R2-T05_formal_run_executed: true", current)
-        self.assertIn("R2-T05_formal_task_completed: false", current)
+        self.assertIn("R2-T05_formal_task_completed: true", current)
         self.assertIn("R2-T06_allowed_to_start: true", current)
         self.assertIn(
             "R2-T06_status: completed_via_PR_98_merged_pr_direct_binding",
@@ -75,7 +76,7 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertIn("R2-T06_formal_task_completed: true", current)
         self.assertIn("R2-T07_allowed_to_start: true", current)
         self.assertIn(
-            "R2-T07_status: author_stage_package_complete_pending_independent_scientific_review",
+            "R2-T07_status: successor_author_package_complete_pending_independent_scientific_review",
             current,
         )
         self.assertIn("R2-T07_startup_status: passed_merged_pr_direct_binding", current)

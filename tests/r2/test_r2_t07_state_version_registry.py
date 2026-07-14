@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import unittest
+from pathlib import Path
 
 from src.r2.r2_t07_committed_artifact_validator import validate_manifest_records
 from src.r2.r2_t07_independent_validator import (
@@ -15,6 +16,7 @@ from src.r2.r2_t07_independent_validator import (
     EXPECTED_TRANSITIONS,
     EXPECTED_VERSIONS,
     EXPECTED_WARNINGS,
+    _read_documents,
     validate_documents,
 )
 
@@ -319,6 +321,243 @@ class TestR2T07ZeroVersion(unittest.TestCase):
             },
         }
         self.assertEqual(validate_documents(docs), [])
+
+
+def _successor_fixture() -> dict | None:
+    root = Path(__file__).resolve().parents[2]
+    runs = sorted(
+        (root / "data/generated/r2/r2_t07").glob(
+            "R2-T07-*/r2_final_freeze_manifest.json"
+        )
+    )
+    runs = [path for path in runs if "20260714T015043Z" not in path.as_posix()]
+    return _read_documents(runs[-1].parent) if runs else None
+
+
+@unittest.skipUnless(
+    _successor_fixture() is not None,
+    "successor formal artifacts are added after the execution commit",
+)
+class TestR2T07SuccessorMutationGates(unittest.TestCase):
+    def assert_successor_fails(self, mutate, code: str) -> None:
+        docs = copy.deepcopy(_successor_fixture())
+        mutate(docs)
+        self.assertIn(code, validate_documents(docs))
+
+    def test_header_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d.__setitem__(
+                "state_registry_header", d["state_registry_header"][:-1]
+            ),
+            "state_registry_header_mismatch",
+        )
+
+    def test_row_cardinality_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"].pop(), "state_registry_row_mismatch"
+        )
+
+    def test_version_id_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("state_version_id", "changed"),
+            "frozen_version_id_mismatch",
+        )
+
+    def test_candidate_cell_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__(
+                "source_candidate_cell_id", "changed"
+            ),
+            "state_registry_row_mismatch:source_candidate_cell_id:0",
+        )
+
+    def test_strict_core_pair_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__(
+                "strict_core_source_candidate_cell_id", "changed"
+            ),
+            "state_registry_row_mismatch:strict_core_source_candidate_cell_id:0",
+        )
+
+    def test_state_line_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][1].__setitem__("state_line", "S_PCT"),
+            "state_registry_row_mismatch:state_line:1",
+        )
+
+    def test_window_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("W", "250"),
+            "state_registry_row_mismatch:W:0",
+        )
+
+    def test_k_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("K", "2"),
+            "state_registry_row_mismatch:K:0",
+        )
+
+    def test_q_vector_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("qT", "0.2"),
+            "state_registry_row_mismatch:qT:0",
+        )
+
+    def test_d_g_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("d", "3"),
+            "state_registry_row_mismatch:d:0",
+        )
+
+    def test_formula_binding_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__(
+                "state_formula_binding_sha256", "changed"
+            ),
+            "state_registry_formula_binding_mismatch",
+        )
+
+    def test_r1_handoff_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__(
+                "r1_handoff_row_sha256", "changed"
+            ),
+            "state_registry_r1_handoff_mismatch",
+        )
+
+    def test_warning_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("warning_codes", "[]"),
+            "state_registry_warning_mismatch",
+        )
+
+    def test_allowed_use_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("allowed_uses", "[]"),
+            "state_registry_use_policy_mismatch",
+        )
+
+    def test_forbidden_use_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["state_registry"][0].__setitem__("forbidden_uses", "[]"),
+            "state_registry_use_policy_mismatch",
+        )
+
+    def test_interval_cardinality_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["interval_registry"].__setitem__("K", 2),
+            "interval_registry_mismatch",
+        )
+
+    def test_interval_d_operator_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["interval_registry"].__setitem__("d_operator", "="),
+            "interval_registry_mismatch",
+        )
+
+    def test_interval_hard_break_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["interval_registry"]["hard_break_reasons"].pop(),
+            "interval_registry_mismatch",
+        )
+
+    def test_transition_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["transitions"].pop(),
+            "event_state_registry_mismatch",
+        )
+
+    def test_event_identity_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["event_identity_policy"].__setitem__(
+                "reentry_does_not_change_event_id", False
+            ),
+            "zone_revision_policy_mismatch",
+        )
+
+    def test_revision_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["zone_revision_policy"].__setitem__(
+                "no_cross_state_version_merge", False
+            ),
+            "zone_revision_policy_mismatch",
+        )
+
+    def test_canonical_mapping_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["canonical_consumer_mapping"].__setitem__(
+                "state_risk_set_eligible", "event.member"
+            ),
+            "canonical_field_mapping_mismatch",
+        )
+
+    def test_risk_policy_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["canonical_risk_set_policy"].__setitem__(
+                "state_risk_set_eligible", "event-derived"
+            ),
+            "canonical_risk_set_policy_mismatch",
+        )
+
+    def test_time_authority_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["event_registry"]["time_semantics"].__setitem__(
+                "trigger_trade_date_is_causal", True
+            ),
+            "time_authority_mismatch",
+        )
+
+    def test_decision_count_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"].__setitem__("decision_unit_count", 3),
+            "decision_unit_count_mismatch",
+        )
+
+    def test_rejected_count_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["decision_log"].__setitem__("rejected_decision_unit_count", 1),
+            "decision_unit_count_mismatch",
+        )
+
+    def test_t04_binding_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"].__setitem__(
+                "t04_freeze_plan_hash", "changed"
+            ),
+            "decision_log_mismatch",
+        )
+
+    def test_canonical_hash_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"].__setitem__(
+                "canonical_daily_state_sha256", "changed"
+            ),
+            "canonical_hash_mismatch",
+        )
+
+    def test_core_reference_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"]["state_version_registry"].__setitem__(
+                "sha256", "changed"
+            ),
+            "core_artifact_reference_mismatch",
+        )
+
+    def test_forbidden_reinterpretation_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"].__setitem__(
+                "forbidden_reinterpretations", []
+            ),
+            "forbidden_reinterpretation_mismatch",
+        )
+
+    def test_downstream_gate_mutation(self):
+        self.assert_successor_fails(
+            lambda d: d["final_manifest"]["downstream_gates"].__setitem__(
+                "R3_allowed_to_start", True
+            ),
+            "downstream_gate_violation",
+        )
 
 
 if __name__ == "__main__":
