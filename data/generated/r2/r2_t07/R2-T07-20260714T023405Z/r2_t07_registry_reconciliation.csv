@@ -1,0 +1,13 @@
+check_id,expected,observed,mismatch_count,status,evidence_source
+frozen_version_count,2,2,0,passed,r2_state_version_registry.csv
+W250_independent_version_count,0,0,0,passed,r2_state_version_registry.csv
+shared_q_independent_version_count,0,0,0,passed,r2_state_version_registry.csv
+PCT_parent_product_count,0,0,0,passed,r2_state_version_registry.csv
+additional_state_version_count,0,0,0,passed,r2_state_version_registry.csv
+selected_decision_unit_count,2,2,0,passed,r2_freeze_decision_log.json
+decision_unit_count,4,4,0,passed,r2_freeze_decision_log.json
+rejected_decision_unit_count,2,2,0,passed,r2_freeze_decision_log.json
+strict_core_only_count,2,2,0,passed,r2_freeze_decision_log.json
+warning_mismatch_count,0,0,0,passed,r2_state_version_registry.csv
+canonical_hash_mismatch_count,0,0,0,passed,r2_final_freeze_manifest.json
+core_artifact_hash_mismatch_count,0,0,0,passed,r2_final_freeze_manifest.json
