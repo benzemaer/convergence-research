@@ -87,6 +87,12 @@ AUTHORITATIVE_TIMES = [
     "zone_finalization_time",
     "membership_available_time",
 ]
+CONSUMER_VISIBILITY_FIELDS = [
+    "confirmation_time",
+    "first_qualification_time",
+    "zone_finalization_time",
+    "membership_available_time",
+]
 
 
 class T07GenerationError(RuntimeError):
@@ -542,7 +548,7 @@ def _canonical_mapping() -> dict[str, Any]:
         "evaluation_time": {
             "canonical_status": "not_exposed_as_standalone_field",
             "consumer_rule": "consume the already materialized canonical as-of and risk-set fields; visibility must not be reconstructed from trade_date alone",
-            "authoritative_visibility_fields": AUTHORITATIVE_TIMES,
+            "authoritative_visibility_fields": CONSUMER_VISIBILITY_FIELDS,
         },
         "eligible": "r2_canonical_daily_state.eligible_state",
         "quality_state": "r2_canonical_daily_state.quality_state",

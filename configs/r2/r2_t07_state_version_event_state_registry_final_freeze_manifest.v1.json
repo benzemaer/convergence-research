@@ -52,9 +52,9 @@
     "r1_candidate_registry": "data/generated/r1/r1_t10/R1-T10-20260711T2000Z/r1_t10_candidate_registry.csv"
   },
   "supersession_record": {
-    "old_run_id": "R2-T07-20260714T023405Z",
-    "old_execution_commit": "a76e8c990e6279d5c840115a34014f1590e9869e",
-    "old_artifact_commit": "f660baf45d6dc1d4ce9e1957e6cf18f214929ba7",
+    "old_run_id": "R2-T07-20260714T033826Z",
+    "old_execution_commit": "b800eede7f95e5d67e9c9f44c234f37459052363",
+    "old_artifact_commit": "not_committed_failed_run",
     "status": "superseded_author_draft",
     "reason": "incomplete_core_hash_validation_and_consumer_contract",
     "scientific_review_id": "4690520354",

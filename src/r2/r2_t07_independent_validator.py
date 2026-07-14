@@ -1335,7 +1335,7 @@ def _validate_successor_documents(docs: dict[str, Any]) -> list[str]:
         )
         and "event_zone_member alone is insufficient"
         in risk.get("qualified_event_risk_set_eligible", "")
-        and "permitted" in risk.get("membership_audit_formula", ""),
+        and "membership_risk_set_contract" in risk.get("membership_audit_formula", ""),
         "canonical_risk_set_policy_mismatch",
     )
 
