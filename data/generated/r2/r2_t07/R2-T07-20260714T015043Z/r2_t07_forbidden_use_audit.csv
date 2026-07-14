@@ -1,0 +1,9 @@
+audit_id,rule,status,observed
+no_W250,W250 independent versions are excluded,passed,0
+no_shared_q_independent,shared-q cells are strict-core sources only,passed,0
+no_PCT_parent,PCT parent product is excluded,passed,0
+no_extra_versions,no additional state version exists,passed,0
+no_automatic_authority,automatic recommendation is not decision authority,passed,False
+no_replay,T07 does not rerun upstream state machines,passed,False
+no_release_reinterpretation,event-zone membership is not a release or risk-set claim,passed,True
+no_future_information,registry contains no future-information field or selection,passed,True

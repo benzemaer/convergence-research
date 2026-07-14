@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_event_state_machine_registry.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id", "registry_id", "contract_version", "applicable_state_version_ids", "states",
+    "transitions", "transition_registry_sha256", "event_identity_policy", "zone_revision_policy",
+    "exit_policy", "quality_break_policy", "censor_policy", "time_semantics",
+    "source_contract_risk_set_policy", "canonical_consumer_mapping", "canonical_risk_set_policy",
+    "daily_risk_set_contract", "membership_risk_set_contract", "source_bindings"
+  ],
+  "properties": {
+    "task_id": {"const": "R2-T07"},
+    "registry_id": {"type": "string"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "applicable_state_version_ids": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+    "states": {"type": "array", "minItems": 8, "items": {"type": "string"}},
+    "transitions": {"type": "array", "items": {"$ref": "#/$defs/transition"}},
+    "transition_registry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "event_identity_policy": {"$ref": "#/$defs/identity"},
+    "zone_revision_policy": {"$ref": "#/$defs/revision"},
+    "exit_policy": {"type": "string"},
+    "quality_break_policy": {"type": "string"},
+    "censor_policy": {"type": "string"},
+    "time_semantics": {"$ref": "#/$defs/time"},
+    "source_contract_risk_set_policy": {"$ref": "#/$defs/sourceRisk"},
+    "canonical_consumer_mapping": {"$ref": "#/$defs/mapping"},
+    "canonical_risk_set_policy": {"$ref": "#/$defs/riskPolicy"},
+    "daily_risk_set_contract": {"$ref": "#/$defs/dailyRisk"},
+    "membership_risk_set_contract": {"$ref": "#/$defs/membershipRisk"},
+    "source_bindings": {"type": "array", "items": {"$ref": "#/$defs/binding"}}
+  },
+  "$defs": {
+    "transition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["machine", "from_state", "to_state", "trigger", "reason_code", "hard_break"],
+      "properties": {
+        "machine": {"type": "string"}, "from_state": {"type": "string"}, "to_state": {"type": "string"},
+        "trigger": {"type": "string"}, "reason_code": {"type": "string"}, "hard_break": {"type": "string"}
+      }
+    },
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "event_id_fixed_at_first_qualified_component", "reentry_does_not_change_event_id", "zone_revision_is_integer_non_decreasing", "cross_state_version_merge_allowed", "membership_available_not_before_source_fact"],
+      "properties": {
+        "identity": {"type": "string"}, "event_id_fixed_at_first_qualified_component": {"const": true},
+        "reentry_does_not_change_event_id": {"const": true}, "zone_revision_is_integer_non_decreasing": {"const": true},
+        "cross_state_version_merge_allowed": {"const": false}, "membership_available_not_before_source_fact": {"const": true}
+      }
+    },
+    "revision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["event_id_fixed_at_first_qualified_component", "reentry_does_not_change_event_id", "revision_increments_or_stays_non_decreasing", "no_cross_state_version_merge", "membership_availability_not_before_source_fact"],
+      "properties": {
+        "event_id_fixed_at_first_qualified_component": {"const": true}, "reentry_does_not_change_event_id": {"const": true},
+        "revision_increments_or_stays_non_decreasing": {"const": true}, "no_cross_state_version_merge": {"const": true},
+        "membership_availability_not_before_source_fact": {"const": true}
+      }
+    },
+    "time": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authoritative_time_fields", "non_authoritative_time_fields", "trigger_trade_date_is_causal", "trigger_trade_date_is_release_anchor", "availability_precedes_causal_use"],
+      "properties": {
+        "authoritative_time_fields": {"type": "array", "items": {"type": "string"}},
+        "non_authoritative_time_fields": {"type": "array", "items": {"type": "string"}},
+        "trigger_trade_date_is_causal": {"const": false}, "trigger_trade_date_is_release_anchor": {"const": false},
+        "availability_precedes_causal_use": {"type": "boolean"}
+      }
+    },
+    "sourceRisk": {
+      "type": "object", "additionalProperties": false,
+      "required": ["missing_field_policy", "source_required_fields", "source_state_rule", "source_qualified_rule", "source_fields_are_not_canonical_claim"],
+      "properties": {
+        "missing_field_policy": {"type": "string"}, "source_required_fields": {"type": "array", "items": {"type": "string"}},
+        "source_state_rule": {"type": "string"}, "source_qualified_rule": {"type": "string"},
+        "source_fields_are_not_canonical_claim": {"const": true}
+      }
+    },
+    "status": {
+      "type": "object", "additionalProperties": false,
+      "required": ["canonical_status"],
+      "properties": {"canonical_status": {"type": "string"}, "consumer_rule": {"type": "string"}, "authoritative_visibility_fields": {"type": "array", "items": {"type": "string"}}}
+    },
+    "mapping": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evaluation_time", "eligible", "quality_state", "confirmed_state", "event_status_as_of", "active_event_id_as_of", "event_zone_member", "retrospective_component_member", "component_qualified_as_of", "membership_available_time", "state_risk_set_eligible", "qualified_event_risk_set_eligible", "source_to_canonical_aliases", "raw_false_gap_ordinal_as_of", "raw_false_gap_count_as_of"],
+      "properties": {
+        "evaluation_time": {"$ref": "#/$defs/status"}, "eligible": {"type": "string"}, "quality_state": {"type": "string"},
+        "confirmed_state": {"type": "string"}, "event_status_as_of": {"type": "string"}, "active_event_id_as_of": {"type": "string"},
+        "event_zone_member": {"type": "string"}, "retrospective_component_member": {"type": "string"},
+        "component_qualified_as_of": {"type": "string"}, "membership_available_time": {"type": "string"},
+        "state_risk_set_eligible": {"type": "string"}, "qualified_event_risk_set_eligible": {"type": "string"},
+        "source_to_canonical_aliases": {"$ref": "#/$defs/aliases"},
+        "raw_false_gap_ordinal_as_of": {"$ref": "#/$defs/status"}, "raw_false_gap_count_as_of": {"$ref": "#/$defs/status"}
+      }
+    },
+    "aliases": {
+      "type": "object", "additionalProperties": false,
+      "required": ["is_raw_false_bridge", "is_preconfirmation_gap"],
+      "properties": {"is_raw_false_bridge": {"const": "is_bridged_gap"}, "is_preconfirmation_gap": {"const": "is_prequalification_confirmed_day"}}
+    },
+    "riskPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state_risk_set_eligible", "qualified_event_risk_set_eligible", "daily_audit_formula", "membership_audit_formula", "required_canonical_fields", "excluded_source_only_fields"],
+      "properties": {
+        "state_risk_set_eligible": {"type": "string"}, "qualified_event_risk_set_eligible": {"type": "string"},
+        "daily_audit_formula": {"type": "string"}, "membership_audit_formula": {"type": "string"},
+        "required_canonical_fields": {"type": "array", "items": {"type": "string"}}, "excluded_source_only_fields": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "dailyRisk": {
+      "type": "object", "additionalProperties": false,
+      "required": ["table", "authoritative_field", "audit_implications", "forbidden_derivation"],
+      "properties": {"table": {"const": "r2_canonical_daily_state"}, "authoritative_field": {"const": "qualified_event_risk_set_eligible"}, "audit_implications": {"type": "array", "items": {"type": "string"}}, "forbidden_derivation": {"type": "array", "items": {"type": "string"}}}
+    },
+    "membershipRisk": {
+      "type": "object", "additionalProperties": false,
+      "required": ["table", "authoritative_field", "audit_formula", "permitted_non_risk_membership"],
+      "properties": {
+        "table": {"const": "r2_canonical_event_membership"}, "authoritative_field": {"const": "qualified_event_risk_set_eligible"},
+        "audit_formula": {"$ref": "#/$defs/auditFormula"}, "permitted_non_risk_membership": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "auditFormula": {
+      "type": "object", "additionalProperties": false,
+      "required": ["all_of", "all_false"],
+      "properties": {"all_of": {"type": "array", "items": {"type": "string"}}, "all_false": {"type": "array", "items": {"type": "string"}}}
+    },
+    "binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "source_commit", "git_blob_sha", "committed_byte_sha256", "size_bytes"],
+      "properties": {"path": {"type": "string"}, "source_commit": {"type": "string"}, "git_blob_sha": {"type": "string"}, "committed_byte_sha256": {"type": "string"}, "size_bytes": {"type": "integer"}}
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_independent_validation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "failure_count", "errors", "checks", "summary_checks", "registry_freeze_only", "replay_performed", "R2-T08_allowed_to_start", "R3_allowed_to_start"],
+  "properties": {
+    "task_id": {"const": "R2-T07"}, "run_id": {"type": "string"},
+    "status": {"enum": ["passed", "failed"]}, "failure_count": {"type": "integer", "minimum": 0},
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "checks": {"$ref": "#/$defs/checks"},
+    "summary_checks": {"type": "object", "additionalProperties": {"enum": ["passed", "failed"]}},
+    "registry_freeze_only": {"const": true}, "replay_performed": {"const": false},
+    "R2-T08_allowed_to_start": {"const": false}, "R3_allowed_to_start": {"const": false}
+  },
+  "$defs": {
+    "checks": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state_registry_header_mismatch", "state_registry_row_mismatch", "state_registry_formula_binding_mismatch", "state_registry_r1_handoff_mismatch", "state_registry_warning_mismatch", "state_registry_use_policy_mismatch", "interval_registry_mismatch", "event_state_registry_mismatch", "zone_revision_policy_mismatch", "canonical_field_mapping_mismatch", "canonical_risk_set_policy_mismatch", "time_authority_mismatch", "decision_log_mismatch", "decision_unit_count_mismatch", "rejected_decision_unit_mismatch", "selection_path_flag_mismatch", "core_artifact_missing_count", "core_artifact_path_mismatch_count", "core_artifact_sha256_mismatch_count", "core_artifact_size_mismatch_count", "core_artifact_output_manifest_mismatch_count", "canonical_hash_mismatch", "frozen_version_id_mismatch", "forbidden_reinterpretation_mismatch", "unexpected_field_violation", "forbidden_field_violation", "readme_t05_status_mismatch", "downstream_gate_violation"],
+      "properties": {
+        "state_registry_header_mismatch": {"type": "integer", "minimum": 0}, "state_registry_row_mismatch": {"type": "integer", "minimum": 0}, "state_registry_formula_binding_mismatch": {"type": "integer", "minimum": 0}, "state_registry_r1_handoff_mismatch": {"type": "integer", "minimum": 0}, "state_registry_warning_mismatch": {"type": "integer", "minimum": 0}, "state_registry_use_policy_mismatch": {"type": "integer", "minimum": 0}, "interval_registry_mismatch": {"type": "integer", "minimum": 0}, "event_state_registry_mismatch": {"type": "integer", "minimum": 0}, "zone_revision_policy_mismatch": {"type": "integer", "minimum": 0}, "canonical_field_mapping_mismatch": {"type": "integer", "minimum": 0}, "canonical_risk_set_policy_mismatch": {"type": "integer", "minimum": 0}, "time_authority_mismatch": {"type": "integer", "minimum": 0}, "decision_log_mismatch": {"type": "integer", "minimum": 0}, "decision_unit_count_mismatch": {"type": "integer", "minimum": 0}, "rejected_decision_unit_mismatch": {"type": "integer", "minimum": 0}, "selection_path_flag_mismatch": {"type": "integer", "minimum": 0}, "core_artifact_missing_count": {"type": "integer", "minimum": 0}, "core_artifact_path_mismatch_count": {"type": "integer", "minimum": 0}, "core_artifact_sha256_mismatch_count": {"type": "integer", "minimum": 0}, "core_artifact_size_mismatch_count": {"type": "integer", "minimum": 0}, "core_artifact_output_manifest_mismatch_count": {"type": "integer", "minimum": 0}, "canonical_hash_mismatch": {"type": "integer", "minimum": 0}, "frozen_version_id_mismatch": {"type": "integer", "minimum": 0}, "forbidden_reinterpretation_mismatch": {"type": "integer", "minimum": 0}, "unexpected_field_violation": {"type": "integer", "minimum": 0}, "forbidden_field_violation": {"type": "integer", "minimum": 0}, "readme_t05_status_mismatch": {"type": "integer", "minimum": 0}, "downstream_gate_violation": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

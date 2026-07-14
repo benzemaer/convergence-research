@@ -1,0 +1,8 @@
+check_id,expected,observed,status
+frozen_version_count,2,2,passed
+W250_independent_version_count,0,0,passed
+shared_q_independent_version_count,0,0,passed
+PCT_parent_product_count,0,0,passed
+additional_state_version_count,0,0,passed
+rejected_decision_unit_count,2,2,passed
+selected_strict_core_pair_count,2,2,passed

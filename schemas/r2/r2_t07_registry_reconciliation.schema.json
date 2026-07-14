@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_registry_reconciliation.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "failure_count", "checks"],
+  "properties": {
+    "task_id": {"const": "R2-T07"}, "run_id": {"type": "string"}, "status": {"enum": ["passed", "failed"]}, "failure_count": {"type": "integer", "minimum": 0},
+    "checks": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["check_id", "expected", "observed", "mismatch_count", "status", "evidence_source"], "properties": {"check_id": {"type": "string"}, "expected": {}, "observed": {}, "mismatch_count": {"type": "integer", "minimum": 0}, "status": {"enum": ["passed", "failed"]}, "evidence_source": {"type": "string"}}}}
+  }
+}
