@@ -14,11 +14,26 @@ import subprocess
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
-from src.common.canonical_io import write_csv, write_json, write_markdown
+from src.common.canonical_io import write_csv, write_json
 
 ROOT = Path(__file__).resolve().parents[2]
+FIELD_SEMANTICS_HEADER = [
+    "field_name",
+    "type",
+    "nullable",
+    "availability_class",
+    "available_time_source",
+    "allowed_at_T0",
+    "allowed_at_T1",
+    "allowed_at_T2",
+    "audit_only",
+    "forbidden_model_feature",
+    "source_artifact",
+    "derivation_rule",
+]
 
 
 class ProtocolContractError(ValueError):
@@ -68,6 +83,23 @@ def _time_leq(left: str, right: str) -> bool:
     return _parse_time(left) <= _parse_time(right)
 
 
+def timestamp_leq(left: str, right: str) -> bool:
+    """Compare two timezone-aware ISO-8601 timestamps in absolute time."""
+
+    return _time_leq(left, right)
+
+
+def validate_timestamp_order(earlier: str, later: str) -> None:
+    """Require a timezone-aware timestamp order and fail closed on inversion."""
+
+    if not timestamp_leq(earlier, later):
+        raise ProtocolContractError("TIME_ORDER_MISMATCH", f"{earlier}>{later}")
+
+
+def _date_from_timestamp(value: str) -> str:
+    return _parse_time(value).date().isoformat()
+
+
 def _identity_hash(
     namespace: str,
     contract_version: str,
@@ -110,7 +142,6 @@ def exit_attempt_id(
     security_id: str,
     source_component_id_value: str,
     exit_attempt_date: str,
-    exit_attempt_time: str,
     namespace: str,
 ) -> str:
     return _identity_hash(
@@ -122,7 +153,6 @@ def exit_attempt_id(
             "security_id": security_id,
             "source_component_id": source_component_id_value,
             "exit_attempt_date": exit_attempt_date,
-            "exit_attempt_time": exit_attempt_time,
         },
     )
 
@@ -180,6 +210,12 @@ def _groups(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, 
             row
         )
     return grouped
+
+
+def _expected_row_present(row: dict[str, Any]) -> bool:
+    """Treat the fixture-only row-presence control as true by default."""
+
+    return row.get("expected_row_present", True) is True
 
 
 def _transition_matches(
@@ -248,7 +284,6 @@ def reconstruct_source_components(
         ].append(membership)
     components: list[dict[str, Any]] = []
     for group_rows in _groups(surface).values():
-        previous_was_member = False
         current: dict[str, Any] | None = None
         for row in group_rows:
             membership_candidates = membership_by_row.get(
@@ -259,19 +294,22 @@ def reconstruct_source_components(
                 ),
                 [],
             )
-            if len(membership_candidates) > 1:
+            component_members = [
+                item
+                for item in membership_candidates
+                if item.get("component_member") is True
+            ]
+            if len(component_members) > 1:
                 raise ProtocolContractError(
-                    "AMBIGUOUS_MEMBERSHIP_ROW", str(_row_key(row))
+                    "AMBIGUOUS_COMPONENT_MEMBERSHIP", str(_row_key(row))
                 )
-            membership = membership_candidates[0] if membership_candidates else None
+            membership = component_members[0] if component_members else None
             is_member = bool(
-                row.get("expected_row_present") is True
+                _expected_row_present(row)
                 and row.get("confirmed_state") is True
                 and membership is not None
-                and membership.get("component_member") is True
             )
             if not is_member:
-                previous_was_member = False
                 current = None
                 continue
             event_id = str(membership.get("event_id", ""))
@@ -279,37 +317,39 @@ def reconstruct_source_components(
                 raise ProtocolContractError(
                     "COMPONENT_EVENT_ID_MISSING", str(_row_key(row))
                 )
-            if not previous_was_member or current is None:
+            if current is None or event_id != current["event_id"]:
                 current = {
                     "state_version_id": str(row["state_version_id"]),
                     "event_id": event_id,
                     "security_id": str(row["security_id"]),
                     "source_component_start_date": str(row["trade_date"]),
                     "source_component_end_date": str(row["trade_date"]),
-                    "component_qualified_as_of": bool(
-                        membership.get("component_qualified_as_of") is True
+                    "source_component_qualification_date": (
+                        str(row["trade_date"])
+                        if membership.get("component_qualified_as_of") is True
+                        else None
                     ),
-                    "qualification_available_time": membership.get(
-                        "component_qualification_available_time"
-                    ),
+                    "source_component_qualified": membership.get(
+                        "component_qualified_as_of"
+                    )
+                    is True,
                     "row_keys": [_row_key(row)],
                 }
                 components.append(current)
             else:
-                if event_id != current["event_id"]:
-                    previous_was_member = False
-                    current = None
-                    continue
                 current["source_component_end_date"] = str(row["trade_date"])
-                current["component_qualified_as_of"] = bool(
-                    current["component_qualified_as_of"]
+                if (
+                    current["source_component_qualification_date"] is None
+                    and membership.get("component_qualified_as_of") is True
+                ):
+                    current["source_component_qualification_date"] = str(
+                        row["trade_date"]
+                    )
+                current["source_component_qualified"] = bool(
+                    current["source_component_qualified"]
                     or membership.get("component_qualified_as_of") is True
                 )
-                available = membership.get("component_qualification_available_time")
-                if available and not current.get("qualification_available_time"):
-                    current["qualification_available_time"] = available
                 current["row_keys"].append(_row_key(row))
-            previous_was_member = True
 
     namespace = config["analysis_unit_contract"]["source_component_id_spec"][
         "namespace"
@@ -384,10 +424,10 @@ def enumerate_exit_attempts(
         for index in range(1, len(group_rows)):
             prior = group_rows[index - 1]
             current = group_rows[index]
-            if current.get("expected_row_present") is not True:
+            if not _expected_row_present(current):
                 _reject(rejections, "CURRENT_EXPECTED_ROW_MISSING", current)
                 continue
-            if prior.get("expected_row_present") is not True:
+            if not _expected_row_present(prior):
                 _reject(rejections, "PRIOR_EXPECTED_ROW_MISSING", current)
                 continue
             if prior.get("active_event_id_as_of") is None:
@@ -424,17 +464,6 @@ def enumerate_exit_attempts(
                 _reject(rejections, "EVENT_ID_CONFLICT", current)
                 continue
 
-            membership_key = (
-                str(current["state_version_id"]),
-                event_id,
-                str(current["security_id"]),
-                str(current["trade_date"]),
-            )
-            membership = memberships.get(membership_key)
-            if membership is None or not membership.get("membership_available_time"):
-                _reject(rejections, "T0_MEMBERSHIP_UNAVAILABLE", current)
-                continue
-            t0_time = str(membership["membership_available_time"])
             zone_key = (
                 str(current["state_version_id"]),
                 event_id,
@@ -444,7 +473,14 @@ def enumerate_exit_attempts(
             if zone is None:
                 _reject(rejections, "EVENT_NOT_FOUND", current)
                 continue
-            if not _time_leq(str(zone["first_qualification_time"]), t0_time):
+            try:
+                first_qualification_date = _date_from_timestamp(
+                    str(zone["first_qualification_time"])
+                )
+            except ProtocolContractError:
+                _reject(rejections, "EVENT_NOT_QUALIFIED", current)
+                continue
+            if first_qualification_date > str(current["trade_date"]):
                 _reject(rejections, "EVENT_NOT_QUALIFIED", current)
                 continue
             if not _transition_matches(prior, current, transition):
@@ -463,20 +499,53 @@ def enumerate_exit_attempts(
                 security_id=str(current["security_id"]),
                 source_component_id_value=source_id,
                 exit_attempt_date=str(current["trade_date"]),
-                exit_attempt_time=t0_time,
                 namespace=config["analysis_unit_contract"]["exit_attempt_id_spec"][
                     "namespace"
                 ],
             )
+            membership_key = (
+                str(current["state_version_id"]),
+                event_id,
+                str(current["security_id"]),
+                str(current["trade_date"]),
+            )
+            membership = memberships.get(membership_key)
+            prior_membership_rows = [
+                item
+                for item in membership_rows
+                if str(item.get("state_version_id")) == str(current["state_version_id"])
+                and str(item.get("event_id")) == event_id
+                and str(item.get("security_id")) == str(current["security_id"])
+                and str(item.get("trade_date")) < str(current["trade_date"])
+            ]
+            last_prior_membership = max(
+                prior_membership_rows,
+                key=lambda item: str(item.get("trade_date")),
+                default=None,
+            )
+            state_version = next(
+                (
+                    item
+                    for item in config["frozen_inputs"]["state_versions"]
+                    if item["state_version_id"] == str(current["state_version_id"])
+                ),
+                None,
+            )
+            if state_version is None:
+                _reject(rejections, "FROZEN_STATE_VERSION_MISMATCH", current)
+                continue
             qualified_count = sum(
                 1
                 for item in components
                 if item["state_version_id"] == component["state_version_id"]
                 and item["event_id"] == event_id
                 and item["security_id"] == component["security_id"]
-                and item["component_qualified_as_of"]
-                and item.get("qualification_available_time")
-                and _time_leq(str(item["qualification_available_time"]), t0_time)
+                and item.get("source_component_qualification_date") is not None
+                and item["source_component_qualification_date"]
+                <= str(current["trade_date"])
+            )
+            current_membership_available_time = (
+                membership.get("membership_available_time") if membership else None
             )
             attempts.append(
                 {
@@ -489,17 +558,47 @@ def enumerate_exit_attempts(
                         "source_component_start_date"
                     ],
                     "source_component_end_date": component["source_component_end_date"],
+                    "source_component_qualification_date": component[
+                        "source_component_qualification_date"
+                    ],
+                    "source_component_qualified": component[
+                        "source_component_qualified"
+                    ],
                     "source_component_ordinal": component["source_component_ordinal"],
                     "component_count_as_of_exit": qualified_count,
-                    "zone_revision_as_of_exit": membership.get("zone_revision"),
+                    "frozen_g": state_version["g"],
+                    "last_observed_zone_revision_before_exit": (
+                        last_prior_membership.get("zone_revision")
+                        if last_prior_membership
+                        else None
+                    ),
+                    "current_exit_membership_zone_revision": (
+                        membership.get("zone_revision") if membership else None
+                    ),
                     "exit_attempt_date": str(current["trade_date"]),
-                    "exit_attempt_time": t0_time,
+                    "exit_attempt_time": None,
+                    "exit_attempt_time_missing_reason": (
+                        "UPSTREAM_DAILY_AVAILABLE_TIME_NOT_EXPOSED"
+                    ),
                     "prior_confirmed_state": True,
                     "exit_raw_state": False,
                     "exit_reason": transition["reason_code"],
-                    "g_used_as_of_exit": membership.get("g_used_as_of_exit"),
                     "event_status_as_of_exit": current.get("event_status_as_of"),
-                    "unqualified_reentry": not component["component_qualified_as_of"],
+                    "current_membership_row_present": membership is not None,
+                    "current_membership_available_time": (
+                        current_membership_available_time
+                    ),
+                    "current_membership_availability_is_causal_for_t0": False,
+                    "membership_resolution_status": (
+                        "current_row_not_available"
+                        if membership is None
+                        else (
+                            "current_row_available"
+                            if current_membership_available_time
+                            else "current_row_available_time_missing"
+                        )
+                    ),
+                    "unqualified_reentry": not component["source_component_qualified"],
                     "attempt_weight": 1.0,
                 }
             )
@@ -507,7 +606,7 @@ def enumerate_exit_attempts(
         if sample_end_censoring and group_rows:
             last = group_rows[-1]
             if (
-                last.get("expected_row_present") is True
+                _expected_row_present(last)
                 and last.get("confirmed_state") is True
                 and last.get("active_event_id_as_of")
             ):
@@ -523,7 +622,7 @@ def enumerate_exit_attempts(
             attempt["state_version_id"],
             attempt["event_id"],
             attempt["security_id"],
-            attempt["exit_attempt_time"],
+            attempt["exit_attempt_date"],
         )
         if t0_key in seen_t0:
             raise ProtocolContractError("DUPLICATE_SOURCE_COMPONENT_T0")
@@ -532,7 +631,6 @@ def enumerate_exit_attempts(
         key=lambda item: (
             item["state_version_id"],
             item["event_id"],
-            item["exit_attempt_time"],
             item["exit_attempt_date"],
             item["exit_attempt_id"],
         )
@@ -554,7 +652,7 @@ def _attempt_groups(
 
 def _valid_landmark_row(row: dict[str, Any]) -> bool:
     return bool(
-        row.get("expected_row_present") is True
+        _expected_row_present(row)
         and row.get("eligible_state") is True
         and row.get("quality_state") == "valid"
     )
@@ -562,19 +660,32 @@ def _valid_landmark_row(row: dict[str, Any]) -> bool:
 
 def build_landmarks(
     rows: list[dict[str, Any]],
-    t0_date: str,
     *,
+    state_version_id: str,
+    security_id: str,
+    t0_date: str,
     horizon_days: tuple[int, ...] = (5, 10, 20, 30),
 ) -> dict[str, Any]:
-    """Build T0/T1/T2 and valid-row horizon positions without path features."""
+    """Build landmarks only on the target state/security expected surface."""
 
     future = [
         row
-        for row in sort_expected_surface(rows)
+        for row in sorted(
+            [
+                item
+                for item in rows
+                if str(item.get("state_version_id")) == state_version_id
+                and str(item.get("security_id")) == security_id
+            ],
+            key=_row_key,
+        )
         if str(row.get("trade_date", "")) > t0_date
     ]
     valid_rows = [row for row in future if _valid_landmark_row(row)]
     result: dict[str, Any] = {
+        "state_version_id": state_version_id,
+        "security_id": security_id,
+        "t0_date": t0_date,
         "T0": {
             "landmark_id": "T0",
             "available": True,
@@ -583,7 +694,7 @@ def build_landmarks(
             "intervening_unobservable_row_count": 0,
             "intervening_unobservable_reason_set": [],
             "landmark_unavailable_reason": None,
-        }
+        },
     }
     consumed = 0
     reasons: set[str] = set()
@@ -727,17 +838,95 @@ def build_synthetic_results(
         landmarks: dict[str, Any] = {}
         for attempt in attempts:
             landmarks[attempt["exit_attempt_id"]] = build_landmarks(
-                case.get("rows", []), attempt["exit_attempt_date"]
+                case.get("rows", []),
+                state_version_id=attempt["state_version_id"],
+                security_id=attempt["security_id"],
+                t0_date=attempt["exit_attempt_date"],
             )
         results.append(
             {
                 "case_id": case["case_id"],
+                "state_version_security_groups": sorted(
+                    {
+                        (
+                            str(row.get("state_version_id")),
+                            str(row.get("security_id")),
+                        )
+                        for row in case.get("rows", [])
+                    }
+                ),
                 "actual_attempts": attempts,
                 "rejections": rejections,
                 "landmarks": landmarks,
             }
         )
     return results
+
+
+def build_deterministic_runner_payload(
+    config: dict[str, Any], fixture: dict[str, Any]
+) -> dict[str, Any]:
+    """Build only deterministic runner-owned artifacts from supplied inputs."""
+
+    payload = build_contract_bundle(config)
+    payload["r3_t01_production_synthetic_results.json"] = {
+        "case_count": len(fixture["cases"]),
+        "cases": build_synthetic_results(config, fixture),
+    }
+    return payload
+
+
+def _write_runner_payload(
+    directory: Path, payload: dict[str, Any], config: dict[str, Any]
+) -> dict[str, str]:
+    """Write deterministic runner payload bytes and return their SHA-256 values."""
+
+    fieldnames = FIELD_SEMANTICS_HEADER
+    hashes: dict[str, str] = {}
+    for name, value in payload.items():
+        path = directory / name
+        if name.endswith(".csv"):
+            if not isinstance(value, list):
+                raise ProtocolContractError("FORMAL_CSV_PAYLOAD_INVALID", name)
+            write_csv(path, value, fieldnames)
+        else:
+            write_json(path, value)
+        hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashes
+
+
+def build_production_rebuild_comparison(
+    config_path: Path, fixture_path: Path
+) -> dict[str, Any]:
+    """Rebuild deterministic production artifacts twice in isolated directories."""
+
+    rebuild_hashes: list[dict[str, str]] = []
+    with TemporaryDirectory(prefix="r3_t01_rebuild_1_") as first_dir:
+        with TemporaryDirectory(prefix="r3_t01_rebuild_2_") as second_dir:
+            for directory in (Path(first_dir), Path(second_dir)):
+                config = load_json(config_path)
+                fixture = load_json(fixture_path)
+                payload = build_deterministic_runner_payload(config, fixture)
+                hashes = _write_runner_payload(directory, payload, config)
+                rebuild_hashes.append(hashes)
+    first, second = rebuild_hashes
+    mismatches = [
+        {
+            "filename": name,
+            "rebuild_1_sha256": first.get(name),
+            "rebuild_2_sha256": second.get(name),
+        }
+        for name in sorted(set(first) | set(second))
+        if first.get(name) != second.get(name)
+    ]
+    return {
+        "rebuild_1_hashes": first,
+        "rebuild_2_hashes": second,
+        "compared_artifact_count": len(set(first) | set(second)),
+        "mismatch_count": len(mismatches),
+        "mismatches": mismatches,
+        "status": "passed" if not mismatches else "failed",
+    }
 
 
 def _git(root: Path, *args: str) -> str:
@@ -926,7 +1115,7 @@ def execute_formal_run(
     root: Path = ROOT,
     run_id: str | None = None,
 ) -> Path:
-    """Future formal-run entrypoint; requires explicit reviewed implementation SHA."""
+    """Generate runner-owned artifacts; validation and analysis are separate steps."""
 
     if len(reviewed_implementation_sha) != 40:
         raise ProtocolContractError("REVIEWED_IMPLEMENTATION_SHA_REQUIRED")
@@ -936,85 +1125,43 @@ def execute_formal_run(
     if _git(root, "status", "--porcelain"):
         raise ProtocolContractError("WORKTREE_NOT_CLEAN")
     config = load_json(config_path)
+    if config["implementation_state"]["formal_run_allowed"] is not True:
+        raise ProtocolContractError("FORMAL_RUN_NOT_AUTHORIZED")
     startup = verify_local_startup_binding(config, root)
     startup["remote"] = verify_remote_startup_binding(config, root)
     fixture_path = root / config["synthetic_fixture_path"]
-    fixture = load_json(fixture_path)
-    bundle = build_contract_bundle(config)
-    synthetic_results = build_synthetic_results(config, fixture)
     run_id = run_id or datetime.now(UTC).strftime("R3-T01-%Y%m%dT%H%M%SZ")
     run_dir = root / "data" / "generated" / "r3" / "r3_t01" / run_id
     if run_dir.exists():
         raise ProtocolContractError("FORMAL_RUN_DIR_ALREADY_EXISTS", str(run_dir))
-    run_dir.mkdir(parents=True)
-    for name, value in bundle.items():
-        path = run_dir / name
-        if name.endswith(".csv"):
-            write_csv(
-                path,
-                value,
-                list(config["field_semantics"][0].keys()),
-            )
-        else:
-            write_json(path, value)
-    write_json(run_dir / "r3_t01_upstream_binding.json", startup)
-    write_csv(
-        run_dir / "r3_t01_synthetic_case_results.csv",
-        synthetic_results,
-        ["case_id", "actual_attempts", "rejections", "landmarks"],
-    )
-    write_csv(
-        run_dir / "r3_t01_mutation_results.csv",
-        [],
-        ["mutation_id", "expected_error_code", "actual_error_code", "status"],
-    )
-    write_json(
-        run_dir / "r3_t01_anomaly_scan.json",
-        {"status": "pending_validator", "findings": []},
-    )
-    artifact_names = sorted(
+    fixture = load_json(fixture_path)
+    payload = build_deterministic_runner_payload(config, fixture)
+    rebuild_comparison = build_production_rebuild_comparison(config_path, fixture_path)
+    if rebuild_comparison["status"] != "passed":
+        raise ProtocolContractError("PRODUCTION_DOUBLE_REBUILD_MISMATCH")
+    runner_artifacts = {
         artifact["filename"]
         for artifact in config["output_contract"]["formal_artifacts"]
-    )
-    written_names = sorted(
-        set(bundle)
-        | {
-            "r3_t01_upstream_binding.json",
-            "r3_t01_synthetic_case_results.csv",
-            "r3_t01_mutation_results.csv",
-            "r3_t01_anomaly_scan.json",
-            "r3_t01_manifest.json",
-            "r3_t01_validator_result.json",
-            "r3_t01_result_analysis.md",
+        if artifact["artifact_owner"] == "runner"
+    }
+    written_names = set(payload) | {
+        "r3_t01_upstream_binding.json",
+        "r3_t01_production_rebuild_comparison.json",
+    }
+    if written_names != runner_artifacts:
+        raise ProtocolContractError("FORMAL_OUTPUT_CONTRACT_MISMATCH")
+    run_dir.mkdir(parents=True)
+    startup.update(
+        {
+            "run_id": run_id,
+            "reviewed_implementation_sha": reviewed_implementation_sha,
+            "formal_execution_sha": current,
         }
     )
-    if written_names != artifact_names:
-        raise ProtocolContractError("FORMAL_OUTPUT_CONTRACT_MISMATCH")
+    _write_runner_payload(run_dir, payload, config)
+    write_json(run_dir / "r3_t01_upstream_binding.json", startup)
     write_json(
-        run_dir / "r3_t01_manifest.json",
-        {
-            "task_id": config["task_id"],
-            "contract_version": config["contract_version"],
-            "run_id": run_id,
-            "implementation_sha": reviewed_implementation_sha,
-            "formal_run_executed": True,
-            "real_database_opened": False,
-            "synthetic_case_count": len(fixture["cases"]),
-            "artifact_names": artifact_names,
-            "validator_status": "pending",
-        },
-    )
-    write_json(
-        run_dir / "r3_t01_validator_result.json",
-        {
-            "status": "pending",
-            "validator": "src.r3.r3_t01_validator",
-            "formal_run_executed": True,
-            "scientific_review_status": "not_started",
-        },
-    )
-    write_markdown(
-        run_dir / "r3_t01_result_analysis.md",
-        "# R3-T01 formal result analysis\n\nPending independent result review.\n",
+        run_dir / "r3_t01_production_rebuild_comparison.json",
+        rebuild_comparison,
     )
     return run_dir

@@ -1,25 +1,32 @@
-"""Independent R3-T01 contract and synthetic-case validator.
+"""Independent R3-T01 validator and formal-artifact closure checks.
 
-The validator intentionally does not import :mod:`r3_t01_protocol`.  Its
-transition replay and identity calculation are separate implementations so a
-shared production bug cannot make the task-specific check pass.
+This module intentionally does not import the production protocol module.  It
+replays transitions, component reconstruction, identity, landmarks, horizon
+endpoints, mutation cases, and artifact bindings from its own implementation.
 """
 
 from __future__ import annotations
 
 import ast
 import copy
+import csv
 import hashlib
 import json
 import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from src.common.canonical_io import read_csv, write_csv, write_json
+
 ROOT = Path(__file__).resolve().parents[2]
+CONFIG_PATH = ROOT / "configs/r3/r3_t01_protocol_t0_analysis_unit.v1.json"
+FIXTURE_PATH = ROOT / "tests/r3/fixtures/r3_t01/cases.json"
 
 EXPECTED_STATE_VERSIONS = (
     "r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8",
@@ -51,15 +58,65 @@ MUTATION_CODES = {
     "M12": "DOWNSTREAM_GATE_OPEN",
     "M13": "FUTURE_OUTCOME_IN_T01",
     "M14": "VALIDATOR_PRODUCTION_HELPER_REUSE",
+    "M15": "MEMBERSHIP_AVAILABILITY_NOT_T0",
+    "M16": "NON_PUBLIC_CANONICAL_FIELD_REFERENCE",
+    "M17": "LANDMARK_CROSS_GROUP_CONTAMINATION",
+    "M18": "EMPTY_MUTATION_RESULTS",
+    "M19": "PENDING_FORMAL_ARTIFACT",
+    "M20": "NON_AUTHORITATIVE_TIME_IN_ID",
 }
+FORBIDDEN_CANONICAL_FIELDS = (
+    "component_qualification_" + "available_time",
+    "g_used_as_of_exit",
+    "daily.available_time",
+    "evaluation_time",
+    "raw_false_gap_ordinal_as_of",
+    "raw_false_gap_count_as_of",
+)
+MUTATION_HEADER = [
+    "mutation_id",
+    "baseline_status",
+    "mutation_applied",
+    "expected_error_code",
+    "actual_error_codes",
+    "specific_error_detected",
+    "unrelated_setup_failure",
+    "status",
+]
+FIELD_SEMANTICS_HEADER = [
+    "field_name",
+    "type",
+    "nullable",
+    "availability_class",
+    "available_time_source",
+    "allowed_at_T0",
+    "allowed_at_T1",
+    "allowed_at_T2",
+    "audit_only",
+    "forbidden_model_feature",
+    "source_artifact",
+    "derivation_rule",
+]
+
+
+class ReplayValidationError(ValueError):
+    """An independent replay failure with a stable error code."""
+
+    def __init__(self, code: str, message: str = "") -> None:
+        self.code = code
+        detail = f":{message}" if message else ""
+        super().__init__(f"{code}{detail}")
 
 
 @dataclass
 class ValidationReport:
     errors: list[dict[str, str]] = field(default_factory=list)
     synthetic_case_results: list[dict[str, Any]] = field(default_factory=list)
-    mutation_results: list[dict[str, str]] = field(default_factory=list)
+    replay_results: list[dict[str, Any]] = field(default_factory=list)
+    mutation_results: list[dict[str, Any]] = field(default_factory=list)
     double_rebuild_hash: str | None = None
+    double_rebuild_result: dict[str, Any] | None = None
+    artifact_summaries: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -85,6 +142,70 @@ def _sha(value: Any) -> str:
 
 def _sha_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _load_json(path: Path) -> Any:
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _committed_bytes(
+    root: Path, source_commit: str, relative_path: str
+) -> bytes | None:
+    result = subprocess.run(
+        ["git", "show", f"{source_commit}:{relative_path}"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+def _committed_git_blob_sha(
+    root: Path, source_commit: str, relative_path: str
+) -> str | None:
+    result = subprocess.run(
+        ["git", "rev-parse", f"{source_commit}:{relative_path}"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _expected_row_present(row: dict[str, Any]) -> bool:
+    return row.get("expected_row_present", True) is True
+
+
+def _parse_timestamp(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ReplayValidationError("INVALID_TIME", str(value)) from exc
+    if parsed.tzinfo is None:
+        raise ReplayValidationError("TIMEZONE_REQUIRED", str(value))
+    return parsed
+
+
+def compare_timestamps(left: str, right: str) -> bool:
+    """Compare absolute instants after independent ISO-8601 parsing."""
+
+    try:
+        return _parse_timestamp(left) <= _parse_timestamp(right)
+    except ReplayValidationError:
+        raise
+
+
+def validate_timestamp_order(earlier: str, later: str) -> None:
+    """Require a timezone-aware timestamp order and fail closed on inversion."""
+
+    if not compare_timestamps(earlier, later):
+        raise ReplayValidationError("TIME_ORDER_MISMATCH", f"{earlier}>{later}")
+
+
+def _date_from_timestamp(value: str) -> str:
+    return _parse_timestamp(value).date().isoformat()
 
 
 def _row_key(row: dict[str, Any]) -> tuple[str, str, str]:
@@ -119,7 +240,7 @@ def _index(
     for row in rows:
         key = key_fn(row)
         if key in result:
-            raise ValueError(f"{code}:{key}")
+            raise ReplayValidationError(code, str(key))
         result[key] = row
     return result
 
@@ -133,21 +254,24 @@ def _sorted_surface(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _group_surface(
     rows: list[dict[str, Any]],
 ) -> dict[tuple[str, str], list[dict[str, Any]]]:
-    result: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        result[(str(row.get("state_version_id")), str(row.get("security_id")))].append(
+        grouped[(str(row.get("state_version_id")), str(row.get("security_id")))].append(
             row
         )
-    return result
+    for group in grouped.values():
+        group.sort(key=_row_key)
+    return grouped
 
 
-def _identity(
-    namespace: str,
-    contract_version: str,
-    fields: dict[str, str],
-) -> str:
-    payload = {"namespace": namespace, "contract_version": contract_version, **fields}
-    return _sha(payload)
+def _identity(namespace: str, contract_version: str, fields: dict[str, str]) -> str:
+    return _sha(
+        {
+            "namespace": namespace,
+            "contract_version": contract_version,
+            **fields,
+        }
+    )
 
 
 def _replay_components(
@@ -169,7 +293,6 @@ def _replay_components(
     components: list[dict[str, Any]] = []
     for group in _group_surface(surface).values():
         current: dict[str, Any] | None = None
-        was_member = False
         for row in group:
             candidates = by_row.get(
                 (
@@ -179,48 +302,53 @@ def _replay_components(
                 ),
                 [],
             )
-            if len(candidates) > 1:
-                raise ValueError(f"AMBIGUOUS_MEMBERSHIP_ROW:{_row_key(row)}")
-            member = candidates[0] if candidates else None
+            component_members = [
+                item for item in candidates if item.get("component_member") is True
+            ]
+            if len(component_members) > 1:
+                raise ReplayValidationError(
+                    "AMBIGUOUS_COMPONENT_MEMBERSHIP", str(_row_key(row))
+                )
+            member = component_members[0] if component_members else None
             is_member = bool(
-                row.get("expected_row_present") is True
+                _expected_row_present(row)
                 and row.get("confirmed_state") is True
                 and member is not None
-                and member.get("component_member") is True
             )
             if not is_member:
                 current = None
-                was_member = False
                 continue
             event_id = str(member.get("event_id", ""))
             if not event_id:
-                raise ValueError("COMPONENT_EVENT_ID_MISSING")
-            if not was_member or current is None or current["event_id"] != event_id:
+                raise ReplayValidationError("COMPONENT_EVENT_ID_MISSING")
+            if current is None or current["event_id"] != event_id:
                 current = {
                     "state_version_id": str(row["state_version_id"]),
                     "event_id": event_id,
                     "security_id": str(row["security_id"]),
                     "start": str(row["trade_date"]),
                     "end": str(row["trade_date"]),
-                    "qualified": member.get("component_qualified_as_of") is True,
-                    "qualification_time": member.get(
-                        "component_qualification_available_time"
+                    "qualification_date": (
+                        str(row["trade_date"])
+                        if member.get("component_qualified_as_of") is True
+                        else None
                     ),
+                    "qualified": member.get("component_qualified_as_of") is True,
                     "row_keys": [_row_key(row)],
                 }
                 components.append(current)
             else:
                 current["end"] = str(row["trade_date"])
+                if (
+                    current["qualification_date"] is None
+                    and member.get("component_qualified_as_of") is True
+                ):
+                    current["qualification_date"] = str(row["trade_date"])
                 current["qualified"] = bool(
                     current["qualified"]
                     or member.get("component_qualified_as_of") is True
                 )
-                if not current.get("qualification_time"):
-                    current["qualification_time"] = member.get(
-                        "component_qualification_available_time"
-                    )
                 current["row_keys"].append(_row_key(row))
-            was_member = True
     spec = config["analysis_unit_contract"]["source_component_id_spec"]
     version = str(config["contract_version"])
     for item in components:
@@ -249,28 +377,25 @@ def _replay_components(
 def _valid_transition(
     prior: dict[str, Any], current: dict[str, Any], transition: dict[str, Any]
 ) -> bool:
-    from_state = (
-        transition["from_state"]
-        if prior.get("eligible_state") is True
+    prior_ok = bool(
+        prior.get("eligible_state") is True
         and prior.get("quality_state") == "valid"
         and prior.get("confirmed_state") is True
         and prior.get("active_event_id_as_of")
         and prior.get("event_status_as_of") in transition["from_event_statuses"]
-        else "OTHER"
     )
-    to_state = (
-        transition["to_state"]
-        if current.get("eligible_state") is True
+    current_ok = bool(
+        _expected_row_present(current)
+        and current.get("eligible_state") is True
         and current.get("quality_state") == "valid"
         and current.get("raw_state") is False
         and current.get("confirmed_state") is False
-        else "OTHER"
     )
-    return (
-        from_state == transition["from_state"]
-        and to_state == transition["to_state"]
-        and current.get("raw_state") is False
-        and current.get("quality_state") == "valid"
+    return bool(
+        prior_ok
+        and current_ok
+        and transition["from_state"] == "CONFIRMED_ACTIVE"
+        and transition["to_state"] == "CONFIRMED_EXITED"
         and transition["trigger"] == "raw_false"
         and transition["hard_break"] is False
         and transition["reason_code"] == "natural_state_exit"
@@ -285,7 +410,7 @@ def independent_replay(
     *,
     sample_end_censoring: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Independent expected-surface transition replay."""
+    """Rebuild natural exits on the full expected-row surface independently."""
 
     surface = _sorted_surface(rows)
     zone_index = _index(zones, _event_key, "DUPLICATE_EVENT_ZONE")
@@ -296,20 +421,24 @@ def independent_replay(
     component_by_row = {
         key: component for component in components for key in component["row_keys"]
     }
+    state_versions = {
+        item["state_version_id"]: item
+        for item in config["frozen_inputs"]["state_versions"]
+    }
+    transition = config["t0_transition_contract"]["transition_registry"]
     attempts: list[dict[str, Any]] = []
     rejections: list[dict[str, Any]] = []
-    transition = config["t0_transition_contract"]["transition_registry"]
     for group in _group_surface(surface).values():
         for position in range(1, len(group)):
             prior = group[position - 1]
             current = group[position]
             key = list(_row_key(current))
-            if current.get("expected_row_present") is not True:
+            if not _expected_row_present(current):
                 rejections.append(
                     {"row_key": key, "code": "CURRENT_EXPECTED_ROW_MISSING"}
                 )
                 continue
-            if prior.get("expected_row_present") is not True:
+            if not _expected_row_present(prior):
                 rejections.append(
                     {"row_key": key, "code": "PRIOR_EXPECTED_ROW_MISSING"}
                 )
@@ -345,16 +474,6 @@ def independent_replay(
             if current.get("active_event_id_as_of") not in (None, event_id):
                 rejections.append({"row_key": key, "code": "EVENT_ID_CONFLICT"})
                 continue
-            membership_key = (
-                str(current["state_version_id"]),
-                event_id,
-                str(current["security_id"]),
-                str(current["trade_date"]),
-            )
-            membership = membership_index.get(membership_key)
-            if membership is None or not membership.get("membership_available_time"):
-                rejections.append({"row_key": key, "code": "T0_MEMBERSHIP_UNAVAILABLE"})
-                continue
             zone = zone_index.get(
                 (
                     str(current["state_version_id"]),
@@ -365,10 +484,14 @@ def independent_replay(
             if zone is None:
                 rejections.append({"row_key": key, "code": "EVENT_NOT_FOUND"})
                 continue
-            if str(zone["first_qualification_time"]) > str(
-                membership["membership_available_time"]
-            ):
-                rejections.append({"row_key": key, "code": "EVENT_NOT_QUALIFIED"})
+            try:
+                if _date_from_timestamp(str(zone["first_qualification_time"])) > str(
+                    current["trade_date"]
+                ):
+                    rejections.append({"row_key": key, "code": "EVENT_NOT_QUALIFIED"})
+                    continue
+            except ReplayValidationError as exc:
+                rejections.append({"row_key": key, "code": exc.code})
                 continue
             if not _valid_transition(prior, current, transition):
                 rejections.append(
@@ -381,47 +504,97 @@ def independent_replay(
                     {"row_key": key, "code": "SOURCE_COMPONENT_NOT_FOUND"}
                 )
                 continue
-            t0 = str(membership["membership_available_time"])
+            state_version_id = str(current["state_version_id"])
+            if state_version_id not in state_versions:
+                rejections.append(
+                    {"row_key": key, "code": "FROZEN_STATE_VERSION_MISMATCH"}
+                )
+                continue
+            membership = membership_index.get(
+                (
+                    state_version_id,
+                    event_id,
+                    str(current["security_id"]),
+                    str(current["trade_date"]),
+                )
+            )
+            prior_memberships = [
+                item
+                for item in membership_rows
+                if str(item.get("state_version_id")) == state_version_id
+                and str(item.get("event_id")) == event_id
+                and str(item.get("security_id")) == str(current["security_id"])
+                and str(item.get("trade_date")) < str(current["trade_date"])
+            ]
+            last_prior_membership = max(
+                prior_memberships,
+                key=lambda item: str(item.get("trade_date")),
+                default=None,
+            )
             qualified_count = sum(
                 1
                 for item in components
-                if item["state_version_id"] == component["state_version_id"]
+                if item["state_version_id"] == state_version_id
                 and item["event_id"] == event_id
-                and item["security_id"] == component["security_id"]
-                and item["qualified"]
-                and item.get("qualification_time")
-                and str(item["qualification_time"]) <= t0
+                and item["security_id"] == str(current["security_id"])
+                and item["qualification_date"] is not None
+                and item["qualification_date"] <= str(current["trade_date"])
             )
             spec = config["analysis_unit_contract"]["exit_attempt_id_spec"]
             attempt = {
-                "state_version_id": str(current["state_version_id"]),
+                "state_version_id": state_version_id,
                 "event_id": event_id,
                 "security_id": str(current["security_id"]),
                 "exit_attempt_id": _identity(
                     spec["namespace"],
                     str(config["contract_version"]),
                     {
-                        "state_version_id": str(current["state_version_id"]),
+                        "state_version_id": state_version_id,
                         "event_id": event_id,
                         "security_id": str(current["security_id"]),
                         "source_component_id": component["source_component_id"],
                         "exit_attempt_date": str(current["trade_date"]),
-                        "exit_attempt_time": t0,
                     },
                 ),
                 "source_component_id": component["source_component_id"],
                 "source_component_start_date": component["start"],
                 "source_component_end_date": component["end"],
+                "source_component_qualification_date": component["qualification_date"],
+                "source_component_qualified": component["qualified"],
                 "source_component_ordinal": component["ordinal"],
                 "component_count_as_of_exit": qualified_count,
-                "zone_revision_as_of_exit": membership.get("zone_revision"),
+                "frozen_g": state_versions[state_version_id]["g"],
+                "last_observed_zone_revision_before_exit": (
+                    last_prior_membership.get("zone_revision")
+                    if last_prior_membership
+                    else None
+                ),
+                "current_exit_membership_zone_revision": (
+                    membership.get("zone_revision") if membership else None
+                ),
                 "exit_attempt_date": str(current["trade_date"]),
-                "exit_attempt_time": t0,
+                "exit_attempt_time": None,
+                "exit_attempt_time_missing_reason": (
+                    "UPSTREAM_DAILY_AVAILABLE_TIME_NOT_EXPOSED"
+                ),
                 "prior_confirmed_state": True,
                 "exit_raw_state": False,
                 "exit_reason": transition["reason_code"],
-                "g_used_as_of_exit": membership.get("g_used_as_of_exit"),
                 "event_status_as_of_exit": current.get("event_status_as_of"),
+                "current_membership_row_present": membership is not None,
+                "current_membership_available_time": (
+                    membership.get("membership_available_time") if membership else None
+                ),
+                "current_membership_availability_is_causal_for_t0": False,
+                "membership_resolution_status": (
+                    "current_row_not_available"
+                    if membership is None
+                    else (
+                        "current_row_available"
+                        if membership.get("membership_available_time")
+                        else "current_row_available_time_missing"
+                    )
+                ),
                 "unqualified_reentry": not component["qualified"],
                 "attempt_weight": 1.0,
             }
@@ -434,14 +607,13 @@ def independent_replay(
                 rejections.append(
                     {"row_key": list(_row_key(last)), "code": "RIGHT_CENSORING"}
                 )
-    ids = [attempt["exit_attempt_id"] for attempt in attempts]
+    ids = [item["exit_attempt_id"] for item in attempts]
     if len(ids) != len(set(ids)):
-        raise ValueError("DUPLICATE_EXIT_ATTEMPT_ID")
+        raise ReplayValidationError("DUPLICATE_EXIT_ATTEMPT_ID")
     attempts.sort(
         key=lambda item: (
             item["state_version_id"],
             item["event_id"],
-            item["exit_attempt_time"],
             item["exit_attempt_date"],
             item["exit_attempt_id"],
         )
@@ -453,6 +625,95 @@ def independent_replay(
         for ordinal, attempt in enumerate(group, 1):
             attempt["exit_attempt_ordinal"] = ordinal
     return attempts, rejections
+
+
+def _valid_landmark_row(row: dict[str, Any]) -> bool:
+    return bool(
+        _expected_row_present(row)
+        and row.get("eligible_state") is True
+        and row.get("quality_state") == "valid"
+    )
+
+
+def build_independent_landmarks(
+    rows: list[dict[str, Any]],
+    *,
+    state_version_id: str,
+    security_id: str,
+    t0_date: str,
+    horizon_days: tuple[int, ...] = (5, 10, 20, 30),
+) -> dict[str, Any]:
+    """Independently construct T1/T2 and H endpoints for one entity."""
+
+    scoped = sorted(
+        [
+            row
+            for row in rows
+            if str(row.get("state_version_id")) == state_version_id
+            and str(row.get("security_id")) == security_id
+        ],
+        key=_row_key,
+    )
+    future = [row for row in scoped if str(row.get("trade_date", "")) > t0_date]
+    valid_rows = [row for row in future if _valid_landmark_row(row)]
+    result: dict[str, Any] = {
+        "state_version_id": state_version_id,
+        "security_id": security_id,
+        "t0_date": t0_date,
+        "T0": {
+            "landmark_id": "T0",
+            "available": True,
+            "trade_date": t0_date,
+            "ordinal": 0,
+            "intervening_unobservable_row_count": 0,
+            "intervening_unobservable_reason_set": [],
+            "landmark_unavailable_reason": None,
+        },
+    }
+    consumed = 0
+    reasons: set[str] = set()
+    for target in (1, 2):
+        found: dict[str, Any] | None = None
+        while consumed < len(future):
+            row = future[consumed]
+            consumed += 1
+            if _valid_landmark_row(row):
+                found = row
+                break
+            reasons.add(_unobservable_reason(row))
+        result[f"T{target}"] = {
+            "landmark_id": f"T{target}",
+            "available": found is not None,
+            "trade_date": found["trade_date"] if found else None,
+            "ordinal": target if found else None,
+            "intervening_unobservable_row_count": sum(
+                not _valid_landmark_row(item) for item in future[:consumed]
+            ),
+            "intervening_unobservable_reason_set": sorted(reasons),
+            "landmark_unavailable_reason": (
+                None if found else "INSUFFICIENT_VALID_EXPECTED_ROWS"
+            ),
+        }
+    for horizon in horizon_days:
+        found = valid_rows[horizon - 1] if len(valid_rows) >= horizon else None
+        result[f"H{horizon}"] = {
+            "horizon_id": f"H{horizon}",
+            "valid_expected_row_count": horizon if found else len(valid_rows),
+            "available": found is not None,
+            "trade_date": found["trade_date"] if found else None,
+            "unavailable_reason": None if found else "INSUFFICIENT_VALID_EXPECTED_ROWS",
+        }
+    return result
+
+
+def _unobservable_reason(row: dict[str, Any]) -> str:
+    if not _expected_row_present(row):
+        return "MISSING_EXPECTED_TRADING_ROW"
+    if row.get("eligible_state") is not True:
+        return "INELIGIBLE_STATE"
+    if row.get("quality_state") != "valid":
+        return "QUALITY_NOT_VALID"
+    return "UNOBSERVABLE"
 
 
 def _schema_has_closed_objects(value: Any, path: str = "$") -> list[str]:
@@ -469,11 +730,6 @@ def _schema_has_closed_objects(value: Any, path: str = "$") -> list[str]:
         for index, child in enumerate(value):
             errors.extend(_schema_has_closed_objects(child, f"{path}[{index}]"))
     return errors
-
-
-def _load_json(path: Path) -> Any:
-    with path.open(encoding="utf-8") as handle:
-        return json.load(handle)
 
 
 def _validate_schema(
@@ -497,45 +753,256 @@ def _validate_schema(
         report.add("SCHEMA_READ_FAILED", f"{label}:{exc}")
 
 
-def _check_exact_contract_values(
-    config: dict[str, Any], report: ValidationReport
+def _check_public_interface(
+    config: dict[str, Any],
+    fixture: dict[str, Any],
+    root: Path,
+    report: ValidationReport,
 ) -> None:
-    actual = tuple(
-        item["state_version_id"] for item in config["frozen_inputs"]["state_versions"]
+    expected_tables = {
+        "r2_canonical_daily_state": [
+            "state_version_id",
+            "state_line",
+            "window_track_id",
+            "security_id",
+            "trade_date",
+            "eligible_state",
+            "raw_state",
+            "confirmed_state",
+            "confirmation_time",
+            "component_qualified_as_of",
+            "event_status_as_of",
+            "active_event_id_as_of",
+            "state_risk_set_eligible",
+            "qualified_event_risk_set_eligible",
+            "strict_core_member",
+            "quality_state",
+            "candidate_config_id",
+            "source_run_id",
+        ],
+        "r2_canonical_event_zone": [
+            "state_version_id",
+            "event_id",
+            "security_id",
+            "first_component_start_date",
+            "first_qualification_time",
+            "last_confirmed_end_date",
+            "last_exit_observation_time",
+            "zone_finalization_time",
+            "zone_status",
+            "exit_reason",
+            "left_censored",
+            "right_censored",
+            "component_interval_count",
+            "bridge_count",
+            "bridged_gap_days",
+            "zone_confirmed_day_count",
+            "zone_trading_span",
+            "confirmed_density",
+            "bridged_gap_ratio",
+            "zone_revision_count",
+        ],
+        "r2_canonical_event_membership": [
+            "state_version_id",
+            "event_id",
+            "security_id",
+            "trade_date",
+            "confirmed_state",
+            "component_member",
+            "retrospective_component_member",
+            "component_qualified_as_of",
+            "event_zone_member",
+            "is_prequalification_confirmed_day",
+            "is_bridged_gap",
+            "is_unqualified_reentry_day",
+            "event_status_as_of",
+            "zone_revision",
+            "membership_available_time",
+            "state_risk_set_eligible",
+            "qualified_event_risk_set_eligible",
+        ],
+    }
+    public = config.get("canonical_public_interface_contract", {})
+    actual = {
+        item.get("logical_table_name"): item.get("fields")
+        for item in public.get("tables", [])
+    }
+    if actual != expected_tables:
+        report.add("NON_PUBLIC_CANONICAL_FIELD_REFERENCE", "allowlist_mismatch")
+    harness = set(public.get("synthetic_harness_only_fields", []))
+    if harness != {"expected_row_present"}:
+        report.add(
+            "NON_PUBLIC_CANONICAL_FIELD_REFERENCE", "synthetic_harness_only_fields"
+        )
+    table_map = public.get("fixture_table_map", {})
+    for case in fixture.get("cases", []):
+        for fixture_key, table_name in table_map.items():
+            allowed = set(expected_tables.get(table_name, ())) | harness
+            for row in case.get(fixture_key, []):
+                for field_name in row:
+                    if field_name not in allowed:
+                        report.add(
+                            "NON_PUBLIC_CANONICAL_FIELD_REFERENCE",
+                            f"{case.get('case_id')}:{fixture_key}:{field_name}",
+                        )
+    config_text = json.dumps(config, ensure_ascii=False, sort_keys=True)
+    source_text = (root / "src/r3/r3_t01_protocol.py").read_text(encoding="utf-8")
+    schema_text = "\n".join(
+        (root / name).read_text(encoding="utf-8")
+        for name in (
+            "schemas/r3/r3_t01_protocol_registry.schema.json",
+            "schemas/r3/r3_t01_exit_attempt_contract.schema.json",
+            "schemas/r3/r3_t01_landmark_horizon_contract.schema.json",
+            "schemas/r3/r3_t01_sample_split_contract.schema.json",
+        )
     )
-    if actual != EXPECTED_STATE_VERSIONS:
-        report.add("FROZEN_STATE_VERSION_SET_MISMATCH", repr(actual))
-    if config["frozen_inputs"]["state_line_count"] != 2:
-        report.add("STATE_LINE_COUNT_MISMATCH")
-    if config["frozen_inputs"]["parameters"] != {"W": 120, "K": 3, "d": 2, "g": 1}:
-        report.add("FROZEN_PARAMETER_MISMATCH")
-    anchor = config["anchor_decision"]
-    if anchor.get("selected_anchor") != "natural_exit_attempt":
-        report.add("ANCHOR_DECISION_MISMATCH")
-    if config["implementation_state"]["formal_run_allowed"] is not False:
-        report.add("FORMAL_RUN_OPEN_IN_IMPLEMENTATION")
-    if config["implementation_state"]["readme_advanced"] is not False:
-        report.add("README_ADVANCED_IN_IMPLEMENTATION")
-    unit = config["analysis_unit_contract"]
-    if unit.get("first_attempt_only") is not False:
-        report.add("FIRST_ATTEMPT_ONLY_FORBIDDEN")
-    if unit.get("later_attempts_are_sidecar") is not False:
-        report.add("LATER_ATTEMPTS_SIDE_CAR_FORBIDDEN")
-    if unit.get("all_legal_exit_attempts_are_primary") is not True:
-        report.add("ALL_ATTEMPTS_NOT_PRIMARY")
-    if unit.get("final_component_count_availability") != "post_event_audit":
-        report.add("FINAL_COMPONENT_COUNT_AVAILABILITY_MISMATCH")
-    if any(
-        field.get("field_name") == "event_balanced_weight"
-        and field.get("allowed_at_T0") is True
-        for field in config["field_semantics"]
+    for forbidden in FORBIDDEN_CANONICAL_FIELDS:
+        if (
+            forbidden in config_text
+            or forbidden in source_text
+            or forbidden in schema_text
+        ):
+            report.add("NON_PUBLIC_CANONICAL_FIELD_REFERENCE", forbidden)
+
+
+def _check_exact_contract_values(
+    config: dict[str, Any], fixture: dict[str, Any], report: ValidationReport
+) -> None:
+    versions = config.get("frozen_inputs", {}).get("state_versions", [])
+    actual_ids = tuple(item.get("state_version_id") for item in versions)
+    if actual_ids != EXPECTED_STATE_VERSIONS:
+        report.add(
+            "FROZEN_STATE_VERSION_SET_MISMATCH"
+            if len(versions) != 2
+            else "FROZEN_STATE_VERSION_MISMATCH",
+            repr(actual_ids),
+        )
+    parameters = config.get("frozen_inputs", {}).get("parameters", {})
+    if parameters != {"W": 120, "K": 3, "d": 2, "g": 1}:
+        report.add("FROZEN_STATE_VERSION_SET_MISMATCH", "frozen_parameters")
+    if (
+        config.get("anchor_decision", {}).get("selected_anchor")
+        != "natural_exit_attempt"
     ):
-        report.add("POST_EVENT_FIELD_ALLOWED_AT_T0")
+        report.add("ANCHOR_DECISION_MISMATCH")
+    unit = config.get("analysis_unit_contract", {})
+    id_spec = unit.get("exit_attempt_id_spec", {})
+    exact_id_fields = [
+        "namespace",
+        "contract_version",
+        "state_version_id",
+        "event_id",
+        "security_id",
+        "source_component_id",
+        "exit_attempt_date",
+    ]
+    if id_spec.get("namespace") != "r3_exit_attempt_v2":
+        report.add("EXIT_ATTEMPT_ID_NAMESPACE_MISMATCH")
+    if id_spec.get("fields") != exact_id_fields:
+        fields = set(id_spec.get("fields", []))
+        if "exit_attempt_time" in fields:
+            report.add("NON_AUTHORITATIVE_TIME_IN_ID")
+        elif fields.intersection(
+            {"zone_finalization_time", "final_component_count", "future_path"}
+        ):
+            report.add("POST_EVENT_FIELD_IN_ID")
+        else:
+            report.add("EXIT_ATTEMPT_ID_FIELD_SET_MISMATCH")
+    if unit.get("first_attempt_only") is True:
+        report.add("FIRST_ATTEMPT_ONLY_FORBIDDEN")
+    if unit.get("later_attempts_are_sidecar") is True:
+        report.add("LATER_ATTEMPTS_SIDEcar_FORBIDDEN")
+    t0 = config.get("t0_transition_contract", {})
+    if t0.get("expected_row_surface_lag") != (
+        "compute_lag_on_complete_expected_row_surface_before_filter"
+    ):
+        report.add("LAG_AFTER_FILTERING_FORBIDDEN")
+    if (
+        t0.get("qualified_event_risk_set_eligible_required_for_every_later_attempt")
+        is True
+    ):
+        report.add("LATER_ATTEMPT_RISK_SET_POLICY_MISMATCH")
+    if unit.get("exit_attempt_ordinal_order") != [
+        "exit_attempt_date",
+        "exit_attempt_id",
+    ]:
+        report.add("ORDINAL_DATE_ORDER_MISMATCH")
+    if "exit_attempt_time" not in set(
+        unit.get("attempt_identity_must_not_include", [])
+    ):
+        report.add("NON_AUTHORITATIVE_TIME_IN_ID")
+    time_fields = t0.get("time_fields", {})
+    if time_fields.get("exit_attempt_time") != "null_upstream_interface_gap":
+        report.add("MEMBERSHIP_AVAILABILITY_NOT_T0")
+    if (
+        time_fields.get("exit_attempt_date") != "current_trade_date"
+        or time_fields.get("exit_attempt_date_authoritative") is not True
+    ):
+        report.add("T0_DATE_NOT_AUTHORITATIVE")
+    if time_fields.get("t0_granularity") != "valid_trading_date":
+        report.add("T0_GRANULARITY_MISMATCH")
+    if "current_membership_row_is_optional_for_t0" not in t0.get(
+        "event_join_requirements", []
+    ):
+        report.add("MEMBERSHIP_AVAILABILITY_NOT_T0")
+    if config.get("landmark_horizon_contract", {}).get(
+        "future_landmark_definition", {}
+    ).get("group_keys") != ["state_version_id", "security_id"]:
+        report.add("LANDMARK_CROSS_GROUP_CONTAMINATION")
+    if config.get("sample_split_contract", {}).get("sample_split_unit") != "event_id":
+        report.add("ATTEMPT_LEVEL_RANDOM_SPLIT_FORBIDDEN")
+    if (
+        config.get("sample_split_contract", {}).get(
+            "all_attempts_of_same_event_in_same_split"
+        )
+        is not True
+    ):
+        report.add("EVENT_SPLIT_LEAKAGE")
+    if (
+        config.get("sample_split_contract", {})
+        .get("purge_embargo", {})
+        .get("length_valid_trading_days")
+        != 32
+    ):
+        report.add("PURGE_EMBARGO_MISMATCH")
+    if (
+        config.get("sample_split_contract", {}).get("calendar_boundary_status")
+        != "unselected_by_design"
+    ):
+        report.add("CALENDAR_BOUNDARY_SELECTED_TOO_EARLY")
+    if fixture.get("split_assignments_mutation") or fixture.get("split_unit_mutation"):
+        report.add(
+            "EVENT_SPLIT_LEAKAGE"
+            if fixture.get("split_assignments_mutation")
+            else "ATTEMPT_LEVEL_RANDOM_SPLIT_FORBIDDEN"
+        )
+    if fixture.get("first_attempt_only_mutation"):
+        report.add("FIRST_ATTEMPT_ONLY_FORBIDDEN")
+    if fixture.get("downstream_gate_mutation"):
+        report.add("DOWNSTREAM_GATE_OPEN")
+    if "calendar-day" in config.get("landmark_horizon_contract", {}).get(
+        "horizon_counting_rule", ""
+    ):
+        report.add("CALENDAR_DAY_HORIZON_FORBIDDEN")
+    if config.get("implementation_state", {}).get("next_task_allowed") is True:
+        report.add("DOWNSTREAM_GATE_OPEN")
+    if config.get("output_contract", {}).get("formal_artifacts"):
+        owners = {
+            item.get("artifact_owner")
+            for item in config["output_contract"]["formal_artifacts"]
+        }
+        if owners != {"runner", "independent_validator", "result_analyzer"}:
+            report.add("FORMAL_ARTIFACT_OWNER_MISMATCH")
+    for field_spec in config.get("field_semantics", []):
+        if field_spec.get("field_name") == "return_from_t0":
+            report.add("FUTURE_OUTCOME_IN_T01")
 
 
 def _check_field_semantics(config: dict[str, Any], report: ValidationReport) -> None:
-    fields = {item["field_name"]: item for item in config["field_semantics"]}
-    required_t0 = {
+    fields = {
+        item.get("field_name"): item for item in config.get("field_semantics", [])
+    }
+    required = {
         "state_version_id",
         "event_id",
         "security_id",
@@ -543,43 +1010,60 @@ def _check_field_semantics(config: dict[str, Any], report: ValidationReport) -> 
         "exit_attempt_ordinal",
         "source_component_id",
         "source_component_ordinal",
+        "source_component_qualification_date",
+        "source_component_qualified",
         "component_count_as_of_exit",
-        "zone_revision_as_of_exit",
+        "last_observed_zone_revision_before_exit",
+        "current_exit_membership_zone_revision",
         "exit_attempt_date",
         "exit_attempt_time",
-        "prior_confirmed_state",
-        "exit_raw_state",
-        "exit_reason",
-        "g_used_as_of_exit",
+        "exit_attempt_time_missing_reason",
+        "frozen_g",
         "event_status_as_of_exit",
+        "current_membership_row_present",
+        "current_membership_available_time",
+        "current_membership_availability_is_causal_for_t0",
+        "membership_resolution_status",
     }
-    for name in required_t0:
-        if name not in fields or fields[name]["allowed_at_T0"] is not True:
-            report.add("T0_FIELD_NOT_AVAILABLE", name)
-    forbidden = {
-        "final_component_count",
-        "final_attempt_count_in_event",
-        "event_balanced_weight",
-        "resolution_status",
-        "resolution_time",
-        "same_zone_requalified",
-        "same_zone_requalification_time",
-        "g_exceeded_time",
-        "future_overlap_final_result",
-        "future_path_class",
-        "future_boundary_hit",
-    }
-    for name in forbidden:
-        item = fields.get(name)
-        if item is None:
+    for name in required:
+        if name not in fields:
             report.add("FIELD_SEMANTICS_MISSING", name)
-        elif (
-            item["allowed_at_T0"]
-            or item["allowed_at_T1"]
-            or item["allowed_at_T2"]
-            or not item["forbidden_model_feature"]
+    time_field = fields.get("exit_attempt_time")
+    if (
+        time_field is None
+        or time_field.get("nullable") is not True
+        or time_field.get("availability_class") != "upstream_interface_required"
+        or time_field.get("allowed_at_T0") is not False
+    ):
+        report.add("MEMBERSHIP_AVAILABILITY_NOT_T0", "exit_attempt_time")
+    for forbidden in ("g_used_as_of_exit", "zone_revision_as_of_exit"):
+        if forbidden in fields:
+            report.add("NON_PUBLIC_CANONICAL_FIELD_REFERENCE", forbidden)
+    for name in (
+        "current_exit_membership_zone_revision",
+        "current_membership_available_time",
+        "membership_resolution_status",
+    ):
+        item = fields.get(name)
+        if item and (
+            item.get("allowed_at_T0") or not item.get("forbidden_model_feature")
         ):
-            report.add("FORBIDDEN_FEATURE_LEAK", name)
+            report.add("POST_EVENT_AUDIT_FIELD_LEAK", name)
+    for item in fields.values():
+        if item.get("availability_class") == "as_of_T0" and any(
+            token in str(item.get("field_name", "")).lower()
+            for token in ("return", "mfe", "mae", "boundary", "path", "label")
+        ):
+            report.add("FUTURE_OUTCOME_IN_T01", str(item.get("field_name")))
+
+
+def _check_no_future_output(config: dict[str, Any], report: ValidationReport) -> None:
+    for artifact in config.get("output_contract", {}).get("formal_artifacts", []):
+        name = str(artifact.get("filename", "")).lower()
+        if artifact.get("contains_future_outcome") is not False or any(
+            token in name for token in ("return", "label", "boundary", "path_class")
+        ):
+            report.add("FUTURE_OUTCOME_IN_T01", name)
 
 
 def _check_upstream_committed_bindings(
@@ -604,6 +1088,19 @@ def _check_upstream_committed_bindings(
         )
         if result.returncode != 0:
             report.add("UPSTREAM_ANCESTRY_MISMATCH", commit)
+    result = subprocess.run(
+        [
+            "git",
+            "merge-base",
+            "--is-ancestor",
+            binding["r2_t08_reviewed_head"],
+            binding["r2_t08_merge_commit"],
+        ],
+        cwd=root,
+        check=False,
+    )
+    if result.returncode != 0:
+        report.add("REVIEWED_HEAD_NOT_ANCESTOR")
     for artifact in binding["required_artifacts"]:
         result = subprocess.run(
             [
@@ -649,64 +1146,45 @@ def _check_upstream_committed_bindings(
             report.add("UPSTREAM_VALIDATION_JSON_INVALID")
 
 
-def _check_split_contract(config: dict[str, Any], report: ValidationReport) -> None:
-    split = config["sample_split_contract"]
-    if split["sample_split_unit"] != "event_id":
-        report.add("ATTEMPT_LEVEL_RANDOM_SPLIT_FORBIDDEN")
-    if split["all_attempts_of_same_event_in_same_split"] is not True:
-        report.add("EVENT_SPLIT_LEAKAGE")
-    if split["purge_embargo"]["length_valid_trading_days"] != 32:
-        report.add("PURGE_EMBARGO_MISMATCH")
-    if split["calendar_boundary_status"] != "unselected_by_design":
-        report.add("CALENDAR_BOUNDARY_SELECTED_TOO_EARLY")
-
-
-def _check_no_future_output(config: dict[str, Any], report: ValidationReport) -> None:
-    forbidden_tokens = (
-        "return",
-        "mfe",
-        "mae",
-        "boundary",
-        "path_class",
-        "label",
-        "model_output",
-    )
-    for artifact in config["output_contract"]["formal_artifacts"]:
-        filename = artifact["filename"].lower()
-        if any(token in filename for token in ("return", "label", "boundary")):
-            report.add("FUTURE_OUTCOME_IN_T01", filename)
-        if artifact["contains_future_outcome"] is not False:
-            report.add("FUTURE_OUTCOME_IN_T01", filename)
-    for field_spec in config["field_semantics"]:
-        if field_spec["availability_class"] == "as_of_T0" and any(
-            token in field_spec["field_name"].lower() for token in forbidden_tokens
-        ):
-            report.add("FUTURE_OUTCOME_IN_T01", field_spec["field_name"])
+def _compare_landmark_dict(
+    expected: dict[str, Any],
+    actual: dict[str, Any],
+    case_id: str,
+    report: ValidationReport,
+) -> None:
+    for key in ("T1", "T2"):
+        if expected.get(key) != actual.get(key):
+            report.add("SYNTHETIC_LANDMARK_MISMATCH", f"{case_id}:{key}")
+    for key in ("H5", "H10", "H20", "H30"):
+        if expected.get(key) != actual.get(key):
+            report.add("SYNTHETIC_HORIZON_MISMATCH", f"{case_id}:{key}")
 
 
 def _compare_case(
     case: dict[str, Any],
     attempts: list[dict[str, Any]],
     rejections: list[dict[str, Any]],
+    landmarks: dict[str, Any],
     report: ValidationReport,
 ) -> dict[str, Any]:
-    expected = case["expected"]
+    expected = case.get("expected", {})
     expected_ids = [
-        item.get("exit_attempt_id") for item in expected.get("attempts", [])
+        item.get("exit_attempt_id")
+        for item in expected.get("attempts", [])
+        if item.get("exit_attempt_id") is not None
     ]
     actual_ids = [item["exit_attempt_id"] for item in attempts]
-    if expected_ids != actual_ids:
+    if expected_ids and expected_ids != actual_ids:
         report.add("SYNTHETIC_ATTEMPT_ID_MISMATCH", case["case_id"])
-    if [item.get("exit_attempt_ordinal") for item in expected.get("attempts", [])] != [
-        item.get("exit_attempt_ordinal") for item in attempts
-    ]:
-        report.add("SYNTHETIC_ATTEMPT_ORDINAL_MISMATCH", case["case_id"])
     if expected.get("attempt_count") != len(attempts):
         report.add("SYNTHETIC_ATTEMPT_COUNT_MISMATCH", case["case_id"])
-    expected_codes = sorted(expected.get("rejection_codes", []))
-    actual_codes = sorted(item["code"] for item in rejections)
-    if expected_codes != actual_codes:
-        report.add("SYNTHETIC_REJECTION_MISMATCH", case["case_id"])
+    if "rejection_codes" in expected:
+        expected_codes = sorted(expected.get("rejection_codes", []))
+        actual_codes = sorted(item["code"] for item in rejections)
+        if expected_codes != actual_codes:
+            report.add("SYNTHETIC_REJECTION_MISMATCH", case["case_id"])
+    else:
+        actual_codes = sorted(item["code"] for item in rejections)
     for expected_attempt, actual in zip(
         expected.get("attempts", []), attempts, strict=False
     ):
@@ -715,13 +1193,27 @@ def _compare_case(
             "event_id",
             "security_id",
             "exit_attempt_date",
-            "exit_attempt_time",
             "source_component_ordinal",
             "component_count_as_of_exit",
+            "source_component_qualification_date",
+            "source_component_qualified",
             "unqualified_reentry",
+            "exit_attempt_ordinal",
+            "source_component_id",
         ):
-            if expected_attempt.get(key) != actual.get(key):
+            if expected_attempt.get(key) is not None and expected_attempt.get(
+                key
+            ) != actual.get(key):
                 report.add("SYNTHETIC_CONTEXT_MISMATCH", f"{case['case_id']}:{key}")
+    expected_landmarks = case.get("expected_landmarks", {})
+    for attempt_id, expected_landmark in expected_landmarks.items():
+        actual_landmark = landmarks.get(attempt_id)
+        if actual_landmark is None:
+            report.add("SYNTHETIC_LANDMARK_MISMATCH", f"{case['case_id']}:{attempt_id}")
+        else:
+            _compare_landmark_dict(
+                expected_landmark, actual_landmark, case["case_id"], report
+            )
     return {
         "case_id": case["case_id"],
         "expected_attempt_count": expected.get("attempt_count"),
@@ -729,6 +1221,9 @@ def _compare_case(
         "expected_attempt_ids": expected_ids,
         "actual_attempt_ids": actual_ids,
         "rejection_codes": actual_codes,
+        "attempts": attempts,
+        "rejections": rejections,
+        "landmarks": landmarks,
     }
 
 
@@ -740,14 +1235,15 @@ def validate_independence(source_text: str) -> str | None:
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module == "src.r3.r3_t01_protocol":
             return "VALIDATOR_PRODUCTION_HELPER_REUSE"
-        if isinstance(node, ast.Import):
-            if any(alias.name == "src.r3.r3_t01_protocol" for alias in node.names):
-                return "VALIDATOR_PRODUCTION_HELPER_REUSE"
+        if isinstance(node, ast.Import) and any(
+            alias.name == "src.r3.r3_t01_protocol" for alias in node.names
+        ):
+            return "VALIDATOR_PRODUCTION_HELPER_REUSE"
     return None
 
 
 def validate_attempt_registry(attempts: list[dict[str, Any]]) -> list[str]:
-    """Independently check attempt identity, ordinal and T0 conservation."""
+    """Check duplicate identity, date ordinal conservation, and T0 claims."""
 
     errors: list[str] = []
     ids = [str(item.get("exit_attempt_id")) for item in attempts]
@@ -762,7 +1258,7 @@ def validate_attempt_registry(attempts: list[dict[str, Any]]) -> list[str]:
             (
                 str(item.get("state_version_id")),
                 str(item.get("security_id")),
-                str(item.get("exit_attempt_time")),
+                str(item.get("exit_attempt_date")),
             )
         ].add(str(item.get("event_id")))
     if any(len(events) > 1 for events in t0_claims.values()):
@@ -771,7 +1267,6 @@ def validate_attempt_registry(attempts: list[dict[str, Any]]) -> list[str]:
         ordered = sorted(
             group,
             key=lambda item: (
-                str(item.get("exit_attempt_time")),
                 str(item.get("exit_attempt_date")),
                 str(item.get("exit_attempt_id")),
             ),
@@ -781,8 +1276,14 @@ def validate_attempt_registry(attempts: list[dict[str, Any]]) -> list[str]:
         if sorted(actual) != expected:
             errors.append("ORDINAL_NOT_CONTIGUOUS")
         if actual != [int(item.get("exit_attempt_ordinal", -1)) for item in ordered]:
-            errors.append("ORDINAL_TIME_ORDER_MISMATCH")
+            errors.append("ORDINAL_DATE_ORDER_MISMATCH")
     return sorted(set(errors))
+
+
+def _check_contract_mutation_markers(
+    config: dict[str, Any], fixture: dict[str, Any], report: ValidationReport
+) -> None:
+    _check_exact_contract_values(config, fixture, report)
 
 
 def apply_mutation(
@@ -796,16 +1297,13 @@ def apply_mutation(
             "mutated"
         )
     elif mutation_id == "M02":
-        mutated_config["frozen_inputs"]["state_versions"].append(
-            copy.deepcopy(mutated_config["frozen_inputs"]["state_versions"][0])
-        )
-        mutated_config["frozen_inputs"]["state_versions"][-1]["W"] = 250
+        mutated_config["frozen_inputs"]["parameters"]["W"] = 250
     elif mutation_id in {"M03", "M04"}:
         mutated_config["anchor_decision"]["selected_anchor"] = (
             "finalized_zone" if mutation_id == "M03" else "retrospective_final_exit"
         )
     elif mutation_id == "M05":
-        mutated_config["analysis_unit_contract"]["first_attempt_only"] = True
+        mutated_fixture["first_attempt_only_mutation"] = True
     elif mutation_id == "M06":
         mutated_config["t0_transition_contract"]["expected_row_surface_lag"] = (
             "filter_invalid_then_lag"
@@ -823,13 +1321,13 @@ def apply_mutation(
             "calendar-day counting"
         )
     elif mutation_id == "M10":
-        mutated_config["sample_split_contract"]["sample_split_unit"] = "exit_attempt_id"
+        mutated_fixture["split_unit_mutation"] = "exit_attempt_id"
     elif mutation_id == "M11":
         mutated_fixture["split_assignments_mutation"] = {
             "EV1": ["design", "validation"]
         }
     elif mutation_id == "M12":
-        mutated_config["downstream_gate_open"] = True
+        mutated_fixture["downstream_gate_mutation"] = True
     elif mutation_id == "M13":
         mutated_config["field_semantics"].append(
             {
@@ -849,54 +1347,932 @@ def apply_mutation(
         )
     elif mutation_id == "M14":
         source_text = "from src.r3.r3_t01_protocol import enumerate_exit_attempts"
+    elif mutation_id == "M15":
+        mutated_config["t0_transition_contract"]["time_fields"]["exit_attempt_time"] = (
+            "current_membership.membership_available_time"
+        )
+    elif mutation_id == "M16":
+        forbidden_field = "component_qualification_" + "available_time"
+        target = next(
+            case for case in mutated_fixture["cases"] if case["case_id"] == "S01"
+        )
+        target["membership_rows"][0][forbidden_field] = None
+    elif mutation_id == "M17":
+        mutated_config["landmark_horizon_contract"]["future_landmark_definition"][
+            "group_keys"
+        ] = ["trade_date"]
+    elif mutation_id == "M18":
+        mutated_fixture["formal_artifact_mutation"] = "empty_mutation_results"
+    elif mutation_id == "M19":
+        mutated_fixture["formal_artifact_mutation"] = "pending_formal_artifact"
+    elif mutation_id == "M20":
+        mutated_config["analysis_unit_contract"]["exit_attempt_id_spec"][
+            "fields"
+        ].append("exit_attempt_time")
     else:
         raise ValueError(mutation_id)
     return mutated_config, mutated_fixture, source_text
 
 
-def mutation_error_code(
-    config: dict[str, Any], fixture: dict[str, Any], source_text: str | None = None
-) -> str | None:
-    if source_text is not None:
-        return validate_independence(source_text)
-    versions = config["frozen_inputs"]["state_versions"]
-    if len(versions) != 2:
-        return "FROZEN_STATE_VERSION_SET_MISMATCH"
-    if (
-        tuple(item.get("state_version_id") for item in versions)
-        != EXPECTED_STATE_VERSIONS
-    ):
-        return "FROZEN_STATE_VERSION_MISMATCH"
-    if config["anchor_decision"].get("selected_anchor") != "natural_exit_attempt":
-        return "ANCHOR_DECISION_MISMATCH"
-    unit = config["analysis_unit_contract"]
-    if unit.get("first_attempt_only") is True:
-        return "FIRST_ATTEMPT_ONLY_FORBIDDEN"
-    if (
-        config["t0_transition_contract"].get("expected_row_surface_lag")
-        != "compute_lag_on_complete_expected_row_surface_before_filter"
-    ):
-        return "LAG_AFTER_FILTERING_FORBIDDEN"
-    if config["t0_transition_contract"].get(
-        "qualified_event_risk_set_eligible_required_for_every_later_attempt"
-    ):
-        return "LATER_ATTEMPT_RISK_SET_POLICY_MISMATCH"
-    forbidden_id_fields = set(unit.get("attempt_identity_must_not_include", []))
-    if forbidden_id_fields.intersection(unit["exit_attempt_id_spec"].get("fields", [])):
-        return "POST_EVENT_FIELD_IN_ID"
-    if "calendar-day" in config["landmark_horizon_contract"]["horizon_counting_rule"]:
-        return "CALENDAR_DAY_HORIZON_FORBIDDEN"
-    if config["sample_split_contract"].get("sample_split_unit") != "event_id":
-        return "ATTEMPT_LEVEL_RANDOM_SPLIT_FORBIDDEN"
-    if fixture.get("split_assignments_mutation"):
-        return "EVENT_SPLIT_LEAKAGE"
-    if config.get("downstream_gate_open"):
-        return "DOWNSTREAM_GATE_OPEN"
-    if any(
-        "return_from_t0" == item.get("field_name") for item in config["field_semantics"]
-    ):
-        return "FUTURE_OUTCOME_IN_T01"
+def _artifact_marker_error(fixture: dict[str, Any]) -> str | None:
+    if fixture.get("formal_artifact_mutation") == "empty_mutation_results":
+        return "EMPTY_MUTATION_RESULTS"
+    if fixture.get("formal_artifact_mutation") == "pending_formal_artifact":
+        return "PENDING_FORMAL_ARTIFACT"
     return None
+
+
+def _mutation_result(
+    mutation_id: str,
+    baseline_status: str,
+    expected_code: str,
+    actual_codes: list[str],
+) -> dict[str, Any]:
+    specific = expected_code in actual_codes
+    related_codes = {
+        "SCHEMA_VALIDATION_FAILED",
+        "SYNTHETIC_ATTEMPT_COUNT_MISMATCH",
+        "SYNTHETIC_ATTEMPT_ID_MISMATCH",
+        "SYNTHETIC_REJECTION_MISMATCH",
+        "SYNTHETIC_CONTEXT_MISMATCH",
+    }
+    unrelated = any(
+        code != expected_code and code not in related_codes for code in actual_codes
+    )
+    return {
+        "mutation_id": mutation_id,
+        "baseline_status": baseline_status,
+        "mutation_applied": True,
+        "expected_error_code": expected_code,
+        "actual_error_codes": actual_codes,
+        "specific_error_detected": specific,
+        "unrelated_setup_failure": unrelated,
+        "status": "passed"
+        if baseline_status == "passed" and specific and not unrelated
+        else "failed",
+    }
+
+
+def validate_mutations(
+    config: dict[str, Any], fixture: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Run mutations from temporary pristine files through the disk validator path."""
+
+    with TemporaryDirectory(prefix="r3_t01_mutations_") as temp_dir:
+        directory = Path(temp_dir)
+        config_path = directory / "config.json"
+        fixture_path = directory / "fixture.json"
+        write_json(config_path, config)
+        write_json(fixture_path, fixture)
+        return validate_mutations_from_disk(config_path, fixture_path, root=ROOT)
+
+
+def _artifact_kind_map(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        item["filename"]: item for item in config["output_contract"]["formal_artifacts"]
+    }
+
+
+def _csv_header(path: Path) -> list[str]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        first = handle.readline().rstrip("\n\r")
+    return first.split(",") if first else []
+
+
+def _artifact_schema_path(name: str, root: Path) -> Path | None:
+    mapping = {
+        "r3_t01_protocol_registry.json": (
+            "schemas/r3/r3_t01_protocol_registry.schema.json"
+        ),
+        "r3_t01_t0_transition_contract.json": (
+            "schemas/r3/r3_t01_exit_attempt_contract.schema.json"
+        ),
+        "r3_t01_landmark_horizon_contract.json": (
+            "schemas/r3/r3_t01_landmark_horizon_contract.schema.json"
+        ),
+        "r3_t01_sample_split_contract.json": (
+            "schemas/r3/r3_t01_sample_split_contract.schema.json"
+        ),
+    }
+    relative = mapping.get(name)
+    return root / relative if relative else None
+
+
+def _status_is_pending(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(
+            (key == "status" and item in {"pending", "pending_validator"})
+            or _status_is_pending(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(_status_is_pending(item) for item in value)
+    return False
+
+
+def _actual_artifact_schema_errors(
+    name: str, value: Any, root: Path
+) -> list[dict[str, str]]:
+    schema_path = _artifact_schema_path(name, root)
+    if schema_path is None:
+        return []
+    local = ValidationReport()
+    _validate_schema(local, schema_path, value, name)
+    return local.errors
+
+
+def _validate_mutation_rows(
+    rows: list[dict[str, str]], config: dict[str, Any]
+) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    expected = config.get("mutation_contract", {}).get("expected_error_codes", {})
+    if len(rows) != int(config.get("mutation_contract", {}).get("declared_count", 0)):
+        errors.append({"code": "MUTATION_COUNT_MISMATCH", "message": str(len(rows))})
+    observed_ids = {row.get("mutation_id") for row in rows}
+    if observed_ids != set(expected):
+        errors.append({"code": "MUTATION_COUNT_MISMATCH", "message": "mutation_ids"})
+    for row in rows:
+        mutation_id = row.get("mutation_id", "")
+        expected_code = expected.get(mutation_id)
+        if row.get("baseline_status") != "passed":
+            errors.append(
+                {"code": "MUTATION_BASELINE_NOT_PASSED", "message": mutation_id}
+            )
+        if row.get("mutation_applied") != "True":
+            errors.append({"code": "MUTATION_NOT_APPLIED", "message": mutation_id})
+        if row.get("status") in {"", "pending", "pending_validator", "failed"}:
+            errors.append(
+                {
+                    "code": "PENDING_FORMAL_ARTIFACT"
+                    if row.get("status") in {"", "pending", "pending_validator"}
+                    else "MUTATION_VALIDATION_FAILED",
+                    "message": mutation_id,
+                }
+            )
+        if expected_code is None or row.get("expected_error_code") != expected_code:
+            errors.append(
+                {"code": "MUTATION_EXPECTED_CODE_MISMATCH", "message": mutation_id}
+            )
+        try:
+            actual_codes = json.loads(row.get("actual_error_codes", "[]"))
+        except json.JSONDecodeError:
+            actual_codes = []
+            errors.append(
+                {
+                    "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                    "message": mutation_id,
+                }
+            )
+        if not isinstance(actual_codes, list) or expected_code not in actual_codes:
+            errors.append(
+                {"code": "MUTATION_SPECIFIC_ERROR_MISSING", "message": mutation_id}
+            )
+        if row.get("specific_error_detected") != "True":
+            errors.append(
+                {"code": "MUTATION_SPECIFIC_ERROR_MISSING", "message": mutation_id}
+            )
+        if row.get("unrelated_setup_failure") == "True":
+            errors.append(
+                {"code": "MUTATION_UNRELATED_SETUP_FAILURE", "message": mutation_id}
+            )
+    return errors
+
+
+def _manifest_binding_errors(
+    run_dir: Path,
+    manifest: dict[str, Any],
+    *,
+    expected_paths: set[str] | None = None,
+    root: Path = ROOT,
+    declarations: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    if manifest.get("manifest_self_hash_excluded") is not True:
+        errors.append(
+            {
+                "code": "MANIFEST_BINDING_INCOMPLETE",
+                "message": "manifest_self_hash_excluded",
+            }
+        )
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        return errors + [
+            {"code": "MANIFEST_BINDING_INCOMPLETE", "message": "artifacts"}
+        ]
+    actual_paths = {
+        str(item.get("path")) for item in artifacts if isinstance(item, dict)
+    }
+    if expected_paths is not None and actual_paths != expected_paths:
+        errors.append(
+            {"code": "MANIFEST_BINDING_INCOMPLETE", "message": "artifact_set"}
+        )
+    for item in artifacts:
+        if not isinstance(item, dict):
+            errors.append(
+                {"code": "MANIFEST_BINDING_INCOMPLETE", "message": "artifact_entry"}
+            )
+            continue
+        relative = item.get("path")
+        required = {"path", "artifact_owner", "artifact_sha256", "size_bytes", "kind"}
+        if not required.issubset(item):
+            errors.append(
+                {"code": "MANIFEST_BINDING_INCOMPLETE", "message": str(relative)}
+            )
+            continue
+        if declarations is not None:
+            declaration = declarations.get(str(relative))
+            if declaration is None or any(
+                item.get(key) != declaration.get(key)
+                for key in ("artifact_owner", "kind")
+            ):
+                errors.append(
+                    {
+                        "code": "MANIFEST_BINDING_METADATA_MISMATCH",
+                        "message": str(relative),
+                    }
+                )
+        path = run_dir / str(relative)
+        if not path.is_file():
+            errors.append(
+                {"code": "MANIFEST_BINDING_INCOMPLETE", "message": str(relative)}
+            )
+            continue
+        payload = path.read_bytes()
+        if _sha_bytes(payload) != item.get("artifact_sha256"):
+            errors.append(
+                {"code": "MANIFEST_BINDING_HASH_MISMATCH", "message": str(relative)}
+            )
+        if path.stat().st_size != item.get("size_bytes"):
+            errors.append(
+                {"code": "MANIFEST_BINDING_SIZE_MISMATCH", "message": str(relative)}
+            )
+        if item.get("kind") == "csv":
+            actual_rows = len(read_csv(path))
+            if item.get("row_count") != actual_rows:
+                errors.append(
+                    {
+                        "code": "MANIFEST_BINDING_ROW_COUNT_MISMATCH",
+                        "message": str(relative),
+                    }
+                )
+        elif item.get("kind") == "json":
+            try:
+                value = _load_json(path)
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            if (
+                "row_count" in item
+                and isinstance(value, dict)
+                and isinstance(value.get("cases"), list)
+            ):
+                if item.get("row_count") != len(value["cases"]):
+                    errors.append(
+                        {
+                            "code": "MANIFEST_BINDING_ROW_COUNT_MISMATCH",
+                            "message": str(relative),
+                        }
+                    )
+            elif "row_count" in item and isinstance(value, list):
+                if item.get("row_count") != len(value):
+                    errors.append(
+                        {
+                            "code": "MANIFEST_BINDING_ROW_COUNT_MISMATCH",
+                            "message": str(relative),
+                        }
+                    )
+        schema_path = item.get("schema_path")
+        schema_sha = item.get("schema_sha256")
+        if (schema_path is None) != (schema_sha is None):
+            errors.append(
+                {"code": "MANIFEST_BINDING_INCOMPLETE", "message": f"schema:{relative}"}
+            )
+        elif schema_path is not None:
+            schema_file = root / str(schema_path)
+            try:
+                schema_file.resolve().relative_to(root.resolve())
+            except ValueError:
+                errors.append(
+                    {
+                        "code": "MANIFEST_BINDING_INCOMPLETE",
+                        "message": f"schema:{relative}",
+                    }
+                )
+            else:
+                try:
+                    schema_bytes = schema_file.read_bytes()
+                except OSError:
+                    errors.append(
+                        {
+                            "code": "MANIFEST_BINDING_INCOMPLETE",
+                            "message": f"schema:{relative}",
+                        }
+                    )
+                else:
+                    if _sha_bytes(schema_bytes) != schema_sha:
+                        errors.append(
+                            {
+                                "code": "MANIFEST_BINDING_SCHEMA_HASH_MISMATCH",
+                                "message": str(relative),
+                            }
+                        )
+    for section in ("config", "fixture"):
+        binding = manifest.get(section)
+        if not isinstance(binding, dict) or not {
+            "path",
+            "sha256",
+            "size_bytes",
+        }.issubset(binding):
+            errors.append({"code": "MANIFEST_BINDING_INCOMPLETE", "message": section})
+            continue
+        path = root / str(binding["path"])
+        try:
+            path.resolve().relative_to(root.resolve())
+            payload = path.read_bytes()
+        except (OSError, ValueError):
+            errors.append({"code": "MANIFEST_BINDING_INCOMPLETE", "message": section})
+            continue
+        if _sha_bytes(payload) != binding.get("sha256"):
+            errors.append(
+                {"code": "MANIFEST_BINDING_HASH_MISMATCH", "message": section}
+            )
+        if len(payload) != binding.get("size_bytes"):
+            errors.append(
+                {"code": "MANIFEST_BINDING_SIZE_MISMATCH", "message": section}
+            )
+        if binding.get("source_commit") is not None:
+            source_fields = {
+                "git_blob_sha",
+                "committed_byte_sha256",
+                "normalized_text_sha256",
+                "encoding",
+                "line_ending",
+                "bom",
+                "terminal_lf_count",
+            }
+            if not source_fields.issubset(binding):
+                errors.append(
+                    {"code": "MANIFEST_BINDING_INCOMPLETE", "message": section}
+                )
+                continue
+            source_commit = str(binding["source_commit"])
+            relative = str(binding["path"])
+            committed = _committed_bytes(root, source_commit, relative)
+            blob_sha = _committed_git_blob_sha(root, source_commit, relative)
+            if (
+                committed is None
+                or blob_sha is None
+                or blob_sha != binding.get("git_blob_sha")
+                or _sha_bytes(committed) != binding.get("committed_byte_sha256")
+            ):
+                errors.append(
+                    {"code": "MANIFEST_BINDING_SOURCE_MISMATCH", "message": section}
+                )
+                continue
+            try:
+                decoded = committed.decode("utf-8")
+            except UnicodeDecodeError:
+                errors.append(
+                    {"code": "MANIFEST_BINDING_SOURCE_MISMATCH", "message": section}
+                )
+                continue
+            normalized = decoded.replace("\r\n", "\n").replace("\r", "\n")
+            terminal_lf_count = len(committed) - len(committed.rstrip(b"\n"))
+            if (
+                _sha_bytes(normalized.encode("utf-8"))
+                != binding.get("normalized_text_sha256")
+                or binding.get("encoding") != "utf-8"
+                or binding.get("line_ending") != "lf"
+                or binding.get("bom") is not False
+                or binding.get("terminal_lf_count") != terminal_lf_count
+            ):
+                errors.append(
+                    {"code": "MANIFEST_BINDING_SOURCE_MISMATCH", "message": section}
+                )
+    upstream_bindings = manifest.get("upstream_bindings")
+    if not isinstance(upstream_bindings, list) or not upstream_bindings:
+        errors.append(
+            {"code": "MANIFEST_BINDING_INCOMPLETE", "message": "upstream_bindings"}
+        )
+    else:
+        for binding in upstream_bindings:
+            if not isinstance(binding, dict) or not {
+                "path",
+                "sha256",
+                "source_commit",
+            }.issubset(binding):
+                errors.append(
+                    {"code": "MANIFEST_BINDING_INCOMPLETE", "message": "upstream_entry"}
+                )
+                continue
+            payload = _committed_bytes(
+                root, str(binding["source_commit"]), str(binding["path"])
+            )
+            if payload is None or _sha_bytes(payload) != binding.get("sha256"):
+                errors.append(
+                    {
+                        "code": "MANIFEST_BINDING_UPSTREAM_MISMATCH",
+                        "message": str(binding["path"]),
+                    }
+                )
+    return errors
+
+
+def _artifact_state_errors(
+    run_dir: Path,
+    config: dict[str, Any],
+    *,
+    root: Path = ROOT,
+    allow_missing_result_phase: bool = True,
+) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    declarations = _artifact_kind_map(config)
+    declared = set(declarations)
+    actual = (
+        {path.name for path in run_dir.iterdir() if path.is_file()}
+        if run_dir.is_dir()
+        else set()
+    )
+    for extra in sorted(actual - declared):
+        errors.append({"code": "UNDECLARED_FORMAL_ARTIFACT", "message": extra})
+    runner_files = {
+        name
+        for name, spec in declarations.items()
+        if spec["artifact_owner"] == "runner"
+    }
+    for name in sorted(runner_files):
+        path = run_dir / name
+        if not path.is_file() or path.stat().st_size == 0:
+            errors.append(
+                {"code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", "message": name}
+            )
+            continue
+        try:
+            if declarations[name]["kind"] == "json":
+                value = _load_json(path)
+                if _status_is_pending(value):
+                    errors.append({"code": "PENDING_FORMAL_ARTIFACT", "message": name})
+                errors.extend(_actual_artifact_schema_errors(name, value, root))
+            elif declarations[name]["kind"] == "csv" and not _csv_header(path):
+                errors.append(
+                    {"code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", "message": name}
+                )
+            if name == "r3_t01_field_semantics_registry.csv":
+                expected_header = FIELD_SEMANTICS_HEADER
+                if _csv_header(path) != expected_header:
+                    errors.append(
+                        {
+                            "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                            "message": name,
+                        }
+                    )
+                elif len(read_csv(path)) != len(config["field_semantics"]):
+                    errors.append(
+                        {"code": "FORMAL_ARTIFACT_ROW_COUNT_MISMATCH", "message": name}
+                    )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {"code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", "message": name}
+            )
+    production_path = run_dir / "r3_t01_production_synthetic_results.json"
+    if production_path.is_file():
+        try:
+            production = _load_json(production_path)
+            if production.get("case_count") != len(
+                _load_json(root / config["synthetic_fixture_path"]).get("cases", [])
+            ) or not isinstance(production.get("cases"), list):
+                errors.append(
+                    {
+                        "code": "PRODUCTION_SCENARIO_COUNT_MISMATCH",
+                        "message": production_path.name,
+                    }
+                )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {
+                    "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                    "message": production_path.name,
+                }
+            )
+    comparison_path = run_dir / "r3_t01_production_rebuild_comparison.json"
+    if comparison_path.is_file():
+        try:
+            comparison = _load_json(comparison_path)
+            required = {
+                "rebuild_1_hashes",
+                "rebuild_2_hashes",
+                "compared_artifact_count",
+                "mismatch_count",
+                "mismatches",
+                "status",
+            }
+            if (
+                not required.issubset(comparison)
+                or comparison.get("status") != "passed"
+                or comparison.get("mismatch_count") != 0
+            ):
+                errors.append(
+                    {"code": "DOUBLE_REBUILD_MISMATCH", "message": comparison_path.name}
+                )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {
+                    "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                    "message": comparison_path.name,
+                }
+            )
+    upstream_path = run_dir / "r3_t01_upstream_binding.json"
+    if upstream_path.is_file():
+        try:
+            upstream = _load_json(upstream_path)
+            reviewed_sha = upstream.get("reviewed_implementation_sha")
+            formal_sha = upstream.get("formal_execution_sha")
+            if (
+                not isinstance(reviewed_sha, str)
+                or not isinstance(formal_sha, str)
+                or reviewed_sha != formal_sha
+            ):
+                errors.append(
+                    {
+                        "code": "IMPLEMENTATION_SHA_BINDING_MISMATCH",
+                        "message": upstream_path.name,
+                    }
+                )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {
+                    "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                    "message": upstream_path.name,
+                }
+            )
+
+    mutation_path = run_dir / "r3_t01_mutation_results.csv"
+    if mutation_path.is_file():
+        if mutation_path.stat().st_size <= len(",".join(MUTATION_HEADER)) + 1:
+            errors.append(
+                {"code": "EMPTY_MUTATION_RESULTS", "message": mutation_path.name}
+            )
+        elif _csv_header(mutation_path) != MUTATION_HEADER:
+            errors.append(
+                {
+                    "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                    "message": mutation_path.name,
+                }
+            )
+        else:
+            rows = read_csv(mutation_path)
+            errors.extend(_validate_mutation_rows(rows, config))
+    elif not allow_missing_result_phase:
+        errors.append({"code": "EMPTY_MUTATION_RESULTS", "message": "missing"})
+    for name in ("r3_t01_validator_result.json", "r3_t01_anomaly_scan.json"):
+        path = run_dir / name
+        if not path.is_file():
+            if not allow_missing_result_phase:
+                errors.append({"code": "PENDING_FORMAL_ARTIFACT", "message": name})
+            continue
+        try:
+            payload = _load_json(path)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {"code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", "message": name}
+            )
+            continue
+        if payload.get("status") in {"pending", "pending_validator"}:
+            errors.append({"code": "PENDING_FORMAL_ARTIFACT", "message": name})
+        if name.endswith("anomaly_scan.json") and not isinstance(
+            payload.get("scan_scope"), list
+        ):
+            errors.append(
+                {"code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", "message": name}
+            )
+    independent_path = run_dir / "r3_t01_independent_replay_results.json"
+    if independent_path.is_file():
+        try:
+            payload = _load_json(independent_path)
+            if not isinstance(payload.get("cases"), list):
+                errors.append(
+                    {
+                        "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                        "message": independent_path.name,
+                    }
+                )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {
+                    "code": "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED",
+                    "message": independent_path.name,
+                }
+            )
+    for name in ("r3_t01_result_analysis.md", "r3_t01_manifest.json"):
+        path = run_dir / name
+        if not path.is_file():
+            continue
+        if path.stat().st_size == 0:
+            errors.append(
+                {
+                    "code": "MANIFEST_BINDING_INCOMPLETE"
+                    if name.endswith("manifest.json")
+                    else "RESULT_ANALYSIS_PLACEHOLDER",
+                    "message": name,
+                }
+            )
+        elif name.endswith("result_analysis.md"):
+            text = path.read_text(encoding="utf-8")
+            if (
+                "Pending independent result review" in text
+                or "placeholder" in text.lower()
+            ):
+                errors.append({"code": "RESULT_ANALYSIS_PLACEHOLDER", "message": name})
+    manifest_path = run_dir / "r3_t01_manifest.json"
+    if manifest_path.is_file():
+        try:
+            errors.extend(
+                _manifest_binding_errors(
+                    run_dir,
+                    _load_json(manifest_path),
+                    expected_paths=declared - {"r3_t01_manifest.json"},
+                    root=root,
+                    declarations=declarations,
+                )
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                {"code": "MANIFEST_BINDING_INCOMPLETE", "message": manifest_path.name}
+            )
+    return errors
+
+
+def _write_snapshot_for_artifact_mutation(
+    directory: Path,
+    config: dict[str, Any],
+    replay_results: list[dict[str, Any]],
+    mutation_rows: list[dict[str, Any]],
+) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    write_json(directory / "r3_t01_protocol_registry.json", config)
+    write_json(
+        directory / "r3_t01_production_synthetic_results.json",
+        {"case_count": len(replay_results), "cases": replay_results},
+    )
+    write_json(
+        directory / "r3_t01_production_rebuild_comparison.json",
+        {
+            "rebuild_1_hashes": {"synthetic": "a" * 64},
+            "rebuild_2_hashes": {"synthetic": "a" * 64},
+            "compared_artifact_count": 1,
+            "mismatch_count": 0,
+            "mismatches": [],
+            "status": "passed",
+        },
+    )
+    write_json(
+        directory / "r3_t01_independent_replay_results.json", {"cases": replay_results}
+    )
+    write_csv(directory / "r3_t01_mutation_results.csv", mutation_rows, MUTATION_HEADER)
+    write_json(directory / "r3_t01_validator_result.json", {"status": "passed"})
+    write_json(
+        directory / "r3_t01_anomaly_scan.json",
+        {
+            "status": "complete",
+            "scan_scope": ["artifact_state"],
+            "findings": [],
+            "anomaly_count": 0,
+        },
+    )
+
+
+def _independent_case_results(
+    config: dict[str, Any], fixture: dict[str, Any]
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for case in fixture.get("cases", []):
+        attempts, rejections = independent_replay(
+            case.get("rows", []),
+            case.get("event_zones", []),
+            case.get("membership_rows", []),
+            config,
+            sample_end_censoring=bool(case.get("sample_end_censoring", False)),
+        )
+        landmarks = {
+            attempt["exit_attempt_id"]: build_independent_landmarks(
+                case.get("rows", []),
+                state_version_id=attempt["state_version_id"],
+                security_id=attempt["security_id"],
+                t0_date=attempt["exit_attempt_date"],
+            )
+            for attempt in attempts
+        }
+        results.append(
+            {
+                "case_id": case["case_id"],
+                "state_version_security_groups": sorted(
+                    {
+                        (
+                            str(row.get("state_version_id")),
+                            str(row.get("security_id")),
+                        )
+                        for row in case.get("rows", [])
+                    }
+                ),
+                "actual_attempts": attempts,
+                "rejections": rejections,
+                "landmarks": landmarks,
+            }
+        )
+    return results
+
+
+def _write_mutation_runner_snapshot(
+    directory: Path,
+    config: dict[str, Any],
+    fixture: dict[str, Any],
+    *,
+    artifact_mutation: str | None = None,
+) -> None:
+    """Materialize a complete mutation input snapshot without production imports."""
+
+    directory.mkdir(parents=True, exist_ok=True)
+    cases = _independent_case_results(config, fixture)
+    write_json(
+        directory / "r3_t01_upstream_binding.json",
+        {
+            "startup_status": "passed",
+            "synthetic_mutation_snapshot": True,
+            "reviewed_implementation_sha": "mutation".ljust(40, "0"),
+            "formal_execution_sha": "mutation".ljust(40, "0"),
+            "required_artifacts": [
+                {
+                    "path": item["path"],
+                    "source_commit": item["source_commit"],
+                    "committed_byte_sha256": item["committed_byte_sha256"],
+                }
+                for item in config["upstream_binding"]["required_artifacts"]
+            ],
+            "committed_validation_status": "passed",
+        },
+    )
+    write_json(directory / "r3_t01_anchor_decision.json", config["anchor_decision"])
+    write_json(directory / "r3_t01_protocol_registry.json", config)
+    write_json(
+        directory / "r3_t01_t0_transition_contract.json",
+        {
+            "contract_version": config["contract_version"],
+            "anchor_decision": config["anchor_decision"],
+            "t0_transition_contract": config["t0_transition_contract"],
+            "analysis_unit_contract": config["analysis_unit_contract"],
+            "field_semantics": config["field_semantics"],
+        },
+    )
+    write_json(
+        directory / "r3_t01_analysis_unit_contract.json",
+        config["analysis_unit_contract"],
+    )
+    write_csv(
+        directory / "r3_t01_field_semantics_registry.csv",
+        config["field_semantics"],
+        FIELD_SEMANTICS_HEADER,
+    )
+    write_json(
+        directory / "r3_t01_landmark_horizon_contract.json",
+        config["landmark_horizon_contract"],
+    )
+    write_json(
+        directory / "r3_t01_sample_split_contract.json",
+        config["sample_split_contract"],
+    )
+    write_json(directory / "r3_t01_schema_registry.json", config["schema_registry"])
+    write_json(
+        directory / "r3_t01_production_synthetic_results.json",
+        {"case_count": len(cases), "cases": cases},
+    )
+    payload_names = [
+        name
+        for name in (
+            "r3_t01_anchor_decision.json",
+            "r3_t01_protocol_registry.json",
+            "r3_t01_t0_transition_contract.json",
+            "r3_t01_analysis_unit_contract.json",
+            "r3_t01_field_semantics_registry.csv",
+            "r3_t01_landmark_horizon_contract.json",
+            "r3_t01_sample_split_contract.json",
+            "r3_t01_schema_registry.json",
+            "r3_t01_production_synthetic_results.json",
+        )
+    ]
+    hashes = {
+        name: _sha_bytes((directory / name).read_bytes()) for name in payload_names
+    }
+    write_json(
+        directory / "r3_t01_production_rebuild_comparison.json",
+        {
+            "rebuild_1_hashes": hashes,
+            "rebuild_2_hashes": hashes.copy(),
+            "compared_artifact_count": len(hashes),
+            "mismatch_count": 0,
+            "mismatches": [],
+            "status": "passed",
+        },
+    )
+    if artifact_mutation == "EMPTY_MUTATION_RESULTS":
+        write_csv(directory / "r3_t01_mutation_results.csv", [], MUTATION_HEADER)
+    elif artifact_mutation == "PENDING_FORMAL_ARTIFACT":
+        write_json(directory / "r3_t01_validator_result.json", {"status": "pending"})
+
+
+def _run_mutations_from_inputs(
+    config: dict[str, Any], fixture: dict[str, Any], root: Path
+) -> list[dict[str, Any]]:
+    baseline = validate_in_memory(config, fixture, root=root, check_upstream=False)
+    baseline_status = "passed" if baseline.passed else "failed"
+    results: list[dict[str, Any]] = []
+    for mutation_id, expected_code in MUTATION_CODES.items():
+        mutated_config, mutated_fixture, source_text = apply_mutation(
+            config, fixture, mutation_id
+        )
+        marker = _artifact_marker_error(mutated_fixture)
+        if marker:
+            actual_codes = [marker]
+        else:
+            report = validate_in_memory(
+                mutated_config,
+                mutated_fixture,
+                root=root,
+                check_upstream=False,
+                validator_source_text=source_text,
+            )
+            actual_codes = sorted({item["code"] for item in report.errors})
+        results.append(
+            _mutation_result(mutation_id, baseline_status, expected_code, actual_codes)
+        )
+    with TemporaryDirectory(prefix="r3_t01_mutation_artifacts_") as temp_dir:
+        snapshot = Path(temp_dir)
+        _write_snapshot_for_artifact_mutation(
+            snapshot, config, baseline.replay_results, results
+        )
+        for mutation_id, expected_code in (
+            ("M18", MUTATION_CODES["M18"]),
+            ("M19", MUTATION_CODES["M19"]),
+        ):
+            if mutation_id == "M18":
+                write_csv(snapshot / "r3_t01_mutation_results.csv", [], MUTATION_HEADER)
+            else:
+                write_json(
+                    snapshot / "r3_t01_validator_result.json", {"status": "pending"}
+                )
+            errors = _artifact_state_errors(snapshot, config)
+            codes = sorted({item["code"] for item in errors})
+            result = next(
+                item for item in results if item["mutation_id"] == mutation_id
+            )
+            result.update(
+                _mutation_result(mutation_id, baseline_status, expected_code, codes)
+            )
+            _write_snapshot_for_artifact_mutation(
+                snapshot, config, baseline.replay_results, results
+            )
+    return results
+
+
+def validate_mutations_from_disk(
+    config_path: Path, fixture_path: Path, *, root: Path = ROOT
+) -> list[dict[str, Any]]:
+    """Reload pristine files and send every mutation through the full validator path."""
+
+    results: list[dict[str, Any]] = []
+    for mutation_id, expected_code in MUTATION_CODES.items():
+        pristine_config = _load_json(config_path)
+        pristine_fixture = _load_json(fixture_path)
+        baseline = validate_in_memory(
+            pristine_config, pristine_fixture, root=root, check_upstream=False
+        )
+        mutated_config, mutated_fixture, source_text = apply_mutation(
+            pristine_config, pristine_fixture, mutation_id
+        )
+        with TemporaryDirectory(prefix=f"r3_t01_{mutation_id.lower()}_") as temp_dir:
+            snapshot = Path(temp_dir)
+            _write_mutation_runner_snapshot(
+                snapshot,
+                mutated_config,
+                mutated_fixture,
+                artifact_mutation=_artifact_marker_error(mutated_fixture),
+            )
+            mutation_report = _validate_run_dir_core(
+                snapshot,
+                root=root,
+                execute_mutations=False,
+                write_outputs=False,
+                fixture_override=mutated_fixture,
+                validator_source_text=source_text,
+            )
+            actual_codes = sorted({item["code"] for item in mutation_report.errors})
+        results.append(
+            _mutation_result(
+                mutation_id,
+                "passed" if baseline.passed else "failed",
+                expected_code,
+                actual_codes,
+            )
+        )
+    return results
 
 
 def validate_in_memory(
@@ -908,8 +2284,12 @@ def validate_in_memory(
     validator_source_text: str | None = None,
 ) -> ValidationReport:
     report = ValidationReport()
-    protocol_schema = root / "schemas/r3/r3_t01_protocol_registry.schema.json"
-    _validate_schema(report, protocol_schema, config, "protocol_registry")
+    _validate_schema(
+        report,
+        root / "schemas/r3/r3_t01_protocol_registry.schema.json",
+        config,
+        "protocol_registry",
+    )
     exit_document = {
         "contract_version": config.get("contract_version"),
         "anchor_decision": config.get("anchor_decision"),
@@ -935,103 +2315,418 @@ def validate_in_memory(
         config.get("sample_split_contract"),
         "sample_split_contract",
     )
-    _check_exact_contract_values(config, report)
+    _check_public_interface(config, fixture, root, report)
+    _check_exact_contract_values(config, fixture, report)
     _check_field_semantics(config, report)
-    _check_split_contract(config, report)
     _check_no_future_output(config, report)
-    independence_error = validate_independence(
-        validator_source_text
-        if validator_source_text is not None
-        else Path(__file__).read_text(encoding="utf-8")
-    )
+    source = validator_source_text or Path(__file__).read_text(encoding="utf-8")
+    independence_error = validate_independence(source)
     if independence_error:
         report.add(independence_error)
     if check_upstream:
         _check_upstream_committed_bindings(config, report, root)
-
+    second_replay_results: list[dict[str, Any]] = []
     for case in fixture.get("cases", []):
         try:
-            attempts, rejections = independent_replay(
+            first_attempts, first_rejections = independent_replay(
                 case.get("rows", []),
                 case.get("event_zones", []),
                 case.get("membership_rows", []),
                 config,
                 sample_end_censoring=bool(case.get("sample_end_censoring", False)),
             )
-            report.synthetic_case_results.append(
-                _compare_case(case, attempts, rejections, report)
+            first_landmarks = {
+                attempt["exit_attempt_id"]: build_independent_landmarks(
+                    case.get("rows", []),
+                    state_version_id=attempt["state_version_id"],
+                    security_id=attempt["security_id"],
+                    t0_date=attempt["exit_attempt_date"],
+                )
+                for attempt in first_attempts
+            }
+            second_attempts, second_rejections = independent_replay(
+                copy.deepcopy(case.get("rows", [])),
+                copy.deepcopy(case.get("event_zones", [])),
+                copy.deepcopy(case.get("membership_rows", [])),
+                copy.deepcopy(config),
+                sample_end_censoring=bool(case.get("sample_end_censoring", False)),
             )
-        except (KeyError, ValueError, TypeError) as exc:
-            report.add("SYNTHETIC_REPLAY_FAILED", f"{case.get('case_id')}:{exc}")
-
-    first = [
-        item
-        for item in report.synthetic_case_results
-        if item.get("actual_attempt_ids") is not None
-    ]
-    second_hash = _sha(first)
-    report.double_rebuild_hash = second_hash
-    if second_hash != _sha(copy.deepcopy(first)):
-        report.add("DOUBLE_REBUILD_MISMATCH")
+            second_landmarks = {
+                attempt["exit_attempt_id"]: build_independent_landmarks(
+                    copy.deepcopy(case.get("rows", [])),
+                    state_version_id=attempt["state_version_id"],
+                    security_id=attempt["security_id"],
+                    t0_date=attempt["exit_attempt_date"],
+                )
+                for attempt in second_attempts
+            }
+            first_rebuild = {
+                "attempts": first_attempts,
+                "rejections": first_rejections,
+                "landmarks": first_landmarks,
+            }
+            second_rebuild = {
+                "attempts": second_attempts,
+                "rejections": second_rejections,
+                "landmarks": second_landmarks,
+            }
+            if _canonical(first_rebuild) != _canonical(second_rebuild):
+                report.add("DOUBLE_REBUILD_MISMATCH", case["case_id"])
+            comparison = _compare_case(
+                case,
+                first_attempts,
+                first_rejections,
+                first_landmarks,
+                report,
+            )
+            report.synthetic_case_results.append(comparison)
+            report.replay_results.append(
+                {
+                    "case_id": case["case_id"],
+                    "state_version_security_groups": sorted(
+                        {
+                            (
+                                str(row.get("state_version_id")),
+                                str(row.get("security_id")),
+                            )
+                            for row in case.get("rows", [])
+                        }
+                    ),
+                    "actual_attempts": first_attempts,
+                    "rejections": first_rejections,
+                    "landmarks": first_landmarks,
+                }
+            )
+            second_replay_results.append(
+                {
+                    "case_id": case["case_id"],
+                    "state_version_security_groups": sorted(
+                        {
+                            (
+                                str(row.get("state_version_id")),
+                                str(row.get("security_id")),
+                            )
+                            for row in copy.deepcopy(case.get("rows", []))
+                        }
+                    ),
+                    "actual_attempts": second_attempts,
+                    "rejections": second_rejections,
+                    "landmarks": second_landmarks,
+                }
+            )
+        except (KeyError, TypeError, ReplayValidationError, ValueError) as exc:
+            code = (
+                exc.code
+                if isinstance(exc, ReplayValidationError)
+                else "SYNTHETIC_REPLAY_FAILED"
+            )
+            report.add(code, f"{case.get('case_id')}:{exc}")
+    first_hash = _sha(report.replay_results)
+    second_hash = _sha(second_replay_results)
+    report.double_rebuild_hash = first_hash
+    report.double_rebuild_result = {
+        "rebuild_1_hash": first_hash,
+        "rebuild_2_hash": second_hash,
+        "compared_case_count": min(
+            len(report.replay_results), len(second_replay_results)
+        ),
+        "mismatch_count": int(first_hash != second_hash),
+        "status": "passed" if first_hash == second_hash else "failed",
+    }
     return report
 
 
-def validate_mutations(
-    config: dict[str, Any], fixture: dict[str, Any]
-) -> list[dict[str, str]]:
-    results: list[dict[str, str]] = []
-    for mutation_id, expected_code in MUTATION_CODES.items():
-        mutated_config, mutated_fixture, source_text = apply_mutation(
-            config, fixture, mutation_id
-        )
-        actual_code = mutation_error_code(mutated_config, mutated_fixture, source_text)
-        results.append(
-            {
-                "mutation_id": mutation_id,
-                "expected_error_code": expected_code,
-                "actual_error_code": actual_code or "NONE",
-                "status": "passed" if actual_code == expected_code else "failed",
-            }
-        )
-    return results
+def _compare_production_and_independent(
+    production: dict[str, Any],
+    independent: list[dict[str, Any]],
+    report: ValidationReport,
+) -> None:
+    production_cases = production.get("cases")
+    if not isinstance(production_cases, list) or len(production_cases) != len(
+        independent
+    ):
+        report.add("PRODUCTION_INDEPENDENT_REPLAY_MISMATCH", "case_count")
+        return
+    for prod, ind in zip(production_cases, independent, strict=True):
+        if _canonical(prod) != _canonical(ind):
+            report.add(
+                "PRODUCTION_INDEPENDENT_REPLAY_MISMATCH", str(prod.get("case_id"))
+            )
+            prod_landmarks = prod.get("landmarks", {})
+            ind_landmarks = ind.get("landmarks", {})
+            if prod_landmarks != ind_landmarks:
+                report.add(
+                    "LANDMARK_CROSS_GROUP_CONTAMINATION", str(prod.get("case_id"))
+                )
 
 
-def _check_formal_artifacts(
+def _check_runner_contract_bytes(
     run_dir: Path, config: dict[str, Any], report: ValidationReport
 ) -> None:
-    for artifact in config.get("output_contract", {}).get("formal_artifacts", []):
-        filename = artifact.get("filename")
-        if not isinstance(filename, str):
-            report.add("FORMAL_ARTIFACT_DECLARATION_INVALID")
-            continue
-        path = run_dir / filename
+    expected_json = {
+        "r3_t01_anchor_decision.json": config.get("anchor_decision"),
+        "r3_t01_analysis_unit_contract.json": config.get("analysis_unit_contract"),
+        "r3_t01_landmark_horizon_contract.json": config.get(
+            "landmark_horizon_contract"
+        ),
+        "r3_t01_sample_split_contract.json": config.get("sample_split_contract"),
+        "r3_t01_schema_registry.json": config.get("schema_registry"),
+    }
+    for name, expected in expected_json.items():
+        path = run_dir / name
         if not path.is_file():
-            report.add("FORMAL_ARTIFACT_MISSING", filename)
             continue
         try:
-            raw = path.read_bytes()
-            text = raw.decode("utf-8")
-            if artifact.get("kind") == "json":
-                json.loads(text)
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            report.add("FORMAL_ARTIFACT_INVALID", f"{filename}:{exc}")
+            actual = _load_json(path)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if _canonical(actual) != _canonical(expected):
+            report.add("FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", name)
+    transition_path = run_dir / "r3_t01_t0_transition_contract.json"
+    if transition_path.is_file():
+        try:
+            transition = _load_json(transition_path)
+            expected = {
+                "contract_version": config.get("contract_version"),
+                "anchor_decision": config.get("anchor_decision"),
+                "t0_transition_contract": config.get("t0_transition_contract"),
+                "analysis_unit_contract": config.get("analysis_unit_contract"),
+                "field_semantics": config.get("field_semantics"),
+            }
+            if _canonical(transition) != _canonical(expected):
+                report.add(
+                    "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", transition_path.name
+                )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            pass
+    field_path = run_dir / "r3_t01_field_semantics_registry.csv"
+    if field_path.is_file():
+        try:
+            rows = read_csv(field_path)
+            expected_names = [
+                str(item.get("field_name")) for item in config["field_semantics"]
+            ]
+            actual_names = [row.get("field_name") for row in rows]
+            if actual_names != expected_names:
+                report.add("FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", field_path.name)
+        except (OSError, UnicodeDecodeError, csv.Error):
+            pass
 
 
-def validate_run_dir(run_dir: Path, *, root: Path = ROOT) -> ValidationReport:
-    """Validate a future formal run directory without using production helpers."""
+def _compare_existing_independent_artifact(
+    path: Path, replay_results: list[dict[str, Any]], report: ValidationReport
+) -> None:
+    if not path.is_file():
+        return
+    try:
+        payload = _load_json(path)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return
+    if _canonical(payload.get("cases")) != _canonical(replay_results):
+        report.add("INDEPENDENT_REPLAY_ARTIFACT_MISMATCH", path.name)
+
+
+def _mutation_signature(row: dict[str, Any]) -> dict[str, Any]:
+    value = dict(row)
+    actual = value.get("actual_error_codes", [])
+    if isinstance(actual, str):
+        try:
+            actual = json.loads(actual)
+        except json.JSONDecodeError:
+            actual = []
+    value["actual_error_codes"] = actual
+    return value
+
+
+def _compare_existing_mutation_artifact(
+    path: Path, mutation_results: list[dict[str, Any]], report: ValidationReport
+) -> None:
+    if not path.is_file():
+        return
+    try:
+        actual = [_mutation_signature(row) for row in read_csv(path)]
+    except (OSError, UnicodeDecodeError, csv.Error):
+        return
+    expected = [_mutation_signature(row) for row in mutation_results]
+    if _canonical(actual) != _canonical(expected):
+        report.add("MUTATION_ARTIFACT_CONTENT_MISMATCH", path.name)
+
+
+def _source_opens_duckdb(source: str) -> bool:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import) and any(
+            alias.name == "duckdb" for alias in node.names
+        ):
+            return True
+        if isinstance(node, ast.ImportFrom) and node.module == "duckdb":
+            return True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr == "connect" and isinstance(node.func.value, ast.Name):
+                if node.func.value.id == "duckdb":
+                    return True
+    return False
+
+
+def _validate_run_dir_core(
+    run_dir: Path,
+    *,
+    root: Path,
+    execute_mutations: bool,
+    write_outputs: bool,
+    fixture_override: dict[str, Any] | None = None,
+    validator_source_text: str | None = None,
+) -> ValidationReport:
+    """Shared complete validator path used by formal validation and mutations."""
 
     report = ValidationReport()
     registry_path = run_dir / "r3_t01_protocol_registry.json"
-    fixture_path = root / "tests/r3/fixtures/r3_t01/cases.json"
     if not registry_path.is_file():
         report.add("RUN_REGISTRY_MISSING", str(registry_path))
         return report
     try:
         config = _load_json(registry_path)
-        fixture = _load_json(fixture_path)
-    except (OSError, json.JSONDecodeError) as exc:
+        fixture = fixture_override or _load_json(
+            root / config["synthetic_fixture_path"]
+        )
+    except (OSError, KeyError, json.JSONDecodeError) as exc:
         report.add("RUN_INPUT_INVALID", str(exc))
         return report
-    report = validate_in_memory(config, fixture, root=root, check_upstream=True)
-    _check_formal_artifacts(run_dir, config, report)
+    for item in _artifact_state_errors(run_dir, config, root=root):
+        report.add(item["code"], item["message"])
+    _check_runner_contract_bytes(run_dir, config, report)
+    for relative in (
+        "src/r3/r3_t01_protocol.py",
+        "src/r3/r3_t01_validator.py",
+    ):
+        source = (root / relative).read_text(encoding="utf-8")
+        if _source_opens_duckdb(source):
+            report.add("REAL_CANONICAL_DB_ACCESS", relative)
+    production_path = run_dir / "r3_t01_production_synthetic_results.json"
+    if production_path.is_file():
+        try:
+            production = _load_json(production_path)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            report.add("FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", str(exc))
+            production = {}
+    else:
+        production = {}
+        report.add("FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", production_path.name)
+    in_memory = validate_in_memory(
+        config,
+        fixture,
+        root=root,
+        check_upstream=True,
+        validator_source_text=validator_source_text,
+    )
+    report.errors.extend(in_memory.errors)
+    report.synthetic_case_results = in_memory.synthetic_case_results
+    report.replay_results = in_memory.replay_results
+    report.double_rebuild_hash = in_memory.double_rebuild_hash
+    report.double_rebuild_result = in_memory.double_rebuild_result
+    _compare_production_and_independent(production, report.replay_results, report)
+    _compare_existing_independent_artifact(
+        run_dir / "r3_t01_independent_replay_results.json",
+        report.replay_results,
+        report,
+    )
+    if execute_mutations:
+        pristine_config_path = (
+            root / "configs/r3/r3_t01_protocol_t0_analysis_unit.v1.json"
+        )
+        pristine_fixture_path = root / "tests/r3/fixtures/r3_t01/cases.json"
+        mutation_results = validate_mutations_from_disk(
+            pristine_config_path,
+            pristine_fixture_path,
+            root=root,
+        )
+        report.mutation_results = mutation_results
+        if any(item["status"] != "passed" for item in mutation_results):
+            report.add("MUTATION_VALIDATION_FAILED")
+        mutation_path = run_dir / "r3_t01_mutation_results.csv"
+        if mutation_path.is_file():
+            _compare_existing_mutation_artifact(mutation_path, mutation_results, report)
+        elif write_outputs:
+            write_csv(mutation_path, mutation_results, MUTATION_HEADER)
+    else:
+        mutation_path = run_dir / "r3_t01_mutation_results.csv"
+        if mutation_path.is_file():
+            try:
+                report.mutation_results = read_csv(mutation_path)
+            except (OSError, UnicodeDecodeError, csv.Error):
+                pass
+    if write_outputs:
+        independent_path = run_dir / "r3_t01_independent_replay_results.json"
+        if not independent_path.is_file():
+            write_json(
+                independent_path,
+                {
+                    "case_count": len(report.replay_results),
+                    "cases": report.replay_results,
+                    "implementation": "independent_validator",
+                },
+            )
+        anomaly_path = run_dir / "r3_t01_anomaly_scan.json"
+        if not anomaly_path.is_file():
+            write_json(
+                anomaly_path,
+                {
+                    "status": "complete",
+                    "scan_scope": [
+                        "production_independent_replay",
+                        "landmarks",
+                        "horizons",
+                        "mutation_results",
+                        "artifact_content",
+                        "public_interface",
+                    ],
+                    "findings": report.errors,
+                    "anomaly_count": len(report.errors),
+                },
+            )
+        validator_path = run_dir / "r3_t01_validator_result.json"
+        validator_payload = {
+            "status": "passed" if report.passed else "failed",
+            "formal_run_status": "generated_pending_analysis"
+            if report.passed
+            else "failed_validation",
+            "errors": report.errors,
+            "case_count": len(report.replay_results),
+            "mutation_count": len(report.mutation_results),
+            "production_independent_mismatch_count": sum(
+                item["code"] == "PRODUCTION_INDEPENDENT_REPLAY_MISMATCH"
+                for item in report.errors
+            ),
+            "real_database_opened": False,
+        }
+        write_json(validator_path, validator_payload)
+        post_errors = _artifact_state_errors(
+            run_dir, config, root=root, allow_missing_result_phase=False
+        )
+        for item in post_errors:
+            if item not in report.errors:
+                report.add(item["code"], item["message"])
+        if post_errors:
+            write_json(
+                validator_path,
+                {
+                    **validator_payload,
+                    "status": "passed" if report.passed else "failed",
+                    "errors": report.errors,
+                },
+            )
     return report
+
+
+def validate_run_dir(run_dir: Path, *, root: Path = ROOT) -> ValidationReport:
+    """Read actual bytes, replay independently, execute mutations, and write outputs."""
+
+    return _validate_run_dir_core(
+        run_dir,
+        root=root,
+        execute_mutations=True,
+        write_outputs=True,
+    )

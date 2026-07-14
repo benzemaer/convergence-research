@@ -159,6 +159,89 @@
       }
     ]
   },
+  "canonical_public_interface_contract": {
+    "tables": [
+      {
+        "logical_table_name": "r2_canonical_daily_state",
+        "fields": [
+          "state_version_id",
+          "state_line",
+          "window_track_id",
+          "security_id",
+          "trade_date",
+          "eligible_state",
+          "raw_state",
+          "confirmed_state",
+          "confirmation_time",
+          "component_qualified_as_of",
+          "event_status_as_of",
+          "active_event_id_as_of",
+          "state_risk_set_eligible",
+          "qualified_event_risk_set_eligible",
+          "strict_core_member",
+          "quality_state",
+          "candidate_config_id",
+          "source_run_id"
+        ],
+        "primary_key": ["state_version_id", "security_id", "trade_date"]
+      },
+      {
+        "logical_table_name": "r2_canonical_event_zone",
+        "fields": [
+          "state_version_id",
+          "event_id",
+          "security_id",
+          "first_component_start_date",
+          "first_qualification_time",
+          "last_confirmed_end_date",
+          "last_exit_observation_time",
+          "zone_finalization_time",
+          "zone_status",
+          "exit_reason",
+          "left_censored",
+          "right_censored",
+          "component_interval_count",
+          "bridge_count",
+          "bridged_gap_days",
+          "zone_confirmed_day_count",
+          "zone_trading_span",
+          "confirmed_density",
+          "bridged_gap_ratio",
+          "zone_revision_count"
+        ],
+        "primary_key": ["state_version_id", "event_id", "security_id"]
+      },
+      {
+        "logical_table_name": "r2_canonical_event_membership",
+        "fields": [
+          "state_version_id",
+          "event_id",
+          "security_id",
+          "trade_date",
+          "confirmed_state",
+          "component_member",
+          "retrospective_component_member",
+          "component_qualified_as_of",
+          "event_zone_member",
+          "is_prequalification_confirmed_day",
+          "is_bridged_gap",
+          "is_unqualified_reentry_day",
+          "event_status_as_of",
+          "zone_revision",
+          "membership_available_time",
+          "state_risk_set_eligible",
+          "qualified_event_risk_set_eligible"
+        ],
+        "primary_key": ["state_version_id", "event_id", "security_id", "trade_date"]
+      }
+    ],
+    "fixture_table_map": {
+      "rows": "r2_canonical_daily_state",
+      "event_zones": "r2_canonical_event_zone",
+      "membership_rows": "r2_canonical_event_membership"
+    },
+    "synthetic_harness_only_fields": ["expected_row_present"]
+  },
   "anchor_decision": {
     "selected_anchor": "natural_exit_attempt",
     "source_r2_candidate": "provisional_component_exit",
@@ -202,17 +285,20 @@
       "same_state_version_id",
       "same_security_id",
       "prior_active_event_id_exists_in_event_zone",
-      "first_qualification_time_leq_t0_availability_time",
-      "current_membership_row_exists",
-      "current_membership_available_time_not_null",
+      "first_qualification_time_trade_date_leq_current_trade_date",
+      "current_membership_row_is_optional_for_t0",
       "current_event_id_if_present_equals_prior_event_id",
       "cross_event_conflict_fails_closed"
     ],
     "time_fields": {
       "exit_attempt_date": "current_trade_date",
-      "exit_attempt_time": "current_membership.membership_available_time",
-      "time_resolution": "daily_state_with_point_in_time_availability",
+      "exit_attempt_time": "null_upstream_interface_gap",
+      "exit_attempt_date_authoritative": true,
+      "t0_granularity": "valid_trading_date",
+      "time_resolution": "daily_causal_date_only",
+      "upstream_interface_gap": "UPSTREAM_DAILY_AVAILABLE_TIME_NOT_EXPOSED",
       "forbidden_replacements": [
+        "membership_available_time",
         "last_exit_observation_time",
         "zone_finalization_time",
         "last_confirmed_end_date"
@@ -228,7 +314,6 @@
       "CURRENT_RAW_UNKNOWN",
       "RIGHT_CENSORING",
       "EVENT_ID_CONFLICT",
-      "T0_MEMBERSHIP_UNAVAILABLE",
       "EVENT_NOT_QUALIFIED",
       "TRANSITION_NOT_NATURAL_STATE_EXIT",
       "INVALID_ROW_CROSSING_FORBIDDEN"
@@ -260,7 +345,7 @@
       "hex_length": 64
     },
     "exit_attempt_id_spec": {
-      "namespace": "r3_exit_attempt_v1",
+      "namespace": "r3_exit_attempt_v2",
       "hash_algorithm": "sha256",
       "fields": [
         "namespace",
@@ -269,8 +354,7 @@
         "event_id",
         "security_id",
         "source_component_id",
-        "exit_attempt_date",
-        "exit_attempt_time"
+        "exit_attempt_date"
       ],
       "encoding": "utf-8",
       "sorted_keys": true,
@@ -286,11 +370,10 @@
       "source_component_id"
     ],
     "exit_attempt_ordinal_order": [
-      "exit_attempt_time",
       "exit_attempt_date",
       "exit_attempt_id"
     ],
-    "component_count_as_of_exit_definition": "distinct source confirmed runs with component_qualified_as_of=true and qualification_available_time <= exit_attempt_time",
+    "component_count_as_of_exit_definition": "distinct source confirmed runs whose first component_qualified_as_of=true trade_date is <= exit_attempt_date",
     "final_component_count_availability": "post_event_audit",
     "post_event_audit_fields": [
       "final_component_count",
@@ -306,6 +389,8 @@
       "future_boundary_hit"
     ],
     "attempt_identity_must_not_include": [
+      "exit_attempt_time",
+      "membership_available_time",
       "zone_finalization_time",
       "final_component_count",
       "final_zone_revision",
@@ -316,9 +401,9 @@
     ],
     "attempt_registry_fail_closed_codes": [
       "DUPLICATE_EXIT_ATTEMPT_ID",
-      "DUPLICATE_SOURCE_COMPONENT_T0",
+      "DUPLICATE_SOURCE_COMPONENT_T0_DATE",
       "ORDINAL_NOT_CONTIGUOUS",
-      "ORDINAL_TIME_ORDER_MISMATCH",
+      "ORDINAL_DATE_ORDER_MISMATCH",
       "T0_CLAIMED_BY_MULTIPLE_EVENTS"
     ]
   },
@@ -377,7 +462,7 @@
       "audit_only": false,
       "forbidden_model_feature": false,
       "source_artifact": "R3-T01 identity contract",
-      "derivation_rule": "r3_exit_attempt_v1 full SHA-256"
+      "derivation_rule": "r3_exit_attempt_v2 full SHA-256 over the date-level causal identity fields"
     },
     {
       "field_name": "exit_attempt_ordinal",
@@ -426,28 +511,70 @@
       "type": "integer",
       "nullable": false,
       "availability_class": "as_of_T0",
-      "available_time_source": "qualification availability times <= T0",
+      "available_time_source": "qualification trade dates <= T0 date",
       "allowed_at_T0": true,
       "allowed_at_T1": true,
       "allowed_at_T2": true,
       "audit_only": false,
       "forbidden_model_feature": false,
       "source_artifact": "r2_canonical_event_membership",
-      "derivation_rule": "count distinct qualified source runs available at T0"
+      "derivation_rule": "count distinct source runs with qualification date <= exit_attempt_date"
     },
     {
-      "field_name": "zone_revision_as_of_exit",
-      "type": "integer",
-      "nullable": false,
+      "field_name": "source_component_qualification_date",
+      "type": "date",
+      "nullable": true,
       "availability_class": "as_of_T0",
-      "available_time_source": "T0 membership row.zone_revision",
+      "available_time_source": "first component_qualified_as_of=true membership trade_date",
       "allowed_at_T0": true,
       "allowed_at_T1": true,
       "allowed_at_T2": true,
       "audit_only": false,
       "forbidden_model_feature": false,
       "source_artifact": "r2_canonical_event_membership",
-      "derivation_rule": "copy from current membership row"
+      "derivation_rule": "first qualifying trade_date within the reconstructed source component"
+    },
+    {
+      "field_name": "source_component_qualified",
+      "type": "boolean",
+      "nullable": false,
+      "availability_class": "as_of_T0",
+      "available_time_source": "component_qualified_as_of membership field",
+      "allowed_at_T0": true,
+      "allowed_at_T1": true,
+      "allowed_at_T2": true,
+      "audit_only": false,
+      "forbidden_model_feature": false,
+      "source_artifact": "r2_canonical_event_membership",
+      "derivation_rule": "true iff source_component_qualification_date is non-null"
+    },
+    {
+      "field_name": "last_observed_zone_revision_before_exit",
+      "type": "integer",
+      "nullable": true,
+      "availability_class": "as_of_T0",
+      "available_time_source": "prior membership rows with trade_date < exit_attempt_date",
+      "allowed_at_T0": true,
+      "allowed_at_T1": true,
+      "allowed_at_T2": true,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "r2_canonical_event_membership",
+      "derivation_rule": "last observed zone_revision before the causal exit date"
+    },
+    {
+      "field_name": "current_exit_membership_zone_revision",
+      "type": "integer",
+      "nullable": true,
+      "availability_class": "post_event_audit",
+      "available_time_source": "optional current membership row",
+      "allowed_at_T0": false,
+      "allowed_at_T1": false,
+      "allowed_at_T2": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "r2_canonical_event_membership",
+      "derivation_rule": "record only when a current membership row is available"
     },
     {
       "field_name": "exit_attempt_date",
@@ -466,16 +593,86 @@
     {
       "field_name": "exit_attempt_time",
       "type": "datetime",
+      "nullable": true,
+      "availability_class": "upstream_interface_required",
+      "available_time_source": "not_exposed_by_current_r2_canonical_daily_interface",
+      "allowed_at_T0": false,
+      "allowed_at_T1": false,
+      "allowed_at_T2": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "upstream_daily_available_time_interface",
+      "derivation_rule": "not generated by R3; missing_reason=UPSTREAM_DAILY_AVAILABLE_TIME_NOT_EXPOSED"
+    },
+    {
+      "field_name": "exit_attempt_time_missing_reason",
+      "type": "string",
+      "nullable": false,
+      "availability_class": "contract_metadata",
+      "available_time_source": "R3-T01 contract",
+      "allowed_at_T0": false,
+      "allowed_at_T1": false,
+      "allowed_at_T2": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "R3-T01 protocol registry",
+      "derivation_rule": "fixed upstream interface gap code"
+    },
+    {
+      "field_name": "current_membership_row_present",
+      "type": "boolean",
       "nullable": false,
       "availability_class": "as_of_T0",
-      "available_time_source": "current membership.membership_available_time",
+      "available_time_source": "optional current membership join",
       "allowed_at_T0": true,
       "allowed_at_T1": true,
       "allowed_at_T2": true,
-      "audit_only": false,
-      "forbidden_model_feature": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
       "source_artifact": "r2_canonical_event_membership",
-      "derivation_rule": "current membership availability time"
+      "derivation_rule": "audit-only presence flag; not a T0 predicate"
+    },
+    {
+      "field_name": "current_membership_available_time",
+      "type": "datetime",
+      "nullable": true,
+      "availability_class": "post_event_audit",
+      "available_time_source": "optional current membership row",
+      "allowed_at_T0": false,
+      "allowed_at_T1": false,
+      "allowed_at_T2": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "r2_canonical_event_membership",
+      "derivation_rule": "record for lifecycle reconciliation only"
+    },
+    {
+      "field_name": "current_membership_availability_is_causal_for_t0",
+      "type": "boolean",
+      "nullable": false,
+      "availability_class": "contract_metadata",
+      "available_time_source": "R3-T01 contract",
+      "allowed_at_T0": false,
+      "allowed_at_T1": false,
+      "allowed_at_T2": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "R3-T01 protocol registry",
+      "derivation_rule": "always false"
+    },
+    {
+      "field_name": "membership_resolution_status",
+      "type": "string",
+      "nullable": false,
+      "availability_class": "post_event_audit",
+      "available_time_source": "optional current membership join",
+      "allowed_at_T0": false,
+      "allowed_at_T1": false,
+      "allowed_at_T2": false,
+      "audit_only": true,
+      "forbidden_model_feature": true,
+      "source_artifact": "r2_canonical_event_membership",
+      "derivation_rule": "current row availability status, not T0 eligibility"
     },
     {
       "field_name": "prior_confirmed_state",
@@ -520,18 +717,18 @@
       "derivation_rule": "registered CONFIRMED_ACTIVE to CONFIRMED_EXITED transition"
     },
     {
-      "field_name": "g_used_as_of_exit",
+      "field_name": "frozen_g",
       "type": "integer",
       "nullable": false,
       "availability_class": "as_of_T0",
-      "available_time_source": "T0 membership row",
+      "available_time_source": "frozen state version contract",
       "allowed_at_T0": true,
       "allowed_at_T1": true,
       "allowed_at_T2": true,
       "audit_only": false,
       "forbidden_model_feature": false,
-      "source_artifact": "r2_canonical_event_membership",
-      "derivation_rule": "copy from T0 membership row"
+      "source_artifact": "r2_t08_r3_handoff_manifest",
+      "derivation_rule": "exact state_version_id to frozen state version g mapping"
     },
     {
       "field_name": "event_status_as_of_exit",
@@ -721,12 +918,13 @@
     "landmark_ids": ["T0", "T1", "T2"],
     "t0_definition": {
       "date": "exit_attempt_date",
-      "time": "exit_attempt_time",
+      "time": "null_upstream_interface_gap",
       "counts_as_future_ordinal_zero": true,
-      "time_resolution": "daily_state_with_point_in_time_availability"
+      "time_resolution": "daily_causal_date_only"
     },
     "future_landmark_definition": {
-      "first_valid_row_rule": "first row after T0 with expected row present, eligible_state=true and quality_state=valid",
+      "first_valid_row_rule": "first row after T0 within the same state_version_id and security_id with expected row present, eligible_state=true and quality_state=valid",
+      "group_keys": ["state_version_id", "security_id"],
       "invalid_rows_counted_as_landmark": false,
       "invalid_rows_retained_for_audit": true,
       "intervening_fields": [
@@ -748,7 +946,7 @@
       {"horizon_id": "H30", "valid_trading_row_count": 30, "role": "extension and late-reversal check"}
     ],
     "primary_horizon": "H20",
-    "horizon_counting_rule": "count valid expected trading rows after T0; T0 itself is excluded",
+    "horizon_counting_rule": "count valid expected trading rows after T0 within the same state_version_id and security_id; T0 itself is excluded",
     "deferred_prediction_rule_owner": "R4",
     "t01_scope": "base landmark dates and observability only; no PCVT, price, volume, environment, return, MFE, MAE, boundary hit or path class"
   },
@@ -802,25 +1000,54 @@
     {"filename": "schemas/r3/r3_t01_landmark_horizon_contract.schema.json", "purpose": "T0/T1/T2 and H5/H10/H20/H30 semantics"},
     {"filename": "schemas/r3/r3_t01_sample_split_contract.schema.json", "purpose": "event-level split, purge, embargo and clustering"}
   ],
+  "mutation_contract": {
+    "declared_count": 20,
+    "full_validator_entrypoint": "validate_run_dir",
+    "baseline_status_required": "passed",
+    "expected_error_codes": {
+      "M01": "FROZEN_STATE_VERSION_MISMATCH",
+      "M02": "FROZEN_STATE_VERSION_SET_MISMATCH",
+      "M03": "ANCHOR_DECISION_MISMATCH",
+      "M04": "ANCHOR_DECISION_MISMATCH",
+      "M05": "FIRST_ATTEMPT_ONLY_FORBIDDEN",
+      "M06": "LAG_AFTER_FILTERING_FORBIDDEN",
+      "M07": "LATER_ATTEMPT_RISK_SET_POLICY_MISMATCH",
+      "M08": "POST_EVENT_FIELD_IN_ID",
+      "M09": "CALENDAR_DAY_HORIZON_FORBIDDEN",
+      "M10": "ATTEMPT_LEVEL_RANDOM_SPLIT_FORBIDDEN",
+      "M11": "EVENT_SPLIT_LEAKAGE",
+      "M12": "DOWNSTREAM_GATE_OPEN",
+      "M13": "FUTURE_OUTCOME_IN_T01",
+      "M14": "VALIDATOR_PRODUCTION_HELPER_REUSE",
+      "M15": "MEMBERSHIP_AVAILABILITY_NOT_T0",
+      "M16": "NON_PUBLIC_CANONICAL_FIELD_REFERENCE",
+      "M17": "LANDMARK_CROSS_GROUP_CONTAMINATION",
+      "M18": "EMPTY_MUTATION_RESULTS",
+      "M19": "PENDING_FORMAL_ARTIFACT",
+      "M20": "NON_AUTHORITATIVE_TIME_IN_ID"
+    }
+  },
   "synthetic_fixture_path": "tests/r3/fixtures/r3_t01/cases.json",
   "output_contract": {
     "real_data_or_database_access_in_t01": false,
     "formal_artifacts": [
-      {"filename": "r3_t01_upstream_binding.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_anchor_decision.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_protocol_registry.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_t0_transition_contract.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_analysis_unit_contract.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_field_semantics_registry.csv", "kind": "csv", "contains_future_outcome": false},
-      {"filename": "r3_t01_landmark_horizon_contract.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_sample_split_contract.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_schema_registry.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_synthetic_case_results.csv", "kind": "csv", "contains_future_outcome": false},
-      {"filename": "r3_t01_mutation_results.csv", "kind": "csv", "contains_future_outcome": false},
-      {"filename": "r3_t01_anomaly_scan.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_manifest.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_validator_result.json", "kind": "json", "contains_future_outcome": false},
-      {"filename": "r3_t01_result_analysis.md", "kind": "markdown", "contains_future_outcome": false}
+      {"filename": "r3_t01_upstream_binding.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_anchor_decision.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_protocol_registry.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_t0_transition_contract.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_analysis_unit_contract.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_field_semantics_registry.csv", "kind": "csv", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_landmark_horizon_contract.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_sample_split_contract.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_schema_registry.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_production_synthetic_results.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_production_rebuild_comparison.json", "kind": "json", "artifact_owner": "runner", "contains_future_outcome": false},
+      {"filename": "r3_t01_independent_replay_results.json", "kind": "json", "artifact_owner": "independent_validator", "contains_future_outcome": false},
+      {"filename": "r3_t01_mutation_results.csv", "kind": "csv", "artifact_owner": "independent_validator", "contains_future_outcome": false},
+      {"filename": "r3_t01_validator_result.json", "kind": "json", "artifact_owner": "independent_validator", "contains_future_outcome": false},
+      {"filename": "r3_t01_anomaly_scan.json", "kind": "json", "artifact_owner": "independent_validator", "contains_future_outcome": false},
+      {"filename": "r3_t01_result_analysis.md", "kind": "markdown", "artifact_owner": "result_analyzer", "contains_future_outcome": false},
+      {"filename": "r3_t01_manifest.json", "kind": "json", "artifact_owner": "result_analyzer", "contains_future_outcome": false}
     ],
     "forbidden_in_t01": [
       "real exit-attempt rows",

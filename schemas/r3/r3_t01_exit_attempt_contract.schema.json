@@ -56,11 +56,14 @@
     "time": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["exit_attempt_date", "exit_attempt_time", "time_resolution", "forbidden_replacements"],
+      "required": ["exit_attempt_date", "exit_attempt_time", "exit_attempt_date_authoritative", "t0_granularity", "time_resolution", "upstream_interface_gap", "forbidden_replacements"],
       "properties": {
         "exit_attempt_date": {"const": "current_trade_date"},
-        "exit_attempt_time": {"const": "current_membership.membership_available_time"},
-        "time_resolution": {"const": "daily_state_with_point_in_time_availability"},
+        "exit_attempt_time": {"const": "null_upstream_interface_gap"},
+        "exit_attempt_date_authoritative": {"const": true},
+        "t0_granularity": {"const": "valid_trading_date"},
+        "time_resolution": {"const": "daily_causal_date_only"},
+        "upstream_interface_gap": {"const": "UPSTREAM_DAILY_AVAILABLE_TIME_NOT_EXPOSED"},
         "forbidden_replacements": {"type": "array", "items": {"type": "string"}}
       }
     },
@@ -96,6 +99,23 @@
         "hex_length": {"const": 64}
       }
     },
+    "exitIdSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "hash_algorithm", "fields", "encoding", "sorted_keys", "compact_separators", "allow_nan", "date_time_encoding", "hex_case", "hex_length"],
+      "properties": {
+        "namespace": {"const": "r3_exit_attempt_v2"},
+        "hash_algorithm": {"const": "sha256"},
+        "fields": {"const": ["namespace", "contract_version", "state_version_id", "event_id", "security_id", "source_component_id", "exit_attempt_date"]},
+        "encoding": {"const": "utf-8"},
+        "sorted_keys": {"const": true},
+        "compact_separators": {"const": true},
+        "allow_nan": {"const": false},
+        "date_time_encoding": {"const": "ISO-8601"},
+        "hex_case": {"const": "lower"},
+        "hex_length": {"const": 64}
+      }
+    },
     "analysis": {
       "type": "object",
       "additionalProperties": false,
@@ -107,10 +127,10 @@
         "later_attempts_are_sidecar": {"const": false},
         "source_component_id_namespace": {"const": "r3_confirmed_run_v1"},
         "source_component_id_spec": {"$ref": "#/$defs/idSpec"},
-        "exit_attempt_id_spec": {"$ref": "#/$defs/idSpec"},
+        "exit_attempt_id_spec": {"$ref": "#/$defs/exitIdSpec"},
         "source_component_definition": {"type": "string"},
         "source_component_ordinal_order": {"const": ["source_component_start_date", "source_component_id"]},
-        "exit_attempt_ordinal_order": {"const": ["exit_attempt_time", "exit_attempt_date", "exit_attempt_id"]},
+        "exit_attempt_ordinal_order": {"const": ["exit_attempt_date", "exit_attempt_id"]},
         "component_count_as_of_exit_definition": {"type": "string"},
         "final_component_count_availability": {"const": "post_event_audit"},
         "post_event_audit_fields": {"type": "array", "items": {"type": "string"}},
@@ -126,7 +146,7 @@
         "field_name": {"type": "string"},
         "type": {"type": "string"},
         "nullable": {"type": "boolean"},
-        "availability_class": {"enum": ["as_of_T0", "as_of_later_landmark", "post_event_audit", "post_path_outcome", "contract_metadata"]},
+        "availability_class": {"enum": ["as_of_T0", "as_of_later_landmark", "post_event_audit", "post_path_outcome", "contract_metadata", "upstream_interface_required"]},
         "available_time_source": {"type": "string"},
         "allowed_at_T0": {"type": "boolean"},
         "allowed_at_T1": {"type": "boolean"},

@@ -9,8 +9,6 @@ from unittest.mock import patch
 from src.r3.r3_t01_protocol import verify_remote_startup_binding
 from src.r3.r3_t01_validator import (
     MUTATION_CODES,
-    apply_mutation,
-    mutation_error_code,
     validate_in_memory,
     validate_independence,
     validate_mutations,
@@ -40,7 +38,7 @@ class R3T01FailurePathTest(unittest.TestCase):
             "S18": ["PRIOR_ROW_NOT_ELIGIBLE", "QUALITY_INTERRUPTION"],
             "S19": ["RIGHT_CENSORING"],
             "S20": ["EVENT_ID_CONFLICT"],
-            "S21": ["T0_MEMBERSHIP_UNAVAILABLE"],
+            "S21": [],
         }
         for case_id, codes in expected.items():
             self.assertEqual(
@@ -51,24 +49,24 @@ class R3T01FailurePathTest(unittest.TestCase):
         baseline = validate_in_memory(self.config, self.fixture, root=ROOT)
         self.assertTrue(baseline.passed, baseline.errors)
         mutation_results = validate_mutations(self.config, self.fixture)
-        self.assertEqual(len(mutation_results), 14)
+        self.assertEqual(len(mutation_results), 20)
         self.assertEqual(
             {item["mutation_id"] for item in mutation_results}, set(MUTATION_CODES)
         )
         for result in mutation_results:
-            self.assertEqual(result["expected_error_code"], result["actual_error_code"])
+            self.assertIn(result["expected_error_code"], result["actual_error_codes"])
+            self.assertTrue(result["specific_error_detected"])
+            self.assertFalse(result["unrelated_setup_failure"])
             self.assertEqual(result["status"], "passed")
 
     def test_mutation_error_codes_fail_closed_individually(self) -> None:
+        results = {
+            item["mutation_id"]: item
+            for item in validate_mutations(self.config, self.fixture)
+        }
         for mutation_id, expected_code in MUTATION_CODES.items():
-            config, fixture, source_text = apply_mutation(
-                self.config, self.fixture, mutation_id
-            )
-            self.assertEqual(
-                mutation_error_code(config, fixture, source_text),
-                expected_code,
-                mutation_id,
-            )
+            self.assertIn(expected_code, results[mutation_id]["actual_error_codes"])
+            self.assertEqual(results[mutation_id]["status"], "passed")
 
     def test_validator_is_independent_from_production_protocol(self) -> None:
         source = (ROOT / "src/r3/r3_t01_validator.py").read_text(encoding="utf-8")

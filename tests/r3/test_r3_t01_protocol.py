@@ -29,8 +29,12 @@ class R3T01ProtocolTest(unittest.TestCase):
     def test_independent_validator_accepts_config_and_all_declared_cases(self) -> None:
         report = validate_in_memory(self.config, self.fixture, root=ROOT)
         self.assertTrue(report.passed, report.errors)
-        self.assertEqual(len(report.synthetic_case_results), 22)
+        self.assertEqual(len(report.synthetic_case_results), 26)
         self.assertIsNotNone(report.double_rebuild_hash)
+        self.assertEqual(
+            report.double_rebuild_result["rebuild_1_hash"],
+            report.double_rebuild_result["rebuild_2_hash"],
+        )
 
     def test_anchor_and_primary_unit_are_frozen(self) -> None:
         self.assertEqual(
@@ -180,7 +184,12 @@ class R3T01ProtocolTest(unittest.TestCase):
                     "confirmed_state": True,
                 }
             )
-        landmarks = build_landmarks(rows, "2024-01-01")
+        landmarks = build_landmarks(
+            rows,
+            state_version_id=version,
+            security_id="SEC_L",
+            t0_date="2024-01-01",
+        )
         self.assertEqual(landmarks["T0"]["ordinal"], 0)
         self.assertEqual(landmarks["T1"]["trade_date"], "2024-01-02")
         self.assertEqual(landmarks["T2"]["trade_date"], "2024-01-04")

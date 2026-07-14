@@ -14,17 +14,18 @@
       "required": ["date", "time", "counts_as_future_ordinal_zero", "time_resolution"],
       "properties": {
         "date": {"const": "exit_attempt_date"},
-        "time": {"const": "exit_attempt_time"},
+        "time": {"const": "null_upstream_interface_gap"},
         "counts_as_future_ordinal_zero": {"const": true},
-        "time_resolution": {"const": "daily_state_with_point_in_time_availability"}
+        "time_resolution": {"const": "daily_causal_date_only"}
       }
     },
     "future_landmark_definition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["first_valid_row_rule", "invalid_rows_counted_as_landmark", "invalid_rows_retained_for_audit", "intervening_fields", "unobservable_reasons"],
+      "required": ["first_valid_row_rule", "group_keys", "invalid_rows_counted_as_landmark", "invalid_rows_retained_for_audit", "intervening_fields", "unobservable_reasons"],
       "properties": {
         "first_valid_row_rule": {"type": "string"},
+        "group_keys": {"const": ["state_version_id", "security_id"]},
         "invalid_rows_counted_as_landmark": {"const": false},
         "invalid_rows_retained_for_audit": {"const": true},
         "intervening_fields": {"type": "array", "items": {"type": "string"}},

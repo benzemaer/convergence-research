@@ -14,8 +14,8 @@
     "split_roles": {"const": ["design", "validation", "out_of_sample", "purged"]},
     "calendar_boundary_status": {"const": "unselected_by_design"},
     "calendar_boundary_selection_owner": {"const": "R3-T02"},
-    "boundary_selection_information_allowed": {"type": "array", "items": {"type": "string"}},
-    "boundary_selection_information_forbidden": {"type": "array", "items": {"type": "string"}},
+    "boundary_selection_information_allowed": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "boundary_selection_information_forbidden": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
     "purge_embargo": {
       "type": "object",
       "additionalProperties": false,
@@ -43,6 +43,6 @@
         "event_balanced_weight_is_t0_feature": {"const": false}
       }
     },
-    "prohibitions": {"type": "array", "items": {"type": "string"}}
+    "prohibitions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
   }
 }

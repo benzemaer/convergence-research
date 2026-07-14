@@ -25,16 +25,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-id")
     args = parser.parse_args(argv)
     try:
-        run_dir = execute_formal_run(
+        execute_formal_run(
             args.config,
             args.reviewed_implementation_sha,
             root=ROOT,
             run_id=args.run_id,
         )
     except ProtocolContractError as exc:
-        print(f"formal_run_status=blocked error={exc}", file=sys.stderr)
+        print(f"formal_generation_status=blocked error={exc}", file=sys.stderr)
         return 1
-    print(f"formal_run_status=completed run_dir={run_dir.relative_to(ROOT).as_posix()}")
+    print("formal_generation_status=generated_pending_validation")
     return 0
 
 
