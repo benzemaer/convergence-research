@@ -53,7 +53,20 @@ T04 的四个 decision unit 必须保留在 decision log：S_PCT×W120 和 S_PCV
 
 ## 产物和门禁
 
-初始 author-draft run `R2-T07-20260714T015043Z`、execution `50d97a8921be08b40bafcaa5e28cfda6b60e2704`、artifact commit `782f4d0b78d2569485793f0b6b828edc8751663c` 已保留为 `HISTORICAL / SUPERSEDED / DO NOT USE`，原因是 `incomplete_final_freeze_interface`，不得作为 T08 输入。修订后 successor run 必须位于新的时间戳目录，并由新的 clean execution commit、artifact commit 和 committed-artifact validation commit 绑定；在独立科学审阅前，T07 仍是 author-stage package，`formal_task_completed=false`，T08/R3 保持关闭。
+初始 author-draft run `R2-T07-20260714T015043Z`、execution `50d97a8921be08b40bafcaa5e28cfda6b60e2704`、artifact commit `782f4d0b78d2569485793f0b6b828edc8751663c` 已保留为 `HISTORICAL / SUPERSEDED / DO NOT USE`，原因是 `incomplete_final_freeze_interface`，不得作为 T08 输入。其 successor `R2-T07-20260714T023405Z` 及失败诊断 run `R2-T07-20260714T033826Z` 均保留为 `superseded_author_draft`，不得作为当前 evidence。当前 authoritative successor 为：
+
+```text
+run_id: R2-T07-20260714T034053Z
+execution_commit: 8596be41d7349e9cfcc1c4782282d4a46ea3750d
+artifact_commit: 45f0aa9605ca007d11e6aa1360c24340bfa1d04d
+committed_validation_commit: dd3118dc9670b585df36db9adfcd930265a08b8c
+independent_validation: passed; failure_count=0; integer checks all 0
+registry_reconciliation: passed; failure_count=0
+forbidden_use_audit: passed; JSON=10, CSV=2, CSV headers=2
+anomaly_scan: passed; anomaly_count=0
+```
+
+其中 `artifact_commit` 的完整 SHA 以 Git history 和 committed-artifact validation sidecar 为准。四个 core registry 文件的 actual byte SHA、size、路径和 output-manifest binding 均逐项通过；在独立科学审阅前，T07 仍是 author-stage package，`formal_task_completed=false`，T08/R3 保持关闭。
 
 核心产物为 state version registry、interval rule registry、event-state machine registry、freeze decision log 和 final freeze manifest；supporting artifacts 包括 source readiness、input binding、canonical artifact binding、registry reconciliation、forbidden-use audit、independent validation、anomaly scan、result analysis、experiment summary、output manifest、result package、committed-artifact validation 和 supersession record。所有 compact audit 必须来自实际计算；缺失输入、缺失审计或无法读取的 committed blob 只能 fail closed。
 
