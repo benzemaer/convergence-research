@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_event_state_machine_registry.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "contract_version", "registry_type", "states", "transitions", "event_identity_policy", "time_semantics", "source_bindings"],
+  "properties": {
+    "task_id": {"const": "R2-T07"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "registry_type": {"const": "event_state_machine_registry"},
+    "states": {"type": "array", "minItems": 8, "uniqueItems": true},
+    "transitions": {"type": "array", "minItems": 17},
+    "event_identity_policy": {"type": "object"},
+    "time_semantics": {"type": "object"},
+    "source_bindings": {"type": "array", "minItems": 4}
+  }
+}

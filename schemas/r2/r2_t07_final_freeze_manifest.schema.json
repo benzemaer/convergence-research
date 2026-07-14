@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_final_freeze_manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "registry_freeze_only", "replay_performed", "frozen_version_count", "frozen_versions", "upstream_bindings", "artifact_paths", "downstream_gates"],
+  "properties": {
+    "task_id": {"const": "R2-T07"},
+    "run_id": {"type": "string", "pattern": "^R2-T07-"},
+    "status": {"enum": ["completed", "completed_no_frozen_version"]},
+    "registry_freeze_only": {"const": true},
+    "replay_performed": {"const": false},
+    "frozen_version_count": {"type": "integer", "minimum": 0, "maximum": 2},
+    "frozen_versions": {"type": "array"},
+    "upstream_bindings": {"type": "object"},
+    "artifact_paths": {"type": "array", "minItems": 5},
+    "downstream_gates": {"type": "object", "required": ["R2-T08_allowed_to_start", "R3_allowed_to_start"]}
+  }
+}

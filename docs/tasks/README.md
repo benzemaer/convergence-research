@@ -18,10 +18,10 @@
 
 ```text
 current_stage: R2
-current_task: R2-T06 canonical 状态机无前视回放与一致性验收
+current_task: R2-T07 状态版本、event-state registry 与最终 freeze manifest
 # Historical route marker retained for R1 contract replay; it is not the current task.
 historical_current_task: R2-T04 Hard gate、Pareto 推荐、用户决策与 freeze plan
-next_planned_task: R2-T07 状态版本登记册与最终 freeze manifest
+next_planned_task: R2-T08 R2 阶段验收与 R3 交接
 historical_next_planned_task: R2-T05 canonical 日度状态与事件区间物化
 R1-T04 completed via PR #80
 R1-T05 completed via PR #81
@@ -93,12 +93,18 @@ R2-T05_startup_status: passed
 R2-T05_formal_run_executed: true
 R2-T05_formal_task_completed: false
 R2-T06_allowed_to_start: true
-R2-T06_status: successor_formal_run_complete_pending_independent_scientific_review
-R2-T06_scientific_review_status: pending_independent_scientific_review
+R2-T06_status: completed_via_PR_98_merged_pr_direct_binding
+R2-T06_scientific_review_status: passed
+R2-T06_repository_final_gate_status: passed
 R2-T06_startup_status: passed
 R2-T06_formal_run_executed: true
-R2-T06_formal_task_completed: false
-R2-T07_allowed_to_start: false
+R2-T06_formal_task_completed: true
+R2-T07_allowed_to_start: true
+R2-T07_status: implementation_complete_pending_formal_registry_freeze
+R2-T07_scientific_review_status: not_started
+R2-T07_startup_status: passed_merged_pr_direct_binding
+R2-T07_formal_run_executed: false
+R2-T07_formal_task_completed: false
 R2-T08_allowed_to_start: false
 R3_allowed_to_start: false
 ```

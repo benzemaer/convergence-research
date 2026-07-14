@@ -1,0 +1,127 @@
+{
+  "$schema": "../../schemas/r2/r2_t07_state_version_event_state_registry_final_freeze_manifest.schema.json",
+  "task_id": "R2-T07",
+  "config_version": "r2_t07_state_version_event_state_registry_final_freeze_manifest.v1",
+  "stage": "R2",
+  "upstream_commit": "12cd31d125e31762e62f8b1db5a808d189c7c732",
+  "contract_version": "r2_t02_confirmed_event_zone_state_machine_contract.v8",
+  "t06_binding": {
+    "pull_request_number": 98,
+    "merge_commit": "12cd31d125e31762e62f8b1db5a808d189c7c732",
+    "reviewed_head": "4604117678b53b2c756d866babd9a4ad8d85a2ef",
+    "scientific_review_id": "4690087611",
+    "compatibility_review_id": "4690138251",
+    "authoritative_run": "R2-T06-20260713T183455Z",
+    "formal_execution_commit": "b2b1b193ded0040c9695bca1ad98d22c10263044",
+    "validator_commit": "8920a3cd3abfcc15ecd337ef6116d7fe286d5c01",
+    "artifact_commit": "07f4771ea78038d230e1dba62c2494614b4553aa",
+    "duckdb_sha256": "671b1a1027c1e56af0a551142fc35e31a399d699d732fc145d36c189973ccea1",
+    "merge_exception": {
+      "type": "reused_r2_t02_premerge_consumer_not_applicable_to_t06",
+      "reason_code": "formal_surface_changed_after_artifact_commit",
+      "source_pr": 98,
+      "waives_t06_scientific_or_artifact_checks": false
+    }
+  },
+  "t04_binding": {
+    "run_id": "R2-T04-20260713T120000Z",
+    "decision_hash": "f1344346662225f1f0837bc160be1bf6f88f12174cbacc8f27f8a126ad9bf3bf",
+    "freeze_decision_hash": "ceb99c3480aa49a13a545dd06d43a85c2faf378256c49623b17d1b0255e0048d",
+    "freeze_plan_hash": "1ea368d67b9445a6916ee31ff33e6f0a5f94ed43b0fd5a2b716f8d60c39a80dc"
+  },
+  "t05_binding": {
+    "run_id": "R2-T05-20260713T154957Z",
+    "database_path": "data/generated/r2/r2_t05/R2-T05-20260713T154957Z/r2_t05_canonical_materialization.duckdb",
+    "database_sha256": "4488f0cca26f703890dfea8701ed761e7de124467a6d373f2e0264dbd0215129",
+    "daily_sha256": "64c396322b0e358a5c5440eebe90483d65f18a2cc6461a9a28f2cb72711da4ec",
+    "event_sha256": "4c0fcec9012fa46a7b68d3dd436e9e14881c44719f90def22490b8b6bc118acb",
+    "membership_sha256": "5664a11fc7f4c61f3b6e8d4b0a465ed0d5c89447a38fc29cd12e966ab6340d0a",
+    "daily_row_count": 3502132,
+    "event_row_count": 5647,
+    "membership_row_count": 27388
+  },
+  "source_contracts": {
+    "confirmed_state": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_confirmed_state_machine_contract.json",
+    "event_zone": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_zone_machine_contract.json",
+    "event_rule": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_event_rule_contract.json",
+    "transition_registry": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_transition_registry.csv",
+    "risk_set": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_r3_risk_set_contract.json",
+    "t03_output": "data/generated/r2/r2_t02/R2-T02-20260712T1700Z/r2_t02_t03_output_contract.json"
+  },
+  "upstream_artifacts": {
+    "t04_freeze_decision": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_decision.json",
+    "t04_freeze_plan": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_freeze_plan_manifest.json",
+    "t04_user_decision_record": "data/generated/r2/r2_t04/R2-T04-20260713T120000Z/r2_t04_user_decision_record.json",
+    "t05_table_fingerprint": "data/generated/r2/r2_t05/R2-T05-20260713T154957Z/r2_t05_table_fingerprint.json",
+    "t05_committed_validation": "data/generated/r2/r2_t05/R2-T05-20260713T154957Z/r2_t05_committed_artifact_validation.json",
+    "t06_result_package": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_result_package.json",
+    "t06_output_manifest": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_output_manifest.json",
+    "t06_independent_validation": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_independent_validation.json",
+    "t06_anomaly_scan": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_anomaly_scan.json",
+    "t06_committed_validation": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_committed_artifact_validation.json",
+    "t06_input_binding": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_input_binding.json",
+    "t06_materialization_complete": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_materialization_complete.json",
+    "t06_duckdb": "data/generated/r2/r2_t06/R2-T06-20260713T183455Z/r2_t06_dual_state_machine_replay.duckdb"
+  },
+  "expected_versions": [
+    {
+      "state_version_id": "r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8",
+      "state_line": "S_PCT",
+      "window_track_id": "W120",
+      "W": 120,
+      "K": 3,
+      "qP": 0.2,
+      "qC": 0.2,
+      "qT": 0.25,
+      "qV": 0.2,
+      "d": 2,
+      "g": 1,
+      "source_candidate_cell_id": "r2_s_pct_w120_qt25_primary__d2__g1",
+      "strict_core_source_candidate_cell_id": "r2_s_pct_w120_q20_shared__d2__g1",
+      "strict_core_enabled": true
+    },
+    {
+      "state_version_id": "r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8",
+      "state_line": "S_PCVT",
+      "window_track_id": "W120",
+      "W": 120,
+      "K": 3,
+      "qP": 0.2,
+      "qC": 0.2,
+      "qT": 0.2,
+      "qV": 0.3,
+      "d": 2,
+      "g": 1,
+      "source_candidate_cell_id": "r2_s_pcvt_w120_qv30_primary__d2__g1",
+      "strict_core_source_candidate_cell_id": "r2_s_pcvt_w120_q20_shared__d2__g1",
+      "strict_core_enabled": true
+    }
+  ],
+  "expected_exclusions": {
+    "frozen_version_count": 2,
+    "W250_independent_version_count": 0,
+    "shared_q_independent_version_count": 0,
+    "PCT_parent_product_count": 0,
+    "additional_state_version_count": 0,
+    "rejected_decision_unit_count": 2
+  },
+  "policy": {
+    "automatic_recommendation_authoritative": false,
+    "R2-T08_allowed_to_start": false,
+    "R3_allowed_to_start": false,
+    "replay_performed": false,
+    "registry_freeze_only": true,
+    "authoritative_time_fields": [
+      "confirmation_time",
+      "first_qualification_time",
+      "last_exit_observation_time",
+      "zone_finalization_time",
+      "membership_available_time"
+    ]
+  },
+  "output": {
+    "run_directory_template": "data/generated/r2/r2_t07/R2-T07-<UTC timestamp>",
+    "database_policy": "no_new_database",
+    "artifact_hash_basis": "committed_artifact_bytes"
+  }
+}

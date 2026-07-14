@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_state_version_event_state_registry_final_freeze_manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "config_version", "stage", "upstream_commit", "contract_version", "t06_binding", "t04_binding", "t05_binding", "source_contracts", "upstream_artifacts", "expected_versions", "expected_exclusions", "policy", "output"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "task_id": {"const": "R2-T07"},
+    "config_version": {"const": "r2_t07_state_version_event_state_registry_final_freeze_manifest.v1"},
+    "stage": {"const": "R2"},
+    "upstream_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "contract_version": {"const": "r2_t02_confirmed_event_zone_state_machine_contract.v8"},
+    "t06_binding": {"type": "object", "required": ["pull_request_number", "merge_commit", "reviewed_head", "scientific_review_id", "compatibility_review_id", "authoritative_run", "formal_execution_commit", "validator_commit", "artifact_commit", "duckdb_sha256", "merge_exception"]},
+    "t04_binding": {"type": "object", "required": ["run_id", "decision_hash", "freeze_decision_hash", "freeze_plan_hash"]},
+    "t05_binding": {"type": "object", "required": ["run_id", "database_path", "database_sha256", "daily_sha256", "event_sha256", "membership_sha256", "daily_row_count", "event_row_count", "membership_row_count"]},
+    "source_contracts": {"type": "object", "minProperties": 6},
+    "upstream_artifacts": {"type": "object", "minProperties": 10},
+    "expected_versions": {"type": "array", "minItems": 0, "maxItems": 2},
+    "expected_exclusions": {"type": "object"},
+    "policy": {"type": "object"},
+    "output": {"type": "object", "required": ["run_directory_template", "database_policy", "artifact_hash_basis"]}
+  }
+}

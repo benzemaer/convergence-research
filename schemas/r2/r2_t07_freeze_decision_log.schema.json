@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2_t07_freeze_decision_log.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "decision_hash", "freeze_decision_hash", "decision_authority", "automatic_recommendation_authoritative", "decision_units", "selected_version_count", "strict_core_only_count", "rejected_decision_unit_count", "source_binding"],
+  "properties": {
+    "task_id": {"const": "R2-T07"},
+    "decision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "freeze_decision_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision_authority": {"const": "user_explicit_instruction"},
+    "automatic_recommendation_authoritative": {"const": false},
+    "decision_units": {"type": "array", "minItems": 4, "maxItems": 4},
+    "selected_version_count": {"const": 2},
+    "strict_core_only_count": {"const": 2},
+    "rejected_decision_unit_count": {"const": 2},
+    "source_binding": {"type": "object", "required": ["path", "git_blob_sha", "committed_byte_sha256"]}
+  }
+}
