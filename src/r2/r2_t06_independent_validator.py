@@ -18,7 +18,14 @@ from typing import Any
 
 import duckdb
 
-from src.common.canonical_io import ROOT, read_csv, write_json, write_markdown
+from src.common.canonical_io import (
+    ROOT,
+    read_csv,
+    write_csv,
+    write_json,
+    write_markdown,
+)
+from src.r2.r2_t06_source_trigger_oracle import source_trigger_validation
 
 TASK_ID = "R2-T06"
 
@@ -350,6 +357,74 @@ def _audit_status_errors(output_dir: Path, config: dict[str, Any]) -> list[str]:
     return errors
 
 
+SOURCE_TRIGGER_AUDITS = {
+    "r2_t06_event_transition_reconciliation.csv": (
+        "source_trigger_transition_mismatch",
+        "source_trigger_transition_time_mismatch",
+    ),
+    "r2_t06_event_zone_reconciliation.csv": (
+        "source_trigger_event_partition_mismatch",
+        "source_trigger_event_boundary_mismatch",
+        "source_trigger_maximal_partition_mismatch",
+        "source_trigger_finalization_time_mismatch",
+        "source_trigger_bridge_mismatch",
+    ),
+    "r2_t06_membership_reconciliation.csv": (
+        "source_trigger_membership_key_mismatch",
+        "source_trigger_membership_flag_mismatch",
+        "source_trigger_membership_availability_mismatch",
+        "source_trigger_accepted_reentry_mismatch",
+        "source_trigger_unqualified_reentry_mismatch",
+    ),
+    "r2_t06_no_lookahead_audit.csv": (
+        "source_trigger_membership_availability_mismatch",
+        "source_trigger_finalization_time_mismatch",
+        "source_trigger_transition_time_mismatch",
+    ),
+    "r2_t06_exit_censor_audit.csv": (
+        "source_trigger_quality_break_mismatch",
+        "source_trigger_right_censor_mismatch",
+        "source_trigger_finalization_time_mismatch",
+    ),
+}
+
+
+def _write_source_trigger_audits(
+    output_dir: Path, checks: dict[str, int], summary: dict[str, int]
+) -> None:
+    fields = [
+        "audit",
+        "scope",
+        "observed",
+        "expected",
+        "mismatch_count",
+        "status",
+        "details",
+    ]
+    details = json.dumps(
+        summary, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    for filename, check_names in SOURCE_TRIGGER_AUDITS.items():
+        mismatch = sum(checks.get(name, 1) for name in check_names)
+        write_csv(
+            output_dir / filename,
+            [
+                {
+                    "audit": "source_trigger_oracle",
+                    "scope": "committed dense source facts and trigger ledger",
+                    "observed": ";".join(
+                        f"{name}={checks.get(name, 1)}" for name in check_names
+                    ),
+                    "expected": "all source-trigger mismatches equal zero",
+                    "mismatch_count": mismatch,
+                    "status": "passed" if mismatch == 0 else "failed",
+                    "details": details,
+                }
+            ],
+            fields,
+        )
+
+
 def _startup_checks(root: Path, config: dict[str, Any], errors: list[str]) -> None:
     binding = config["t05_binding"]
     refs = [
@@ -500,8 +575,13 @@ def validate_run(
             ).fetchone()[0]
         )
         _independent_lineage_checks(con, config, root, checks)
+        source_trigger_checks, source_trigger_summary = source_trigger_validation(
+            con, config
+        )
+        checks.update(source_trigger_checks)
     finally:
         con.close()
+    _write_source_trigger_audits(output_dir, checks, source_trigger_summary)
     errors.extend(_audit_status_errors(output_dir, config))
     errors.extend(name for name, value in checks.items() if value)
     result = {
@@ -510,6 +590,8 @@ def validate_run(
         "status": "passed" if not errors else "failed",
         "errors": sorted(set(errors)),
         "checks": checks,
+        "source_trigger_oracle": True,
+        "source_trigger_summary": source_trigger_summary,
         "independent_component_transition_lineage": True,
         "formal_task_completed": False,
         "R2-T07_allowed_to_start": False,
@@ -532,6 +614,10 @@ def validate_run(
         + "正式回放基于 committed T03 dense facts 独立重建确认、component、event zone、membership 与 daily as-of。\n\n"
         + "## 验收\n\n"
         + "\n".join(f"- `{key}`: `{value}`" for key, value in checks.items())
+        + "\n\n## Source-trigger oracle\n\n"
+        + "\n".join(
+            f"- `{key}`: `{value}`" for key, value in source_trigger_summary.items()
+        )
         + "\n\n结论："
         + result["status"]
         + "。author-stage 不推进科学审阅或下游 gate。\n",
