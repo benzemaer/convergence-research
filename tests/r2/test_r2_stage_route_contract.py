@@ -36,9 +36,10 @@ class R2StageRouteContract(unittest.TestCase):
         )
         self.assertTrue(list((ROOT / "src/r2").glob("r2_t06*")))
         self.assertTrue((ROOT / "data/generated/r2/r2_t06").exists())
-        for task in range(7, 9):
-            self.assertFalse(list((ROOT / "src/r2").glob(f"r2_t{task:02d}*")))
-            self.assertFalse((ROOT / f"data/generated/r2/r2_t{task:02d}").exists())
+        self.assertTrue(list((ROOT / "src/r2").glob("r2_t07*")))
+        self.assertTrue((ROOT / "data/generated/r2/r2_t07").exists())
+        self.assertFalse(list((ROOT / "src/r2").glob("r2_t08*")))
+        self.assertFalse((ROOT / "data/generated/r2/r2_t08").exists())
         current = (
             (ROOT / "docs/tasks/README.md")
             .read_text(encoding="utf-8")
@@ -65,12 +66,21 @@ class R2StageRouteContract(unittest.TestCase):
         self.assertIn("R2-T05_formal_task_completed: false", current)
         self.assertIn("R2-T06_allowed_to_start: true", current)
         self.assertIn(
-            "R2-T06_status: successor_formal_run_complete_pending_independent_scientific_review",
+            "R2-T06_status: completed_via_PR_98_merged_pr_direct_binding",
             current,
         )
+        self.assertIn("R2-T06_scientific_review_status: passed", current)
         self.assertIn("R2-T06_startup_status: passed", current)
         self.assertIn("R2-T06_formal_run_executed: true", current)
-        self.assertIn("R2-T06_formal_task_completed: false", current)
+        self.assertIn("R2-T06_formal_task_completed: true", current)
+        self.assertIn("R2-T07_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T07_status: author_stage_package_complete_pending_independent_scientific_review",
+            current,
+        )
+        self.assertIn("R2-T07_startup_status: passed_merged_pr_direct_binding", current)
+        self.assertIn("R2-T07_formal_run_executed: true", current)
+        self.assertIn("R2-T07_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
 
 

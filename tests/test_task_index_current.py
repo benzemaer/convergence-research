@@ -12,11 +12,11 @@ class TaskIndexCurrentTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R2", current)
         self.assertIn(
-            "current_task: R2-T06 canonical 状态机无前视回放与一致性验收",
+            "current_task: R2-T07 状态版本、event-state registry 与最终 freeze manifest",
             current,
         )
         self.assertIn(
-            "next_planned_task: R2-T07",
+            "next_planned_task: R2-T08",
             current,
         )
         self.assertIn(
@@ -113,6 +113,22 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T05_scientific_review_status: needs_revision", current)
         self.assertIn("R2-T05_formal_run_executed: true", current)
         self.assertIn("R2-T05_formal_task_completed: false", current)
+        self.assertIn(
+            "R2-T06_status: completed_via_PR_98_merged_pr_direct_binding", current
+        )
+        self.assertIn("R2-T06_scientific_review_status: passed", current)
+        self.assertIn("R2-T06_formal_task_completed: true", current)
+        self.assertIn("R2-T07_allowed_to_start: true", current)
+        self.assertIn(
+            "R2-T07_status: author_stage_package_complete_pending_independent_scientific_review",
+            current,
+        )
+        self.assertIn(
+            "R2-T07_scientific_review_status: pending_independent_scientific_review",
+            current,
+        )
+        self.assertIn("R2-T07_formal_run_executed: true", current)
+        self.assertIn("R2-T07_formal_task_completed: false", current)
         self.assertIn("R3_allowed_to_start: false", current)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn(
