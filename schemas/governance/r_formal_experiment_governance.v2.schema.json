@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "applies_after_merge": {
+      "const": true
+    },
+    "applies_from_next_unstarted_formal_experiment": {
+      "const": true
+    },
+    "formal_result_gate_trigger": {
+      "const": "workflow_dispatch"
+    },
+    "formal_result_label": {
+      "const": "formal-result"
+    },
+    "allowed_scientific_review_states": {
+      "items": {
+        "enum": [
+          "APPROVED",
+          "COMMENTED"
+        ]
+      },
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "formal_result_pr_may_modify_implementation_surface": {
+      "const": false
+    },
+    "formal_result_pr_requires_scientific_pass": {
+      "const": true
+    },
+    "full_test_binding": {
+      "const": "current_pr_head"
+    },
+    "historical_r1_r2_formal_experiments_are_unchanged": {
+      "const": true
+    },
+    "implementation_pr_formal_run_allowed": {
+      "const": false
+    },
+    "implementation_pr_requires_scientific_pass": {
+      "const": false
+    },
+    "ordinary_ready_pr_premerge_full_required": {
+      "const": false
+    },
+    "scientific_pass_binding": {
+      "const": "artifact_commit_and_result_package"
+    },
+    "scientific_pass_exact_head_required": {
+      "const": false
+    },
+    "task_id": {
+      "const": "GOV-T02"
+    },
+    "version": {
+      "const": 2
+    }
+  },
+  "required": [
+    "version",
+    "task_id",
+    "applies_after_merge",
+    "applies_from_next_unstarted_formal_experiment",
+    "historical_r1_r2_formal_experiments_are_unchanged",
+    "implementation_pr_requires_scientific_pass",
+    "formal_result_pr_requires_scientific_pass",
+    "implementation_pr_formal_run_allowed",
+    "formal_result_pr_may_modify_implementation_surface",
+    "scientific_pass_binding",
+    "scientific_pass_exact_head_required",
+    "full_test_binding",
+    "ordinary_ready_pr_premerge_full_required",
+    "formal_result_gate_trigger",
+    "formal_result_label",
+    "allowed_scientific_review_states",
+    "legacy_v1_policy_path"
+  ],
+  "type": "object"
+}

@@ -74,6 +74,12 @@ D2_T13_CONFIG_PATH = (
     / "d2"
     / "tnskhdata_full_materialization_acceptance_contract.v1.json"
 )
+FORMAL_RESULT_GOVERNANCE_SCHEMA_PATH = (
+    ROOT / "schemas/governance/r_formal_experiment_governance.v2.schema.json"
+)
+FORMAL_RESULT_GOVERNANCE_CONFIG_PATH = (
+    ROOT / "configs/governance/r_formal_experiment_governance.v2.json"
+)
 SECURITY_MAPPING_REFERENCE_CONTRACT_PATH = (
     ROOT
     / "configs/d1"
@@ -317,6 +323,7 @@ CONFIGS = (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
+    (FORMAL_RESULT_GOVERNANCE_SCHEMA_PATH, FORMAL_RESULT_GOVERNANCE_CONFIG_PATH),
     (
         ROOT / "schemas/d2_formal_source_registry_contract.schema.json",
         ROOT / "configs/d2/formal_source_registry_contract.v1.json",

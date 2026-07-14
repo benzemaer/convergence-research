@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 import time
 import unittest
@@ -144,6 +145,7 @@ def _write_profile_result(
         "skipped_count": len(result.skipped),
         "elapsed_seconds": round(elapsed, 6),
         "completed_at_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "tested_head_sha": _git_head_sha(),
         "test_ids": sorted(test_ids),
         "test_files": sorted(result.file_test_counts),
         "file_test_counts": dict(sorted(result.file_test_counts.items())),
@@ -152,6 +154,21 @@ def _write_profile_result(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _git_head_sha() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    value = completed.stdout.strip()
+    return value if len(value) == 40 else None
 
 
 def _load_profiles(path: Path) -> dict[str, Any]:

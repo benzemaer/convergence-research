@@ -9,9 +9,19 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 ROOT = Path(__file__).resolve().parents[1]
 PAIRS = (
-    ("dataset_manifest", ROOT / "templates/dataset_manifest.example.json"),
-    ("run_manifest", ROOT / "templates/run_manifest.json"),
-    ("artifact_manifest", ROOT / "templates/artifact_manifest.example.json"),
+    (
+        ROOT / "schemas/dataset_manifest.schema.json",
+        ROOT / "templates/dataset_manifest.example.json",
+    ),
+    (ROOT / "schemas/run_manifest.schema.json", ROOT / "templates/run_manifest.json"),
+    (
+        ROOT / "schemas/artifact_manifest.schema.json",
+        ROOT / "templates/artifact_manifest.example.json",
+    ),
+    (
+        ROOT / "schemas/governance/formal_result_submission.schema.json",
+        ROOT / "configs/governance/formal_result_submission.example.json",
+    ),
 )
 
 
@@ -21,8 +31,7 @@ def load_json(path: Path) -> object:
 
 
 def main() -> int:
-    for name, example_path in PAIRS:
-        schema_path = ROOT / f"schemas/{name}.schema.json"
+    for schema_path, example_path in PAIRS:
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(

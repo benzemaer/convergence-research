@@ -146,9 +146,12 @@ branch 使用英文 slug。task 文件路径使用中文任务标题，可保留
 
 跨阶段治理 task 使用 `GOV-Txx`。GOV task 不改变 current_stage/current_task，只有直接推进研究阶段的 task 才能修改 current_task。
 
+GOV-T02 只约束本治理 PR 合并后、R3-R6 下一项尚未启动的 formal experiment。已经执行过的 R1/R2 formal experiment 不迁移、不重跑、不补写新门禁记录；新 task 必须从 implementation PR 开始，再以独立 formal-result PR 绑定 implementation merge SHA、正式结果 commit、独立 SCIENTIFIC PASS 和 generic final gate。
+
 ## 跨阶段研究治理
 
 - `GOV-T01` R1-R6 formal 实验结果包、异常门禁与独立科学审阅治理：completed via this PR。该治理 task 不改变当前 R1 task 指针。draft PR #77 is superseded by PR #78 / merge commit `8694cba4ddbd5a18e43ab18454dfc19cfb9903cd`；PR #77 不合并、不 rebase、不 cherry-pick，其结果不得作为当前 evidence、参数选择依据或后续 formal input。
+- `GOV-T02` 正式实验双 PR 与科学审阅门禁简化：pending；仅在本 PR 合并后从下一项尚未启动的 R3-R6 formal experiment 生效，不追溯管理已执行的 R1/R2 formal experiment。
 
 历史索引：D2-T01 完成后曾推进到 `current_task: D2-T02`、
 `next_planned_task: D2-T03`；D2-T02 完成本 PR 后当前索引继续推进到 D2-T03 / D2-T04。

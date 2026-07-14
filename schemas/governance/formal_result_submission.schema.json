@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "sha40": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "repoPath": {
+      "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\.\\.\\.)(?!.*[\\*?])[^\\r\\n]+$",
+      "type": "string"
+    },
+    "boundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repoPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allowed_post_review_paths": {
+      "items": {
+        "$ref": "#/$defs/repoPath"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "artifact_commit_sha": {
+      "$ref": "#/$defs/sha40"
+    },
+    "downstream_gate_scope": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "formal_execution_sha": {
+      "$ref": "#/$defs/sha40"
+    },
+    "implementation_actor": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "implementation_merge_sha": {
+      "$ref": "#/$defs/sha40"
+    },
+    "implementation_protected_paths": {
+      "items": {
+        "$ref": "#/$defs/repoPath"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "input_manifest": {
+      "$ref": "#/$defs/boundFile"
+    },
+    "pr_type": {
+      "const": "formal-result"
+    },
+    "result_analysis": {
+      "$ref": "#/$defs/boundFile"
+    },
+    "result_package": {
+      "$ref": "#/$defs/boundFile"
+    },
+    "run_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "scientific_review_protected_paths": {
+      "items": {
+        "$ref": "#/$defs/repoPath"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "task_id": {
+      "pattern": "^[A-Z][0-9]+-T[0-9]+(?:-[0-9]+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "pr_type",
+    "task_id",
+    "run_id",
+    "implementation_actor",
+    "implementation_merge_sha",
+    "formal_execution_sha",
+    "artifact_commit_sha",
+    "result_package",
+    "result_analysis",
+    "input_manifest",
+    "implementation_protected_paths",
+    "scientific_review_protected_paths",
+    "allowed_post_review_paths",
+    "downstream_gate_scope"
+  ],
+  "type": "object"
+}

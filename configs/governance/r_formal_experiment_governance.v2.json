@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "task_id": "GOV-T02",
+  "applies_after_merge": true,
+  "applies_from_next_unstarted_formal_experiment": true,
+  "historical_r1_r2_formal_experiments_are_unchanged": true,
+  "implementation_pr_requires_scientific_pass": false,
+  "formal_result_pr_requires_scientific_pass": true,
+  "implementation_pr_formal_run_allowed": false,
+  "formal_result_pr_may_modify_implementation_surface": false,
+  "scientific_pass_binding": "artifact_commit_and_result_package",
+  "scientific_pass_exact_head_required": false,
+  "full_test_binding": "current_pr_head",
+  "ordinary_ready_pr_premerge_full_required": false,
+  "formal_result_gate_trigger": "workflow_dispatch",
+  "formal_result_label": "formal-result",
+  "allowed_scientific_review_states": [
+    "APPROVED",
+    "COMMENTED"
+  ],
+  "legacy_v1_policy_path": "configs/governance/r_formal_experiment_governance.v1.json"
+}

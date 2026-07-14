@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "pr_type": "formal-result",
+  "task_id": "R3-T01",
+  "run_id": "R3-T01-example-run",
+  "implementation_actor": "codex",
+  "implementation_merge_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "formal_execution_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "result_package": {
+    "path": "data/generated/r3/r3_t01/example/result_package.json",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "result_analysis": {
+    "path": "docs/experiments/r3/r3_t01/example/result_analysis.md",
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "input_manifest": {
+    "path": "data/generated/r3/r3_t01/example/input_manifest.json",
+    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "implementation_protected_paths": [
+    "src/r3/r3_t01.py",
+    "scripts/r3/run_r3_t01.py",
+    "configs/r3/r3_t01.v1.json",
+    "schemas/r3/r3_t01.schema.json"
+  ],
+  "scientific_review_protected_paths": [
+    "src/r3/r3_t01.py",
+    "scripts/r3/run_r3_t01.py",
+    "configs/r3/r3_t01.v1.json",
+    "schemas/r3/r3_t01.schema.json",
+    "data/generated/r3/r3_t01/example/result_package.json",
+    "docs/experiments/r3/r3_t01/example/result_analysis.md",
+    "data/generated/r3/r3_t01/example/input_manifest.json"
+  ],
+  "allowed_post_review_paths": [
+    "docs/tasks/README.md",
+    "docs/evidence/r3/r3_t01_gate.md",
+    "docs/reviews/r3/r3_t01_review.md"
+  ],
+  "downstream_gate_scope": "R3-T02_only"
+}

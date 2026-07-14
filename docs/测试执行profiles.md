@@ -18,3 +18,9 @@
 开发中优先运行受影响阶段的 profile；纯单元、契约或 governance 改动可先运行 `unit-fast`，数据边界改动同时运行 `integration`。`pr-fast` 中 R0 full-grid 与 R1-T03 只运行最小 smoke，目标是快速跨阶段反馈；完整 R0 full-grid 由 `integration` 和 `full` 承载，完整 R1-T03 27-grid 由 `stage-r1` 和 `full` 承载。smoke 不能替代完整回归或 final gate。PR 提交前运行 `pr-fast`，final gate、合并前或 main push 仍必须运行 `full`。同一轮若已经运行 `full`，不要求先重复运行其覆盖范围内的 `pr-fast`。
 
 当前不启用测试并行。先使用最慢文件统计识别瓶颈，并审查临时目录、环境变量、模块缓存、数据库连接、固定端口和正式 docs 写入等共享状态风险。只有污染和顺序依赖得到消除后，才评估按测试文件并行；并行化不得改变 fail-closed gate 或掩盖非隔离测试。
+
+## GOV-T02 formal experiment 例外边界
+
+GOV-T02 合并后，从下一项尚未启动的 R3-R6 formal experiment 开始，implementation PR 只运行普通工程 CI，不执行 formal run，也不要求 SCIENTIFIC PASS。implementation PR 合并到 `main` 后，另开 formal-result PR，在当前 PR head 上运行 `full`，再由独立 reviewer 提交绑定 artifact commit 和 result package hash 的 SCIENTIFIC PASS，并手动运行 generic formal-result gate。
+
+已经执行过的 R1/R2 formal experiment 不回溯采用 GOV-T02，不重跑、不迁移历史 evidence。普通 PR 的 Draft/Ready 状态只表示审阅状态，不表示 formal experiment 类型；`quality.yml` 不再用 Ready 状态触发 formal scientific gate。
