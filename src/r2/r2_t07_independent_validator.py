@@ -1543,6 +1543,7 @@ def _write_successor_result_analysis(
             f"- T04: `{final.get('t04_run_id')}`; decision `{final.get('t04_decision_hash')}`; freeze decision `{final.get('t04_freeze_decision_hash')}`; freeze plan `{final.get('t04_freeze_plan_hash')}`.",
             f"- T05: `{final.get('t05_run_id')}`; database `{final.get('t05_database_sha256')}`; daily `{final.get('canonical_daily_state_sha256')}` ({final.get('canonical_daily_row_count')} rows); event `{final.get('canonical_event_zone_sha256')}` ({final.get('canonical_event_row_count')} rows); membership `{final.get('canonical_event_membership_sha256')}` ({final.get('canonical_membership_row_count')} rows).",
             f"- T06: `{final.get('t06_run_id')}`; merge `{final.get('t06_merge_commit')}`; reviewed `{final.get('t06_reviewed_head')}`; review `{final.get('t06_scientific_review_id')}`; artifact `{final.get('t06_artifact_commit')}`; replay database `{final.get('t06_replay_database_sha256')}`.",
+            f"- Core artifact refs: state registry `{final.get('state_version_registry')}`; interval registry `{final.get('interval_rule_registry')}`; event registry `{final.get('event_state_machine_registry')}`; decision log `{final.get('freeze_decision_log')}`.",
             "",
             "## Rule and consumer contracts",
             "",
