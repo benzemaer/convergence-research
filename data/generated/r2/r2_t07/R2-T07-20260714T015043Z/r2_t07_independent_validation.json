@@ -1,0 +1,1 @@
+{"R2-T08_allowed_to_start":false,"R3_allowed_to_start":false,"checks":{"decision_binding":"passed","downstream_gates":"passed","event_policy":"passed","manifest_binding":"passed","registry_contract":"passed"},"errors":[],"failure_count":0,"registry_freeze_only":true,"replay_performed":false,"run_id":"R2-T07-20260714T015043Z","status":"passed","task_id":"R2-T07"}
