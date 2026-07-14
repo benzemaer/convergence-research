@@ -508,7 +508,7 @@ def _build_acceptance_matrix(
             "row_count": canonical["membership"]["row_count"],
         },
         "database_sha256": canonical["database_sha256"],
-        "source_run": canonical["source_run_id"],
+        "source_run": config["canonical_contract"]["source_run_id"],
     }
     add(
         "R2A03_canonical_interface_binding",
