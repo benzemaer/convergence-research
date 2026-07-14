@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "artifact_count", "acceptance_gate_count", "r2_evidence_chain_passed", "r3_handoff_eligible", "formal_task_completed", "R3_allowed_to_start", "independent_validation_status", "anomaly_count", "committed_artifact_validation_status"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"const": "passed_author_stage_pending_scientific_review_and_merge"}, "artifact_count": {"type": "integer"}, "acceptance_gate_count": {"const": 8}, "r2_evidence_chain_passed": {"const": true}, "r3_handoff_eligible": {"const": true}, "formal_task_completed": {"const": false}, "R3_allowed_to_start": {"const": false}, "independent_validation_status": {"const": "passed"}, "anomaly_count": {"const": 0}, "committed_artifact_validation_status": {"type": "string"}}
+}

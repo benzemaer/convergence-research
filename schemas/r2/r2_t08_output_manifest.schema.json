@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "artifact_count", "artifact_hash_basis", "artifacts"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"const": "passed"}, "artifact_count": {"type": "integer"}, "artifact_hash_basis": {"const": "committed_artifact_bytes"}, "artifacts": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "size_bytes"], "properties": {"path": {"type": "string"}, "sha256": {"type": "string"}, "size_bytes": {"type": "integer"}}}}}
+}

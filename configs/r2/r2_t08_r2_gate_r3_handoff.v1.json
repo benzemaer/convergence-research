@@ -1,0 +1,102 @@
+{
+  "task_id": "R2-T08",
+  "config_version": "r2_t08_r2_gate_r3_handoff.v1",
+  "t07_binding": {
+    "merge_commit": "90aba54a54474185fa258afd605e24934bd9a864",
+    "reviewed_head": "6b78f79515475b80e133a1a0df251ce4ff5b4f88",
+    "authoritative_run": "R2-T07-20260714T034053Z",
+    "final_manifest_path": "data/generated/r2/r2_t07/R2-T07-20260714T034053Z/r2_final_freeze_manifest.json",
+    "final_manifest_sha256": "3a2aea336a535cfe2483a484c0c30c87f8ceb4d03334d4b205674ce30d574a7a",
+    "core_artifact_sha256": {
+      "state_version_registry": "b08f6254bc6c76481d449cd03a8b3622797970446055e47a5ca6725c6ae17e3e",
+      "interval_rule_registry": "d3da2885752b0a43ebd59672ae09e6b5579f34439be0f0635bd7ae70b51f4551",
+      "event_state_machine_registry": "51cbafb6a88f6d328f139970d52f8da04b4ef70d9119b1921dc080a60807d1e9",
+      "freeze_decision_log": "b939c761264edbc3457544dc85ed01c1a7b01917dd8daa2390dc8e34452ac69e"
+    },
+    "canonical": {
+      "daily": {
+        "stable_multiset_sha256": "64c396322b0e358a5c5440eebe90483d65f18a2cc6461a9a28f2cb72711da4ec",
+        "row_count": 3502132
+      },
+      "event": {
+        "stable_multiset_sha256": "4c0fcec9012fa46a7b68d3dd436e9e14881c44719f90def22490b8b6bc118acb",
+        "row_count": 5647
+      },
+      "membership": {
+        "stable_multiset_sha256": "5664a11fc7f4c61f3b6e8d4b0a465ed0d5c89447a38fc29cd12e966ab6340d0a",
+        "row_count": 27388
+      },
+      "database_path": "data/generated/r2/r2_t05/R2-T05-20260713T154957Z/r2_t05_canonical_materialization.duckdb",
+      "database_sha256": "4488f0cca26f703890dfea8701ed761e7de124467a6d373f2e0264dbd0215129"
+    }
+  },
+  "expected_frozen_versions": [
+    {
+      "state_version_id": "r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8",
+      "state_line": "S_PCT",
+      "W": 120,
+      "K": 3,
+      "q": {"qP": 0.2, "qC": 0.2, "qT": 0.25, "qV": 0.2},
+      "d": 2,
+      "g": 1,
+      "strict_core_source": "r2_s_pct_w120_q20_shared__d2__g1",
+      "warning_codes": ["affected_lift_deterioration_vs_baseline", "layer_q_complexity_added", "same_sample_formal_revalidation_only", "selection_path_not_independently_confirmed"]
+    },
+    {
+      "state_version_id": "r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8",
+      "state_line": "S_PCVT",
+      "W": 120,
+      "K": 3,
+      "q": {"qP": 0.2, "qC": 0.2, "qT": 0.2, "qV": 0.3},
+      "d": 2,
+      "g": 1,
+      "strict_core_source": "r2_s_pcvt_w120_q20_shared__d2__g1",
+      "warning_codes": ["V_security_negative_delta_share_material", "V_selectivity_reduced_but_guard_passed", "layer_q_complexity_added", "same_sample_formal_revalidation_only", "selection_path_not_independently_confirmed"]
+    }
+  ],
+  "expected_counts": {
+    "frozen_version_count": 2,
+    "t07_independent_numeric_checks": 28,
+    "t07_registry_reconciliation_checks": 17,
+    "t07_committed_artifact_count": 17
+  },
+  "canonical_contract": {
+    "source_run_id": "R2-T05-20260713T154957Z",
+    "availability_policy": "R3 contract design can read the manifest only; before data calculation R3 must acquire a canonical database with the exact database_sha256; same-name files are not substitutes; T06 replay tables are not substitutes for T05 canonical tables.",
+    "interfaces": {
+      "daily": {"logical_table_name": "r2_canonical_daily_state", "primary_key": ["state_version_id", "security_id", "trade_date"]},
+      "event": {"logical_table_name": "r2_canonical_event_zone", "primary_key": ["state_version_id", "event_id"]},
+      "membership": {"logical_table_name": "r2_canonical_event_membership", "primary_key": ["state_version_id", "event_id", "security_id", "trade_date"]}
+    }
+  },
+  "frozen_window_matrix": [
+    {"state_line": "S_PCT", "frozen_state_version_ids": ["r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8"], "frozen_windows": ["W120"], "overlap_handling_required": false, "status": "not_applicable_single_frozen_window", "reason": "Only W120 is frozen for this state line; W250 is rejected and is not a frozen window."},
+    {"state_line": "S_PCVT", "frozen_state_version_ids": ["r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8"], "frozen_windows": ["W120"], "overlap_handling_required": false, "status": "not_applicable_single_frozen_window", "reason": "Only W120 is frozen for this state line; W250 is rejected and is not a frozen window."}
+  ],
+  "strict_core_contract": {
+    "is_independent_product": false,
+    "is_independent_state_version": false,
+    "is_independent_event_namespace": false,
+    "may_be_used_for_r3_stratification": true,
+    "may_reselect_version": false
+  },
+  "release_anchor_obligation": {
+    "selection_owner": "R3",
+    "selected_anchor": null,
+    "selection_required_before_outcome_analysis": true,
+    "candidates": [
+      {"id": "provisional_component_exit", "event_time_field": "last_exit_observation_time", "real_time_known": true, "final_zone_exit_known": false, "reentry_within_g_possible": true, "lookahead_if_treated_as_final": true},
+      {"id": "finalized_zone", "event_time_field": "zone_finalization_time", "real_time_known": true, "final_zone_exit_known": true, "reentry_within_g_possible": false, "signal_delay_present": true},
+      {"id": "retrospective_final_exit", "event_time_field_options": ["last_confirmed_end_date", "last_exit_observation_time"], "historical_date": true, "known_as_final_at_historical_date": false, "requires_subsequent_no_reentry_confirmation": true, "may_not_be_presented_as_real_time": true}
+    ]
+  },
+  "global_limitations": ["selection_path_not_independently_confirmed", "T06 trigger_trade_date is non-authoritative", "same-sample formal revalidation", "W120 is not a predefined holding period", "strict-core is not a separate product", "no trading efficacy established", "no release semantics established"],
+  "forbidden_reinterpretations": ["no_trading_advantage_claim", "no_global_optimum_claim", "no_future_outcome_selection", "confirmed_exit_is_not_release", "quality_interruption_is_not_natural_release", "right_censor_is_not_natural_release", "event_zone_member_is_not_risk_set", "retrospective_membership_is_not_risk_set", "no_zone_finalization_time_backfill", "no_state_and_qualified_event_risk_set_mixing", "strict_core_is_not_independent_product", "no_PCT_parent_product", "transition_trigger_trade_date_not_causal_time", "no_cross_state_version_event_merge", "no_rejected_candidate_consumption", "release_anchor_must_be_selected_in_R3"],
+  "outputs": {
+    "acceptance_matrix": "r2_t08_acceptance_matrix.csv",
+    "final_acceptance": "r2_t08_final_acceptance.json",
+    "r3_handoff": "r2_t08_r3_handoff_manifest.json",
+    "frozen_window_matrix": "r2_t08_frozen_window_matrix.csv",
+    "release_anchor_obligation": "r2_t08_release_anchor_obligation.json"
+  }
+}

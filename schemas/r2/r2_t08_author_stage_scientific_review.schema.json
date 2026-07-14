@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "scientific_review_status", "formal_task_completed", "R3_allowed_to_start", "review_id", "merge_commit", "reviewed_head"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"const": "pending_independent_scientific_review"}, "scientific_review_status": {"const": "pending"}, "formal_task_completed": {"const": false}, "R3_allowed_to_start": {"const": false}, "review_id": {"type": ["null", "string"]}, "merge_commit": {"type": ["null", "string"]}, "reviewed_head": {"type": ["null", "string"]}}
+}

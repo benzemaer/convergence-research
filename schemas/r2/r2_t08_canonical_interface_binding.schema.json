@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["task_id", "run_id", "status", "interfaces", "database_not_opened", "database_replay_performed"],
+  "properties": {"task_id": {"const": "R2-T08"}, "run_id": {"type": "string"}, "status": {"const": "passed"}, "interfaces": {"type": "object", "additionalProperties": false, "required": ["daily", "event", "membership"], "properties": {"daily": {"$ref": "#/$defs/interface"}, "event": {"$ref": "#/$defs/interface"}, "membership": {"$ref": "#/$defs/interface"}}}, "database_not_opened": {"const": true}, "database_replay_performed": {"const": false}},
+  "$defs": {"interface": {"type": "object", "additionalProperties": false, "required": ["logical_table_name", "database_path", "database_sha256", "stable_multiset_sha256", "row_count", "primary_key", "source_run_id", "availability_policy"], "properties": {"logical_table_name": {"type": "string"}, "database_path": {"type": "string"}, "database_sha256": {"type": "string"}, "stable_multiset_sha256": {"type": "string"}, "row_count": {"type": "integer"}, "primary_key": {"type": "array", "items": {"type": "string"}}, "source_run_id": {"type": "string"}, "availability_policy": {"type": "string"}}}}
+}

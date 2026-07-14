@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {"type": "object", "additionalProperties": false, "required": ["gate_id", "expected", "observed", "mismatch_count", "status", "failure_code", "evidence_refs"], "properties": {"gate_id": {"enum": ["R2A01_t07_package_integrity", "R2A02_frozen_version_identity", "R2A03_canonical_interface_binding", "R2A04_registry_and_policy_closure", "R2A05_warning_and_limitation_preservation", "R2A06_window_and_strict_core_closure", "R2A07_release_anchor_obligation", "R2A08_unique_r3_entrypoint"]}, "expected": {"type": "string"}, "observed": {"type": "string"}, "mismatch_count": {"type": "integer"}, "status": {"enum": ["passed", "failed"]}, "failure_code": {"type": "string"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}}}
+}

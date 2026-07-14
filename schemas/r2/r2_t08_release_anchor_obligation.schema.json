@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["selection_owner", "selected_anchor", "selection_required_before_outcome_analysis", "candidates"],
+  "properties": {
+    "selection_owner": {"const": "R3"}, "selected_anchor": {"type": ["null", "string"]}, "selection_required_before_outcome_analysis": {"const": true},
+    "candidates": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string"}, "event_time_field": {"type": "string"}, "event_time_field_options": {"type": "array", "items": {"type": "string"}}, "real_time_known": {"type": "boolean"}, "final_zone_exit_known": {"type": "boolean"}, "reentry_within_g_possible": {"type": "boolean"}, "lookahead_if_treated_as_final": {"type": "boolean"}, "signal_delay_present": {"type": "boolean"}, "historical_date": {"type": "boolean"}, "known_as_final_at_historical_date": {"type": "boolean"}, "requires_subsequent_no_reentry_confirmation": {"type": "boolean"}, "may_not_be_presented_as_real_time": {"type": "boolean"}}, "required": ["id"]}}
+  }
+}
