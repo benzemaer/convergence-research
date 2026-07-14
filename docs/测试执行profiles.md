@@ -9,7 +9,7 @@
 | `unit-fast` | 小步开发和契约、governance 变更的快速反馈 | 纯单元、正式实验契约、阶段路由、任务索引、governance 契约与 validator 测试 |
 | `stage-r1` | R1 开发中的阶段回归 | `tests/r1/test*.py` 的现有完整发现范围 |
 | `stage-r2` | R2 开发中的阶段回归 | `tests/r2/test*.py` 的现有完整发现范围 |
-| `pr-fast` | PR 提交前的快速跨阶段反馈 | 使用关键 smoke 覆盖核心 R0/R1 接口，并保留其他既有 validator、正式实验契约和 governance 选择 |
+| `pr-fast` | 需要快速跨阶段回归时的手工诊断 | 使用关键 smoke 覆盖核心 R0/R1 接口，并保留其他既有 validator、正式实验契约和 governance 选择 |
 | `integration` | 数据与文件边界改动的集成回归 | provider、materializer、DuckDB、文件落盘、恢复账本及较重合成流程；包含完整 R0 full-grid materializer |
 | `full` | 需要完整回归时的手工诊断 | `tests` 下全部 `test*.py`，是完整回归的唯一入口，但不是自动门禁 |
 
