@@ -111,6 +111,70 @@ def _public_forbidden_fields(config: dict[str, Any]) -> tuple[str, ...]:
     )
 
 
+def _case_scoped_id_uniqueness(
+    cases: list[dict[str, Any]],
+) -> tuple[dict[str, bool], int]:
+    by_case: dict[str, bool] = {}
+    id_cases: dict[str, set[str]] = {}
+    for case in cases:
+        case_id = str(case.get("case_id"))
+        ids = [
+            str(attempt.get("exit_attempt_id"))
+            for attempt in case.get("actual_attempts", [])
+        ]
+        by_case[case_id] = len(ids) == len(set(ids))
+        for attempt_id in ids:
+            id_cases.setdefault(attempt_id, set()).add(case_id)
+    cross_case_reuse_count = sum(len(case_ids) > 1 for case_ids in id_cases.values())
+    return by_case, cross_case_reuse_count
+
+
+def _case_scoped_ordinal_conservation(
+    cases: list[dict[str, Any]],
+) -> dict[str, bool]:
+    by_case: dict[str, bool] = {}
+    for case in cases:
+        case_id = str(case.get("case_id"))
+        groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for attempt in case.get("actual_attempts", []):
+            key = (
+                str(attempt.get("state_version_id")),
+                str(attempt.get("event_id")),
+            )
+            groups.setdefault(key, []).append(attempt)
+        conserved = True
+        for group in groups.values():
+            ordered = sorted(
+                group,
+                key=lambda item: (
+                    str(item.get("exit_attempt_date")),
+                    str(item.get("exit_attempt_id")),
+                ),
+            )
+            actual = [int(item.get("exit_attempt_ordinal", -1)) for item in ordered]
+            if actual != list(range(1, len(ordered) + 1)):
+                conserved = False
+                break
+        by_case[case_id] = conserved
+    return by_case
+
+
+def _case_execution_summary(
+    cases: list[dict[str, Any]],
+) -> tuple[int, int, dict[str, dict[str, Any]]]:
+    registry: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        case_id = str(case.get("case_id"))
+        execution = case.get("case_execution", case)
+        if not isinstance(execution, dict):
+            execution = {}
+        registry[case_id] = execution
+    executable = sum(
+        int(item.get("executed_assertion_count", 0)) > 0 for item in registry.values()
+    )
+    return executable, len(cases) - executable, registry
+
+
 def _scan_pathologies(
     config: dict[str, Any],
     production: dict[str, Any],
@@ -139,6 +203,40 @@ def _scan_pathologies(
     if attempts and not divergences:
         findings.append(
             {"code": "COMPONENT_COUNT_ORDINALS_IDENTICAL", "message": "all attempts"}
+        )
+    id_uniqueness_by_case, _ = _case_scoped_id_uniqueness(cases)
+    for case_id, is_unique in id_uniqueness_by_case.items():
+        if not is_unique:
+            findings.append(
+                {
+                    "code": "CASE_ATTEMPT_ID_NOT_UNIQUE",
+                    "message": case_id,
+                }
+            )
+    ordinal_conservation_by_case = _case_scoped_ordinal_conservation(cases)
+    for case_id, is_conserved in ordinal_conservation_by_case.items():
+        if not is_conserved:
+            findings.append(
+                {
+                    "code": "CASE_ATTEMPT_ORDINAL_NOT_CONSERVED",
+                    "message": case_id,
+                }
+            )
+    _, non_executable_case_count, execution_registry = _case_execution_summary(cases)
+    for case_id, execution in execution_registry.items():
+        if int(execution.get("executed_assertion_count", 0)) == 0:
+            findings.append(
+                {
+                    "code": "SYNTHETIC_CASE_NOT_EXECUTABLE",
+                    "message": case_id,
+                }
+            )
+    if non_executable_case_count:
+        findings.append(
+            {
+                "code": "SYNTHETIC_CASE_NOT_EXECUTABLE",
+                "message": f"{non_executable_case_count} case(s)",
+            }
         )
     landmark_dates: list[str] = []
     horizon_dates: dict[str, list[str]] = {
@@ -170,6 +268,16 @@ def _scan_pathologies(
     if all(horizon_dates[key] for key in horizon_dates):
         if len({tuple(horizon_dates[key]) for key in horizon_dates}) == 1:
             findings.append({"code": "HORIZONS_IDENTICAL", "message": "H5/H10/H20/H30"})
+    for key, dates in horizon_dates.items():
+        if not dates:
+            findings.append({"code": "HORIZON_AVAILABILITY_ZERO", "message": key})
+    if all(not horizon_dates[key] for key in horizon_dates):
+        findings.append(
+            {
+                "code": "ALL_HORIZON_AVAILABILITY_ZERO",
+                "message": "H5/H10/H20/H30",
+            }
+        )
     for case in cases:
         attempts_by_id = {
             str(attempt.get("exit_attempt_id")): attempt
@@ -254,17 +362,11 @@ def _metrics(
     attempts = [
         attempt for case in cases for attempt in case.get("actual_attempts", [])
     ]
-    ids = [attempt.get("exit_attempt_id") for attempt in attempts]
-    ordinals_by_event: dict[tuple[str, str], list[int]] = {}
-    for attempt in attempts:
-        key = (str(attempt.get("state_version_id")), str(attempt.get("event_id")))
-        ordinals_by_event.setdefault(key, []).append(
-            int(attempt.get("exit_attempt_ordinal", -1))
-        )
-    ordinal_conservation = all(
-        sorted(values) == list(range(1, len(values) + 1))
-        for values in ordinals_by_event.values()
+    id_uniqueness_by_case, cross_case_identity_reuse_count = _case_scoped_id_uniqueness(
+        cases
     )
+    ordinal_conservation_by_case = _case_scoped_ordinal_conservation(cases)
+    executable_case_count, non_executable_case_count, _ = _case_execution_summary(cases)
     landmark_counts = {
         key: sum(
             bool(landmark.get(key, {}).get("available"))
@@ -296,8 +398,13 @@ def _metrics(
             )
             for case in cases
         ),
-        "id_uniqueness": len(ids) == len(set(ids)),
-        "ordinal_conservation": ordinal_conservation,
+        "id_uniqueness_by_case": id_uniqueness_by_case,
+        "id_uniqueness": all(id_uniqueness_by_case.values()),
+        "cross_case_identity_reuse_count": cross_case_identity_reuse_count,
+        "ordinal_conservation_by_case": ordinal_conservation_by_case,
+        "ordinal_conservation": all(ordinal_conservation_by_case.values()),
+        "executable_case_count": executable_case_count,
+        "non_executable_case_count": non_executable_case_count,
         "component_count_ordinal_divergence_count": sum(
             attempt.get("component_count_as_of_exit")
             != attempt.get("source_component_ordinal")
@@ -483,10 +590,23 @@ def analyze_run_dir(
             (
                 f"The run contains {metrics['synthetic_case_count']} synthetic cases "
                 f"and {metrics['attempt_count']} natural exit attempts. "
-                f"ID uniqueness={metrics['id_uniqueness']}; "
-                f"ordinal conservation={metrics['ordinal_conservation']}; "
+                f"case-scoped ID uniqueness={metrics['id_uniqueness']}; "
+                f"case-scoped ordinal conservation={metrics['ordinal_conservation']}; "
                 "production/independent case equality="
                 f"{production.get('cases') == independent.get('cases')}."
+            ),
+            (
+                "ID uniqueness is evaluated within each independent synthetic case. "
+                "Ordinal conservation is evaluated within "
+                "case_id × state_version_id × event_id; reuse of an identity across "
+                "different cases is expected and is not a duplicate. "
+                "Cross-case identity reuse count="
+                f"{metrics['cross_case_identity_reuse_count']}."
+            ),
+            (
+                f"Executable synthetic cases={metrics['executable_case_count']}; "
+                "non-executable synthetic cases="
+                f"{metrics['non_executable_case_count']}."
             ),
             (
                 f"Landmark availability: {landmark_summary}. "

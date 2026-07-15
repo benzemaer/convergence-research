@@ -9,6 +9,7 @@ from unittest.mock import patch
 from src.r3.r3_t01_protocol import verify_remote_startup_binding
 from src.r3.r3_t01_validator import (
     MUTATION_CODES,
+    validate_attempt_registry,
     validate_in_memory,
     validate_independence,
     validate_mutations,
@@ -123,7 +124,6 @@ class R3T01FailurePathTest(unittest.TestCase):
         self.assertEqual(result["scientific_review_status"], "passed")
 
     def test_s22_duplicate_registry_marker_is_present_for_manual_replay(self) -> None:
-        self.assertTrue(self.by_case["S22"]["duplicate_attempt_registry"])
         self.assertIn(
             "DUPLICATE_EXIT_ATTEMPT_ID",
             self.config["analysis_unit_contract"]["attempt_registry_fail_closed_codes"],
@@ -132,6 +132,29 @@ class R3T01FailurePathTest(unittest.TestCase):
             "ORDINAL_NOT_CONTIGUOUS",
             self.config["analysis_unit_contract"]["attempt_registry_fail_closed_codes"],
         )
+
+    def test_s22_executes_attempt_registry_validation(self) -> None:
+        attempts = [
+            {
+                "state_version_id": "STATE",
+                "event_id": "EV1",
+                "security_id": "SEC_A",
+                "exit_attempt_date": "2024-01-02",
+                "exit_attempt_id": "duplicate",
+                "exit_attempt_ordinal": 1,
+            },
+            {
+                "state_version_id": "STATE",
+                "event_id": "EV1",
+                "security_id": "SEC_A",
+                "exit_attempt_date": "2024-01-03",
+                "exit_attempt_id": "duplicate",
+                "exit_attempt_ordinal": 3,
+            },
+        ]
+        errors = validate_attempt_registry(attempts)
+        self.assertIn("DUPLICATE_EXIT_ATTEMPT_ID", errors)
+        self.assertIn("ORDINAL_NOT_CONTIGUOUS", errors)
 
 
 if __name__ == "__main__":

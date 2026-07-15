@@ -850,9 +850,39 @@ def build_synthetic_results(
                 security_id=attempt["security_id"],
                 t0_date=attempt["exit_attempt_date"],
             )
+        expected = case.get("expected", {})
+        has_executable_surface = bool(case.get("rows"))
+        checks = {
+            "attempt_count_checked": "attempt_count" in expected
+            and has_executable_surface,
+            "attempt_context_checked": bool(expected.get("attempts"))
+            and has_executable_surface,
+            "rejection_codes_checked": "rejection_codes" in expected
+            and has_executable_surface,
+            "landmarks_checked": bool(case.get("expected_landmarks"))
+            and has_executable_surface,
+            "registry_checked": bool(case.get("expected_registry_errors"))
+            and has_executable_surface,
+            "split_checked": isinstance(case.get("split_assertion"), dict | list)
+            and has_executable_surface,
+            "lifecycle_checked": isinstance(
+                case.get("lifecycle_assertion"), dict | list
+            )
+            and has_executable_surface,
+        }
+        executed_types = sorted(
+            key.removesuffix("_checked") for key, checked in checks.items() if checked
+        )
+        execution = {
+            "case_id": case["case_id"],
+            "executed_assertion_count": len(executed_types),
+            "executed_assertion_types": executed_types,
+            **checks,
+            "case_status": "executed" if executed_types else "not_executable",
+        }
         results.append(
             {
-                "case_id": case["case_id"],
+                **execution,
                 "state_version_security_groups": sorted(
                     {
                         (

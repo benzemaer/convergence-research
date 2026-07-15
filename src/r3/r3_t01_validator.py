@@ -1376,12 +1376,51 @@ def _compare_landmark_dict(
     case_id: str,
     report: ValidationReport,
 ) -> None:
-    for key in ("T1", "T2"):
-        if expected.get(key) != actual.get(key):
-            report.add("SYNTHETIC_LANDMARK_MISMATCH", f"{case_id}:{key}")
-    for key in ("H5", "H10", "H20", "H30"):
-        if expected.get(key) != actual.get(key):
-            report.add("SYNTHETIC_HORIZON_MISMATCH", f"{case_id}:{key}")
+    for key in ("T0", "T1", "T2", "H5", "H10", "H20", "H30"):
+        if key not in expected:
+            continue
+        expected_item = expected[key]
+        actual_item = actual.get(key)
+        matches = isinstance(actual_item, dict) and all(
+            actual_item.get(field) == value for field, value in expected_item.items()
+        )
+        if not matches:
+            report.add(
+                "SYNTHETIC_HORIZON_MISMATCH"
+                if key.startswith("H")
+                else "SYNTHETIC_LANDMARK_MISMATCH",
+                f"{case_id}:{key}",
+            )
+
+
+def _case_execution_metadata(case: dict[str, Any]) -> dict[str, Any]:
+    expected = case.get("expected", {})
+    has_executable_surface = bool(case.get("rows"))
+    checks = {
+        "attempt_count_checked": "attempt_count" in expected and has_executable_surface,
+        "attempt_context_checked": bool(expected.get("attempts"))
+        and has_executable_surface,
+        "rejection_codes_checked": "rejection_codes" in expected
+        and has_executable_surface,
+        "landmarks_checked": bool(case.get("expected_landmarks"))
+        and has_executable_surface,
+        "registry_checked": bool(case.get("expected_registry_errors"))
+        and has_executable_surface,
+        "split_checked": isinstance(case.get("split_assertion"), dict | list)
+        and has_executable_surface,
+        "lifecycle_checked": isinstance(case.get("lifecycle_assertion"), dict | list)
+        and has_executable_surface,
+    }
+    executed_types = sorted(
+        key.removesuffix("_checked") for key, checked in checks.items() if checked
+    )
+    return {
+        "case_id": case["case_id"],
+        "executed_assertion_count": len(executed_types),
+        "executed_assertion_types": executed_types,
+        **checks,
+        "case_status": "executed" if executed_types else "not_executable",
+    }
 
 
 def _compare_case(
@@ -1448,6 +1487,7 @@ def _compare_case(
         "attempts": attempts,
         "rejections": rejections,
         "landmarks": landmarks,
+        **_case_execution_metadata(case),
     }
 
 
@@ -1638,6 +1678,8 @@ def _mutation_result(
         "SYNTHETIC_ATTEMPT_COUNT_MISMATCH",
         "SYNTHETIC_ATTEMPT_ID_MISMATCH",
         "SYNTHETIC_REJECTION_MISMATCH",
+        "SYNTHETIC_LANDMARK_MISMATCH",
+        "SYNTHETIC_HORIZON_MISMATCH",
         "SYNTHETIC_CONTEXT_MISMATCH",
         "FINAL_VALIDATION_ARTIFACT_HASH_MISMATCH",
         "FINAL_VALIDATION_ARTIFACT_SIZE_MISMATCH",
@@ -2311,7 +2353,7 @@ def _independent_case_results(
         }
         results.append(
             {
-                "case_id": case["case_id"],
+                **_case_execution_metadata(case),
                 "state_version_security_groups": sorted(
                     {
                         (
@@ -2702,10 +2744,13 @@ def validate_in_memory(
                 first_landmarks,
                 report,
             )
+            if comparison["executed_assertion_count"] == 0:
+                report.add("SYNTHETIC_CASE_NOT_EXECUTABLE", case["case_id"])
             report.synthetic_case_results.append(comparison)
+            execution = _case_execution_metadata(case)
             report.replay_results.append(
                 {
-                    "case_id": case["case_id"],
+                    **execution,
                     "state_version_security_groups": sorted(
                         {
                             (
@@ -2722,7 +2767,7 @@ def validate_in_memory(
             )
             second_replay_results.append(
                 {
-                    "case_id": case["case_id"],
+                    **execution,
                     "state_version_security_groups": sorted(
                         {
                             (
