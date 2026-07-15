@@ -344,13 +344,33 @@ CONFIGS = (
 )
 
 
+def sidecar_config_pairs() -> tuple[tuple[Path, Path], ...]:
+    """Discover sidecar schema/config pairs without changing mainline semantics."""
+
+    pairs: list[tuple[Path, Path]] = []
+    schema_root = ROOT / "schemas" / "sidecar"
+    config_root = ROOT / "configs" / "sidecar"
+    for schema_path in sorted(schema_root.glob("*.schema.json")):
+        schema_stem = schema_path.name.removesuffix(".schema.json")
+        candidates = [config_root / f"{schema_stem}.v1.json"]
+        candidates.extend(sorted(config_root.glob(f"{schema_stem}_*.v1.json")))
+        candidates = [path for path in candidates if path.is_file()]
+        if len(candidates) != 1:
+            raise FileNotFoundError(
+                f"sidecar schema must have exactly one matching config: "
+                f"{schema_path} -> {candidates}"
+            )
+        pairs.append((schema_path, candidates[0]))
+    return tuple(pairs)
+
+
 def load_json(path: Path) -> object:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def main() -> int:
-    for schema_path, config_path in CONFIGS:
+    for schema_path, config_path in (*CONFIGS, *sidecar_config_pairs()):
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(
