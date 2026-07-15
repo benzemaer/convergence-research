@@ -276,6 +276,83 @@ class R3T01SecondRevisionTest(unittest.TestCase):
             {item["code"] for item in report.errors},
         )
 
+    def test_all_actual_attempt_fields_have_field_semantics(self) -> None:
+        case = self.by_case["S01"]
+        attempts, _ = enumerate_exit_attempts(
+            case["rows"], case["event_zones"], case["membership_rows"], self.config
+        )
+        self.assertTrue(attempts)
+        actual_fields = set(attempts[0])
+        registered_fields = {
+            item["field_name"] for item in self.config["field_semantics"]
+        }
+        self.assertTrue(
+            actual_fields <= registered_fields, actual_fields - registered_fields
+        )
+
+    def test_missing_attempt_field_semantics_fails_closed(self) -> None:
+        config = copy.deepcopy(self.config)
+        config["field_semantics"] = [
+            item
+            for item in config["field_semantics"]
+            if item["field_name"] != "source_component_end_date"
+        ]
+        report = validate_in_memory(
+            config, self.fixture, root=ROOT, check_upstream=False
+        )
+        missing = [
+            item
+            for item in report.errors
+            if item["code"] == "ATTEMPT_FIELD_SEMANTICS_MISSING"
+        ]
+        self.assertTrue(missing)
+        self.assertIn("source_component_end_date", missing[0]["message"])
+
+    def test_duplicate_field_semantics_fails_closed(self) -> None:
+        config = copy.deepcopy(self.config)
+        config["field_semantics"].append(copy.deepcopy(config["field_semantics"][0]))
+        report = validate_in_memory(
+            config, self.fixture, root=ROOT, check_upstream=False
+        )
+        duplicates = [
+            item
+            for item in report.errors
+            if item["code"] == "DUPLICATE_FIELD_SEMANTICS"
+        ]
+        self.assertTrue(duplicates)
+        self.assertIn("state_version_id", duplicates[0]["message"])
+
+    def test_source_component_qualified_uses_daily_event_zone_lineage(self) -> None:
+        field = next(
+            item
+            for item in self.config["field_semantics"]
+            if item["field_name"] == "source_component_qualified"
+        )
+        self.assertEqual(
+            field["source_artifact"],
+            "r2_canonical_daily_state + r2_canonical_event_zone",
+        )
+        self.assertNotIn("membership", field["available_time_source"].lower())
+
+    def test_membership_lineage_for_source_component_qualified_fails_closed(
+        self,
+    ) -> None:
+        config = copy.deepcopy(self.config)
+        field = next(
+            item
+            for item in config["field_semantics"]
+            if item["field_name"] == "source_component_qualified"
+        )
+        field["source_artifact"] = "r2_canonical_event_membership"
+        field["available_time_source"] = "component_qualified_as_of membership field"
+        report = validate_in_memory(
+            config, self.fixture, root=ROOT, check_upstream=False
+        )
+        self.assertIn(
+            "FIELD_SEMANTICS_LINEAGE_MISMATCH",
+            {item["code"] for item in report.errors},
+        )
+
     def test_analyzer_does_not_mark_completed_before_final_validation(self) -> None:
         manifest = json.loads(
             (self.clean_run_dir / "r3_t01_manifest.json").read_text(encoding="utf-8")

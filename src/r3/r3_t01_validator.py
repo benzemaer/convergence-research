@@ -32,6 +32,36 @@ EXPECTED_STATE_VERSIONS = (
     "r2_s_pct_W120_K3_qP20_qC20_qT25_qV20_d2_g1_v8",
     "r2_s_pcvt_W120_K3_qP20_qC20_qT20_qV30_d2_g1_v8",
 )
+EXPECTED_ATTEMPT_OUTPUT_FIELDS = {
+    "state_version_id",
+    "event_id",
+    "security_id",
+    "exit_attempt_id",
+    "source_component_id",
+    "source_component_start_date",
+    "source_component_end_date",
+    "source_component_qualification_date",
+    "source_component_qualified",
+    "source_component_ordinal",
+    "component_count_as_of_exit",
+    "frozen_g",
+    "last_observed_zone_revision_before_exit",
+    "current_exit_membership_zone_revision",
+    "exit_attempt_date",
+    "exit_attempt_time",
+    "exit_attempt_time_missing_reason",
+    "prior_confirmed_state",
+    "exit_raw_state",
+    "exit_reason",
+    "event_status_as_of_exit",
+    "current_membership_row_present",
+    "current_membership_available_time",
+    "current_membership_availability_is_causal_for_t0",
+    "membership_resolution_status",
+    "unqualified_reentry",
+    "attempt_weight",
+    "exit_attempt_ordinal",
+}
 EXPECTED_ARTIFACT_HASHES = {
     "r2_t08_r3_handoff_manifest.json": (
         "6cefa5c7bcc97a0d64cc0d1febd27c25f84ab69a89b74ccf238fd36e9cb83ba1"
@@ -1160,9 +1190,39 @@ def _check_exact_contract_values(
 
 
 def _check_field_semantics(config: dict[str, Any], report: ValidationReport) -> None:
+    field_semantics = config.get("field_semantics", [])
     fields = {
-        item.get("field_name"): item for item in config.get("field_semantics", [])
+        item.get("field_name"): item
+        for item in field_semantics
+        if isinstance(item, dict)
     }
+    field_name_counts: dict[str, int] = {}
+    for item in field_semantics:
+        if isinstance(item, dict) and isinstance(item.get("field_name"), str):
+            name = item["field_name"]
+            field_name_counts[name] = field_name_counts.get(name, 0) + 1
+    for name in sorted(name for name, count in field_name_counts.items() if count > 1):
+        report.add("DUPLICATE_FIELD_SEMANTICS", name)
+
+    registered_fields = set(field_name_counts)
+    for name in sorted(EXPECTED_ATTEMPT_OUTPUT_FIELDS - registered_fields):
+        report.add("ATTEMPT_FIELD_SEMANTICS_MISSING", name)
+
+    qualified_field = fields.get("source_component_qualified")
+    qualified_available_time = str(
+        qualified_field.get("available_time_source", "") if qualified_field else ""
+    )
+    qualified_source_artifact = (
+        qualified_field.get("source_artifact") if qualified_field else None
+    )
+    if (
+        qualified_source_artifact
+        != "r2_canonical_daily_state + r2_canonical_event_zone"
+        or "membership" in qualified_available_time.lower()
+        or "r2_canonical_event_membership" in qualified_available_time.lower()
+    ):
+        report.add("FIELD_SEMANTICS_LINEAGE_MISMATCH", "source_component_qualified")
+
     required = {
         "state_version_id",
         "event_id",

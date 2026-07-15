@@ -577,6 +577,34 @@
       "derivation_rule": "r3_causal_confirmed_run_v2 full SHA-256 over causal start-date identity"
     },
     {
+      "field_name": "source_component_start_date",
+      "type": "date",
+      "nullable": false,
+      "availability_class": "as_of_T0",
+      "available_time_source": "event-zone first_component_start_date for the first causal component; first daily row trade_date for later causal components",
+      "allowed_at_T0": true,
+      "allowed_at_T1": true,
+      "allowed_at_T2": true,
+      "audit_only": false,
+      "forbidden_model_feature": false,
+      "source_artifact": "r2_canonical_daily_state + r2_canonical_event_zone",
+      "derivation_rule": "causal component start date used by r3_causal_confirmed_run_v2 identity"
+    },
+    {
+      "field_name": "source_component_end_date",
+      "type": "date",
+      "nullable": false,
+      "availability_class": "as_of_T0",
+      "available_time_source": "direct prior confirmed daily row belonging to the causal component",
+      "allowed_at_T0": true,
+      "allowed_at_T1": true,
+      "allowed_at_T2": true,
+      "audit_only": false,
+      "forbidden_model_feature": false,
+      "source_artifact": "r2_canonical_daily_state",
+      "derivation_rule": "last confirmed daily trade_date in the causal component immediately before the exit attempt"
+    },
+    {
       "field_name": "source_component_ordinal",
       "type": "integer",
       "nullable": false,
@@ -623,14 +651,28 @@
       "type": "boolean",
       "nullable": false,
       "availability_class": "as_of_T0",
-      "available_time_source": "component_qualified_as_of membership field",
+      "available_time_source": "event-zone first_qualification_time for the first causal component; daily component_qualified_as_of for later causal components",
       "allowed_at_T0": true,
       "allowed_at_T1": true,
       "allowed_at_T2": true,
       "audit_only": false,
       "forbidden_model_feature": false,
-      "source_artifact": "r2_canonical_event_membership",
+      "source_artifact": "r2_canonical_daily_state + r2_canonical_event_zone",
       "derivation_rule": "true iff source_component_qualification_date is non-null"
+    },
+    {
+      "field_name": "unqualified_reentry",
+      "type": "boolean",
+      "nullable": false,
+      "availability_class": "as_of_T0",
+      "available_time_source": "causal component qualification status through exit_attempt_date",
+      "allowed_at_T0": true,
+      "allowed_at_T1": true,
+      "allowed_at_T2": true,
+      "audit_only": false,
+      "forbidden_model_feature": false,
+      "source_artifact": "r2_canonical_daily_state + r2_canonical_event_zone",
+      "derivation_rule": "not source_component_qualified"
     },
     {
       "field_name": "last_observed_zone_revision_before_exit",
@@ -827,6 +869,20 @@
       "forbidden_model_feature": false,
       "source_artifact": "r2_canonical_daily_state",
       "derivation_rule": "current row event_status_as_of"
+    },
+    {
+      "field_name": "attempt_weight",
+      "type": "number",
+      "nullable": false,
+      "availability_class": "contract_metadata",
+      "available_time_source": "R3-T01 analysis-unit contract",
+      "allowed_at_T0": true,
+      "allowed_at_T1": true,
+      "allowed_at_T2": true,
+      "audit_only": false,
+      "forbidden_model_feature": false,
+      "source_artifact": "R3-T01 analysis-unit contract",
+      "derivation_rule": "constant 1.0 for every primary exit attempt"
     },
     {
       "field_name": "final_component_count",
