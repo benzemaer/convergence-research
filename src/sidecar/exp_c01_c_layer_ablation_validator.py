@@ -71,6 +71,7 @@ YEAR_ACTIVE_CONCENTRATION_THRESHOLD = 0.50
 SECURITY_ACTIVE_CONCENTRATION_THRESHOLD = 0.10
 CANDIDATE_ACTIVE_COUNT_RATIO_LOW = 0.25
 CANDIDATE_ACTIVE_COUNT_RATIO_HIGH = 4.0
+INTERSECTION_INTEGER_TOLERANCE = 1e-6
 REQUIRED_RESULT_ANALYSIS_HEADINGS = (
     "## 1. Actual run / reviewed SHA / input lineage",
     "## 2. Fixed parameters and variants",
@@ -1650,13 +1651,14 @@ def _recompute_overlap_ratio_fields(
     *,
     denominator: int,
     include_symmetric_difference: bool,
-) -> tuple[float, list[str]]:
+) -> tuple[int, list[str]]:
     """Cross-check overlap ratios from the persisted count fields.
 
     Year and security profiles do not persist a full n2x2 table.  Their three
     overlap ratios therefore provide redundant implied-intersection estimates;
     inconsistent estimates are still a readback failure rather than silently
-    trusting one copied CSV value.
+    trusting one copied CSV value.  The selected intersection is an integer so
+    normal CSV float round-tripping cannot turn a valid count into a mismatch.
     """
 
     baseline = _int(row.get("baseline_true_count"))
@@ -1667,26 +1669,34 @@ def _recompute_overlap_ratio_fields(
     if baseline > denominator or candidate > denominator:
         errors.append(f"active_count_exceeds_denominator:{prefix}")
 
-    candidates: list[float] = []
+    implied_intersections: list[float] = []
     retention = _optional_float(row.get("baseline_retention"))
     precision = _optional_float(row.get("candidate_precision"))
     jaccard = _optional_float(row.get("jaccard"))
     if retention is not None:
-        candidates.append(retention * baseline)
+        implied_intersections.append(retention * baseline)
     if precision is not None:
-        candidates.append(precision * candidate)
+        implied_intersections.append(precision * candidate)
     if jaccard is not None:
         if jaccard < 0.0 or jaccard > 1.0:
             errors.append(f"jaccard_out_of_range:{prefix}")
         elif baseline + candidate == 0:
-            candidates.append(0.0)
+            implied_intersections.append(0.0)
         else:
-            candidates.append(jaccard * (baseline + candidate) / (1.0 + jaccard))
+            implied_intersections.append(
+                jaccard * (baseline + candidate) / (1.0 + jaccard)
+            )
 
-    intersection = candidates[0] if candidates else 0.0
-    if any(abs(value - intersection) > 1e-12 for value in candidates[1:]):
+    rounded_intersections = [int(round(value)) for value in implied_intersections]
+    for value, rounded in zip(
+        implied_intersections, rounded_intersections, strict=True
+    ):
+        if abs(value - rounded) > INTERSECTION_INTEGER_TOLERANCE:
+            errors.append(f"implied_intersection_not_integer:{prefix}")
+    if rounded_intersections and len(set(rounded_intersections)) != 1:
         errors.append(f"implied_intersection_mismatch:{prefix}")
-    if intersection < -1e-12 or intersection > min(baseline, candidate) + 1e-12:
+    intersection = rounded_intersections[0] if rounded_intersections else 0
+    if intersection < 0 or intersection > min(baseline, candidate):
         errors.append(f"implied_intersection_out_of_range:{prefix}")
 
     expected = {

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import csv
 import hashlib
+import io
 import json
 import tempfile
 import unittest
@@ -13,6 +15,7 @@ from src.sidecar.exp_c01_c_layer_ablation import (
     build_profiles,
 )
 from src.sidecar.exp_c01_c_layer_ablation_validator import (
+    _recompute_overlap_ratio_fields,
     _validate_result_analysis,
     recompute_readback_metrics,
     scan_anomalies,
@@ -121,6 +124,42 @@ class ExpC01ValidatorTest(unittest.TestCase):
                 for item in security_result["mismatches"]
             )
         )
+
+    def test_large_count_ratio_roundtrip_uses_integer_intersection(self) -> None:
+        row = {
+            "baseline_true_count": "750000",
+            "candidate_true_count": "650000",
+            "jaccard": str(500000 / 900000),
+            "baseline_retention": str(500000 / 750000),
+            "candidate_precision": str(500000 / 650000),
+            "symmetric_difference_rate": str(400000 / 1000000),
+        }
+        buffer = io.StringIO()
+        writer = csv.DictWriter(buffer, fieldnames=list(row), lineterminator="\n")
+        writer.writeheader()
+        writer.writerow(row)
+        roundtripped = next(csv.DictReader(io.StringIO(buffer.getvalue())))
+
+        intersection, errors = _recompute_overlap_ratio_fields(
+            roundtripped,
+            "year:large",
+            denominator=1_000_000,
+            include_symmetric_difference=True,
+        )
+        self.assertEqual(intersection, 500_000)
+        self.assertEqual(errors, [])
+
+        mutated = dict(roundtripped)
+        mutated["candidate_precision"] = str(
+            float(roundtripped["candidate_precision"]) + 0.001
+        )
+        _intersection, mutation_errors = _recompute_overlap_ratio_fields(
+            mutated,
+            "year:large",
+            denominator=1_000_000,
+            include_symmetric_difference=True,
+        )
+        self.assertIn("implied_intersection_mismatch:year:large", mutation_errors)
 
     def test_anomaly_scan_catches_all_zero_all_one_all_null_and_identical(self) -> None:
         headers = (
