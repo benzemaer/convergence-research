@@ -12,11 +12,15 @@ class TaskIndexCurrentTest(unittest.TestCase):
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
         self.assertIn("current_stage: R3", current)
         self.assertIn(
-            "current_task: R3-T01 研究协议、T0 与分析单位冻结",
+            "current_task: R3-T02 对照路径、标准化与经验边界契约",
             current,
         )
         self.assertIn(
-            "next_planned_task: R3-T02 对照路径、标准化与经验边界契约",
+            "previous_completed_task: R3-T01 研究协议、T0 与分析单位冻结",
+            current,
+        )
+        self.assertIn(
+            "next_planned_task: R3-T03 五类未来路径与技术状态标签契约",
             current,
         )
         self.assertIn(
@@ -147,14 +151,22 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T08_formal_task_completed: true", current)
         self.assertIn("R3_allowed_to_start: true", current)
         self.assertIn("R3-T01_allowed_to_start: true", current)
-        self.assertIn("R3-T01_status: implementation_review", current)
-        self.assertIn("R3-T01_implementation_review_status: pending", current)
-        self.assertIn("R3-T01_formal_run_allowed: false", current)
-        self.assertIn("R3-T01_formal_run_status: not_started", current)
-        self.assertIn("R3-T01_result_review_status: not_started", current)
-        self.assertIn("R3-T01_next_task_allowed: false", current)
-        self.assertIn("R3-T01_readme_advanced: false", current)
-        self.assertIn("R3-T02_allowed_to_start: false", current)
+        self.assertIn("R3-T01_status: completed_via_PR_103_accepted", current)
+        self.assertIn("R3-T01_implementation_review_status: approved", current)
+        self.assertIn(
+            "R3-T01_reviewed_implementation_sha: "
+            "460728eb42fb4464b781a34595f3ad544677c113",
+            current,
+        )
+        self.assertIn("R3-T01_formal_run_allowed: true", current)
+        self.assertIn("R3-T01_formal_run_status: completed", current)
+        self.assertIn("R3-T01_formal_result_status: accepted", current)
+        self.assertIn("R3-T01_result_review_status: passed", current)
+        self.assertIn("R3-T01_scientific_review_status: passed", current)
+        self.assertIn("R3-T01_formal_run_executed: true", current)
+        self.assertIn("R3-T01_next_task_allowed: true", current)
+        self.assertIn("R3-T01_readme_advanced: true", current)
+        self.assertIn("R3-T02_allowed_to_start: true", current)
         self.assertIn("R3-T08_allowed_to_start: false", current)
         self.assertIn("R4_allowed_to_start: false", current)
         self.assertIn("## R3：收敛区间脱离、经验路径边界与未来路径标签", text)
