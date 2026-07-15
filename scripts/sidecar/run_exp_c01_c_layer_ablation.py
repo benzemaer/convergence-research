@@ -38,6 +38,7 @@ from src.sidecar.exp_c01_c_layer_ablation import (  # noqa: E402
 )
 from src.sidecar.exp_c01_c_layer_ablation_validator import (  # noqa: E402
     EXPECTED_VARIANT_RULES,
+    _canonical_optional_date_text,
     build_input_availability_summary,
     extract_source_artifact_declaration,
     read_csv_artifact,
@@ -533,8 +534,8 @@ def inspect_input_artifact(
                 f"MAX({_quote_identifier('trading_date')}) "
                 f"FROM {_quote_identifier(table)}"
             ).fetchone()
-            actual_date_min = _date_value_to_text(date_values[0])
-            actual_date_max = _date_value_to_text(date_values[1])
+            actual_date_min = _canonical_optional_date_text(date_values[0])
+            actual_date_max = _canonical_optional_date_text(date_values[1])
         if declaration.get(
             "security_count"
         ) is not None and actual_security_count != int(declaration["security_count"]):
@@ -543,21 +544,17 @@ def inspect_input_artifact(
                 f"declared={declaration['security_count']} "
                 f"actual={actual_security_count}"
             )
-        if declaration.get("date_min") not in (
-            None,
-            "",
-        ) and actual_date_min != _canonical_date_text(declaration["date_min"]):
+        declared_date_min = _canonical_optional_date_text(declaration.get("date_min"))
+        declared_date_max = _canonical_optional_date_text(declaration.get("date_max"))
+        if declared_date_min is not None and actual_date_min != declared_date_min:
             raise RuntimeError(
                 f"source manifest date_min mismatch for {table}: "
-                f"declared={declaration['date_min']} actual={actual_date_min}"
+                f"declared={declared_date_min} actual={actual_date_min}"
             )
-        if declaration.get("date_max") not in (
-            None,
-            "",
-        ) and actual_date_max != _canonical_date_text(declaration["date_max"]):
+        if declared_date_max is not None and actual_date_max != declared_date_max:
             raise RuntimeError(
                 f"source manifest date_max mismatch for {table}: "
-                f"declared={declaration['date_max']} actual={actual_date_max}"
+                f"declared={declared_date_max} actual={actual_date_max}"
             )
         return {
             "actual_table": table,
@@ -1229,21 +1226,6 @@ def _assert_identifier(value: str) -> None:
 def _quote_identifier(value: str) -> str:
     _assert_identifier(value)
     return f'"{value}"'
-
-
-def _date_value_to_text(value: Any) -> str | None:
-    if value is None:
-        return None
-    if hasattr(value, "isoformat"):
-        return value.isoformat()
-    return str(value).replace("T", " ").split(" ", 1)[0]
-
-
-def _canonical_date_text(value: Any) -> str:
-    text = _date_value_to_text(value) or ""
-    if re.fullmatch(r"[0-9]{8}", text):
-        return f"{text[:4]}-{text[4:6]}-{text[6:]}"
-    return text
 
 
 def _utc_now() -> str:

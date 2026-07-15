@@ -9,6 +9,7 @@ import math
 import re
 import subprocess
 from collections.abc import Mapping, Sequence
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -1844,30 +1845,31 @@ def _validate_duckdb_binding(
                         "security_count_mismatch:"
                         f"{expected_security_count}:{actual_security_count}"
                     )
+            declared_date_min = _canonical_optional_date_text(expected_date_min)
+            declared_date_max = _canonical_optional_date_text(expected_date_max)
             if (
-                expected_date_min not in (None, "")
-                or expected_date_max not in (None, "")
+                declared_date_min is not None or declared_date_max is not None
             ) and "trading_date" in columns:
                 actual_date_min, actual_date_max = connection.execute(
                     f"SELECT MIN({_quote_identifier('trading_date')}), "
                     f"MAX({_quote_identifier('trading_date')}) "
                     f"FROM {_quote_identifier(table)}"
                 ).fetchone()
-                actual_date_min_text = _canonical_date_text(actual_date_min)
-                actual_date_max_text = _canonical_date_text(actual_date_max)
-                if expected_date_min not in (
-                    None,
-                    "",
-                ) and actual_date_min_text != _canonical_date_text(expected_date_min):
+                actual_date_min_text = _canonical_optional_date_text(actual_date_min)
+                actual_date_max_text = _canonical_optional_date_text(actual_date_max)
+                if (
+                    declared_date_min is not None
+                    and actual_date_min_text != declared_date_min
+                ):
                     errors.append(
-                        f"date_min_mismatch:{expected_date_min}:{actual_date_min_text}"
+                        f"date_min_mismatch:{declared_date_min}:{actual_date_min_text}"
                     )
-                if expected_date_max not in (
-                    None,
-                    "",
-                ) and actual_date_max_text != _canonical_date_text(expected_date_max):
+                if (
+                    declared_date_max is not None
+                    and actual_date_max_text != declared_date_max
+                ):
                     errors.append(
-                        f"date_max_mismatch:{expected_date_max}:{actual_date_max_text}"
+                        f"date_max_mismatch:{declared_date_max}:{actual_date_max_text}"
                     )
             return errors
         finally:
@@ -1955,16 +1957,32 @@ def _canonical_text_errors(raw: bytes) -> list[str]:
     return errors
 
 
-def _canonical_date_text(value: Any) -> str:
+def _canonical_optional_date_text(value: Any) -> str | None:
+    """Return one strict YYYY-MM-DD representation or fail closed."""
+
     if value is None:
-        return ""
-    if hasattr(value, "isoformat"):
-        text = value.isoformat()
-    else:
-        text = str(value).replace("T", " ").split(" ", 1)[0]
-    if re.fullmatch(r"[0-9]{8}", text):
-        return f"{text[:4]}-{text[4:6]}-{text[6:]}"
-    return text
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, str):
+        if not value or value.isspace():
+            return None
+        if re.fullmatch(r"[0-9]{8}", value):
+            try:
+                return date(
+                    int(value[:4]), int(value[4:6]), int(value[6:8])
+                ).isoformat()
+            except ValueError as exc:
+                raise ValueError(f"invalid calendar date: {value!r}") from exc
+        if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+            try:
+                return date.fromisoformat(value).isoformat()
+            except ValueError as exc:
+                raise ValueError(f"invalid calendar date: {value!r}") from exc
+        raise ValueError(f"unsupported date format: {value!r}")
+    raise ValueError(f"unsupported date type: {type(value).__name__}")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
