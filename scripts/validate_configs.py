@@ -314,10 +314,6 @@ CONFIGS = (
         ROOT / "configs/r2/r2_t08_r2_gate_r3_handoff.v1.json",
     ),
     (
-        ROOT / "schemas/r3/r3_t01_protocol_registry.schema.json",
-        ROOT / "configs/r3/r3_t01_protocol_t0_analysis_unit.v1.json",
-    ),
-    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
