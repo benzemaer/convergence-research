@@ -122,6 +122,57 @@ class ExpC01CoreTest(unittest.TestCase):
         self.assertEqual(profile["segment_count"], 2)
         self.assertEqual(profile["segment_duration_sum"], 2)
 
+    def test_valid_step_count_uses_adjacent_pairs_inside_valid_blocks(self) -> None:
+        rows = []
+        for trading_date, c1, c2 in (
+            ("2024-01-01", 0.90, 0.90),
+            ("2024-01-02", 0.50, 0.50),
+            ("2024-01-03", 0.90, 0.90),
+        ):
+            rows.extend(pair(trading_date, c1, c2))
+        profile = build_profiles(rows)["variant_profile"][0]
+        self.assertEqual(profile["eligible_row_count"], 3)
+        self.assertEqual(profile["valid_block_count"], 1)
+        self.assertEqual(profile["valid_step_count"], 2)
+        self.assertEqual(profile["transition_count"], 2)
+        self.assertEqual(profile["transition_rate_per_100_valid_steps"], 100.0)
+
+        rows = []
+        rows.extend(pair("2024-01-01", 0.90, 0.90))
+        rows.extend(pair("2024-01-02", 0.50, 0.50))
+        rows.extend(
+            pair(
+                "2024-01-03",
+                None,
+                None,
+                c1_eligible=False,
+                c2_eligible=False,
+                c1_status="unknown",
+                c2_status="unknown",
+            )
+        )
+        rows.extend(pair("2024-01-04", 0.90, 0.90))
+        profile = build_profiles(rows)["variant_profile"][0]
+        self.assertEqual(profile["eligible_row_count"], 3)
+        self.assertEqual(profile["valid_block_count"], 2)
+        self.assertEqual(profile["valid_step_count"], 1)
+        self.assertEqual(profile["transition_count"], 1)
+        self.assertEqual(profile["transition_rate_per_100_valid_steps"], 100.0)
+
+        profile = build_profiles(pair("2024-01-01", 0.90, 0.90))["variant_profile"][0]
+        self.assertEqual(profile["valid_step_count"], 0)
+        self.assertIsNone(profile["transition_rate_per_100_valid_steps"])
+
+    def test_max_year_active_share_is_concentration_not_within_year_rate(self) -> None:
+        rows = []
+        for index in range(9):
+            rows.extend(pair(f"2023-01-{index + 1:02d}", 0.90, 0.90))
+        rows.extend(pair("2024-01-01", 0.90, 0.90))
+        profile = build_profiles(rows)["variant_profile"][0]
+        self.assertEqual(profile["active_true_count"], 10)
+        self.assertAlmostEqual(profile["max_year_active_share"], 0.9)
+        self.assertAlmostEqual(profile["max_year_active_rate"], 1.0)
+
     def test_overlap_and_segment_conservation(self) -> None:
         rows = []
         rows.extend(pair("2024-01-01", 0.90, 0.70))

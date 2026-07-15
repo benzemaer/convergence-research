@@ -54,6 +54,9 @@
   "input_contract": {
     "input_root_cli": "--input-root",
     "input_root_env": "CONVERGENCE_RESEARCH_INPUT_ROOT",
+    "source_manifest_required": true,
+    "source_manifest_cli": "--input-manifest",
+    "source_manifest_resolution": "declared_path_relative_to_manifest_parent; basename_local_only_opt_in; no_recursive_search",
     "manifest_filenames": [
       "r0_t05_score_results_manifest.json",
       "r0_t10_authorized_input_manifest.json"
@@ -165,7 +168,8 @@
         "singleton_segment_ratio",
         "unique_security_count",
         "nonzero_year_count",
-        "max_year_active_share"
+        "max_year_active_share",
+        "max_year_active_rate"
       ],
       "overlap_profile": [
         "left_variant",
@@ -246,6 +250,12 @@
       ]
     }
   },
+  "anomaly_thresholds": {
+    "year_active_concentration_share": 0.5,
+    "security_active_concentration_share": 0.1,
+    "candidate_active_count_ratio_low": 0.25,
+    "candidate_active_count_ratio_high": 4.0
+  },
   "prohibited_output_field_tokens": [
     "P",
     "T",
@@ -265,6 +275,7 @@
   "formal_run_controls": {
     "required_cli_flags": [
       "--input-root",
+      "--input-manifest",
       "--output-root",
       "--run-id",
       "--allow-formal-run",
@@ -273,6 +284,8 @@
     "implementation_stage_must_not_open_formal_duckdb": true,
     "formal_run_requires_explicit_reviewed_implementation_sha": true,
     "formal_run_requires_readback_analysis": true,
-    "formal_run_requires_baseline_reconciliation_zero": true
+    "formal_run_requires_baseline_reconciliation_zero": true,
+    "formal_run_requires_authorized_source_manifest": true,
+    "formal_run_requires_final_governance_validation": true
   }
 }

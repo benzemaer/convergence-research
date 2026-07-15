@@ -28,6 +28,7 @@
     "validity_statuses",
     "input_contract",
     "output_contract",
+    "anomaly_thresholds",
     "prohibited_output_field_tokens",
     "formal_run_controls"
   ],
@@ -101,10 +102,13 @@
     "input_contract": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["input_root_cli", "input_root_env", "manifest_filenames", "artifacts"],
+      "required": ["input_root_cli", "input_root_env", "source_manifest_required", "source_manifest_cli", "source_manifest_resolution", "manifest_filenames", "artifacts"],
       "properties": {
         "input_root_cli": {"const": "--input-root"},
         "input_root_env": {"const": "CONVERGENCE_RESEARCH_INPUT_ROOT"},
+        "source_manifest_required": {"const": true},
+        "source_manifest_cli": {"const": "--input-manifest"},
+        "source_manifest_resolution": {"const": "declared_path_relative_to_manifest_parent; basename_local_only_opt_in; no_recursive_search"},
         "manifest_filenames": {
           "const": [
             "r0_t05_score_results_manifest.json",
@@ -190,7 +194,8 @@
               "singleton_segment_ratio",
               "unique_security_count",
               "nonzero_year_count",
-              "max_year_active_share"
+              "max_year_active_share",
+              "max_year_active_rate"
             ],
             "overlap_profile": [
               "left_variant",
@@ -273,6 +278,22 @@
         }
       }
     },
+    "anomaly_thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year_active_concentration_share",
+        "security_active_concentration_share",
+        "candidate_active_count_ratio_low",
+        "candidate_active_count_ratio_high"
+      ],
+      "properties": {
+        "year_active_concentration_share": {"const": 0.5},
+        "security_active_concentration_share": {"const": 0.1},
+        "candidate_active_count_ratio_low": {"const": 0.25},
+        "candidate_active_count_ratio_high": {"const": 4.0}
+      }
+    },
     "prohibited_output_field_tokens": {
       "const": [
         "P",
@@ -299,12 +320,15 @@
         "implementation_stage_must_not_open_formal_duckdb",
         "formal_run_requires_explicit_reviewed_implementation_sha",
         "formal_run_requires_readback_analysis",
-        "formal_run_requires_baseline_reconciliation_zero"
+        "formal_run_requires_baseline_reconciliation_zero",
+        "formal_run_requires_authorized_source_manifest",
+        "formal_run_requires_final_governance_validation"
       ],
       "properties": {
         "required_cli_flags": {
           "const": [
             "--input-root",
+            "--input-manifest",
             "--output-root",
             "--run-id",
             "--allow-formal-run",
@@ -314,7 +338,9 @@
         "implementation_stage_must_not_open_formal_duckdb": {"const": true},
         "formal_run_requires_explicit_reviewed_implementation_sha": {"const": true},
         "formal_run_requires_readback_analysis": {"const": true},
-        "formal_run_requires_baseline_reconciliation_zero": {"const": true}
+        "formal_run_requires_baseline_reconciliation_zero": {"const": true},
+        "formal_run_requires_authorized_source_manifest": {"const": true},
+        "formal_run_requires_final_governance_validation": {"const": true}
       }
     }
   },

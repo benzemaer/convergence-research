@@ -16,7 +16,7 @@ EXP-C01 是独立 sidecar exploration，只研究 W=120、q=0.20 下 C1/C2 weak-
 
 ## 输入与 lineage
 
-正式运行只读现有 strict-past indicator score：`C1_LogMASpread_5_60`、`C2_AdjVWAPSpread_5_60`，并以现有 manifest/config 解析输入。机器相关路径不得写入代码；runner 接受 `--input-root`，也支持 `CONVERGENCE_RESEARCH_INPUT_ROOT`。baseline reconciliation 额外读取 C dimension score/state，仅用于独立重建校验。
+正式运行只读现有 strict-past indicator score：`C1_LogMASpread_5_60`、`C2_AdjVWAPSpread_5_60`，并要求显式提供一个精确的 `--input-manifest <path>`。runner 只接受该 manifest 声明的 artifact path；相对路径相对 manifest 所在目录解析，只有 manifest 明确声明 `basename_local_only` relocation policy 时才允许把 basename 映射到 `--input-root` 的根目录。不得扫描、递归搜索或在同名文件之间静默选择。runner 在打开表后核对声明的 SHA-256、完整表 row count、table identity、required columns，以及 manifest 声明的 security/date 范围（若存在），并同时记录完整表行数与本次过滤查询行数。机器相关路径不得写入代码；`--input-root` 仍可由 `CONVERGENCE_RESEARCH_INPUT_ROOT` 提供。baseline reconciliation 额外读取 C dimension score/state，仅用于独立重建校验。
 
 Implementation 阶段只读取配置、schema、manifest 文本；不打开正式大型 DuckDB。synthetic fixtures 是当前唯一运行数据来源。
 
@@ -36,19 +36,28 @@ result_review_status: not_started
 
 ```text
 --input-root <path>
+--input-manifest <exact-authorized-manifest-path>
 --output-root data/generated/sidecar/exp_c01/<RUN_ID>
 --run-id <RUN_ID>
 --allow-formal-run
 --reviewed-implementation-sha <exact-40-character-sha>
 ```
 
-runner 会拒绝未提供批准 SHA、当前 `HEAD` 与批准 SHA 不一致、输出目录已存在或输入无法唯一解析的运行。上述命令现在不执行。
+runner 会拒绝未提供批准 SHA、当前 `HEAD` 与批准 SHA 不一致、未提供精确 source manifest、输出目录已存在、manifest 声明不一致或输入无法按声明解析的运行。上述命令现在不执行。
+
+## 统计口径与异常门禁
+
+`valid_step_count` 固定为所有 valid block 的 `(block_length - 1)` 之和，即 `eligible_row_count - valid_block_count`；`transition_rate_per_100_valid_steps` 的分母是该值，若为零则为 NULL。`max_year_active_share` 是 dominant calendar year 的 `active_true_count / 全部年份 active_true_count`，而 `max_year_active_rate` 才是各年份 `active_true_count / valid_count` 的最大值。两者都必须从 year profile 独立复算。
+
+异常扫描使用预注册阈值：`year_active_concentration > 0.50`；对每个 candidate 分别按 baseline/candidate active count 检查 security concentration `> 0.10`；candidate active count 相对 baseline 的比值低于 `0.25` 或高于 `4.0` 时记录数量级异常。baseline 与 `c1_only`、baseline 与 `c2_only` 分别检查零 symmetric difference，代码分别为 `candidate_no_identity_response:c1_only` 和 `candidate_no_identity_response:c2_only`。全零输出不重复生成 concentration anomaly。
 
 ## Formal output 与 readback
 
 未来正式结果目录必须包含六个小型 CSV：variant profile、overlap profile、score comparison、year profile、security profile 和 availability profile，以及 `exp_c01_manifest.json`、`exp_c01_validator_result.json`、`exp_c01_anomaly_scan.json`、`exp_c01_result_analysis.md`。原则上不生成新的大型 DuckDB。
 
-formal runner 写出 CSV 后必须从实际文件 read back，再生成 result analysis；随后独立 validator 检查固定参数、variant set、denominator、2×2 守恒、segment 守恒、score 范围、manifest hash/row count 和 baseline reconciliation。reconciliation 的 key count、mean/min、eligible、active、validity mismatch 必须全部为 0。
+formal runner 固定执行：读取并验证 source manifest 与输入 → 查询 → baseline reconciliation → 写六个 CSV → 磁盘 readback → preliminary manifest → preliminary validator/anomaly → 从实际六个 CSV、reconciliation、year/security profile 和 anomaly 生成完整 analysis → 绑定最终 analysis bytes 重建 manifest → 写 anomaly/validator governance 文件 → `require_governance_files=true` 的最终验证与只读复验。独立复算必须覆盖 n2x2、Jaccard、retention、precision、symmetric-difference rate、active rate、transition rate、segment duration sum、singleton ratio、max-year share/rate 和 availability gain。reconciliation 的 key count、mean/min、eligible、active、validity mismatch 必须全部为 0。
+
+result analysis 必须包含实际运行与 reviewed SHA/input lineage、固定参数与 variants、cardinality/date range、core counts、overlap、score correlation/difference、duration/fragment/transition、availability、年度 profile、证券 profile、reconciliation、anomaly、independent recomputation、alternative explanations、supported conclusions、unsupported conclusions 和 user-review readiness。年度部分报告 Jaccard range、retention/precision 的 min/median/max；证券部分报告 Jaccard q25/median/q75、retention/precision median、最大 year/security active share，以及 pooled 与 security median 的方向关系。analysis 只允许输出 `ready_for_user_formal_result_review` 或 `needs_investigation_before_user_review`。
 
 若异常扫描发现全零、全 NULL、全一、三个 variant 无差异、availability 不一致、年份或证券异常集中、层级计数不守恒、数量级异常或 baseline mismatch，必须停止，不得解释消融结果、请求 accepted、更新本目录为 completed 或推进下一项 sidecar task。
 

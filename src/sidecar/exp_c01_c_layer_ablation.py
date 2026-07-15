@@ -74,6 +74,7 @@ CSV_FIELDS = {
         "unique_security_count",
         "nonzero_year_count",
         "max_year_active_share",
+        "max_year_active_rate",
     ),
     "overlap_profile": (
         "left_variant",
@@ -715,11 +716,17 @@ def _variant_profile(
             segment_durations.append(current_segment)
 
     valid_count = true_count + false_count
-    year_shares = [
+    valid_step_count = valid_count - valid_block_count
+    year_active_rates = [
         year_true_counts[year] / year_valid_counts[year]
         for year in year_valid_counts
         if year_valid_counts[year]
     ]
+    year_active_share = (
+        max(year_true_counts.values()) / true_count
+        if true_count and year_true_counts
+        else None
+    )
     return {
         "variant_id": variant_id,
         "W": W,
@@ -732,9 +739,9 @@ def _variant_profile(
         "active_rate": _ratio(true_count, valid_count),
         "transition_count": transition_count,
         "transition_rate_per_100_valid_steps": (
-            transition_count * 100.0 / valid_count if valid_count else None
+            transition_count * 100.0 / valid_step_count if valid_step_count else None
         ),
-        "valid_step_count": valid_count,
+        "valid_step_count": valid_step_count,
         "valid_block_count": valid_block_count,
         "true_to_false_transition_count": true_to_false,
         "false_to_true_transition_count": false_to_true,
@@ -758,7 +765,8 @@ def _variant_profile(
         "nonzero_year_count": sum(
             1 for year in year_valid_counts if year_true_counts[year] > 0
         ),
-        "max_year_active_share": max(year_shares) if year_shares else None,
+        "max_year_active_share": year_active_share,
+        "max_year_active_rate": max(year_active_rates) if year_active_rates else None,
     }
 
 
