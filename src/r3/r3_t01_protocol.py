@@ -174,11 +174,10 @@ def _membership_key(row: dict[str, Any]) -> tuple[str, str, str, str]:
     )
 
 
-def _event_zone_key(row: dict[str, Any]) -> tuple[str, str, str]:
+def _event_zone_key(row: dict[str, Any]) -> tuple[str, str]:
     return (
         str(row.get("state_version_id", "")),
         str(row.get("event_id", "")),
-        str(row.get("security_id", "")),
     )
 
 
@@ -265,74 +264,78 @@ def _transition_matches(
 
 def reconstruct_source_components(
     rows: list[dict[str, Any]],
-    membership_rows: list[dict[str, Any]],
+    event_zones: list[dict[str, Any]],
     config: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Reconstruct R3 confirmed-run identities from public membership rows."""
+    """Reconstruct causal component identities from daily rows and event zones.
 
+    Membership is deliberately not an input to this function.  It is a
+    retrospective audit surface and therefore cannot create a run, change its
+    identity, or determine its ordinal.
+    """
     surface = sort_expected_surface(rows)
-    membership_by_row: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(
-        list
-    )
-    for membership in membership_rows:
-        membership_by_row[
-            (
-                str(membership.get("state_version_id", "")),
-                str(membership.get("security_id", "")),
-                str(membership.get("trade_date", "")),
-            )
-        ].append(membership)
+    zones = _index_unique(event_zones, _event_zone_key, "DUPLICATE_EVENT_ZONE")
     components: list[dict[str, Any]] = []
+    first_component_seen: set[tuple[str, str, str]] = set()
     for group_rows in _groups(surface).values():
         current: dict[str, Any] | None = None
         for row in group_rows:
-            membership_candidates = membership_by_row.get(
-                (
-                    str(row.get("state_version_id", "")),
-                    str(row.get("security_id", "")),
-                    str(row.get("trade_date", "")),
-                ),
-                [],
-            )
-            component_members = [
-                item
-                for item in membership_candidates
-                if item.get("component_member") is True
-            ]
-            if len(component_members) > 1:
-                raise ProtocolContractError(
-                    "AMBIGUOUS_COMPONENT_MEMBERSHIP", str(_row_key(row))
-                )
-            membership = component_members[0] if component_members else None
-            is_member = bool(
+            event_id_value = row.get("active_event_id_as_of")
+            event_id = str(event_id_value) if event_id_value is not None else ""
+            zone = zones.get((str(row.get("state_version_id")), event_id))
+            causal_row = bool(
                 _expected_row_present(row)
+                and row.get("eligible_state") is True
+                and row.get("quality_state") == "valid"
                 and row.get("confirmed_state") is True
-                and membership is not None
+                and event_id
+                and zone is not None
+                and str(zone.get("security_id")) == str(row.get("security_id"))
             )
-            if not is_member:
+            if not causal_row:
                 current = None
                 continue
-            event_id = str(membership.get("event_id", ""))
-            if not event_id:
-                raise ProtocolContractError(
-                    "COMPONENT_EVENT_ID_MISSING", str(_row_key(row))
-                )
             if current is None or event_id != current["event_id"]:
+                event_key = (
+                    str(row["state_version_id"]),
+                    event_id,
+                    str(row["security_id"]),
+                )
+                is_first_component = event_key not in first_component_seen
+                if is_first_component:
+                    first_component_seen.add(event_key)
+                    start_date = str(zone.get("first_component_start_date", ""))
+                    try:
+                        qualification_date = _date_from_timestamp(
+                            str(zone["first_qualification_time"])
+                        )
+                    except (KeyError, ProtocolContractError) as exc:
+                        raise ProtocolContractError(
+                            "EVENT_ZONE_FIRST_QUALIFICATION_MISSING",
+                            str(event_key),
+                        ) from exc
+                    if not start_date:
+                        raise ProtocolContractError(
+                            "EVENT_ZONE_FIRST_COMPONENT_START_MISSING",
+                            str(event_key),
+                        )
+                    qualified = True
+                else:
+                    start_date = str(row["trade_date"])
+                    qualification_date = (
+                        str(row["trade_date"])
+                        if row.get("component_qualified_as_of") is True
+                        else None
+                    )
+                    qualified = qualification_date is not None
                 current = {
                     "state_version_id": str(row["state_version_id"]),
                     "event_id": event_id,
                     "security_id": str(row["security_id"]),
-                    "source_component_start_date": str(row["trade_date"]),
+                    "source_component_start_date": start_date,
                     "source_component_end_date": str(row["trade_date"]),
-                    "source_component_qualification_date": (
-                        str(row["trade_date"])
-                        if membership.get("component_qualified_as_of") is True
-                        else None
-                    ),
-                    "source_component_qualified": membership.get(
-                        "component_qualified_as_of"
-                    )
-                    is True,
+                    "source_component_qualification_date": qualification_date,
+                    "source_component_qualified": qualified,
                     "row_keys": [_row_key(row)],
                 }
                 components.append(current)
@@ -340,14 +343,14 @@ def reconstruct_source_components(
                 current["source_component_end_date"] = str(row["trade_date"])
                 if (
                     current["source_component_qualification_date"] is None
-                    and membership.get("component_qualified_as_of") is True
+                    and row.get("component_qualified_as_of") is True
                 ):
                     current["source_component_qualification_date"] = str(
                         row["trade_date"]
                     )
                 current["source_component_qualified"] = bool(
                     current["source_component_qualified"]
-                    or membership.get("component_qualified_as_of") is True
+                    or row.get("component_qualified_as_of") is True
                 )
                 current["row_keys"].append(_row_key(row))
 
@@ -365,15 +368,11 @@ def reconstruct_source_components(
             namespace=namespace,
         )
 
-    by_event: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    by_event: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for component in components:
-        by_event[
-            (
-                component["state_version_id"],
-                component["event_id"],
-                component["security_id"],
-            )
-        ].append(component)
+        by_event[(component["state_version_id"], component["event_id"])].append(
+            component
+        )
     for event_components in by_event.values():
         event_components.sort(
             key=lambda item: (
@@ -416,7 +415,7 @@ def enumerate_exit_attempts(
         membership_rows, _membership_key, "DUPLICATE_MEMBERSHIP_ROW"
     )
     transition = config["t0_transition_contract"]["transition_registry"]
-    components = reconstruct_source_components(surface, membership_rows, config)
+    components = reconstruct_source_components(surface, event_zones, config)
     attempts: list[dict[str, Any]] = []
     rejections: list[dict[str, Any]] = []
 
@@ -464,13 +463,11 @@ def enumerate_exit_attempts(
                 _reject(rejections, "EVENT_ID_CONFLICT", current)
                 continue
 
-            zone_key = (
-                str(current["state_version_id"]),
-                event_id,
-                str(current["security_id"]),
-            )
+            zone_key = (str(current["state_version_id"]), event_id)
             zone = zones.get(zone_key)
-            if zone is None:
+            if zone is None or str(zone.get("security_id")) != str(
+                current.get("security_id")
+            ):
                 _reject(rejections, "EVENT_NOT_FOUND", current)
                 continue
             try:
@@ -490,6 +487,17 @@ def enumerate_exit_attempts(
             component = _component_for_prior(components, prior)
             if component is None or component["event_id"] != event_id:
                 _reject(rejections, "SOURCE_COMPONENT_NOT_FOUND", current)
+                continue
+            qualification_date = component["source_component_qualification_date"]
+            if component["source_component_start_date"] > str(current["trade_date"]):
+                _reject(rejections, "SOURCE_COMPONENT_DATE_ORDER", current)
+                continue
+            if qualification_date is not None and not (
+                component["source_component_start_date"]
+                <= qualification_date
+                <= str(current["trade_date"])
+            ):
+                _reject(rejections, "SOURCE_COMPONENT_DATE_ORDER", current)
                 continue
             source_id = component["source_component_id"]
             attempt_id = exit_attempt_id(
@@ -539,7 +547,6 @@ def enumerate_exit_attempts(
                 for item in components
                 if item["state_version_id"] == component["state_version_id"]
                 and item["event_id"] == event_id
-                and item["security_id"] == component["security_id"]
                 and item.get("source_component_qualification_date") is not None
                 and item["source_component_qualification_date"]
                 <= str(current["trade_date"])
@@ -996,6 +1003,59 @@ def verify_local_startup_binding(
                 "committed_byte_sha256": actual,
             }
         )
+    authority = config["canonical_interface_authority"]
+    authority_source = authority["source_artifact"]
+    canonical_blob = subprocess.run(
+        [
+            "git",
+            "cat-file",
+            "blob",
+            f"{authority_source['source_commit']}:{authority_source['path']}",
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+    )
+    if canonical_blob.returncode != 0:
+        raise ProtocolContractError("CANONICAL_INTERFACE_SOURCE_RUN_MISMATCH")
+    if (
+        hashlib.sha256(canonical_blob.stdout).hexdigest()
+        != authority_source["committed_byte_sha256"]
+    ):
+        raise ProtocolContractError("CANONICAL_INTERFACE_HASH_MISMATCH")
+    try:
+        canonical_value = json.loads(canonical_blob.stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ProtocolContractError("CANONICAL_INTERFACE_SOURCE_RUN_MISMATCH") from exc
+    if (
+        canonical_value.get("task_id") != authority["task_id"]
+        or canonical_value.get("run_id") != authority["run_id"]
+        or canonical_value.get("status") != "passed"
+        or canonical_value.get("database_not_opened") is not True
+    ):
+        raise ProtocolContractError("CANONICAL_INTERFACE_SOURCE_RUN_MISMATCH")
+    expected_by_name = {
+        item["logical_table_name"]: item
+        for item in config["frozen_inputs"]["canonical_interfaces"]
+    }
+    for value in canonical_value.get("interfaces", {}).values():
+        expected = expected_by_name.get(value.get("logical_table_name"))
+        if expected is None:
+            raise ProtocolContractError("CANONICAL_INTERFACE_TABLE_SET_MISMATCH")
+        for field in (
+            "primary_key",
+            "row_count",
+            "stable_multiset_sha256",
+            "source_run_id",
+        ):
+            if value.get(field) != expected.get(field):
+                code = {
+                    "primary_key": "CANONICAL_INTERFACE_PRIMARY_KEY_MISMATCH",
+                    "row_count": "CANONICAL_INTERFACE_ROW_COUNT_MISMATCH",
+                    "stable_multiset_sha256": "CANONICAL_INTERFACE_HASH_MISMATCH",
+                    "source_run_id": "CANONICAL_INTERFACE_SOURCE_RUN_MISMATCH",
+                }[field]
+                raise ProtocolContractError(code, value.get("logical_table_name"))
     validation = binding["committed_artifact_validation"]
     blob = subprocess.run(
         [
@@ -1026,6 +1086,15 @@ def verify_local_startup_binding(
         "gov_t02_merge_commit": gov_commit,
         "reviewed_head": binding["r2_t08_reviewed_head"],
         "required_artifacts": checked,
+        "canonical_interface_binding": {
+            "path": authority_source["path"],
+            "source_commit": authority_source["source_commit"],
+            "git_blob_sha": authority_source["git_blob_sha"],
+            "committed_byte_sha256": authority_source["committed_byte_sha256"],
+            "task_id": authority["task_id"],
+            "run_id": authority["run_id"],
+            "status": authority["status"],
+        },
         "committed_validation_status": "passed",
         "remote_check_required": True,
     }
@@ -1108,10 +1177,112 @@ def verify_remote_startup_binding(
     }
 
 
+def verify_formal_approval(
+    config: dict[str, Any],
+    reviewed_implementation_sha: str,
+    approval_comment_id: str | int | None,
+    root: Path = ROOT,
+) -> dict[str, Any]:
+    """Authorize exactly one implementation SHA from a GitHub issue comment."""
+
+    contract = config.get("formal_authorization_contract", {})
+    if approval_comment_id is None or not str(approval_comment_id).strip():
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_REQUIRED")
+    comment_id = str(approval_comment_id).strip()
+    if not comment_id.isdigit() or int(comment_id) <= 0:
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    repository = str(contract.get("repository", ""))
+    try:
+        comment = _gh_json(
+            root,
+            "api",
+            f"repos/{repository}/issues/comments/{comment_id}",
+        )
+    except ProtocolContractError as exc:
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID") from exc
+    repository_url = str(comment.get("repository_url", ""))
+    html_url = str(comment.get("html_url", ""))
+    if repository not in repository_url and f"/{repository}/" not in html_url:
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    if comment.get("id") is not None and str(comment.get("id")) != comment_id:
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    author = (comment.get("user") or {}).get("login")
+    if author != contract.get("required_author_login"):
+        raise ProtocolContractError("FORMAL_APPROVAL_AUTHOR_MISMATCH", str(author))
+    body = comment.get("body")
+    if not isinstance(body, str) or not body.strip():
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    lines = [line.strip() for line in body.splitlines()]
+    if (
+        lines.count("task_id=R3-T01") != 1
+        or lines.count("implementation_review_status=approved") != 1
+    ):
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    sha_markers = [
+        line for line in lines if line.startswith("reviewed_implementation_sha=")
+    ]
+    expected_sha_marker = f"reviewed_implementation_sha={reviewed_implementation_sha}"
+    if sha_markers != [expected_sha_marker]:
+        raise ProtocolContractError("FORMAL_APPROVAL_SHA_MISMATCH")
+    if lines.count("formal_run_allowed=true") != 1:
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    scopes = [
+        line.split("=", 1)[1] for line in lines if line.startswith("approval_scope=")
+    ]
+    if scopes != ["R3-T01_formal_run_only"]:
+        raise ProtocolContractError("FORMAL_APPROVAL_SCOPE_MISMATCH")
+    try:
+        pr = _gh_json(
+            root,
+            "pr",
+            "view",
+            str(contract["pull_request"]),
+            "--repo",
+            repository,
+            "--json",
+            "state,headRefOid",
+        )
+    except (KeyError, ProtocolContractError) as exc:
+        raise ProtocolContractError("PR_HEAD_SHA_MISMATCH") from exc
+    if pr.get("state") != "OPEN" or pr.get("headRefOid") != reviewed_implementation_sha:
+        raise ProtocolContractError("PR_HEAD_SHA_MISMATCH", str(pr.get("headRefOid")))
+    body_bytes = body.encode("utf-8")
+    return {
+        "approval_comment_id": int(comment_id),
+        "approval_comment_url": comment.get("html_url"),
+        "approval_author_login": author,
+        "approval_created_at": comment.get("created_at"),
+        "approval_updated_at": comment.get("updated_at"),
+        "approval_body_sha256": hashlib.sha256(body_bytes).hexdigest(),
+        "reviewed_implementation_sha": reviewed_implementation_sha,
+        "formal_execution_sha": reviewed_implementation_sha,
+        "pr_head_sha": pr.get("headRefOid"),
+        "pr_number": int(contract["pull_request"]),
+        "pr_state": pr.get("state"),
+        "approval_scope": "R3-T01_formal_run_only",
+    }
+
+
+def authorize_formal_run(
+    config: dict[str, Any],
+    reviewed_implementation_sha: str,
+    approval_comment_id: str | int | None,
+    root: Path = ROOT,
+) -> dict[str, Any]:
+    """Run the external approval preflight without mutating tracked config."""
+
+    if config.get("implementation_state", {}).get("formal_run_allowed") is not False:
+        raise ProtocolContractError("FORMAL_APPROVAL_RECORD_INVALID")
+    return verify_formal_approval(
+        config, reviewed_implementation_sha, approval_comment_id, root
+    )
+
+
 def execute_formal_run(
     config_path: Path,
     reviewed_implementation_sha: str,
     *,
+    approval_comment_id: str | int | None,
     root: Path = ROOT,
     run_id: str | None = None,
 ) -> Path:
@@ -1125,10 +1296,13 @@ def execute_formal_run(
     if _git(root, "status", "--porcelain"):
         raise ProtocolContractError("WORKTREE_NOT_CLEAN")
     config = load_json(config_path)
-    if config["implementation_state"]["formal_run_allowed"] is not True:
-        raise ProtocolContractError("FORMAL_RUN_NOT_AUTHORIZED")
+    approval = authorize_formal_run(
+        config, reviewed_implementation_sha, approval_comment_id, root
+    )
     startup = verify_local_startup_binding(config, root)
     startup["remote"] = verify_remote_startup_binding(config, root)
+    startup["approval"] = approval
+    startup.update(approval)
     fixture_path = root / config["synthetic_fixture_path"]
     run_id = run_id or datetime.now(UTC).strftime("R3-T01-%Y%m%dT%H%M%SZ")
     run_dir = root / "data" / "generated" / "r3" / "r3_t01" / run_id

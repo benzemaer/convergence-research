@@ -11,8 +11,11 @@
     "task_id",
     "stage",
     "implementation_state",
+    "formal_authorization_contract",
+    "post_manifest_validation_contract",
     "upstream_binding",
     "frozen_inputs",
+    "canonical_interface_authority",
     "canonical_public_interface_contract",
     "anchor_decision",
     "t0_transition_contract",
@@ -28,12 +31,15 @@
   "properties": {
     "$schema": {"type": "string"},
     "contract_id": {"const": "r3_t01_protocol_t0_analysis_unit"},
-    "contract_version": {"const": "r3_t01.v1"},
+    "contract_version": {"const": "r3_t01.v2"},
     "task_id": {"const": "R3-T01"},
     "stage": {"const": "R3"},
     "implementation_state": {"$ref": "#/$defs/implementationState"},
+    "formal_authorization_contract": {"$ref": "#/$defs/formalAuthorization"},
+    "post_manifest_validation_contract": {"$ref": "#/$defs/postManifestValidation"},
     "upstream_binding": {"$ref": "#/$defs/upstreamBinding"},
     "frozen_inputs": {"$ref": "#/$defs/frozenInputs"},
+    "canonical_interface_authority": {"$ref": "#/$defs/canonicalInterfaceAuthority"},
     "canonical_public_interface_contract": {"$ref": "#/$defs/canonicalPublicInterface"},
     "anchor_decision": {"$ref": "#/$defs/anchorDecision"},
     "t0_transition_contract": {"$ref": "#/$defs/t0Contract"},
@@ -60,7 +66,7 @@
     "implementationState": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["phase", "implementation_review_status", "reviewed_implementation_sha", "formal_run_allowed", "formal_run_status", "result_review_status", "next_task_allowed", "readme_advanced", "formal_run_executed"],
+      "required": ["phase", "implementation_review_status", "reviewed_implementation_sha", "formal_run_allowed", "formal_run_status", "result_review_status", "next_task_allowed", "readme_advanced", "formal_run_executed", "formal_execution_sha", "run_id", "R3-T02_allowed_to_start"],
       "properties": {
         "phase": {"const": "implementation_review"},
         "implementation_review_status": {"const": "pending"},
@@ -70,7 +76,35 @@
         "result_review_status": {"const": "not_started"},
         "next_task_allowed": {"const": false},
         "readme_advanced": {"const": false},
-        "formal_run_executed": {"const": false}
+        "formal_run_executed": {"const": false},
+        "formal_execution_sha": {"type": ["string", "null"]},
+        "run_id": {"type": ["string", "null"]},
+        "R3-T02_allowed_to_start": {"const": false}
+      }
+    },
+    "formalAuthorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_type", "repository", "pull_request", "required_author_login", "required_markers", "tracked_config_state_must_remain_unapproved"],
+      "properties": {
+        "authority_type": {"const": "github_pr_issue_comment"},
+        "repository": {"const": "benzemaer/convergence-research"},
+        "pull_request": {"const": 103},
+        "required_author_login": {"const": "benzemaer"},
+        "required_markers": {"const": ["task_id=R3-T01", "implementation_review_status=approved", "reviewed_implementation_sha=<EXACT_SHA>", "formal_run_allowed=true", "approval_scope=R3-T01_formal_run_only"]},
+        "tracked_config_state_must_remain_unapproved": {"const": true}
+      }
+    },
+    "postManifestValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sidecar", "excluded_from_manifest_artifact_hash_set", "reason", "bound_manifest_required", "previous_artifacts_must_not_be_modified"],
+      "properties": {
+        "sidecar": {"const": "r3_t01_final_validation.json"},
+        "excluded_from_manifest_artifact_hash_set": {"const": true},
+        "reason": {"const": "post-manifest terminal validation record"},
+        "bound_manifest_required": {"const": true},
+        "previous_artifacts_must_not_be_modified": {"const": true}
       }
     },
     "scientificReview": {
@@ -109,7 +143,7 @@
         "r2_t08_artifact_commit": {"$ref": "#/$defs/commit"},
         "r2_t08_committed_artifact_validation_commit": {"$ref": "#/$defs/commit"},
         "scientific_review_record": {"$ref": "#/$defs/scientificReview"},
-        "required_artifacts": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/artifactBinding"}},
+        "required_artifacts": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/artifactBinding"}},
         "committed_artifact_validation": {"$ref": "#/$defs/validationBinding"},
         "post_merge_activation": {"$ref": "#/$defs/postMergeActivation"},
         "legacy_evidence_policy": {"$ref": "#/$defs/legacyPolicy"}
@@ -227,14 +261,63 @@
         "canonical_interfaces": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/interface"}}
       }
     },
-    "publicTable": {
+    "canonicalInterface": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["logical_table_name", "fields", "primary_key"],
+      "required": ["logical_table_name", "fields", "primary_key", "row_count", "stable_multiset_sha256", "source_run_id"],
       "properties": {
         "logical_table_name": {"type": "string"},
         "fields": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
-        "primary_key": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+        "primary_key": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "row_count": {"type": "integer", "minimum": 0},
+        "stable_multiset_sha256": {"$ref": "#/$defs/sha256"},
+        "source_run_id": {"type": "string"}
+      }
+    },
+    "canonicalInterfaceAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_artifact", "task_id", "run_id", "status", "database_not_opened", "interfaces"],
+      "properties": {
+        "source_artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "path", "source_commit", "git_blob_sha", "committed_byte_sha256"],
+          "properties": {
+            "name": {"const": "r2_t08_canonical_interface_binding.json"},
+            "path": {"type": "string"},
+            "source_commit": {"$ref": "#/$defs/commit"},
+            "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "committed_byte_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "task_id": {"const": "R2-T08"},
+        "run_id": {"const": "R2-T08-20260714T055034Z"},
+        "status": {"const": "passed"},
+        "database_not_opened": {"const": true},
+        "interfaces": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["daily", "event", "membership"],
+          "properties": {
+            "daily": {"$ref": "#/$defs/canonicalInterface"},
+            "event": {"$ref": "#/$defs/canonicalInterface"},
+            "membership": {"$ref": "#/$defs/canonicalInterface"}
+          }
+        }
+      }
+    },
+    "publicTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_table_name", "fields", "primary_key", "row_count", "stable_multiset_sha256", "source_run_id"],
+      "properties": {
+        "logical_table_name": {"type": "string"},
+        "fields": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "primary_key": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "row_count": {"type": "integer", "minimum": 0},
+        "stable_multiset_sha256": {"$ref": "#/$defs/sha256"},
+        "source_run_id": {"type": "string"}
       }
     },
     "fixtureTableMap": {
@@ -253,9 +336,9 @@
       "required": ["tables", "fixture_table_map", "synthetic_harness_only_fields"],
       "properties": {
         "tables": {"type": "array", "const": [
-          {"logical_table_name": "r2_canonical_daily_state", "fields": ["state_version_id", "state_line", "window_track_id", "security_id", "trade_date", "eligible_state", "raw_state", "confirmed_state", "confirmation_time", "component_qualified_as_of", "event_status_as_of", "active_event_id_as_of", "state_risk_set_eligible", "qualified_event_risk_set_eligible", "strict_core_member", "quality_state", "candidate_config_id", "source_run_id"], "primary_key": ["state_version_id", "security_id", "trade_date"]},
-          {"logical_table_name": "r2_canonical_event_zone", "fields": ["state_version_id", "event_id", "security_id", "first_component_start_date", "first_qualification_time", "last_confirmed_end_date", "last_exit_observation_time", "zone_finalization_time", "zone_status", "exit_reason", "left_censored", "right_censored", "component_interval_count", "bridge_count", "bridged_gap_days", "zone_confirmed_day_count", "zone_trading_span", "confirmed_density", "bridged_gap_ratio", "zone_revision_count"], "primary_key": ["state_version_id", "event_id", "security_id"]},
-          {"logical_table_name": "r2_canonical_event_membership", "fields": ["state_version_id", "event_id", "security_id", "trade_date", "confirmed_state", "component_member", "retrospective_component_member", "component_qualified_as_of", "event_zone_member", "is_prequalification_confirmed_day", "is_bridged_gap", "is_unqualified_reentry_day", "event_status_as_of", "zone_revision", "membership_available_time", "state_risk_set_eligible", "qualified_event_risk_set_eligible"], "primary_key": ["state_version_id", "event_id", "security_id", "trade_date"]}
+          {"logical_table_name": "r2_canonical_daily_state", "fields": ["state_version_id", "state_line", "window_track_id", "security_id", "trade_date", "eligible_state", "raw_state", "confirmed_state", "confirmation_time", "component_qualified_as_of", "event_status_as_of", "active_event_id_as_of", "state_risk_set_eligible", "qualified_event_risk_set_eligible", "strict_core_member", "quality_state", "candidate_config_id", "source_run_id"], "primary_key": ["state_version_id", "security_id", "trade_date"], "row_count": 3502132, "stable_multiset_sha256": "64c396322b0e358a5c5440eebe90483d65f18a2cc6461a9a28f2cb72711da4ec", "source_run_id": "R2-T05-20260713T154957Z"},
+          {"logical_table_name": "r2_canonical_event_zone", "fields": ["state_version_id", "event_id", "security_id", "first_component_start_date", "first_qualification_time", "last_confirmed_end_date", "last_exit_observation_time", "zone_finalization_time", "zone_status", "exit_reason", "left_censored", "right_censored", "component_interval_count", "bridge_count", "bridged_gap_days", "zone_confirmed_day_count", "zone_trading_span", "confirmed_density", "bridged_gap_ratio", "zone_revision_count"], "primary_key": ["state_version_id", "event_id"], "row_count": 5647, "stable_multiset_sha256": "4c0fcec9012fa46a7b68d3dd436e9e14881c44719f90def22490b8b6bc118acb", "source_run_id": "R2-T05-20260713T154957Z"},
+          {"logical_table_name": "r2_canonical_event_membership", "fields": ["state_version_id", "event_id", "security_id", "trade_date", "confirmed_state", "component_member", "retrospective_component_member", "component_qualified_as_of", "event_zone_member", "is_prequalification_confirmed_day", "is_bridged_gap", "is_unqualified_reentry_day", "event_status_as_of", "zone_revision", "membership_available_time", "state_risk_set_eligible", "qualified_event_risk_set_eligible"], "primary_key": ["state_version_id", "event_id", "security_id", "trade_date"], "row_count": 27388, "stable_multiset_sha256": "5664a11fc7f4c61f3b6e8d4b0a465ed0d5c89447a38fc29cd12e966ab6340d0a", "source_run_id": "R2-T05-20260713T154957Z"}
         ]},
         "fixture_table_map": {"$ref": "#/$defs/fixtureTableMap"},
         "synthetic_harness_only_fields": {"const": ["expected_row_present"]}
@@ -266,14 +349,14 @@
       "additionalProperties": false,
       "required": ["declared_count", "full_validator_entrypoint", "baseline_status_required", "expected_error_codes"],
       "properties": {
-        "declared_count": {"const": 20},
+        "declared_count": {"const": 24},
         "full_validator_entrypoint": {"const": "validate_run_dir"},
         "baseline_status_required": {"const": "passed"},
         "expected_error_codes": {
           "type": "object",
           "additionalProperties": false,
-          "minProperties": 20,
-          "patternProperties": {"^M(0[1-9]|1[0-9]|20)$": {"type": "string"}}
+          "minProperties": 24,
+          "patternProperties": {"^M(0[1-9]|1[0-9]|2[0-4])$": {"type": "string"}}
         }
       }
     },
@@ -368,7 +451,7 @@
       "additionalProperties": false,
       "required": ["namespace", "hash_algorithm", "fields", "encoding", "sorted_keys", "compact_separators", "allow_nan", "date_time_encoding", "hex_case", "hex_length"],
       "properties": {
-        "namespace": {"const": "r3_exit_attempt_v2"},
+        "namespace": {"const": "r3_exit_attempt_v3"},
         "hash_algorithm": {"const": "sha256"},
         "fields": {"const": ["namespace", "contract_version", "state_version_id", "event_id", "security_id", "source_component_id", "exit_attempt_date"]},
         "encoding": {"const": "utf-8"},
@@ -389,7 +472,7 @@
         "all_legal_exit_attempts_are_primary": {"const": true},
         "first_attempt_only": {"const": false},
         "later_attempts_are_sidecar": {"const": false},
-        "source_component_id_namespace": {"const": "r3_confirmed_run_v1"},
+        "source_component_id_namespace": {"const": "r3_causal_confirmed_run_v2"},
         "source_component_id_spec": {"$ref": "#/$defs/idSpec"},
         "exit_attempt_id_spec": {"$ref": "#/$defs/exitIdSpec"},
         "source_component_definition": {"type": "string"},
@@ -426,7 +509,7 @@
       "additionalProperties": false,
       "required": ["contract_version", "landmark_ids", "t0_definition", "future_landmark_definition", "horizons", "primary_horizon", "horizon_counting_rule", "deferred_prediction_rule_owner", "t01_scope"],
       "properties": {
-        "contract_version": {"const": "r3_t01.v1"},
+    "contract_version": {"const": "r3_t01.v2"},
         "landmark_ids": {"const": ["T0", "T1", "T2"]},
         "t0_definition": {"$ref": "#/$defs/t0Definition"},
         "future_landmark_definition": {"$ref": "#/$defs/futureLandmark"},
@@ -476,7 +559,7 @@
       "additionalProperties": false,
       "required": ["contract_version", "split_topology_status", "sample_split_unit", "all_attempts_of_same_event_in_same_split", "attempt_level_random_split", "split_roles", "calendar_boundary_status", "calendar_boundary_selection_owner", "boundary_selection_information_allowed", "boundary_selection_information_forbidden", "purge_embargo", "cluster_keys", "future_window_overlap_marker_required", "weights", "prohibitions"],
       "properties": {
-        "contract_version": {"const": "r3_t01.v1"},
+        "contract_version": {"const": "r3_t01.v2"},
         "split_topology_status": {"const": "frozen"},
         "sample_split_unit": {"const": "event_id"},
         "all_attempts_of_same_event_in_same_split": {"const": true},
@@ -532,7 +615,7 @@
       "properties": {
         "filename": {"type": "string"},
         "kind": {"enum": ["json", "csv", "markdown"]},
-        "artifact_owner": {"enum": ["runner", "independent_validator", "result_analyzer"]},
+        "artifact_owner": {"enum": ["runner", "independent_validator", "result_analyzer", "final_validator"]},
         "contains_future_outcome": {"const": false}
       }
     },
@@ -542,7 +625,7 @@
       "required": ["real_data_or_database_access_in_t01", "formal_artifacts", "forbidden_in_t01"],
       "properties": {
         "real_data_or_database_access_in_t01": {"const": false},
-        "formal_artifacts": {"type": "array", "minItems": 17, "uniqueItems": true, "items": {"$ref": "#/$defs/outputArtifact"}},
+        "formal_artifacts": {"type": "array", "minItems": 18, "uniqueItems": true, "items": {"$ref": "#/$defs/outputArtifact"}},
         "forbidden_in_t01": {"type": "array", "minItems": 1, "items": {"type": "string"}}
       }
     }

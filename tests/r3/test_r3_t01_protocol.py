@@ -29,7 +29,7 @@ class R3T01ProtocolTest(unittest.TestCase):
     def test_independent_validator_accepts_config_and_all_declared_cases(self) -> None:
         report = validate_in_memory(self.config, self.fixture, root=ROOT)
         self.assertTrue(report.passed, report.errors)
-        self.assertEqual(len(report.synthetic_case_results), 26)
+        self.assertEqual(len(report.synthetic_case_results), 31)
         self.assertIsNotNone(report.double_rebuild_hash)
         self.assertEqual(
             report.double_rebuild_result["rebuild_1_hash"],

@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["contract_version", "landmark_ids", "t0_definition", "future_landmark_definition", "horizons", "primary_horizon", "horizon_counting_rule", "deferred_prediction_rule_owner", "t01_scope"],
   "properties": {
-    "contract_version": {"const": "r3_t01.v1"},
+    "contract_version": {"const": "r3_t01.v2"},
     "landmark_ids": {"const": ["T0", "T1", "T2"]},
     "t0_definition": {
       "type": "object",

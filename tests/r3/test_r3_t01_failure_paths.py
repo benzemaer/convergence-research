@@ -49,7 +49,7 @@ class R3T01FailurePathTest(unittest.TestCase):
         baseline = validate_in_memory(self.config, self.fixture, root=ROOT)
         self.assertTrue(baseline.passed, baseline.errors)
         mutation_results = validate_mutations(self.config, self.fixture)
-        self.assertEqual(len(mutation_results), 20)
+        self.assertEqual(len(mutation_results), 24)
         self.assertEqual(
             {item["mutation_id"] for item in mutation_results}, set(MUTATION_CODES)
         )

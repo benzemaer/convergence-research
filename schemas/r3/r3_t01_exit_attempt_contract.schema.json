@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["contract_version", "anchor_decision", "t0_transition_contract", "analysis_unit_contract", "field_semantics"],
   "properties": {
-    "contract_version": {"const": "r3_t01.v1"},
+    "contract_version": {"const": "r3_t01.v2"},
     "anchor_decision": {"$ref": "#/$defs/anchor"},
     "t0_transition_contract": {"$ref": "#/$defs/t0"},
     "analysis_unit_contract": {"$ref": "#/$defs/analysis"},
@@ -104,7 +104,7 @@
       "additionalProperties": false,
       "required": ["namespace", "hash_algorithm", "fields", "encoding", "sorted_keys", "compact_separators", "allow_nan", "date_time_encoding", "hex_case", "hex_length"],
       "properties": {
-        "namespace": {"const": "r3_exit_attempt_v2"},
+        "namespace": {"const": "r3_exit_attempt_v3"},
         "hash_algorithm": {"const": "sha256"},
         "fields": {"const": ["namespace", "contract_version", "state_version_id", "event_id", "security_id", "source_component_id", "exit_attempt_date"]},
         "encoding": {"const": "utf-8"},
@@ -125,7 +125,7 @@
         "all_legal_exit_attempts_are_primary": {"const": true},
         "first_attempt_only": {"const": false},
         "later_attempts_are_sidecar": {"const": false},
-        "source_component_id_namespace": {"const": "r3_confirmed_run_v1"},
+        "source_component_id_namespace": {"const": "r3_causal_confirmed_run_v2"},
         "source_component_id_spec": {"$ref": "#/$defs/idSpec"},
         "exit_attempt_id_spec": {"$ref": "#/$defs/exitIdSpec"},
         "source_component_definition": {"type": "string"},

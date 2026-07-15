@@ -323,7 +323,7 @@ def _manifest_artifacts(
     }
     artifacts: list[dict[str, Any]] = []
     for name in sorted(declarations):
-        if name == "r3_t01_manifest.json":
+        if name in {"r3_t01_manifest.json", "r3_t01_final_validation.json"}:
             continue
         path = run_dir / name
         _require_file(path)
@@ -428,6 +428,33 @@ def analyze_run_dir(
             "FORMAL_ARTIFACT_CONTENT_NOT_VALIDATED", "independent"
         )
     findings = _scan_pathologies(config, production, independent, mutations, upstream)
+    findings.extend(
+        {
+            "code": str(item.get("code", "VALIDATOR_ANOMALY")),
+            "message": str(item.get("message", "validator anomaly")),
+        }
+        for item in anomalies.get("findings", [])
+        if isinstance(item, dict)
+    )
+    declared_mutation_count = int(
+        config.get("mutation_contract", {}).get("declared_count", 0)
+    )
+    if len(mutations) != declared_mutation_count or any(
+        row.get("status") != "passed" for row in mutations
+    ):
+        findings.append(
+            {
+                "code": "MUTATION_VALIDATION_FAILED",
+                "message": f"{len(mutations)}/{declared_mutation_count}",
+            }
+        )
+    if int(anomalies.get("anomaly_count", 0)) != 0:
+        findings.append(
+            {
+                "code": "VALIDATOR_ANOMALY_PRESENT",
+                "message": str(anomalies.get("anomaly_count")),
+            }
+        )
     metrics = _metrics(config, production, independent, mutations, anomalies)
     artifact_declarations = config["output_contract"]["formal_artifacts"]
     landmark_summary = json.dumps(
@@ -545,7 +572,11 @@ def analyze_run_dir(
         "anomaly_status": anomalies.get("status"),
         "result_analysis_status": "needs_revision" if findings else "passed",
         "real_database_opened": False,
-        "formal_run_status": "completed",
+        "formal_run_status": (
+            "analysis_complete_pending_final_validation"
+            if not findings
+            else "blocked_needs_revision"
+        ),
         "manifest_self_hash_excluded": True,
     }
     write_json(manifest_path, manifest)

@@ -22,12 +22,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--reviewed-implementation-sha", required=True)
+    parser.add_argument("--approval-comment-id", required=True)
     parser.add_argument("--run-id")
     args = parser.parse_args(argv)
     try:
         execute_formal_run(
             args.config,
             args.reviewed_implementation_sha,
+            approval_comment_id=args.approval_comment_id,
             root=ROOT,
             run_id=args.run_id,
         )

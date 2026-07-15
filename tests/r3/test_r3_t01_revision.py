@@ -76,7 +76,7 @@ class R3T01RevisionTest(unittest.TestCase):
         self.assertEqual(first[0]["exit_attempt_id"], second[0]["exit_attempt_id"])
         self.assertEqual(
             self.config["analysis_unit_contract"]["exit_attempt_id_spec"]["namespace"],
-            "r3_exit_attempt_v2",
+            "r3_exit_attempt_v3",
         )
 
     def test_non_public_canonical_fields_fail_closed(self) -> None:
