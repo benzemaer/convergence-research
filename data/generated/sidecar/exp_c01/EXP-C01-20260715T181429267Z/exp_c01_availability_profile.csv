@@ -1,0 +1,4 @@
+indicator_id,W,q,availability_scope,input_row_count,native_valid_count,native_invalid_count,pair_common_valid_count,availability_gain_vs_pair
+C1_LogMASpread_5_60,120,0.2,native_valid,1730769,1587742,143027,1563558,24184
+C2_AdjVWAPSpread_5_60,120,0.2,native_valid,1730769,1563558,167211,1563558,0
+pair_common_valid,120,0.2,pair_common_valid,1730769,1563558,167211,1563558,0

@@ -18,25 +18,25 @@ EXP-C01 是独立 sidecar exploration，只研究 W=120、q=0.20 下 C1/C2 weak-
 
 正式运行只读现有 strict-past indicator score：`C1_LogMASpread_5_60`、`C2_AdjVWAPSpread_5_60`，并要求显式提供一个精确的 `--input-manifest <path>`。runner 只接受该 manifest 声明的 artifact path；相对路径相对 manifest 所在目录解析，只有 manifest 明确声明 `basename_local_only` relocation policy 时才允许把 basename 映射到 `--input-root` 的根目录。不得扫描、递归搜索或在同名文件之间静默选择。runner 在打开表后核对声明的 SHA-256、完整表 row count、table identity、required columns，以及 manifest 声明的 security/date 范围（若存在），并同时记录完整表行数与本次过滤查询行数。机器相关路径不得写入代码；`--input-root` 仍可由 `CONVERGENCE_RESEARCH_INPUT_ROOT` 提供。baseline reconciliation 额外读取 C dimension score/state，仅用于独立重建校验。
 
-Implementation 阶段只读取配置、schema、manifest 文本；不打开正式大型 DuckDB。synthetic fixtures 是当前唯一运行数据来源。
+Implementation 阶段只读取配置、schema、manifest 文本；formal-result 阶段才打开正式大型 DuckDB。本次正式运行使用已批准的外部授权 manifest，synthetic fixtures 仍仅用于 implementation tests。
 
-## Implementation review gate
+## Implementation and Formal-result review gate
 
-当前阶段必须保持：
+当前状态：
 
 ```text
-implementation_review_status: needs_revision
-reviewed_implementation_sha: b495201b04da9aaf1bc1b35d53586db036632489
-formal_run_allowed: false
-formal_run_status: blocked_preflight
-result_review_status: not_started
-formal_run_executed: false
-blocked_preflight_run_ids:
-- EXP-C01-20260715T175346Z
-- EXP-C01-20260715T175920Z
+implementation_review_status: approved
+reviewed_implementation_sha: 58020f299b2c1def96c10eb49778afd6d1eb09d5
+formal_run_allowed: true
+formal_run_status: completed
+result_review_status: pending
+formal_run_executed: true
+formal_run_id: EXP-C01-20260715T181429267Z
+formal_result_readback_status: passed
+result_analysis_readiness: ready_for_user_formal_result_review
 ```
 
-未来 formal run 必须在批准的 implementation commit 上执行，并显式提供：
+formal run 已在批准的 implementation commit 上执行，并显式提供了：
 
 ```text
 --input-root <path>
@@ -47,7 +47,7 @@ blocked_preflight_run_ids:
 --reviewed-implementation-sha <exact-40-character-sha>
 ```
 
-runner 会拒绝未提供批准 SHA、当前 `HEAD` 与批准 SHA 不一致、未提供精确 source manifest、输出目录已存在、manifest 声明不一致或输入无法按声明解析的运行。上述命令现在不执行。
+runner 会拒绝未提供批准 SHA、当前 `HEAD` 与批准 SHA 不一致、未提供精确 source manifest、输出目录已存在、manifest 声明不一致或输入无法按声明解析的运行。本次结果的工程 validator、anomaly scan、baseline reconciliation、六个 CSV 磁盘 readback 和独立统计复算均通过；结果包等待用户 Formal-result 审阅，不得据此自动标记 accepted 或 completed。
 
 ## 统计口径与异常门禁
 

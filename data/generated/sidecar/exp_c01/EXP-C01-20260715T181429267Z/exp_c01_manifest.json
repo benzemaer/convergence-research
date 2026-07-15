@@ -1,0 +1,393 @@
+{
+  "baseline_reconciliation": {
+    "active_mismatch": 0,
+    "dimension_score_key_count": 1730769,
+    "dimension_state_key_count": 1730769,
+    "dimension_validity_mismatch": 0,
+    "eligible_mismatch": 0,
+    "expected_key_count": 1730769,
+    "key_count": 1730769,
+    "key_count_mismatch": 0,
+    "mismatch_total": 0,
+    "score_mean_mismatch": 0,
+    "score_min_mismatch": 0,
+    "state_validity_mismatch": 0,
+    "status": "passed",
+    "validity_mismatch": 0
+  },
+  "config": {
+    "path": "D:\\Code\\convergence-research-exp-c01\\configs\\sidecar\\exp_c01_c_layer_indicator_ablation_w120.v1.json",
+    "sha256": "113e35a11d89926a9c46d0e3419029425f107d376c908a613348fe7bee9e4c88"
+  },
+  "denominator_scope": "pair_common_valid",
+  "execution": {
+    "config_version": "1.0.0",
+    "finished_at": "2026-07-15T18:18:52.835925Z",
+    "input_root": "D:\\Code\\convergence-research",
+    "parallel_mode": "single_threaded",
+    "random_seed": null,
+    "source_bindings": {
+      "config": {
+        "bom": false,
+        "committed_byte_sha256": "113e35a11d89926a9c46d0e3419029425f107d376c908a613348fe7bee9e4c88",
+        "encoding": "UTF-8",
+        "final_lf_count": 1,
+        "git_blob_sha": "2e6842cb41f9c86d6d2b986a4beb28f812428350",
+        "line_ending": "LF",
+        "normalized_text_sha256": "113e35a11d89926a9c46d0e3419029425f107d376c908a613348fe7bee9e4c88",
+        "path": "configs/sidecar/exp_c01_c_layer_indicator_ablation_w120.v1.json",
+        "source_commit": "58020f299b2c1def96c10eb49778afd6d1eb09d5"
+      },
+      "core": {
+        "bom": false,
+        "committed_byte_sha256": "5e0990e6a3279bf8919be722101df5efbed190c83014878aba310e4fffea3d50",
+        "encoding": "UTF-8",
+        "final_lf_count": 1,
+        "git_blob_sha": "8a64dac79db48c91fd8cf60a0dac5be51117cf91",
+        "line_ending": "LF",
+        "normalized_text_sha256": "5e0990e6a3279bf8919be722101df5efbed190c83014878aba310e4fffea3d50",
+        "path": "src/sidecar/exp_c01_c_layer_ablation.py",
+        "source_commit": "58020f299b2c1def96c10eb49778afd6d1eb09d5"
+      },
+      "runner": {
+        "bom": false,
+        "committed_byte_sha256": "46c300ada48cad8ca4e954ee1c9367b4b750e906e66c4af1c2b37c13fd6aa55d",
+        "encoding": "UTF-8",
+        "final_lf_count": 1,
+        "git_blob_sha": "0e6f671a6e4fde09f28a066b3af40058664dcf03",
+        "line_ending": "LF",
+        "normalized_text_sha256": "46c300ada48cad8ca4e954ee1c9367b4b750e906e66c4af1c2b37c13fd6aa55d",
+        "path": "scripts/sidecar/run_exp_c01_c_layer_ablation.py",
+        "source_commit": "58020f299b2c1def96c10eb49778afd6d1eb09d5"
+      },
+      "schema": {
+        "bom": false,
+        "committed_byte_sha256": "fb8992ac9dd41c9594e6fcb6fa3714329e70832ebe0528445f650e51e93c49cc",
+        "encoding": "UTF-8",
+        "final_lf_count": 1,
+        "git_blob_sha": "56107ee02a583f260dd2056982c094ef4212fb59",
+        "line_ending": "LF",
+        "normalized_text_sha256": "fb8992ac9dd41c9594e6fcb6fa3714329e70832ebe0528445f650e51e93c49cc",
+        "path": "schemas/sidecar/exp_c01_c_layer_indicator_ablation.schema.json",
+        "source_commit": "58020f299b2c1def96c10eb49778afd6d1eb09d5"
+      },
+      "validator": {
+        "bom": false,
+        "committed_byte_sha256": "324b2d86f7cec981d7cff3b7a8fd4a7adc1b130dc1c331b0e4d56246146e67d2",
+        "encoding": "UTF-8",
+        "final_lf_count": 1,
+        "git_blob_sha": "3c72a8ea6614d2a6b22c7bd3a34c174a455f3390",
+        "line_ending": "LF",
+        "normalized_text_sha256": "324b2d86f7cec981d7cff3b7a8fd4a7adc1b130dc1c331b0e4d56246146e67d2",
+        "path": "src/sidecar/exp_c01_c_layer_ablation_validator.py",
+        "source_commit": "58020f299b2c1def96c10eb49778afd6d1eb09d5"
+      }
+    },
+    "started_at": "2026-07-15T18:14:43.340445Z",
+    "worker_count": 1
+  },
+  "files": {
+    "exp_c01_availability_profile.csv": {
+      "path": "exp_c01_availability_profile.csv",
+      "row_count": 3,
+      "sha256": "cfab503c6ef78cde4c88ef8535cd079cc43e83788c1cadb064e6380fa012e18e"
+    },
+    "exp_c01_overlap_profile.csv": {
+      "path": "exp_c01_overlap_profile.csv",
+      "row_count": 3,
+      "sha256": "e3ae999ea4abd96c1848c8b70159882163f3834fe06e9ab11be7af8435f8edd3"
+    },
+    "exp_c01_result_analysis.md": {
+      "path": "exp_c01_result_analysis.md",
+      "row_count": 95,
+      "sha256": "f7568e2fcd22e2c626942f3ad07a0d49dd9673ee5f57180395b08c4b4aab2d65"
+    },
+    "exp_c01_score_comparison.csv": {
+      "path": "exp_c01_score_comparison.csv",
+      "row_count": 3,
+      "sha256": "f5d8936d3e4fc32c8e1ddac98b10aeddcb3b699ff0350509e4bed3a148739255"
+    },
+    "exp_c01_security_profile.csv": {
+      "path": "exp_c01_security_profile.csv",
+      "row_count": 1590,
+      "sha256": "6043329d19f22ee1a0f7b90766f16e8cf95f39c4abdc875d7664024ba0ad4779"
+    },
+    "exp_c01_variant_profile.csv": {
+      "path": "exp_c01_variant_profile.csv",
+      "row_count": 3,
+      "sha256": "4380a070ce9328d86b63f9aa07a9140afabee89d96ac58024508c859adb57f0f"
+    },
+    "exp_c01_year_profile.csv": {
+      "path": "exp_c01_year_profile.csv",
+      "row_count": 22,
+      "sha256": "5f177f354414dc83d8590bab59af6da43ae5181b9073e6d61ef03f5beb09e836"
+    }
+  },
+  "implementation_sha": "58020f299b2c1def96c10eb49778afd6d1eb09d5",
+  "input_artifacts": {
+    "dimension_score": {
+      "actual_columns": [
+        "component_indicator_ids",
+        "dimension",
+        "eligible_dimension",
+        "percentile_window_W",
+        "reason_codes",
+        "score_dimension",
+        "score_dimension_min",
+        "score_engine_version",
+        "security_id",
+        "trading_date",
+        "validity_status"
+      ],
+      "actual_date_max": "2026-06-30",
+      "actual_date_min": "2016-01-04",
+      "actual_security_count": 800,
+      "actual_table": "r0_t05_dimension_score_results",
+      "filename": "r0_t05_dimension_score_results.duckdb",
+      "path": "D:\\Code\\convergence-research\\data\\generated\\r0\\r0_t10\\R0-T10-02-20260708T1730Z\\r0_t05\\r0_t05_dimension_score_results.duckdb",
+      "query_filtered_row_count": 1730769,
+      "required_columns": [
+        "security_id",
+        "trading_date",
+        "percentile_window_W",
+        "dimension",
+        "score_dimension",
+        "score_dimension_min",
+        "eligible_dimension",
+        "validity_status"
+      ],
+      "row_count": 20769228,
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "source_full_row_count": 20769228,
+      "source_manifest_declared_date_max": "20260630",
+      "source_manifest_declared_date_min": "20160104",
+      "source_manifest_declared_path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "source_manifest_declared_row_count": 20769228,
+      "source_manifest_declared_security_count": 800,
+      "source_manifest_declared_sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "source_manifest_declared_table": "r0_t05_dimension_score_results"
+    },
+    "dimension_state": {
+      "actual_columns": [
+        "security_id",
+        "trading_date",
+        "percentile_window_W",
+        "q",
+        "weak_delta",
+        "dimension",
+        "score_dimension",
+        "score_dimension_min",
+        "eligible_dimension",
+        "dimension_active_weak",
+        "validity_status",
+        "reason_codes",
+        "component_indicator_ids",
+        "state_engine_version"
+      ],
+      "actual_date_max": "2026-06-30",
+      "actual_date_min": "2016-01-04",
+      "actual_security_count": 800,
+      "actual_table": "r0_t06_dimension_state_results",
+      "filename": "r0_t06_dimension_state_results.duckdb",
+      "path": "D:\\Code\\convergence-research\\data\\generated\\r0\\r0_t10\\R0-T10-03-20260708T1740Z\\r0_t06\\r0_t06_dimension_state_results.duckdb",
+      "query_filtered_row_count": 1730769,
+      "required_columns": [
+        "security_id",
+        "trading_date",
+        "percentile_window_W",
+        "q",
+        "weak_delta",
+        "dimension",
+        "dimension_active_weak",
+        "validity_status"
+      ],
+      "row_count": 62307684,
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "source_full_row_count": 62307684,
+      "source_manifest_declared_date_max": "20260630",
+      "source_manifest_declared_date_min": "20160104",
+      "source_manifest_declared_path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "source_manifest_declared_row_count": 62307684,
+      "source_manifest_declared_security_count": 800,
+      "source_manifest_declared_sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "source_manifest_declared_table": "r0_t06_dimension_state_results"
+    },
+    "indicator_score": {
+      "actual_columns": [
+        "current_value_in_reference_set",
+        "eligible",
+        "indicator_id",
+        "percentile",
+        "percentile_window_W",
+        "raw_metric_name",
+        "raw_value",
+        "reason_codes",
+        "reference_observation_count",
+        "reference_window_end",
+        "reference_window_start",
+        "score",
+        "score_engine_version",
+        "security_id",
+        "tie_method",
+        "trading_date",
+        "validity_status"
+      ],
+      "actual_date_max": "2026-06-30",
+      "actual_date_min": "2016-01-04",
+      "actual_security_count": 800,
+      "actual_table": "r0_t05_indicator_score_results",
+      "filename": "r0_t05_indicator_score_results.duckdb",
+      "path": "D:\\Code\\convergence-research\\data\\generated\\r0\\r0_t10\\R0-T10-02-20260708T1730Z\\r0_t05\\r0_t05_indicator_score_results.duckdb",
+      "query_filtered_row_count": 3461538,
+      "required_columns": [
+        "security_id",
+        "trading_date",
+        "percentile_window_W",
+        "indicator_id",
+        "score",
+        "eligible",
+        "validity_status"
+      ],
+      "row_count": 41538456,
+      "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+      "source_full_row_count": 41538456,
+      "source_manifest_declared_date_max": "20260630",
+      "source_manifest_declared_date_min": "20160104",
+      "source_manifest_declared_path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+      "source_manifest_declared_row_count": 41538456,
+      "source_manifest_declared_security_count": 800,
+      "source_manifest_declared_sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+      "source_manifest_declared_table": "r0_t05_indicator_score_results"
+    }
+  },
+  "input_availability": {
+    "C1_LogMASpread_5_60": {
+      "availability_gain_vs_pair": 24184,
+      "input_row_count": 1730769,
+      "native_invalid_count": 143027,
+      "native_valid_count": 1587742,
+      "pair_common_valid_count": 1563558
+    },
+    "C2_AdjVWAPSpread_5_60": {
+      "availability_gain_vs_pair": 0,
+      "input_row_count": 1730769,
+      "native_invalid_count": 167211,
+      "native_valid_count": 1563558,
+      "pair_common_valid_count": 1563558
+    },
+    "pair_common_valid": {
+      "availability_gain_vs_pair": 0,
+      "input_row_count": 1730769,
+      "native_invalid_count": 167211,
+      "native_valid_count": 1563558,
+      "pair_common_valid_count": 1563558
+    }
+  },
+  "input_manifest": {
+    "authorized_for_task": "EXP-C01",
+    "authorized_r0_input": true,
+    "historical_authorization": {
+      "evidence_path": "docs/evidence/r0/R0-T10-05_authorized_input_manifest_full_grid_evidence.md",
+      "historical_manifest_path": "data/generated/r0/r0_t10/R0-T10-05-20260708T1754Z/r0_t10_05_authorized_input_manifest.json",
+      "historical_manifest_sha256": "d18d4841476abb80da804635d15d9b9b853e5fb9e40545288c445be27af713f9",
+      "historical_run_id": "R0-T10-05-20260708T1754Z"
+    },
+    "input_artifacts": {
+      "dimension_score": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+        "row_count": 20769228,
+        "security_count": 800,
+        "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+        "table": "r0_t05_dimension_score_results"
+      },
+      "dimension_state": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+        "row_count": 62307684,
+        "security_count": 800,
+        "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+        "table": "r0_t06_dimension_state_results"
+      },
+      "indicator_score": {
+        "date_max": "20260630",
+        "date_min": "20160104",
+        "path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+        "row_count": 41538456,
+        "security_count": 800,
+        "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+        "table": "r0_t05_indicator_score_results"
+      }
+    },
+    "manifest_type": "exp_c01_authorized_input_manifest",
+    "schema_version": "exp_c01_authorized_input_manifest.v1"
+  },
+  "parameters": {
+    "W": 120,
+    "q": 0.2,
+    "weak_delta": 0.1
+  },
+  "phase": "formal_run",
+  "prohibited_outputs": [
+    "future_return",
+    "future_volatility",
+    "future_direction",
+    "release_label",
+    "path_label",
+    "backtest",
+    "portfolio",
+    "transaction_cost",
+    "selected_indicator",
+    "winner",
+    "replacement_approved",
+    "C_v2"
+  ],
+  "run_id": "EXP-C01-20260715T181429267Z",
+  "schema_version": "exp_c01_manifest.v1",
+  "source_manifest_artifacts": {
+    "dimension_score": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_dimension_score_results.duckdb",
+      "row_count": 20769228,
+      "security_count": 800,
+      "sha256": "4a04fbada9ecac15936e3ab5d968cba8f1205db5dbe66a0491c7141e6fc5b8a5",
+      "table": "r0_t05_dimension_score_results"
+    },
+    "dimension_state": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-03-20260708T1740Z/r0_t06/r0_t06_dimension_state_results.duckdb",
+      "row_count": 62307684,
+      "security_count": 800,
+      "sha256": "bbbb49ea2056bf6f257c1821236eb2b657eb1490153dfc9e56acee8f33264e08",
+      "table": "r0_t06_dimension_state_results"
+    },
+    "indicator_score": {
+      "date_max": "20260630",
+      "date_min": "20160104",
+      "path": "D:/Code/convergence-research/data/generated/r0/r0_t10/R0-T10-02-20260708T1730Z/r0_t05/r0_t05_indicator_score_results.duckdb",
+      "row_count": 41538456,
+      "security_count": 800,
+      "sha256": "6da065875c8270e321910083409f4dba5c1ee63bc6328e56aff3a1d489924447",
+      "table": "r0_t05_indicator_score_results"
+    }
+  },
+  "source_manifest_path": "D:\\Code\\convergence-research-exp-c01-inputs\\exp_c01_authorized_input_manifest_v2.json",
+  "source_manifest_schema_version": "exp_c01_authorized_input_manifest.v1",
+  "source_manifest_sha256": "2d10de31897955595a33d642cfdfe57773b3304a8bd0b763aea56253a5e9e0fa",
+  "task_id": "EXP-C01",
+  "variant_rules": {
+    "baseline_pair": "pair_valid AND score_C_mean >= 0.80 AND score_C_min >= 0.70",
+    "c1_only": "C1 valid AND score_C1 >= 0.80",
+    "c2_only": "C2 valid AND score_C2 >= 0.80"
+  },
+  "variants": [
+    "baseline_pair",
+    "c1_only",
+    "c2_only"
+  ],
+  "workflow_mode": "same_pr"
+}
