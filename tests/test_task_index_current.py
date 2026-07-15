@@ -10,13 +10,17 @@ class TaskIndexCurrentTest(unittest.TestCase):
     def test_current_task_pointer_is_centralized(self) -> None:
         text = README.read_text(encoding="utf-8")
         current = text.split("## 当前阶段", 1)[1].split("## 命名与路径规则", 1)[0]
-        self.assertIn("current_stage: R2", current)
+        self.assertIn("current_stage: R3", current)
         self.assertIn(
-            "current_task: R2-T08 R2 阶段验收与 R3 交接",
+            "current_task: R3-T02 对照路径、标准化与经验边界契约",
             current,
         )
         self.assertIn(
-            "next_planned_task: R3-T01 释放定义（尚未授权）",
+            "previous_completed_task: R3-T01 研究协议、T0 与分析单位冻结",
+            current,
+        )
+        self.assertIn(
+            "next_planned_task: R3-T03 五类未来路径与技术状态标签契约",
             current,
         )
         self.assertIn(
@@ -131,12 +135,42 @@ class TaskIndexCurrentTest(unittest.TestCase):
         self.assertIn("R2-T07_formal_run_executed: true", current)
         self.assertIn("R2-T07_formal_task_completed: true", current)
         self.assertIn(
-            "R2-T08_status: author_package_complete_pending_independent_scientific_review",
+            "R2-T08_status: completed_via_PR_100_merged_pr_direct_binding",
+            current,
+        )
+        self.assertIn("R2-T08_scientific_review_status: passed", current)
+        self.assertIn(
+            "R2-T08_reviewed_head: 90b3b25a5294a8cf9cab622de1f96c99ff3f29f6",
+            current,
+        )
+        self.assertIn(
+            "R2-T08_merge_commit: 0cebf836302b3e89d5d8059c6992e154eea46610",
             current,
         )
         self.assertIn("R2-T08_formal_run_executed: true", current)
-        self.assertIn("R2-T08_formal_task_completed: false", current)
-        self.assertIn("R3_allowed_to_start: false", current)
+        self.assertIn("R2-T08_formal_task_completed: true", current)
+        self.assertIn("R3_allowed_to_start: true", current)
+        self.assertIn("R3-T01_allowed_to_start: true", current)
+        self.assertIn("R3-T01_status: completed_via_PR_103_accepted", current)
+        self.assertIn("R3-T01_implementation_review_status: approved", current)
+        self.assertIn(
+            "R3-T01_reviewed_implementation_sha: "
+            "460728eb42fb4464b781a34595f3ad544677c113",
+            current,
+        )
+        self.assertIn("R3-T01_formal_run_allowed: true", current)
+        self.assertIn("R3-T01_formal_run_status: completed", current)
+        self.assertIn("R3-T01_formal_result_status: accepted", current)
+        self.assertIn("R3-T01_result_review_status: passed", current)
+        self.assertIn("R3-T01_scientific_review_status: passed", current)
+        self.assertIn("R3-T01_formal_run_executed: true", current)
+        self.assertIn("R3-T01_next_task_allowed: true", current)
+        self.assertIn("R3-T01_readme_advanced: true", current)
+        self.assertIn("R3-T02_allowed_to_start: true", current)
+        self.assertIn("R3-T08_allowed_to_start: false", current)
+        self.assertIn("R4_allowed_to_start: false", current)
+        self.assertIn("## R3：收敛区间脱离、经验路径边界与未来路径标签", text)
+        self.assertIn("`R3-T08` R3 阶段验收与 R4 交接：blocked pending R3-T07", text)
         self.assertIn("## R2：参数、事件规则与状态版本冻结", text)
         self.assertIn(
             "immutable post-merge handoff 持久绑定",
