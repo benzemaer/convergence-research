@@ -351,6 +351,10 @@ def sidecar_config_pairs() -> tuple[tuple[Path, Path], ...]:
     schema_root = ROOT / "schemas" / "sidecar"
     config_root = ROOT / "configs" / "sidecar"
     for schema_path in sorted(schema_root.glob("*.schema.json")):
+        if schema_path.name in {
+            "exp_a01_authorized_input_manifest.schema.json",
+        }:
+            continue
         schema_stem = schema_path.name.removesuffix(".schema.json")
         candidates = [config_root / f"{schema_stem}.v1.json"]
         candidates.extend(sorted(config_root.glob(f"{schema_stem}_*.v1.json")))
@@ -364,12 +368,23 @@ def sidecar_config_pairs() -> tuple[tuple[Path, Path], ...]:
     return tuple(pairs)
 
 
+def standalone_sidecar_schemas() -> tuple[Path, ...]:
+    """Return sidecar schemas that validate external manifests, not configs."""
+
+    return (
+        ROOT / "schemas" / "sidecar" / "exp_a01_authorized_input_manifest.schema.json",
+    )
+
+
 def load_json(path: Path) -> object:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def main() -> int:
+    for schema_path in standalone_sidecar_schemas():
+        Draft202012Validator.check_schema(load_json(schema_path))
+        print(f"validated schema {schema_path.relative_to(ROOT)}")
     for schema_path, config_path in (*CONFIGS, *sidecar_config_pairs()):
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)

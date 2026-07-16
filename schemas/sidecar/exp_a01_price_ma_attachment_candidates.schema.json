@@ -22,7 +22,9 @@
     "formal_run_allowed",
     "formal_run_status",
     "formal_run_executed",
+    "formal_artifacts_generated",
     "result_review_status",
+    "EXP-A02_started",
     "mainline_task_unchanged",
     "mainline_current_task",
     "formal_layer_registered",
@@ -53,15 +55,17 @@
     "candidate_layer_name": {"const": "price_ma_attachment"},
     "workflow_mode": {"const": "long_lived_same_pr"},
     "phase": {"const": "implementation_review"},
-    "program_phase": {"const": "A01_candidate_raw_metric_implementation"},
-    "implementation_review_status": {"const": "needs_revision"},
+    "program_phase": {"const": "A01_formal_execution_package_implementation"},
+    "implementation_review_status": {"const": "pending"},
     "reviewed_implementation_sha": {
       "anyOf": [{"const": ""}, {"type": "string", "pattern": "^[0-9a-f]{40}$"}]
     },
     "formal_run_allowed": {"const": false},
     "formal_run_status": {"const": "not_started"},
     "formal_run_executed": {"const": false},
+    "formal_artifacts_generated": {"const": false},
     "result_review_status": {"const": "not_started"},
+    "EXP-A02_started": {"const": false},
     "mainline_task_unchanged": {"const": true},
     "mainline_current_task": {"const": "R3-T02"},
     "formal_layer_registered": {"const": false},
@@ -194,12 +198,29 @@
     "output_contract": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["future_directory", "future_files", "future_raw_metric_artifact_requires_manifest", "no_formal_output_in_implementation", "forbidden_output_fields"],
+      "required": ["future_directory", "future_files", "future_raw_metric_artifact_requires_manifest", "formal_execution_implemented", "no_formal_output_in_implementation", "parallel_mode", "worker_count", "duckdb_threads", "memory_limit", "random_seed", "run_id_pattern", "raw_metric_table", "forbidden_output_fields"],
       "properties": {
         "future_directory": {"const": "data/generated/sidecar/exp_a01/<RUN_ID>/"},
-        "future_files": {"type": "array", "minItems": 7, "uniqueItems": true, "items": {"type": "string"}},
+        "future_files": {"const": ["exp_a01_raw_metrics.duckdb", "exp_a01_metric_profile.csv", "exp_a01_validity_profile.csv", "exp_a01_year_coverage.csv", "exp_a01_security_coverage.csv", "exp_a01_manifest.json", "exp_a01_validator_result.json", "exp_a01_anomaly_scan.json", "exp_a01_result_analysis.md"]},
         "future_raw_metric_artifact_requires_manifest": {"const": true},
-        "no_formal_output_in_implementation": {"const": true},
+        "formal_execution_implemented": {"const": true},
+        "no_formal_output_in_implementation": {"const": false},
+        "parallel_mode": {"const": "single_threaded"},
+        "worker_count": {"const": 1},
+        "duckdb_threads": {"const": 1},
+        "memory_limit": {"const": "8GB"},
+        "random_seed": {"type": ["null", "integer"]},
+        "run_id_pattern": {"const": "^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$"},
+        "raw_metric_table": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["filename", "table", "required_columns"],
+          "properties": {
+            "filename": {"const": "exp_a01_raw_metrics.duckdb"},
+            "table": {"const": "exp_a01_raw_metrics"},
+            "required_columns": {"const": ["run_id", "security_id", "trading_date", "observation_sequence", "expected_observation_status", "indicator_id", "raw_metric_name", "raw_value", "validity_status", "reason_codes_json", "input_window_start", "input_window_end", "required_observation_count", "actual_valid_observation_count", "metric_engine_version", "source_ref"]}
+          }
+        },
         "forbidden_output_fields": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
       }
     },

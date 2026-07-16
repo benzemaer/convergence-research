@@ -1,4 +1,4 @@
-"""Validate EXP-A01 configuration or a future output directory."""
+"""Validate EXP-A01 configuration or a persisted formal output directory."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.sidecar.exp_a01_price_ma_attachment_validator import (  # noqa: E402
+    EXPECTED_FORMAL_FILES,
     load_json,
     validate_output_directory,
     validate_static_config,
@@ -50,6 +51,7 @@ def validate(
         "task_id": "EXP-A01",
         "status": "passed" if not errors else "failed",
         "valid": not errors,
+        "formal_output_contract": list(EXPECTED_FORMAL_FILES),
         "errors": list(dict.fromkeys(errors)),
         "config": str(config_path),
         "schema": str(schema_path),

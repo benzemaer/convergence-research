@@ -259,6 +259,7 @@ def _fixture(
         declaration: dict[str, object] = {
             "artifact_id": artifact_id,
             "path": str(path),
+            "filename": artifact["filename"],
             "sha256": _sha(path),
             "source_contract": artifact["source_contract"],
             "source_role": artifact["source_role"],
@@ -276,7 +277,51 @@ def _fixture(
             )
         declarations[artifact_id] = declaration
     manifest = temp_dir / "authorized_input_manifest.json"
-    _write_json(manifest, {"task_id": "EXP-A01", "input_artifacts": declarations})
+    _write_json(
+        manifest,
+        {
+            "manifest_type": "exp_a01_authorized_input_manifest",
+            "schema_version": "exp_a01_authorized_input_manifest.v1",
+            "task_id": "EXP-A01",
+            "authorized_for_task": "EXP-A01",
+            "authorized_research_candidate_input": True,
+            "formal_data_version": False,
+            "authorization": {
+                "authorization_status": "authorized_for_exp_a01",
+                "authorized_by": "synthetic-test",
+                "authorized_at": "2026-07-16T00:00:00Z",
+                "authorization_evidence": "synthetic fixture",
+            },
+            "input_artifacts": declarations,
+            "cross_artifact_bindings": {
+                "d3_t07_candidate_sha256": declarations[
+                    "d3_t07_candidate_daily_observation"
+                ]["sha256"],
+                "d3_t07_quality_sha256": declarations["d3_t07_quality_report"][
+                    "sha256"
+                ],
+                "d3_t07_handoff_sha256": declarations["d3_t07_handoff_report"][
+                    "sha256"
+                ],
+                "d3_t08_quality_sha256": declarations["d3_t08_quality_report"][
+                    "sha256"
+                ],
+                "d3_t08_handoff_sha256": declarations["d3_t08_handoff_report"][
+                    "sha256"
+                ],
+                "expected_index_sha256": declarations[
+                    "expected_price_observation_index"
+                ]["sha256"],
+            },
+            "d3_t08_source_binding": {
+                "source_task_id": "D3-T07",
+                "source_candidate_artifact_id": "d3_t07_candidate_daily_observation",
+                "source_candidate_sha256": declarations[
+                    "d3_t07_candidate_daily_observation"
+                ]["sha256"],
+            },
+        },
+    )
     return config, manifest, paths
 
 
@@ -709,7 +754,7 @@ class ExpA01LineageTest(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as raw:
             temp_dir = Path(raw)
-            output = temp_dir / "EXP-A01-test"
+            output = temp_dir / "EXP-A01-20260716T000000Z"
             base = Namespace(
                 allow_formal_run=True,
                 reviewed_implementation_sha="0" * 40,
@@ -743,6 +788,10 @@ class ExpA01LineageTest(unittest.TestCase):
                     "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
                     return_value=SimpleNamespace(stdout=" M dirty", returncode=0),
                 ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
+                    return_value={},
+                ),
                 self.assertRaisesRegex(RuntimeError, "clean worktree"),
             ):
                 validate_formal_gate(clean_args)
@@ -754,6 +803,10 @@ class ExpA01LineageTest(unittest.TestCase):
                 patch(
                     "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
                     return_value=SimpleNamespace(stdout="", returncode=0),
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
+                    return_value={},
                 ),
             ):
                 result = validate_formal_gate(clean_args)
@@ -768,12 +821,16 @@ class ExpA01LineageTest(unittest.TestCase):
                     "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
                     return_value=SimpleNamespace(stdout="", returncode=0),
                 ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
+                    return_value={},
+                ),
                 self.assertRaisesRegex(RuntimeError, "output directory"),
             ):
                 validate_formal_gate(clean_args)
 
             missing_manifest_args = copy.copy(clean_args)
-            missing_manifest_args.output_root = temp_dir / "EXP-A01-missing-manifest"
+            missing_manifest_args.output_root = temp_dir / "EXP-A01-20260716T000001Z"
             missing_manifest_args.run_id = missing_manifest_args.output_root.name
             missing_manifest_args.input_manifest = temp_dir / "does-not-exist.json"
             with (
@@ -784,6 +841,10 @@ class ExpA01LineageTest(unittest.TestCase):
                 patch(
                     "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
                     return_value=SimpleNamespace(stdout="", returncode=0),
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
+                    return_value={},
                 ),
                 self.assertRaisesRegex(RuntimeError, "not a file"),
             ):
@@ -806,8 +867,8 @@ class ExpA01LineageTest(unittest.TestCase):
                 config=CONFIG_PATH,
                 input_manifest=missing,
                 input_root=temp_dir,
-                output_root=temp_dir / "EXP-A01-missing-index",
-                run_id="EXP-A01-missing-index",
+                output_root=temp_dir / "EXP-A01-20260716T000002Z",
+                run_id="EXP-A01-20260716T000002Z",
             )
             with (
                 patch(
@@ -818,8 +879,12 @@ class ExpA01LineageTest(unittest.TestCase):
                     "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
                     return_value=SimpleNamespace(stdout="", returncode=0),
                 ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
+                    return_value={},
+                ),
                 self.assertRaisesRegex(
-                    RuntimeError, "does not declare expected_price_observation_index"
+                    RuntimeError, "authorized input manifest schema validation failed"
                 ),
             ):
                 validate_formal_gate(args)

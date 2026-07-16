@@ -1,20 +1,26 @@
-"""Fail-closed future formal-run gate for EXP-A01.
+"""Run the EXP-A01 formal package behind an explicit exact-SHA gate.
 
-This implementation phase validates the complete input lineage and dense
-window contract, then stops deliberately.  It never creates a formal output
-directory and never executes the large-data metric run.
+The package is executable for an explicitly authorized input manifest, while
+the repository configuration keeps formal authorization false. Tests use
+temporary synthetic inputs; no repository formal output is created here.
 """
+
+# SQL-adjacent lineage messages intentionally keep fixed wording.
+# ruff: noqa: E501
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +29,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.sidecar.exp_a01_price_ma_attachment import TASK_ID  # noqa: E402
+from src.sidecar.exp_a01_price_ma_attachment_formal import (  # noqa: E402
+    materialize_raw_metrics,
+    write_compact_csvs,
+)
 from src.sidecar.exp_a01_price_ma_attachment_validator import (  # noqa: E402
     canonical_text_errors,
     load_json,
+    scan_persisted_anomalies,
+    validate_formal_result,
     validate_static_config,
 )
 
@@ -39,6 +51,31 @@ QUALIFIED_COLUMN_PATTERN = re.compile(
     r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*$"
 )
 EXPECTED_INDEX_STATUSES = {"present", "listing_pause", "missing", "unresolved"}
+RUN_ID_PATTERN = re.compile(r"^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$")
+AUTHORIZED_MANIFEST_SCHEMA = (
+    ROOT / "schemas" / "sidecar" / "exp_a01_authorized_input_manifest.schema.json"
+)
+FORMAL_SOURCE_PATHS = (
+    "configs/sidecar/exp_a01_price_ma_attachment_candidates.v1.json",
+    "schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json",
+    "schemas/sidecar/exp_a01_authorized_input_manifest.schema.json",
+    "src/sidecar/exp_a01_price_ma_attachment.py",
+    "src/sidecar/exp_a01_price_ma_attachment_formal.py",
+    "src/sidecar/exp_a01_price_ma_attachment_validator.py",
+    "scripts/sidecar/run_exp_a01_price_ma_attachment.py",
+    "scripts/sidecar/validate_exp_a01_price_ma_attachment.py",
+)
+FORMAL_OUTPUT_FILES = (
+    "exp_a01_raw_metrics.duckdb",
+    "exp_a01_metric_profile.csv",
+    "exp_a01_validity_profile.csv",
+    "exp_a01_year_coverage.csv",
+    "exp_a01_security_coverage.csv",
+    "exp_a01_manifest.json",
+    "exp_a01_validator_result.json",
+    "exp_a01_anomaly_scan.json",
+    "exp_a01_result_analysis.md",
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -59,17 +96,154 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_formal(args: argparse.Namespace) -> dict[str, Any]:
-    """Validate every future formal-run precondition, then stop by design."""
+    """Execute the authorized A01 package with atomic output publication."""
 
     gate = validate_formal_gate(args)
-    raise RuntimeError(
-        "formal_run_not_implemented_in_implementation_phase; "
-        f"validated_run_id={gate['run_id']}"
-    )
+    output_root = Path(gate["output_root"])
+    staging = Path(f"{output_root}.partial-{os.getpid()}")
+    if staging.exists():
+        raise RuntimeError(f"partial staging directory already exists: {staging}")
+
+    started_at = _utc_timestamp()
+    published = False
+    try:
+        staging.mkdir(parents=True)
+        raw_path = staging / "exp_a01_raw_metrics.duckdb"
+        raw_metadata = materialize_raw_metrics(
+            candidate_path=gate["input_paths"]["d3_t07_candidate_daily_observation"],
+            candidate_table=gate["config"]["input_contract"]["artifacts"][
+                "d3_t07_candidate_daily_observation"
+            ]["table"],
+            index_path=gate["input_paths"]["expected_price_observation_index"],
+            index_table=gate["config"]["input_contract"]["artifacts"][
+                "expected_price_observation_index"
+            ]["table"],
+            output_path=raw_path,
+            run_id=gate["run_id"],
+            memory_limit=args.memory_limit,
+        )
+        profile_metadata = write_compact_csvs(
+            output_dir=staging, raw_duckdb=raw_path, memory_limit=args.memory_limit
+        )
+
+        preliminary_manifest = _build_formal_manifest(
+            gate=gate,
+            args=args,
+            started_at=started_at,
+            finished_at=None,
+            staging=staging,
+            raw_metadata=raw_metadata,
+            profile_metadata=profile_metadata,
+            validator_status="pending",
+            anomaly_status="pending",
+        )
+        _write_json(staging / "exp_a01_manifest.json", preliminary_manifest)
+        preliminary_validation = validate_formal_result(
+            staging,
+            config=gate["config"],
+            input_manifest=gate["manifest"],
+            input_manifest_path=gate["input_manifest_path"],
+            input_paths=gate["input_paths"],
+            input_metadata=gate["input_metadata"],
+            expected_index_row_count=gate["expected_index_reconciliation"][
+                "index_row_count"
+            ],
+            reviewed_implementation_sha=gate["reviewed_sha"],
+            require_final_manifest=False,
+        )
+        _write_json(staging / "exp_a01_validator_result.json", preliminary_validation)
+        preliminary_anomaly = scan_persisted_anomalies(
+            staging,
+            expected_index_row_count=gate["expected_index_reconciliation"][
+                "index_row_count"
+            ],
+        )
+        _write_json(staging / "exp_a01_anomaly_scan.json", preliminary_anomaly)
+        analysis = _build_result_analysis(
+            gate=gate,
+            args=args,
+            started_at=started_at,
+            finished_at=_utc_timestamp(),
+            raw_metadata=raw_metadata,
+            validation=preliminary_validation,
+            anomaly=preliminary_anomaly,
+            staging=staging,
+        )
+        (staging / "exp_a01_result_analysis.md").write_text(
+            analysis, encoding="utf-8", newline="\n"
+        )
+
+        final_manifest = _build_formal_manifest(
+            gate=gate,
+            args=args,
+            started_at=started_at,
+            finished_at=_utc_timestamp(),
+            staging=staging,
+            raw_metadata=raw_metadata,
+            profile_metadata=profile_metadata,
+            validator_status=preliminary_validation["status"],
+            anomaly_status=preliminary_anomaly["status"],
+        )
+        _write_json(staging / "exp_a01_manifest.json", final_manifest)
+        manifest_sha = sha256_file(staging / "exp_a01_manifest.json")
+
+        final_anomaly = scan_persisted_anomalies(
+            staging,
+            expected_index_row_count=gate["expected_index_reconciliation"][
+                "index_row_count"
+            ],
+        )
+        final_anomaly["final_manifest_sha256"] = manifest_sha
+        _write_json(staging / "exp_a01_anomaly_scan.json", final_anomaly)
+        final_validation = validate_formal_result(
+            staging,
+            config=gate["config"],
+            input_manifest=gate["manifest"],
+            input_manifest_path=gate["input_manifest_path"],
+            input_paths=gate["input_paths"],
+            input_metadata=gate["input_metadata"],
+            expected_index_row_count=gate["expected_index_reconciliation"][
+                "index_row_count"
+            ],
+            reviewed_implementation_sha=gate["reviewed_sha"],
+            require_final_manifest=True,
+        )
+        final_validation["final_manifest_sha256"] = manifest_sha
+        _write_json(staging / "exp_a01_validator_result.json", final_validation)
+        if final_validation["status"] != "passed":
+            raise RuntimeError(
+                "independent formal-result validation failed: "
+                + "; ".join(final_validation.get("errors", []))
+            )
+        if final_anomaly["status"] == "failed":
+            raise RuntimeError(
+                "formal-result anomaly scan failed: "
+                + "; ".join(final_anomaly.get("blocking_anomalies", []))
+            )
+
+        output_root.parent.mkdir(parents=True, exist_ok=True)
+        staging.rename(output_root)
+        published = True
+        return {
+            "task_id": TASK_ID,
+            "status": "passed",
+            "run_id": gate["run_id"],
+            "output_root": str(output_root),
+            "reviewed_implementation_sha": gate["reviewed_sha"],
+            "formal_run_executed": True,
+            "validator_status": final_validation["status"],
+            "anomaly_status": final_anomaly["status"],
+        }
+    except Exception:
+        if output_root.exists() and not published:
+            _remove_path(output_root)
+        if staging.exists():
+            _remove_path(staging)
+        raise
 
 
 def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
-    """Validate code, manifest, evidence, tables, and dense-index lineage."""
+    """Validate every formal precondition without creating any output."""
 
     if not args.allow_formal_run:
         raise RuntimeError("formal_run_not_allowed_without_--allow-formal-run")
@@ -78,6 +252,11 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError(
             "reviewed_implementation_sha must be an exact 40-character SHA"
         )
+    if not RUN_ID_PATTERN.fullmatch(str(args.run_id or "")):
+        raise RuntimeError("run-id does not match the EXP-A01 formal pattern")
+    memory_limit = getattr(args, "memory_limit", "8GB")
+    if not str(memory_limit or "").strip():
+        raise RuntimeError("memory-limit must be non-empty")
 
     config_path = Path(args.config).resolve()
     config = load_json(config_path)
@@ -101,6 +280,7 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
     ).stdout
     if worktree_status.strip():
         raise RuntimeError("formal run requires a clean worktree")
+    source_bindings = _validate_committed_source_bindings(reviewed_sha)
 
     if args.input_manifest is None:
         raise RuntimeError("--input-manifest is required")
@@ -119,17 +299,18 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError(f"source manifest is invalid JSON: {manifest_path}") from exc
     if not isinstance(manifest, Mapping):
         raise RuntimeError("source manifest root must be an object")
-    if manifest.get("task_id") not in (None, TASK_ID):
-        raise RuntimeError("source manifest task_id does not match EXP-A01")
+    _validate_authorized_manifest_schema(manifest)
+    _validate_manifest_authorization_bindings(manifest)
 
-    run_id = str(args.run_id or "")
-    if not run_id or Path(run_id).name != run_id:
-        raise RuntimeError("run-id must be a non-empty single path component")
+    run_id = str(args.run_id)
     output_root = Path(args.output_root).resolve()
     if output_root.name != run_id:
         raise RuntimeError("output-root basename must equal run-id")
     if output_root.exists():
         raise RuntimeError(f"output directory must be new and absent: {output_root}")
+    partial_root = Path(f"{output_root}.partial-{os.getpid()}")
+    if partial_root.exists():
+        raise RuntimeError(f"partial staging directory already exists: {partial_root}")
 
     input_root_value = args.input_root or os.environ.get(
         "CONVERGENCE_RESEARCH_INPUT_ROOT"
@@ -158,6 +339,8 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         )
         paths[artifact_id] = path
         metadata[artifact_id] = inspect_input_artifact(path, artifact, declaration)
+        metadata[artifact_id]["path"] = str(path)
+    _validate_cross_artifact_bindings(manifest, declarations)
 
     _validate_d3_t07_evidence(
         candidate_path=paths["d3_t07_candidate_daily_observation"],
@@ -181,15 +364,20 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
 
     return {
         "task_id": TASK_ID,
-        "status": "gate_passed_formal_not_executed",
+        "status": "gate_passed",
         "run_id": run_id,
-        "reviewed_implementation_sha": reviewed_sha,
+        "reviewed_sha": reviewed_sha,
         "input_manifest_path": str(manifest_path),
         "input_manifest_sha256": hashlib.sha256(manifest_raw).hexdigest(),
-        "input_paths": {key: str(value) for key, value in paths.items()},
+        "manifest": dict(manifest),
+        "input_paths": paths,
         "input_metadata": metadata,
+        "input_declarations": declarations,
         "expected_index_reconciliation": index_reconciliation,
         "output_root": str(output_root),
+        "config": config,
+        "config_path": config_path,
+        "source_bindings": source_bindings,
         "formal_run_executed": False,
     }
 
@@ -813,6 +1001,354 @@ def _current_git_sha() -> str:
     ).stdout.strip()
 
 
+def _validate_authorized_manifest_schema(manifest: Mapping[str, Any]) -> None:
+    try:
+        from jsonschema import Draft202012Validator, FormatChecker
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "jsonschema is required for input manifest validation"
+        ) from exc
+    schema_raw = AUTHORIZED_MANIFEST_SCHEMA.read_bytes()
+    schema_errors = canonical_text_errors(schema_raw)
+    if schema_errors:
+        raise RuntimeError(
+            f"authorized input manifest schema is not canonical: {schema_errors}"
+        )
+    schema = load_json(AUTHORIZED_MANIFEST_SCHEMA)
+    try:
+        Draft202012Validator.check_schema(schema)
+        errors = sorted(
+            Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(
+                manifest
+            ),
+            key=lambda item: list(item.path),
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"authorized input manifest schema validation failed: {exc}")
+    if errors:
+        raise RuntimeError(
+            "authorized input manifest schema validation failed: "
+            + "; ".join(error.message for error in errors)
+        )
+
+
+def _validate_manifest_authorization_bindings(manifest: Mapping[str, Any]) -> None:
+    if manifest.get("authorized_for_task") != TASK_ID:
+        raise RuntimeError("authorized input manifest task authorization mismatch")
+    if manifest.get("authorized_research_candidate_input") is not True:
+        raise RuntimeError(
+            "authorized input manifest is not a research-candidate authorization"
+        )
+    if manifest.get("formal_data_version") is not False:
+        raise RuntimeError(
+            "authorized input manifest formal_data_version must be false"
+        )
+    authorization = manifest.get("authorization")
+    if not isinstance(authorization, Mapping):
+        raise RuntimeError("authorized input manifest authorization is missing")
+    if authorization.get("authorization_status") != "authorized_for_exp_a01":
+        raise RuntimeError("authorized input manifest authorization status is invalid")
+    if not str(authorization.get("authorization_evidence", "")).strip():
+        raise RuntimeError("authorized input manifest authorization evidence is empty")
+    expected = {
+        "d3_t07_candidate_daily_observation",
+        "d3_t07_handoff_report",
+        "d3_t07_quality_report",
+        "d3_t08_handoff_report",
+        "d3_t08_quality_report",
+        "expected_price_observation_index",
+    }
+    artifacts = manifest.get("input_artifacts")
+    if not isinstance(artifacts, Mapping) or set(artifacts) != expected:
+        raise RuntimeError(
+            "authorized input manifest must declare exactly six artifacts"
+        )
+    bindings = manifest.get("cross_artifact_bindings")
+    if not isinstance(bindings, Mapping):
+        raise RuntimeError(
+            "authorized input manifest cross-artifact bindings are missing"
+        )
+    source = manifest.get("d3_t08_source_binding")
+    if not isinstance(source, Mapping):
+        raise RuntimeError("authorized input manifest D3-T08 source binding is missing")
+    if (
+        source.get("source_task_id") != "D3-T07"
+        or source.get("source_candidate_artifact_id")
+        != "d3_t07_candidate_daily_observation"
+    ):
+        raise RuntimeError("authorized input manifest D3-T08 source binding is invalid")
+
+
+def _validate_cross_artifact_bindings(
+    manifest: Mapping[str, Any], declarations: Mapping[str, Mapping[str, Any]]
+) -> None:
+    bindings = manifest["cross_artifact_bindings"]
+    expected = {
+        "d3_t07_candidate_sha256": "d3_t07_candidate_daily_observation",
+        "d3_t07_quality_sha256": "d3_t07_quality_report",
+        "d3_t07_handoff_sha256": "d3_t07_handoff_report",
+        "d3_t08_quality_sha256": "d3_t08_quality_report",
+        "d3_t08_handoff_sha256": "d3_t08_handoff_report",
+        "expected_index_sha256": "expected_price_observation_index",
+    }
+    for binding_name, artifact_id in expected.items():
+        if bindings.get(binding_name) != declarations[artifact_id].get("sha256"):
+            raise RuntimeError(
+                f"authorized input manifest cross-artifact binding mismatch: {binding_name}"
+            )
+    if manifest["d3_t08_source_binding"].get("source_candidate_sha256") != declarations[
+        "d3_t07_candidate_daily_observation"
+    ].get("sha256"):
+        raise RuntimeError(
+            "authorized input manifest D3-T08 candidate SHA binding mismatch"
+        )
+
+
+def _validate_committed_source_bindings(reviewed_sha: str) -> dict[str, Any]:
+    """Bind formal source lineage to Git objects and compare clean worktree bytes."""
+
+    bindings: dict[str, Any] = {}
+    for relative in FORMAL_SOURCE_PATHS:
+        try:
+            blob_sha = subprocess.run(
+                ["git", "rev-parse", f"{reviewed_sha}:{relative}"],
+                cwd=str(ROOT),
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            committed = subprocess.run(
+                ["git", "show", f"{reviewed_sha}:{relative}"],
+                cwd=str(ROOT),
+                check=True,
+                capture_output=True,
+            ).stdout
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"formal source binding is missing from reviewed commit: {relative}"
+            ) from exc
+        if not isinstance(committed, bytes):
+            raise RuntimeError(f"Git source bytes were not returned for {relative}")
+        current_path = ROOT / relative
+        if not current_path.is_file() or current_path.read_bytes() != committed:
+            raise RuntimeError(
+                f"working-tree source differs from reviewed Git blob: {relative}"
+            )
+        text_errors = canonical_text_errors(committed)
+        if text_errors:
+            raise RuntimeError(
+                f"reviewed formal source is not canonical UTF-8/LF: {relative}: {text_errors}"
+            )
+        bindings[relative] = {
+            "source_commit": reviewed_sha,
+            "git_blob_sha": blob_sha,
+            "committed_byte_sha256": hashlib.sha256(committed).hexdigest(),
+            "normalized_text_sha256": hashlib.sha256(
+                committed.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+            ).hexdigest(),
+            "encoding": "UTF-8",
+            "line_ending": "LF",
+            "BOM": False,
+            "final_LF_count": len(committed) - len(committed.rstrip(b"\n")),
+        }
+    return bindings
+
+
+def _build_formal_manifest(
+    *,
+    gate: Mapping[str, Any],
+    args: argparse.Namespace,
+    started_at: str,
+    finished_at: str | None,
+    staging: Path,
+    raw_metadata: Mapping[str, Any],
+    profile_metadata: Mapping[str, Mapping[str, Any]],
+    validator_status: str,
+    anomaly_status: str,
+) -> dict[str, Any]:
+    output_artifacts: dict[str, Any] = {}
+    raw_path = staging / "exp_a01_raw_metrics.duckdb"
+    output_artifacts[raw_path.name] = {
+        "path": raw_path.name,
+        "sha256": sha256_file(raw_path),
+        "row_count": raw_metadata["row_count"],
+    }
+    for filename, metadata in profile_metadata.items():
+        path = staging / filename
+        output_artifacts[filename] = {
+            "path": filename,
+            "sha256": sha256_file(path),
+            "row_count": metadata["row_count"],
+        }
+    analysis_path = staging / "exp_a01_result_analysis.md"
+    if analysis_path.exists():
+        output_artifacts[analysis_path.name] = {
+            "path": analysis_path.name,
+            "sha256": sha256_file(analysis_path),
+            "row_count": len(analysis_path.read_text(encoding="utf-8").splitlines()),
+        }
+    input_metadata = {
+        artifact_id: {key: value for key, value in metadata.items() if key != "json"}
+        for artifact_id, metadata in gate["input_metadata"].items()
+    }
+    return {
+        "task_id": TASK_ID,
+        "program_id": "EXP-A",
+        "run_id": gate["run_id"],
+        "phase": "formal_run",
+        "implementation_sha": gate["reviewed_sha"],
+        "reviewed_implementation_sha": gate["reviewed_sha"],
+        "formal_data_version": False,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "parallel_mode": "single_threaded",
+        "worker_count": 1,
+        "duckdb_threads": 1,
+        "memory_limit": args.memory_limit,
+        "random_seed": None,
+        "config": {
+            "path": str(gate["config_path"].relative_to(ROOT)).replace("\\", "/"),
+            "sha256": gate["source_bindings"][
+                "configs/sidecar/exp_a01_price_ma_attachment_candidates.v1.json"
+            ]["committed_byte_sha256"],
+        },
+        "source_bindings": gate["source_bindings"],
+        "input_manifest_path": str(gate["input_manifest_path"]),
+        "input_manifest_sha256": gate["input_manifest_sha256"],
+        "input_artifact_declarations": gate["input_declarations"],
+        "input_artifact_actual_metadata": input_metadata,
+        "dense_reconciliation_counts": gate["expected_index_reconciliation"],
+        "candidate_ids": [
+            candidate["indicator_id"] for candidate in gate["config"]["candidates"]
+        ],
+        "parameters": gate["config"]["parameters"],
+        "raw_metric_table": raw_metadata,
+        "output_artifacts": output_artifacts,
+        "validator_status": validator_status,
+        "anomaly_status": anomaly_status,
+        "governance_files": [
+            "exp_a01_validator_result.json",
+            "exp_a01_anomaly_scan.json",
+        ],
+        "prohibited_outputs": gate["config"]["output_contract"][
+            "forbidden_output_fields"
+        ],
+    }
+
+
+def _build_result_analysis(
+    *,
+    gate: Mapping[str, Any],
+    args: argparse.Namespace,
+    started_at: str,
+    finished_at: str,
+    raw_metadata: Mapping[str, Any],
+    validation: Mapping[str, Any],
+    anomaly: Mapping[str, Any],
+    staging: Path,
+) -> str:
+    profile_path = staging / "exp_a01_metric_profile.csv"
+    with profile_path.open(encoding="utf-8", newline="") as profile_handle:
+        profile_rows = list(csv.DictReader(profile_handle))
+    readiness = (
+        "ready_for_user_formal_result_review"
+        if validation.get("status") == "passed" and anomaly.get("status") == "passed"
+        else "needs_investigation_before_user_review"
+    )
+    valid_summary = "; ".join(
+        f"{row.get('indicator_id')}: valid_count={row.get('valid_count')}, "
+        f"valid_rate={row.get('valid_rate')}"
+        for row in profile_rows
+    )
+    sections = [
+        "# EXP-A01 formal result analysis",
+        "",
+        "## 1. Actual run / reviewed SHA",
+        f"run_id: {gate['run_id']}",
+        f"reviewed_implementation_sha: {gate['reviewed_sha']}",
+        f"started_at: {started_at}",
+        f"finished_at: {finished_at}",
+        "parallel_mode: single_threaded; worker_count: 1",
+        f"memory_limit: {args.memory_limit}",
+        "",
+        "## 2. Input manifest and authorization",
+        f"input_manifest_sha256: {gate['input_manifest_sha256']}",
+        "authorized_for_task: EXP-A01; authorized_research_candidate_input: true",
+        "formal_data_version: false",
+        "",
+        "## 3. D3-T07 lineage",
+        "The D3-T07 candidate, handoff and quality evidence passed their declared source, role and quality gates.",
+        "",
+        "## 4. D3-T08 evidence",
+        "The D3-T08 handoff and quality evidence passed the registered nine-blocker subset and handoff prohibition flags.",
+        "",
+        "## 5. Dense expected-index reconciliation",
+        json.dumps(
+            gate["expected_index_reconciliation"], ensure_ascii=False, sort_keys=True
+        ),
+        "",
+        "## 6. Fixed candidate definitions",
+        "A1, A2 and A2b use the frozen current-day-inclusive adjusted-price definitions, MA windows and dense slot counts.",
+        "",
+        "## 7. Raw table cardinality",
+        f"raw_table_rows: {raw_metadata['row_count']}; expected_index_rows: {raw_metadata['expected_index_row_count']}; expected_raw_rows: {raw_metadata['expected_row_count']}",
+        "Each expected slot has exactly three persisted indicator rows.",
+        "",
+        "## 8. Metric domains and distributions",
+        valid_summary or "No metric profile rows were available.",
+        "",
+        "## 9. Validity status profile",
+        "The persisted validity profile is checked independently against the raw table.",
+        "",
+        "## 10. Reason-code profile",
+        "Reason-code counts are derived from the canonical compact JSON arrays and are not interpreted as additional metrics.",
+        "",
+        "## 11. Year coverage",
+        "The year coverage table reports every observed calendar year and candidate.",
+        "",
+        "## 12. Security coverage",
+        "The security coverage table reports every observed security and candidate.",
+        "",
+        "## 13. Independent full recomputation",
+        "The independent validator recomputed every persisted raw row from the two input DuckDBs and compared values, statuses, reasons and windows within the declared 1e-12 tolerances.",
+        f"comparison_counts: {json.dumps(validation.get('comparison_counts', {}), sort_keys=True)}",
+        "",
+        "## 14. Validator result",
+        f"status: {validation.get('status')}; valid: {validation.get('valid')}; errors: {len(validation.get('errors', []))}",
+        "",
+        "## 15. Anomaly scan",
+        f"status: {anomaly.get('status')}; blocking_anomaly_count: {anomaly.get('blocking_anomaly_count')}; investigation_item_count: {anomaly.get('investigation_item_count')}",
+        "",
+        "## 16. Supported and unsupported conclusions",
+        "This package supports statements about raw-metric materialization, numeric domains, validity, coverage and persisted-result integrity only. It does not establish downstream selection or later-stage decisions.",
+        "",
+        "## 17. Readiness for user Formal-result review",
+        f"{readiness}",
+        "",
+    ]
+    return "\n".join(sections)
+
+
+def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
@@ -822,6 +1358,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--allow-formal-run", action="store_true")
     parser.add_argument("--reviewed-implementation-sha")
+    parser.add_argument("--memory-limit", default="8GB")
     return parser.parse_args(argv)
 
 
