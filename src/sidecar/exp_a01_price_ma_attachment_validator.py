@@ -146,7 +146,7 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         "workflow_mode": "long_lived_same_pr",
         "phase": "implementation_review",
         "program_phase": "A01_formal_execution_package_implementation",
-        "implementation_review_status": "pending",
+        "implementation_review_status": "needs_revision",
         "reviewed_implementation_sha": "",
         "formal_run_allowed": False,
         "formal_run_status": "not_started",

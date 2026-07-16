@@ -10,7 +10,7 @@ candidate_layer: A
 candidate_layer_name: price_ma_attachment
 workflow_mode: long_lived_same_pr
 phase: implementation_review
-implementation_review_status: pending
+implementation_review_status: needs_revision
 reviewed_implementation_sha:
 formal_run_allowed: false
 formal_run_status: not_started

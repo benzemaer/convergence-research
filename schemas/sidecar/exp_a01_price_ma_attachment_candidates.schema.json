@@ -56,7 +56,7 @@
     "workflow_mode": {"const": "long_lived_same_pr"},
     "phase": {"const": "implementation_review"},
     "program_phase": {"const": "A01_formal_execution_package_implementation"},
-    "implementation_review_status": {"const": "pending"},
+    "implementation_review_status": {"const": "needs_revision"},
     "reviewed_implementation_sha": {
       "anyOf": [{"const": ""}, {"type": "string", "pattern": "^[0-9a-f]{40}$"}]
     },
