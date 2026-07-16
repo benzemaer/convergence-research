@@ -73,6 +73,7 @@ CSV_FILES = (
 )
 
 _VALID_TRADING_STATUSES = {
+    "listed_open_resolved_daily",
     "normal_trading",
     "limit_up",
     "limit_down",
@@ -424,7 +425,7 @@ def _row_reason_expression() -> str:
              OR is_listing_pause IS DISTINCT FROM FALSE
            THEN 'listing_pause_in_required_window' END,
       CASE WHEN COALESCE(lower(trim(CAST(trading_status AS VARCHAR))), '') NOT IN
-             ('normal_trading', 'limit_up', 'limit_down', 'one_price_limit_up', 'one_price_limit_down',
+             ('listed_open_resolved_daily', 'normal_trading', 'limit_up', 'limit_down', 'one_price_limit_up', 'one_price_limit_down',
               'suspended', 'reopen_after_suspension')
            THEN 'invalid_trading_status' END,
       CASE WHEN COALESCE(lower(trim(CAST(trading_status AS VARCHAR))), '') = 'reopen_after_suspension'

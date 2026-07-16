@@ -73,6 +73,7 @@ OUTPUT_FIELDS = (
 # These are the controlled values used by the committed D3 quality-readiness
 # and D3-T07 contracts.  A01 must not invent a second status vocabulary.
 _VALID_TRADING_STATUSES = {
+    "listed_open_resolved_daily",
     "normal_trading",
     "limit_up",
     "limit_down",

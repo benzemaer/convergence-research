@@ -55,7 +55,7 @@ CloudCenter_t = mean(L_k,t)
 
 ## Validity contract
 
-三个候选均 fail closed。以下情况不得产生 ordinary numeric raw value：窗口不足、缺少 adjusted open/close、缺少 required history、非正价格或 MA、adjustment failure、required window 内 suspension/listing pause、invalid trading status。`normal_trading`、`limit_up`、`limit_down`、`one_price_limit_up` 和 `one_price_limit_down` 是允许的价格观察状态；`reopen_after_suspension` 为 diagnostic-required；`suspended`、`unknown` 或未注册值不得当作正常交易。输入的 duplicate security/date、duplicate security/sequence、non-monotonic sequence/date 或 sequence gap 直接抛出 `InputContractError`，不得排序修复后继续。A2/A2b 的 79 个 expected slot 中任一 required observation 无效，整个当前输出即为非 valid。
+三个候选均 fail closed。以下情况不得产生 ordinary numeric raw value：窗口不足、缺少 adjusted open/close、缺少 required history、非正价格或 MA、adjustment failure、required window 内 suspension/listing pause、invalid trading status。`listed_open_resolved_daily` 是 D2/D3 已解析的上市开放交易日状态，对 EXP-A01 价格指标而言属于可用的 present observation；`normal_trading`、`limit_up`、`limit_down`、`one_price_limit_up` 和 `one_price_limit_down` 也属于允许的价格观察状态。`reopen_after_suspension` 为 diagnostic-required；`suspended`、`unknown` 或未注册值不得当作正常交易。该兼容修复不把 suspended、listing_pause、missing 或 unresolved 转换为有效状态。输入的 duplicate security/date、duplicate security/sequence、non-monotonic sequence/date 或 sequence gap 直接抛出 `InputContractError`，不得排序修复后继续。A2/A2b 的 79 个 expected slot 中任一 required observation 无效，整个当前输出即为非 valid。
 
 输出字段固定为 `security_id`、`trading_date`、`indicator_id`、`raw_metric_name`、`raw_value`、`validity_status`、`reason_codes`、`input_window_start`、`input_window_end`、`required_observation_count`、`actual_valid_observation_count` 和 `metric_engine_version`。invalid/unknown 输出的 `raw_value` 必须为 NULL；不输出 percentile、score、state、winner、replacement、future outcome、backtest、portfolio 或 transaction cost 字段。
 

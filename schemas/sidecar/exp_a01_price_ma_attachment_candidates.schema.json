@@ -116,7 +116,7 @@
         "moving_average": {"type": "string", "minLength": 1},
         "moving_average_windows": {"const": [5, 10, 20, 30, 60]},
         "trading_status_allowed_values": {
-          "const": ["normal_trading", "limit_up", "limit_down", "one_price_limit_up", "one_price_limit_down"]
+          "const": ["listed_open_resolved_daily", "normal_trading", "limit_up", "limit_down", "one_price_limit_up", "one_price_limit_down"]
         },
         "daily_status_allowed_values": {
           "const": ["resolved"]

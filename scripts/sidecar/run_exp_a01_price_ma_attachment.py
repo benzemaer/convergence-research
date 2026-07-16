@@ -161,6 +161,16 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             ],
         )
         _write_json(staging / "exp_a01_anomaly_scan.json", preliminary_anomaly)
+        if preliminary_validation["status"] != "passed":
+            raise RuntimeError(
+                "preliminary independent formal-result validation failed: "
+                + "; ".join(preliminary_validation.get("errors", []))
+            )
+        if preliminary_anomaly["status"] == "failed":
+            raise RuntimeError(
+                "preliminary formal-result anomaly scan failed: "
+                + "; ".join(preliminary_anomaly.get("blocking_anomalies", []))
+            )
         analysis = _build_result_analysis(
             gate=gate,
             args=args,

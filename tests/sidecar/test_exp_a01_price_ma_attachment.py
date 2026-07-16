@@ -295,6 +295,15 @@ class ExpA01PriceMaAttachmentTest(unittest.TestCase):
         )
 
     def test_d3_status_vocab_and_adjustment_fail_closed(self) -> None:
+        listed_open = make_rows(100)
+        for row in listed_open:
+            row["trading_status"] = "listed_open_resolved_daily"
+        listed_results = compute_a01_metrics(listed_open)
+        for indicator_id in (A1_ID, A2_ID, A2B_ID):
+            listed_result = metric_at(listed_results, indicator_id, 99)
+            self.assertEqual(listed_result["validity_status"], "valid")
+            self.assertNotIn("invalid_trading_status", listed_result["reason_codes"])
+
         reopen = make_rows(79)
         reopen[40]["trading_status"] = "reopen_after_suspension"
         reopen_result = metric_at(compute_a01_metrics(reopen), A2_ID, 78)

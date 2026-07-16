@@ -11,6 +11,7 @@ from src.sidecar.exp_a01_price_ma_attachment import (
     compute_a01_metrics,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
+    _independent_row_reasons,
     load_json,
     validate_metric_rows,
     validate_static_config,
@@ -71,6 +72,11 @@ class ExpA01ValidatorTest(unittest.TestCase):
                 "A2b_BodyToMACloudGapMean20_5_60",
             ],
         )
+
+    def test_independent_recomputation_accepts_d3_resolved_open_status(self) -> None:
+        row = dense_rows()[40]
+        row["trading_status"] = "listed_open_resolved_daily"
+        self.assertNotIn("invalid_trading_status", _independent_row_reasons(row))
 
     def test_validator_rejects_forbidden_and_invalid_mutations(self) -> None:
         metrics = compute_a01_metrics(dense_rows())

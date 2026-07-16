@@ -201,6 +201,7 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         if price_basis.get("moving_average_windows") != [5, 10, 20, 30, 60]:
             errors.append("config_ma_windows_mismatch")
         if set(price_basis.get("trading_status_allowed_values", [])) != {
+            "listed_open_resolved_daily",
             "normal_trading",
             "limit_up",
             "limit_down",
@@ -2737,6 +2738,7 @@ def _independent_row_reasons(row: Mapping[str, Any]) -> list[str]:
     elif trading_status == "suspended":
         reasons.append("suspension_in_required_window")
     elif trading_status not in {
+        "listed_open_resolved_daily",
         "normal_trading",
         "limit_up",
         "limit_down",

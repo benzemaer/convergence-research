@@ -44,6 +44,7 @@
     "moving_average": "simple moving average of adjusted_close with the current observation included",
     "moving_average_windows": [5, 10, 20, 30, 60],
     "trading_status_allowed_values": [
+      "listed_open_resolved_daily",
       "normal_trading",
       "limit_up",
       "limit_down",

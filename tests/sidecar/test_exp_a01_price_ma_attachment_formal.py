@@ -114,6 +114,7 @@ class ExpA01FormalTest(unittest.TestCase):
                     8: "limit_down",
                     9: "one_price_limit_up",
                     10: "one_price_limit_down",
+                    11: "listed_open_resolved_daily",
                 }.get(index, "normal_trading")
                 rows.append(
                     (
@@ -781,6 +782,42 @@ class ExpA01FormalTest(unittest.TestCase):
                 self.assertEqual(
                     input_hashes, {name: _sha(path) for name, path in paths.items()}
                 )
+
+    def test_preliminary_anomaly_failure_stops_before_final_replay(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            manifest, _paths = self._make_inputs(root)
+            args = self._formal_args(root, manifest, "EXP-A01-20260716T122000Z")
+            validation = {"status": "passed", "errors": [], "warnings": []}
+            anomaly = {
+                "status": "failed",
+                "blocking_anomalies": ["no_valid_rows:test"],
+            }
+            with (
+                self._git_context(),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.validate_formal_result",
+                    return_value=validation,
+                ) as validate_mock,
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.scan_persisted_anomalies",
+                    return_value=anomaly,
+                ) as anomaly_mock,
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._build_result_analysis"
+                ) as analysis_mock,
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError, "preliminary formal-result anomaly scan failed"
+                ):
+                    run_formal(args)
+            self.assertEqual(validate_mock.call_count, 1)
+            self.assertEqual(anomaly_mock.call_count, 1)
+            analysis_mock.assert_not_called()
+            self.assertFalse(Path(args.output_root).exists())
+            self.assertEqual(
+                list(root.glob(f"{Path(args.output_root).name}.partial-*")), []
+            )
 
     def test_validator_catches_persisted_artifact_mutations(self) -> None:
         mutations = (
