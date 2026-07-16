@@ -24,6 +24,9 @@ from src.sidecar.exp_a01_price_ma_attachment import (
 )
 
 TASK_ID = "EXP-A01"
+D3_T07_CONTRACT = "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"
+D3_T08_CONTRACT = "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"
+INDEX_CONTRACT = "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1"
 FORBIDDEN_FIELD_TOKENS = (
     "percentile",
     "score",
@@ -39,7 +42,15 @@ FORBIDDEN_FIELD_TOKENS = (
     "transaction_cost",
 )
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
+SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+EXPECTED_ARTIFACTS = (
+    "d3_t07_candidate_daily_observation",
+    "d3_t07_handoff_report",
+    "d3_t07_quality_report",
+    "d3_t08_handoff_report",
+    "d3_t08_quality_report",
+    "expected_price_observation_index",
+)
 EXPECTED_CANDIDATES = (
     {
         "indicator_id": A1_ID,
@@ -63,10 +74,10 @@ EXPECTED_CANDIDATES = (
 
 
 def validate_static_config(config: Mapping[str, Any]) -> list[str]:
-    """Return deterministic errors for the frozen A01 implementation config."""
+    """Return deterministic errors for the frozen A01 implementation boundary."""
 
     errors: list[str] = []
-    constants = {
+    for key, expected in {
         "task_id": TASK_ID,
         "experiment_id": TASK_ID,
         "program_id": "EXP-A",
@@ -76,7 +87,8 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         "workflow_mode": "long_lived_same_pr",
         "phase": "implementation_review",
         "program_phase": "A01_candidate_raw_metric_implementation",
-        "implementation_review_status": "pending",
+        "implementation_review_status": "needs_revision",
+        "reviewed_implementation_sha": "",
         "formal_run_allowed": False,
         "formal_run_status": "not_started",
         "formal_run_executed": False,
@@ -88,73 +100,108 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         "pcatv_created": False,
         "existing_indicator_modified": False,
         "future_outcome_used": False,
-    }
-    for key, expected in constants.items():
+    }.items():
         if config.get(key) != expected:
             errors.append(f"config_{key}_mismatch")
 
-    reviewed_sha = config.get("reviewed_implementation_sha")
-    if (
-        not isinstance(reviewed_sha, str)
-        or reviewed_sha
-        not in {
-            "",
-        }
-        and not re.fullmatch(r"[0-9a-f]{40}", reviewed_sha)
-    ):
-        errors.append("config_reviewed_implementation_sha_invalid")
+    price_basis = config.get("price_basis")
+    if not isinstance(price_basis, Mapping):
+        errors.append("config_price_basis_missing")
+    else:
+        if price_basis.get("authoritative_contract") != D3_T07_CONTRACT:
+            errors.append("config_authoritative_adjusted_ohlc_contract_mismatch")
+        if price_basis.get("authoritative_object") != "d3_candidate_daily_observation":
+            errors.append("config_authoritative_object_mismatch")
+        if price_basis.get("candidate_materialization_contract") != D3_T07_CONTRACT:
+            errors.append("config_candidate_materialization_contract_mismatch")
+        if price_basis.get("source_role") != "exploration_research_candidate":
+            errors.append("config_source_role_mismatch")
+        if price_basis.get("formal_data_version") is not False:
+            errors.append("config_formal_data_version_mismatch")
+        if price_basis.get("raw_ohlc_forbidden") is not True:
+            errors.append("config_raw_ohlc_not_forbidden")
+        if price_basis.get("future_observations_forbidden") is not True:
+            errors.append("config_future_observations_not_forbidden")
+        if price_basis.get("centered_moving_average_forbidden") is not True:
+            errors.append("config_centered_ma_not_forbidden")
+        if price_basis.get("adjusted_fields") != [
+            "adjusted_open",
+            "adjusted_high",
+            "adjusted_low",
+            "adjusted_close",
+        ]:
+            errors.append("config_adjusted_fields_mismatch")
+        if price_basis.get("canonical_column_mapping") != {
+            "security_id": "ts_code",
+            "trading_date": "trade_date",
+            "adjusted_open": "adjusted_open",
+            "adjusted_close": "adjusted_close",
+            "adjustment_factor": "effective_adj_factor",
+        }:
+            errors.append("config_canonical_column_mapping_mismatch")
+        if price_basis.get("moving_average_windows") != [5, 10, 20, 30, 60]:
+            errors.append("config_ma_windows_mismatch")
+        if set(price_basis.get("trading_status_allowed_values", [])) != {
+            "normal_trading",
+            "limit_up",
+            "limit_down",
+            "one_price_limit_up",
+            "one_price_limit_down",
+        }:
+            errors.append("config_trading_status_vocabulary_mismatch")
+        if set(price_basis.get("daily_status_allowed_values", [])) != {"resolved"}:
+            errors.append("config_daily_status_vocabulary_mismatch")
+        if set(price_basis.get("adjustment_factor_status_allowed_values", [])) != {
+            "resolved",
+            "not_applicable_or_carry_forward",
+            "neutral_factor_1_policy",
+            "factor_interval_policy",
+        }:
+            errors.append("config_adjustment_status_vocabulary_mismatch")
+        if "candidate_input_aliases" in price_basis:
+            errors.append("config_hybrid_input_aliases_forbidden")
+        for forbidden in (
+            "continuous_ohlc_integrity_status",
+            "adjustment_method",
+            "factor_as_of_time",
+            "corporate_action_flag",
+        ):
+            if forbidden in json.dumps(price_basis, ensure_ascii=False):
+                errors.append(f"config_forced_field_forbidden:{forbidden}")
 
     parameters = config.get("parameters")
     if not isinstance(parameters, Mapping):
         errors.append("config_parameters_missing")
     else:
-        expected_parameters = {
+        for key, expected in {
             "ma_windows": [5, 10, 20, 30, 60],
             "a2_rolling_window": 20,
             "a1_required_observations": 60,
             "a2_required_observations": 79,
             "current_day_included": True,
             "raw_value_direction": "lower_is_more_attached",
-        }
-        for key, expected in expected_parameters.items():
+        }.items():
             if parameters.get(key) != expected:
                 errors.append(f"config_parameter_{key}_mismatch")
 
-    price_basis = config.get("price_basis")
-    if not isinstance(price_basis, Mapping):
-        errors.append("config_price_basis_missing")
-    else:
-        if price_basis.get("authoritative_contract") != (
-            "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"
-        ):
-            errors.append("config_authoritative_adjusted_ohlc_contract_mismatch")
-        if price_basis.get("candidate_materialization_contract") != (
-            "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"
-        ):
-            errors.append("config_candidate_materialization_contract_mismatch")
-        if price_basis.get("moving_average_windows") != [5, 10, 20, 30, 60]:
-            errors.append("config_ma_windows_mismatch")
-        if price_basis.get("raw_ohlc_forbidden") is not True:
-            errors.append("config_raw_ohlc_not_forbidden")
-
-    candidate_rows = config.get("candidates")
-    if not isinstance(candidate_rows, Sequence) or isinstance(
-        candidate_rows, str | bytes
-    ):
+    candidates = config.get("candidates")
+    if not isinstance(candidates, Sequence) or isinstance(candidates, str | bytes):
         errors.append("config_candidates_missing")
     else:
-        if len(candidate_rows) != len(EXPECTED_CANDIDATES):
-            errors.append("config_candidate_count_mismatch")
-        for index, expected in enumerate(EXPECTED_CANDIDATES):
-            if index >= len(candidate_rows) or not isinstance(
-                candidate_rows[index], Mapping
-            ):
-                errors.append(f"config_candidate_{index}_missing")
+        candidate_ids = [
+            item.get("indicator_id") for item in candidates if isinstance(item, Mapping)
+        ]
+        if tuple(candidate_ids) != INDICATOR_IDS:
+            errors.append("config_candidate_ids_mismatch")
+        for expected, actual in zip(EXPECTED_CANDIDATES, candidates, strict=False):
+            if not isinstance(actual, Mapping):
+                errors.append("config_candidate_not_mapping")
                 continue
-            row = candidate_rows[index]
             for key, value in expected.items():
-                if row.get(key) != value:
-                    errors.append(f"config_candidate_{index}_{key}_mismatch")
+                if actual.get(key) != value:
+                    errors.append(
+                        f"config_candidate_{key}_mismatch:{expected['indicator_id']}"
+                    )
 
     validity = config.get("validity_contract")
     if not isinstance(validity, Mapping):
@@ -162,15 +209,8 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
     else:
         if validity.get("validity_statuses") != list(VALIDITY_STATUSES):
             errors.append("config_validity_statuses_mismatch")
-        configured_reasons = validity.get("reason_codes")
-        if not isinstance(configured_reasons, Sequence) or isinstance(
-            configured_reasons, str | bytes
-        ):
-            errors.append("config_reason_codes_missing")
-        else:
-            missing = sorted(set(REASON_CODES) - set(configured_reasons))
-            if missing:
-                errors.append(f"config_reason_codes_missing_values:{missing}")
+        if set(validity.get("reason_codes", [])) != set(REASON_CODES):
+            errors.append("config_reason_codes_mismatch")
         if validity.get("unknown_not_false") is not True:
             errors.append("config_unknown_not_false_mismatch")
         if validity.get("invalid_has_no_ordinary_numeric_raw_value") is not True:
@@ -193,30 +233,71 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         }.items():
             if input_contract.get(key) != expected:
                 errors.append(f"config_input_{key}_mismatch")
+        names = input_contract.get("manifest_artifact_names")
+        if tuple(names or ()) != EXPECTED_ARTIFACTS:
+            errors.append("config_manifest_artifact_names_mismatch")
         artifacts = input_contract.get("artifacts")
-        if not isinstance(artifacts, Mapping) or not isinstance(
-            artifacts.get("adjusted_ohlc"), Mapping
+        if not isinstance(artifacts, Mapping) or set(artifacts) != set(
+            EXPECTED_ARTIFACTS
         ):
-            errors.append("config_adjusted_ohlc_artifact_missing")
+            errors.append("config_input_artifacts_mismatch")
         else:
-            artifact = artifacts["adjusted_ohlc"]
-            if artifact.get("source_contract") != (
-                "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"
-            ):
-                errors.append("config_input_source_contract_mismatch")
-            required_columns = artifact.get("required_columns")
+            for artifact_id in EXPECTED_ARTIFACTS:
+                artifact = artifacts[artifact_id]
+                if not isinstance(artifact, Mapping):
+                    errors.append(f"config_artifact_not_mapping:{artifact_id}")
+                    continue
+                if artifact.get("artifact_id") != artifact_id:
+                    errors.append(f"config_artifact_id_mismatch:{artifact_id}")
+                if artifact.get("formal_data_version") is not False:
+                    errors.append(f"config_artifact_formal_data_version:{artifact_id}")
+                kind = artifact.get("artifact_kind")
+                if kind == "duckdb_table":
+                    if not artifact.get("table") or not artifact.get(
+                        "required_columns"
+                    ):
+                        errors.append(
+                            f"config_duckdb_artifact_schema_missing:{artifact_id}"
+                        )
+                elif kind == "evidence_json":
+                    if not artifact.get("required_json_fields"):
+                        errors.append(f"config_evidence_fields_missing:{artifact_id}")
+                else:
+                    errors.append(f"config_artifact_kind_mismatch:{artifact_id}")
+            candidate = artifacts.get("d3_t07_candidate_daily_observation", {})
+            if isinstance(candidate, Mapping):
+                if candidate.get("source_contract") != D3_T07_CONTRACT:
+                    errors.append("config_input_source_contract_mismatch")
+                required_columns = set(candidate.get("required_columns", []))
+                if required_columns != {
+                    "ts_code",
+                    "trade_date",
+                    "adjusted_open",
+                    "adjusted_close",
+                    "trading_status",
+                    "daily_status",
+                    "effective_adj_factor",
+                    "adjustment_factor_status",
+                    "is_listing_pause",
+                    "source_task_id",
+                    "generated_by_task",
+                    "row_provenance",
+                }:
+                    errors.append("config_input_required_columns_mismatch")
+            index_artifact = artifacts.get("expected_price_observation_index", {})
             if (
-                not isinstance(required_columns, Sequence)
-                or isinstance(required_columns, str | bytes)
-                or not {
-                    "security_id",
-                    "trading_date",
-                    "adj_open",
-                    "adj_close",
-                }.issubset(set(required_columns))
+                isinstance(index_artifact, Mapping)
+                and index_artifact.get("source_contract") != INDEX_CONTRACT
             ):
-                errors.append("config_input_required_columns_mismatch")
+                errors.append("config_expected_index_source_contract_mismatch")
 
+    for gate_name in (
+        "d3_t07_evidence_gate",
+        "d3_t08_evidence_gate",
+        "dense_window_contract",
+    ):
+        if not isinstance(config.get(gate_name), Mapping):
+            errors.append(f"config_{gate_name}_missing")
     output_contract = config.get("output_contract")
     if not isinstance(output_contract, Mapping):
         errors.append("config_output_contract_missing")
@@ -241,6 +322,7 @@ def validate_metric_rows(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     seen: set[tuple[str, str, str]] = set()
     last_key: tuple[str, str, int] | None = None
     order = {indicator_id: index for index, indicator_id in enumerate(INDICATOR_IDS)}
+    expected_by_id = {item["indicator_id"]: item for item in EXPECTED_CANDIDATES}
     for index, row in enumerate(rows):
         if not isinstance(row, Mapping):
             errors.append(f"row_{index}_not_mapping")
@@ -270,24 +352,26 @@ def validate_metric_rows(rows: Sequence[Mapping[str, Any]]) -> list[str]:
         if indicator_id not in order:
             errors.append(f"row_{index}_indicator_invalid:{indicator_id}")
             continue
-        key = (security_id, trading_date, indicator_id)
+        key = security_id, trading_date, indicator_id
         if key in seen:
             errors.append(f"row_{index}_duplicate_key:{key}")
         seen.add(key)
-        sort_key = (security_id, trading_date, order[indicator_id])
+        sort_key = security_id, trading_date, order[indicator_id]
         if last_key is not None and sort_key < last_key:
             errors.append(f"row_{index}_not_deterministically_sorted")
         last_key = sort_key
 
-        expected = next(
-            item for item in EXPECTED_CANDIDATES if item["indicator_id"] == indicator_id
-        )
+        expected = expected_by_id[indicator_id]
         if row.get("raw_metric_name") != expected["raw_metric_name"]:
             errors.append(f"row_{index}_raw_metric_name_mismatch")
         if row.get("required_observation_count") != expected["minimum_history"]:
             errors.append(f"row_{index}_required_observation_count_mismatch")
         if row.get("metric_engine_version") != METRIC_ENGINE_VERSION:
             errors.append(f"row_{index}_engine_version_mismatch")
+        for field in ("input_window_start", "input_window_end"):
+            value = row.get(field)
+            if value is not None and not DATE_PATTERN.fullmatch(str(value)):
+                errors.append(f"row_{index}_{field}_invalid")
         status = row.get("validity_status")
         reasons = row.get("reason_codes")
         if status not in VALIDITY_STATUSES:
@@ -322,6 +406,8 @@ def validate_metric_rows(rows: Sequence[Mapping[str, Any]]) -> list[str]:
             errors.append(f"row_{index}_actual_valid_count_invalid")
         elif actual_count < 0 or actual_count > expected["minimum_history"]:
             errors.append(f"row_{index}_actual_valid_count_out_of_range")
+        elif status == "valid" and actual_count != expected["minimum_history"]:
+            errors.append(f"row_{index}_valid_count_not_full_window")
     return list(dict.fromkeys(errors))
 
 
@@ -356,7 +442,7 @@ def validate_output_directory(
 
 
 def canonical_text_errors(raw: bytes) -> list[str]:
-    """Return canonical UTF-8/LF errors for a formal manifest or source file."""
+    """Return deterministic UTF-8/LF errors for formal evidence text."""
 
     errors: list[str] = []
     if raw.startswith(b"\xef\xbb\xbf"):

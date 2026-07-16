@@ -9,12 +9,13 @@ current_sidecar_program: EXP-A
 current_sidecar_task: EXP-A01 价格—均线贴合候选 raw metric
 workflow_mode: long_lived_same_pr
 phase: implementation_review
-implementation_review_status: pending
+implementation_review_status: needs_revision
 reviewed_implementation_sha:
 formal_run_allowed: false
 formal_run_status: not_started
 formal_run_executed: false
 result_review_status: not_started
+EXP-A02_started: false
 program_phase: A01_candidate_raw_metric_implementation
 mainline_task_unchanged: true
 mainline_current_task: R3-T02
@@ -22,7 +23,7 @@ mainline_current_task: R3-T02
 
 EXP-A 是长期 sidecar program，当前只实现 EXP-A01：A1、A2、A2b 三个价格—均线贴合 raw metric 候选。A 层尚未成立，没有正式指标选择，没有 PCATV，也没有 formal run。A02–A06 尚未开始；每个后续阶段都必须经过独立 implementation commit、用户 exact-SHA 审阅、明确的 formal-run 授权和 Formal-result 审阅后才能推进。
 
-EXP-A01 复用当前 authoritative continuous research adjusted-OHLC 语义：`D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1` 的 `d3.daily_market_observation_values` value layer，以及 `D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1` 的候选物化边界。它不修改正式 PCVT、PCATV、candidate registry、freeze manifest、state version 或主线状态机，不使用未来观测，不输出 percentile、score、state、winner、replacement、future outcome 或交易结果。
+EXP-A01 只复用 `D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1` 的 `d3_t07_candidate_daily_observation.duckdb` / `d3_candidate_daily_observation` research candidate，角色为 `exploration_research_candidate`，`formal_data_version=false`。当前实现不再混用 D3 value-layer，也不强行映射 D3-T07 未声明的 `continuous_ohlc_integrity_status`、`adjustment_method`、`factor_as_of_time` 或 `corporate_action_flag`。未来 formal manifest 还必须绑定 D3-T07 handoff/quality、D3-T08 handoff/quality 以及独立授权的 dense `expected_price_observation_index`；expected index 与 D3-T07 主表必须双向逐 key reconcile，非 present slot 不得被压缩。没有授权真实 index 时，formal run 保持 blocked。它不修改正式 PCVT、PCATV、candidate registry、freeze manifest、state version 或主线状态机，不使用未来观测，不输出 percentile、score、state、winner、replacement、future outcome 或交易结果。
 
 EXP-C01 历史记录：
 

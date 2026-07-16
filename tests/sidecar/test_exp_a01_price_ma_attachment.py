@@ -9,8 +9,10 @@ from src.sidecar.exp_a01_price_ma_attachment import (
     A1_ID,
     A2_ID,
     A2B_ID,
+    INDEX_SOURCE_CONTRACT,
     OUTPUT_FIELDS,
     InputContractError,
+    build_dense_price_rows,
     compute_a01_metrics,
 )
 
@@ -20,28 +22,80 @@ def make_rows(
     *,
     body_offsets: dict[int, float] | None = None,
     body_endpoints: dict[int, tuple[float, float]] | None = None,
+    close_values: dict[int, float] | None = None,
 ) -> list[dict[str, object]]:
     body_offsets = body_offsets or {}
     body_endpoints = body_endpoints or {}
+    close_values = close_values or {}
     rows: list[dict[str, object]] = []
     for index in range(count):
-        close = 100.0
-        open_price = 100.0 * math.exp(2.0 * body_offsets.get(index, 0.0))
+        close = float(close_values.get(index, 100.0))
+        open_price = close * math.exp(2.0 * body_offsets.get(index, 0.0))
         if index in body_endpoints:
             open_price, close = body_endpoints[index]
+        trading_date = (date(2020, 1, 1) + timedelta(days=index)).isoformat()
         rows.append(
             {
                 "security_id": "SEC001",
-                "trading_date": (date(2020, 1, 1) + timedelta(days=index)).isoformat(),
+                "trading_date": trading_date,
+                "observation_sequence": index,
+                "expected_observation_status": "present",
                 "adjusted_open": open_price,
                 "adjusted_close": close,
                 "trading_status": "normal_trading",
-                "adjustment_factor": 1.0,
-                "adjustment_method": "identity_no_adjustment",
-                "factor_as_of_time": "2020-01-01T00:00:00Z",
-                "continuous_ohlc_integrity_status": "valid",
+                "daily_status": "resolved",
+                "effective_adj_factor": 1.0,
+                "adjustment_factor_status": "resolved",
+                "is_listing_pause": False,
+                "source_task_id": "D2-T20",
+                "generated_by_task": "D3-T07",
+                "row_provenance": f"d3-t07:SEC001:{index}",
+                "source_contract": INDEX_SOURCE_CONTRACT,
+                "source_ref": f"calendar-v1:SEC001:{index}",
             }
         )
+    return rows
+
+
+def make_expected(
+    count: int,
+    *,
+    status_overrides: dict[int, str] | None = None,
+) -> list[dict[str, object]]:
+    status_overrides = status_overrides or {}
+    return [
+        {
+            "security_id": "SEC001",
+            "trading_date": (date(2020, 1, 1) + timedelta(days=index)).isoformat(),
+            "observation_sequence": index,
+            "expected_observation_status": status_overrides.get(index, "present"),
+            "source_contract": INDEX_SOURCE_CONTRACT,
+            "source_ref": f"calendar-v1:SEC001:{index}",
+        }
+        for index in range(count)
+    ]
+
+
+def make_observations(
+    count: int,
+    *,
+    body_offsets: dict[int, float] | None = None,
+    body_endpoints: dict[int, tuple[float, float]] | None = None,
+    close_values: dict[int, float] | None = None,
+) -> list[dict[str, object]]:
+    rows = make_rows(
+        count,
+        body_offsets=body_offsets,
+        body_endpoints=body_endpoints,
+        close_values=close_values,
+    )
+    for row in rows:
+        row["ts_code"] = row.pop("security_id")
+        row["trade_date"] = row.pop("trading_date")
+        row.pop("expected_observation_status")
+        row.pop("observation_sequence")
+        row.pop("source_contract")
+        row.pop("source_ref")
     return rows
 
 
@@ -56,6 +110,28 @@ def metric_at(
             if candidate == indicator_id
         )
     ]
+
+
+def independent_cloud_bounds(
+    rows: list[dict[str, object]], index: int
+) -> tuple[float, float, float]:
+    """Test oracle for cloud bounds; it does not call production helpers."""
+
+    log_mas: list[float] = []
+    for window_size in (5, 10, 20, 30, 60):
+        closes = [
+            float(rows[position]["adjusted_close"])
+            for position in range(index - window_size + 1, index + 1)
+        ]
+        log_mas.append(math.log(sum(closes) / window_size))
+    return min(log_mas), max(log_mas), sum(log_mas) / len(log_mas)
+
+
+def set_body_center(
+    rows: list[dict[str, object]], index: int, target_log_center: float
+) -> None:
+    close = float(rows[index]["adjusted_close"])
+    rows[index]["adjusted_open"] = math.exp(2.0 * target_log_center - math.log(close))
 
 
 class ExpA01PriceMaAttachmentTest(unittest.TestCase):
@@ -93,97 +169,93 @@ class ExpA01PriceMaAttachmentTest(unittest.TestCase):
                     places=12,
                 )
 
-    def test_a2_boundary_inside_outside_and_mixing(self) -> None:
-        inside = compute_a01_metrics(make_rows(79))
+    def test_a2_non_degenerate_cloud_strict_boundaries_and_outside_sides(self) -> None:
+        close_values = {index: 90.0 + index * 0.25 for index in range(79)}
+        inside_rows = make_rows(79, close_values=close_values)
+        for index in range(59, 79):
+            _low, _high, center = independent_cloud_bounds(inside_rows, index)
+            set_body_center(inside_rows, index, center)
+        inside = compute_a01_metrics(inside_rows)
         self.assertEqual(metric_at(inside, A2_ID, 78)["raw_value"], 0.0)
 
-        outside = compute_a01_metrics(
-            make_rows(79, body_offsets={index: 0.1 for index in range(59, 79)})
+        lower_rows = copy.deepcopy(inside_rows)
+        lower, upper, _center = independent_cloud_bounds(lower_rows, 78)
+        set_body_center(lower_rows, 78, lower)
+        lower_result = compute_a01_metrics(lower_rows)
+        self.assertEqual(metric_at(lower_result, A2_ID, 78)["raw_value"], 0.0)
+
+        upper_rows = copy.deepcopy(inside_rows)
+        _lower, upper, _center = independent_cloud_bounds(upper_rows, 78)
+        set_body_center(upper_rows, 78, upper)
+        upper_result = compute_a01_metrics(upper_rows)
+        self.assertEqual(metric_at(upper_result, A2_ID, 78)["raw_value"], 0.0)
+
+        below_rows = copy.deepcopy(inside_rows)
+        lower, _upper, _center = independent_cloud_bounds(below_rows, 78)
+        set_body_center(below_rows, 78, lower - 0.05)
+        below_result = compute_a01_metrics(below_rows)
+        self.assertGreater(float(metric_at(below_result, A2_ID, 78)["raw_value"]), 0.0)
+
+        above_rows = copy.deepcopy(inside_rows)
+        _lower, upper, _center = independent_cloud_bounds(above_rows, 78)
+        set_body_center(above_rows, 78, upper + 0.05)
+        above_result = compute_a01_metrics(above_rows)
+        self.assertGreater(float(metric_at(above_result, A2_ID, 78)["raw_value"]), 0.0)
+
+    def test_a2b_uses_independent_gap_oracle_for_above_below_and_intersection(
+        self,
+    ) -> None:
+        intersect_rows = make_rows(
+            79,
+            body_endpoints={
+                index: (100.0 * math.exp(0.2), 100.0) for index in range(59, 79)
+            },
         )
-        self.assertEqual(metric_at(outside, A2_ID, 78)["raw_value"], 1.0)
-
-        mixed = compute_a01_metrics(
-            make_rows(
-                79,
-                body_offsets={index: 0.1 for index in range(69, 79)},
-            )
+        above_rows = make_rows(
+            79, close_values={index: 100.0 * (1.5**index) for index in range(79)}
         )
-        self.assertEqual(metric_at(mixed, A2_ID, 78)["raw_value"], 0.5)
-
-        lower_boundary = compute_a01_metrics(make_rows(79, body_offsets={78: 0.0}))
-        upper_boundary = compute_a01_metrics(make_rows(79, body_offsets={78: 0.0}))
-        self.assertEqual(metric_at(lower_boundary, A2_ID, 78)["raw_value"], 0.0)
-        self.assertEqual(metric_at(upper_boundary, A2_ID, 78)["raw_value"], 0.0)
-
-    def test_a2b_intersection_endpoints_and_mirror(self) -> None:
-        intersecting_endpoints = {
-            index: (100.0 * math.exp(0.2), 100.0) for index in range(59, 79)
-        }
-        intersecting = compute_a01_metrics(
-            make_rows(79, body_endpoints=intersecting_endpoints)
+        below_rows = make_rows(
+            79, close_values={index: 1000.0 * (0.5**index) for index in range(79)}
         )
-        self.assertEqual(metric_at(intersecting, A2B_ID, 78)["raw_value"], 0.0)
-
-        above_endpoints = {
-            index: (100.0 * math.exp(0.4), 100.0 * math.exp(0.2))
-            for index in range(59, 79)
+        for index in range(59, 79):
+            _low, high, _center = independent_cloud_bounds(above_rows, index)
+            above_rows[index]["adjusted_open"] = math.exp(high + 0.2)
+            low, _high, _center = independent_cloud_bounds(below_rows, index)
+            below_rows[index]["adjusted_open"] = math.exp(low - 0.2)
+        cases = {
+            "intersect": intersect_rows,
+            "above": above_rows,
+            "below": below_rows,
         }
-        below_endpoints = {
-            index: (100.0 * math.exp(-0.4), 100.0 * math.exp(-0.2))
-            for index in range(59, 79)
-        }
-        above_rows = make_rows(79, body_endpoints=above_endpoints)
-        below_rows = make_rows(79, body_endpoints=below_endpoints)
-        above = compute_a01_metrics(above_rows)
-        below = compute_a01_metrics(below_rows)
-
-        def expected_gap(rows: list[dict[str, object]]) -> float:
-            from src.sidecar.exp_a01_price_ma_attachment import _cloud_point
-
-            gaps = []
-            for point_index in range(59, 79):
-                body, cloud_low, cloud_high, _center = _cloud_point(
-                    [
-                        type(
-                            "Row",
-                            (),
-                            {
-                                "is_valid": True,
-                                "adjusted_open": float(item["adjusted_open"]),
-                                "adjusted_close": float(item["adjusted_close"]),
-                            },
-                        )()
-                        for item in rows
-                    ],
-                    point_index,
-                )
+        values: dict[str, float] = {}
+        for name, rows in cases.items():
+            expected_gaps: list[float] = []
+            for index in range(59, 79):
+                low, high, _center = independent_cloud_bounds(rows, index)
                 body_low = min(
-                    math.log(float(rows[point_index]["adjusted_open"])),
-                    math.log(float(rows[point_index]["adjusted_close"])),
+                    math.log(float(rows[index]["adjusted_open"])),
+                    math.log(float(rows[index]["adjusted_close"])),
                 )
                 body_high = max(
-                    math.log(float(rows[point_index]["adjusted_open"])),
-                    math.log(float(rows[point_index]["adjusted_close"])),
+                    math.log(float(rows[index]["adjusted_open"])),
+                    math.log(float(rows[index]["adjusted_close"])),
                 )
-                gaps.append(
-                    cloud_low - body_high
-                    if body_high < cloud_low
-                    else body_low - cloud_high
-                    if body_low > cloud_high
+                expected_gaps.append(
+                    low - body_high
+                    if body_high < low
+                    else body_low - high
+                    if body_low > high
                     else 0.0
                 )
-            return sum(gaps) / len(gaps)
-
-        self.assertAlmostEqual(
-            float(metric_at(above, A2B_ID, 78)["raw_value"]), expected_gap(above_rows)
-        )
-        self.assertAlmostEqual(
-            float(metric_at(below, A2B_ID, 78)["raw_value"]), expected_gap(below_rows)
-        )
-        self.assertAlmostEqual(
-            0.2,
-            max(0.0, math.log(100.0 * math.exp(0.2)) - math.log(100.0)),
-        )
+            expected = sum(expected_gaps) / len(expected_gaps)
+            result = compute_a01_metrics(rows)
+            actual = float(metric_at(result, A2B_ID, 78)["raw_value"])
+            self.assertAlmostEqual(actual, expected, places=12)
+            values[name] = actual
+        self.assertEqual(values["intersect"], 0.0)
+        self.assertGreater(values["above"], 0.0)
+        self.assertGreater(values["below"], 0.0)
+        self.assertAlmostEqual(values["above"], values["below"], places=12)
 
     def test_future_mutation_does_not_change_past_result(self) -> None:
         rows = make_rows(90, body_offsets={79: 0.15, 89: -0.2})
@@ -222,20 +294,106 @@ class ExpA01PriceMaAttachmentTest(unittest.TestCase):
             metric_at(suspended_results, A2_ID, 78)["reason_codes"],
         )
 
-    def test_duplicate_and_non_monotonic_inputs_fail_closed(self) -> None:
-        duplicate = make_rows(60)
-        duplicate.append(copy.deepcopy(duplicate[-1]))
-        with self.assertRaisesRegex(InputContractError, "duplicate_security_date"):
-            compute_a01_metrics(duplicate)
+    def test_d3_status_vocab_and_adjustment_fail_closed(self) -> None:
+        reopen = make_rows(79)
+        reopen[40]["trading_status"] = "reopen_after_suspension"
+        reopen_result = metric_at(compute_a01_metrics(reopen), A2_ID, 78)
+        self.assertEqual(reopen_result["validity_status"], "diagnostic_required")
+        self.assertIn("reopen_after_suspension", reopen_result["reason_codes"])
+
+        for trading_status in ("unknown", "zero_volume", "unregistered_status"):
+            invalid_status = make_rows(79)
+            invalid_status[40]["trading_status"] = trading_status
+            result = metric_at(compute_a01_metrics(invalid_status), A2_ID, 78)
+            self.assertEqual(result["validity_status"], "blocked")
+            self.assertIn("invalid_trading_status", result["reason_codes"])
+
+        unknown_daily = make_rows(79)
+        unknown_daily[40]["daily_status"] = "unknown"
+        daily_result = metric_at(compute_a01_metrics(unknown_daily), A2_ID, 78)
+        self.assertNotEqual(daily_result["validity_status"], "valid")
+        self.assertIn("missing_required_history", daily_result["reason_codes"])
+
+        ambiguous_factor = make_rows(79)
+        ambiguous_factor[40]["adjustment_factor_status"] = "ambiguous"
+        factor_result = metric_at(compute_a01_metrics(ambiguous_factor), A2_ID, 78)
+        self.assertEqual(factor_result["validity_status"], "blocked")
+        self.assertIn("adjustment_failure", factor_result["reason_codes"])
+
+    def test_dense_placeholders_for_listing_pause_missing_and_unresolved_are_nonvalid(
+        self,
+    ) -> None:
+        for status, reason in (
+            ("listing_pause", "listing_pause_in_required_window"),
+            ("missing", "missing_required_history"),
+            ("unresolved", "adjustment_failure"),
+        ):
+            expected = make_expected(79, status_overrides={40: status})
+            dense = build_dense_price_rows(
+                expected, make_observations(79)[:40] + make_observations(79)[41:]
+            )
+            results = compute_a01_metrics(dense)
+            for indicator_id in (A2_ID, A2B_ID):
+                result = metric_at(results, indicator_id, 78)
+                self.assertIsNone(result["raw_value"])
+                self.assertIn(reason, result["reason_codes"])
+                self.assertNotEqual(result["validity_status"], "valid")
+
+    def test_deleting_expected_slot_from_a1_a2_and_a2b_fails_closed(self) -> None:
+        for count, index in ((60, 30), (79, 30), (79, 40)):
+            expected = make_expected(count)
+            observations = make_observations(count)
+            del observations[index]
+            with self.assertRaisesRegex(
+                InputContractError, "expected_present_row_missing_from_main"
+            ):
+                build_dense_price_rows(expected, observations)
+
+    def test_older_present_row_is_not_used_after_a_missing_slot(self) -> None:
+        expected = make_expected(81, status_overrides={30: "missing"})
+        observations = make_observations(81)
+        del observations[30]
+        dense = build_dense_price_rows(expected, observations)
+        result = metric_at(compute_a01_metrics(dense), A2_ID, 80)
+        self.assertIsNone(result["raw_value"])
+        self.assertIn("missing_required_history", result["reason_codes"])
+        self.assertEqual(result["input_window_start"], "2020-01-03")
+
+    def test_sequence_gap_and_non_monotonic_inputs_raise_input_contract_error(
+        self,
+    ) -> None:
+        rows = make_rows(60)
+        del rows[10]
+        with self.assertRaisesRegex(InputContractError, "sequence_gap"):
+            compute_a01_metrics(rows)
 
         non_monotonic = make_rows(60)
         non_monotonic[0], non_monotonic[1] = non_monotonic[1], non_monotonic[0]
-        results = compute_a01_metrics(non_monotonic)
-        self.assertEqual(
-            [row["trading_date"] for row in results[::3]],
-            sorted(row["trading_date"] for row in non_monotonic),
-        )
-        self.assertIn("non_monotonic_security_date", results[0]["reason_codes"])
+        with self.assertRaisesRegex(InputContractError, "non_monotonic_input_sequence"):
+            compute_a01_metrics(non_monotonic)
+
+        duplicate_sequence = make_rows(60)
+        duplicate_sequence[1]["observation_sequence"] = 0
+        with self.assertRaisesRegex(InputContractError, "duplicate_security_sequence"):
+            compute_a01_metrics(duplicate_sequence)
+
+        expected = make_expected(60)
+        observations = make_observations(60)
+        observations[0], observations[1] = observations[1], observations[0]
+        with self.assertRaisesRegex(InputContractError, "non_monotonic_input_sequence"):
+            build_dense_price_rows(expected, observations)
+
+    def test_duplicate_date_and_invalid_date_raise_input_contract_error(self) -> None:
+        duplicate = make_rows(60)
+        duplicate.append(copy.deepcopy(duplicate[-1]))
+        duplicate[-1]["observation_sequence"] = 60
+        with self.assertRaisesRegex(InputContractError, "duplicate_security_date"):
+            compute_a01_metrics(duplicate)
+
+        invalid = make_rows(60)
+        invalid[0]["trading_date"] = "2020-02-31"
+        with self.assertRaises(InputContractError):
+            compute_a01_metrics(invalid)
 
     def test_input_rows_are_not_mutated_and_output_has_no_prohibited_fields(
         self,

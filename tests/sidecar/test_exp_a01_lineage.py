@@ -1,18 +1,26 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import tempfile
 import unittest
 from argparse import Namespace
+from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import duckdb
 
 from scripts.sidecar.run_exp_a01_price_ma_attachment import (
+    _validate_d3_t07_evidence,
+    _validate_d3_t08_evidence,
     inspect_input_artifact,
     resolve_declared_input_path,
     run_formal,
+    validate_expected_index_reconciliation,
+    validate_formal_gate,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
     canonical_text_errors,
@@ -24,155 +32,532 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs/sidecar/exp_a01_price_ma_attachment_candidates.v1.json"
 
 
-def _make_database(path: Path, *, missing_column: str | None = None) -> int:
-    config = load_json(CONFIG_PATH)
-    artifact = config["input_contract"]["artifacts"]["adjusted_ohlc"]
-    columns = [str(value) for value in artifact["required_columns"]]
-    if missing_column is not None:
-        columns.remove(missing_column)
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    path.write_bytes(
+        (
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+        ).encode("utf-8")
+    )
+
+
+def _create_candidate(
+    path: Path, *, extra_row: bool = False, listing_pause: bool = False
+) -> int:
     connection = duckdb.connect(str(path))
     try:
-        definitions = []
-        for column in columns:
-            if column in {
-                "security_id",
-                "trading_status",
-                "adjustment_method",
-                "continuous_ohlc_integrity_status",
-            }:
-                sql_type = "VARCHAR"
-            elif column == "trading_date":
-                sql_type = "DATE"
-            elif column == "factor_as_of_time":
-                sql_type = "TIMESTAMP"
-            elif column == "corporate_action_flag":
-                sql_type = "BOOLEAN"
-            else:
-                sql_type = "DOUBLE"
-            definitions.append(f"{column} {sql_type}")
-        table = str(artifact["table"])
-        connection.execute(f"CREATE TABLE {table} ({', '.join(definitions)})")
-        values = []
-        for column in columns:
-            if column == "security_id":
-                values.append("'SEC001'")
-            elif column == "trading_date":
-                values.append("DATE '2020-01-01'")
-            elif column in {
-                "trading_status",
-                "adjustment_method",
-                "continuous_ohlc_integrity_status",
-            }:
-                value = {
-                    "trading_status": "normal_trading",
-                    "adjustment_method": "identity_no_adjustment",
-                    "continuous_ohlc_integrity_status": "valid",
-                }[column]
-                values.append(f"'{value}'")
-            elif column == "factor_as_of_time":
-                values.append("TIMESTAMP '2019-01-01 00:00:00'")
-            elif column == "corporate_action_flag":
-                values.append("FALSE")
-            elif column in {"adj_open", "adj_close"}:
-                values.append("100.0")
-            else:
-                values.append("1.0")
-        connection.execute(f"INSERT INTO {table} VALUES ({', '.join(values)})")
-        return 1
+        connection.execute(
+            """
+            CREATE TABLE d3_candidate_daily_observation (
+              ts_code VARCHAR,
+              trade_date DATE,
+              adjusted_open DOUBLE,
+              adjusted_close DOUBLE,
+              trading_status VARCHAR,
+              daily_status VARCHAR,
+              effective_adj_factor DOUBLE,
+              adjustment_factor_status VARCHAR,
+              is_listing_pause BOOLEAN,
+              source_task_id VARCHAR,
+              generated_by_task VARCHAR,
+              row_provenance VARCHAR
+            )
+            """
+        )
+        rows = []
+        count = 4 if extra_row else 3
+        for index in range(count):
+            rows.append(
+                (
+                    "SEC001",
+                    date(2020, 1, 1) + timedelta(days=index),
+                    100.0,
+                    100.0,
+                    "normal_trading",
+                    "resolved",
+                    1.0,
+                    "resolved",
+                    listing_pause and index == 1,
+                    "D2-T20",
+                    "D3-T07",
+                    f"d3-t07:SEC001:{index}",
+                )
+            )
+        connection.executemany(
+            "INSERT INTO d3_candidate_daily_observation "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        return count
     finally:
         connection.close()
 
 
-class ExpA01LineageTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.config = load_json(CONFIG_PATH)
-        self.artifact = self.config["input_contract"]["artifacts"]["adjusted_ohlc"]
-
-    def _fixture(
-        self, *, missing_column: str | None = None
-    ) -> tuple[Path, Path, dict[str, object]]:
-        temp_dir = Path(tempfile.mkdtemp())
-        self.addCleanup(
-            lambda: __import__("shutil").rmtree(temp_dir, ignore_errors=True)
+def _create_index(
+    path: Path, *, duplicate_sequence: bool = False, empty_ref: bool = False
+) -> int:
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute(
+            """
+            CREATE TABLE expected_price_observation_index (
+              security_id VARCHAR,
+              trading_date DATE,
+              observation_sequence BIGINT,
+              expected_observation_status VARCHAR,
+              source_contract VARCHAR,
+              source_ref VARCHAR
+            )
+            """
         )
-        db_path = temp_dir / "input.duckdb"
-        row_count = _make_database(db_path, missing_column=missing_column)
-        declaration: dict[str, object] = {
-            "path": str(db_path),
-            "sha256": hashlib.sha256(db_path.read_bytes()).hexdigest(),
-            "row_count": row_count,
-            "table": self.artifact["table"],
-            "required_columns": list(self.artifact["required_columns"]),
-        }
-        manifest_path = temp_dir / "authorized_input_manifest.json"
-        manifest_path.write_bytes(
-            (
-                json.dumps(
-                    {
-                        "task_id": "EXP-A01",
-                        "input_artifacts": {"adjusted_ohlc": declaration},
-                    },
-                    ensure_ascii=False,
-                    sort_keys=True,
+        rows = []
+        for index in range(3):
+            sequence = 1 if duplicate_sequence and index == 2 else index
+            rows.append(
+                (
+                    "SEC001",
+                    date(2020, 1, 1) + timedelta(days=index),
+                    sequence,
+                    "present",
+                    "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",
+                    "" if empty_ref and index == 1 else f"calendar-v1:SEC001:{index}",
                 )
-                + "\n"
-            ).encode("utf-8")
+            )
+        connection.executemany(
+            "INSERT INTO expected_price_observation_index VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
         )
-        return temp_dir, manifest_path, declaration
+        return len(rows)
+    finally:
+        connection.close()
 
+
+def _reports(temp_dir: Path) -> dict[str, Path]:
+    t07_quality = temp_dir / "d3_t07_quality_report.json"
+    t07_handoff = temp_dir / "d3_t07_handoff_candidate_report.json"
+    t08_quality = temp_dir / "d3_t08_quality_report.json"
+    t08_handoff = temp_dir / "d3_t08_handoff_candidate_report.json"
+    _write_json(
+        t07_quality,
+        {
+            "task_id": "D3-T07",
+            "source_task_id": "D2-T20",
+            "candidate_observation_generated": True,
+            "candidate_generation_decision": "accepted_candidate_observation",
+            "duplicate_observation_key_count": 0,
+            "null_ohlc_count": 0,
+            "non_positive_price_count": 0,
+            "high_low_violation_count": 0,
+            "missing_effective_adj_factor_count": 0,
+            "factor_interval_unresolved_count": 0,
+        },
+    )
+    _write_json(
+        t07_handoff,
+        {
+            "task_id": "D3-T07",
+            "source_task_id": "D2-T20",
+            "d3_t07_generation_decision": "accepted_candidate_observation",
+            "d3_candidate_observation_generated": True,
+            "formal_data_version_published": False,
+            "labels_generated": False,
+            "returns_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        },
+    )
+    t08_quality_payload = {
+        "task_id": "D3-T08",
+        "source_task_id": "D3-T07",
+        "d3_t08_generation_decision": "accepted_research_dataset_registry",
+        "research_dataset_registry_generated": True,
+        "formal_data_version_published": False,
+        "pcvt_values_generated": False,
+        "r0_state_generated": False,
+        "duplicate_observation_key_count": 0,
+        "adjusted_ohlc_invalid_count": 0,
+        "effective_adj_factor_invalid_count": 0,
+        "adjusted_factor_mismatch_count": 0,
+        "listing_pause_row_count": 0,
+        "is_listing_pause_true_count": 0,
+        "source_task_id_invalid_count": 0,
+        "generated_by_task_invalid_count": 0,
+        "row_provenance_missing_count": 0,
+    }
+    _write_json(t08_quality, t08_quality_payload)
+    _write_json(
+        t08_handoff,
+        {
+            "task_id": "D3-T08",
+            "source_task_id": "D3-T07",
+            "d3_t08_generation_decision": "accepted_research_dataset_registry",
+            "research_dataset_registry_generated": True,
+            "formal_data_version_published": False,
+            "labels_generated": False,
+            "returns_generated": False,
+            "pcvt_values_generated": False,
+            "r0_state_generated": False,
+        },
+    )
+    return {
+        "d3_t07_quality_report": t07_quality,
+        "d3_t07_handoff_report": t07_handoff,
+        "d3_t08_quality_report": t08_quality,
+        "d3_t08_handoff_report": t08_handoff,
+    }
+
+
+def _fixture(temp_dir: Path) -> tuple[dict[str, object], Path, dict[str, Path]]:
+    config = load_json(CONFIG_PATH)
+    artifacts = config["input_contract"]["artifacts"]
+    candidate = temp_dir / "d3_t07_candidate_daily_observation.duckdb"
+    index = temp_dir / "expected_price_observation_index.duckdb"
+    candidate_count = _create_candidate(candidate)
+    index_count = _create_index(index)
+    report_paths = _reports(temp_dir)
+    paths = {
+        "d3_t07_candidate_daily_observation": candidate,
+        "expected_price_observation_index": index,
+        **report_paths,
+    }
+    declarations: dict[str, dict[str, object]] = {}
+    for artifact_id in config["input_contract"]["manifest_artifact_names"]:
+        artifact = artifacts[artifact_id]
+        path = paths[artifact_id]
+        declaration: dict[str, object] = {
+            "artifact_id": artifact_id,
+            "path": str(path),
+            "sha256": _sha(path),
+            "source_contract": artifact["source_contract"],
+            "source_role": artifact["source_role"],
+            "formal_data_version": False,
+        }
+        if artifact["artifact_kind"] == "duckdb_table":
+            declaration.update(
+                {
+                    "table": artifact["table"],
+                    "row_count": candidate_count
+                    if artifact_id.startswith("d3_t07")
+                    else index_count,
+                    "required_columns": list(artifact["required_columns"]),
+                }
+            )
+        declarations[artifact_id] = declaration
+    manifest = temp_dir / "authorized_input_manifest.json"
+    _write_json(manifest, {"task_id": "EXP-A01", "input_artifacts": declarations})
+    return config, manifest, paths
+
+
+class ExpA01LineageTest(unittest.TestCase):
     def test_config_and_manifest_text_are_canonical(self) -> None:
-        self.assertEqual(validate_static_config(self.config), [])
-        self.assertEqual(canonical_text_errors(Path(CONFIG_PATH).read_bytes()), [])
-        _root, manifest_path, _declaration = self._fixture()
-        self.assertEqual(canonical_text_errors(manifest_path.read_bytes()), [])
+        config = load_json(CONFIG_PATH)
+        self.assertEqual(validate_static_config(config), [])
+        self.assertEqual(canonical_text_errors(CONFIG_PATH.read_bytes()), [])
+        with tempfile.TemporaryDirectory() as raw:
+            _config, manifest, _paths = _fixture(Path(raw))
+            self.assertEqual(canonical_text_errors(manifest.read_bytes()), [])
 
     def test_absolute_manifest_path_resolves_without_recursive_search(self) -> None:
-        input_root, manifest_path, declaration = self._fixture()
-        resolved = resolve_declared_input_path(
-            manifest_path, input_root, declaration, self.artifact
-        )
-        self.assertEqual(resolved, Path(str(declaration["path"])).resolve())
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, manifest, paths = _fixture(temp_dir)
+            artifact = config["input_contract"]["artifacts"][
+                "expected_price_observation_index"
+            ]
+            declaration = config  # keep the assertion below tied to the fixture path
+            manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+            actual_declaration = manifest_payload["input_artifacts"][
+                "expected_price_observation_index"
+            ]
+            resolved = resolve_declared_input_path(
+                manifest, temp_dir, actual_declaration, artifact
+            )
+            self.assertEqual(
+                resolved, paths["expected_price_observation_index"].resolve()
+            )
+            self.assertIsNotNone(declaration)
 
     def test_hash_table_row_count_and_columns_mutations_fail_closed(self) -> None:
-        _root, manifest_path, declaration = self._fixture()
-        path = Path(str(declaration["path"]))
-        metadata = inspect_input_artifact(path, self.artifact, declaration)
-        self.assertEqual(metadata["source_full_row_count"], 1)
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, manifest, paths = _fixture(temp_dir)
+            artifact = config["input_contract"]["artifacts"][
+                "d3_t07_candidate_daily_observation"
+            ]
+            declaration = json.loads(manifest.read_text(encoding="utf-8"))[
+                "input_artifacts"
+            ]["d3_t07_candidate_daily_observation"]
+            metadata = inspect_input_artifact(
+                paths["d3_t07_candidate_daily_observation"], artifact, declaration
+            )
+            self.assertEqual(metadata["source_full_row_count"], 3)
+            with self.assertRaisesRegex(RuntimeError, "hash mismatch"):
+                inspect_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {**declaration, "sha256": "0" * 64},
+                )
+            with self.assertRaisesRegex(RuntimeError, "row count mismatch"):
+                inspect_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {**declaration, "row_count": 2},
+                )
+            with self.assertRaisesRegex(RuntimeError, "required columns mismatch"):
+                inspect_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {
+                        **declaration,
+                        "required_columns": list(artifact["required_columns"])[1:],
+                    },
+                )
+            with self.assertRaisesRegex(RuntimeError, "source_contract mismatch"):
+                inspect_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {**declaration, "source_contract": "wrong"},
+                )
 
-        with self.assertRaisesRegex(RuntimeError, "hash mismatch"):
-            inspect_input_artifact(
-                path, self.artifact, {**declaration, "sha256": "0" * 64}
-            )
-        with self.assertRaisesRegex(RuntimeError, "row count mismatch"):
-            inspect_input_artifact(path, self.artifact, {**declaration, "row_count": 2})
-        with self.assertRaisesRegex(RuntimeError, "required columns mismatch"):
-            inspect_input_artifact(
-                path,
-                self.artifact,
-                {
-                    **declaration,
-                    "required_columns": list(self.artifact["required_columns"])[:-1],
-                },
-            )
-        with self.assertRaisesRegex(RuntimeError, "table declaration"):
-            resolve_declared_input_path(
-                manifest_path,
-                path.parent,
-                {**declaration, "table": "wrong_table"},
-                self.artifact,
-            )
+    def test_expected_index_mutations_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, _manifest, paths = _fixture(temp_dir)
+            candidate_artifact = config["input_contract"]["artifacts"][
+                "d3_t07_candidate_daily_observation"
+            ]
+            index_artifact = config["input_contract"]["artifacts"][
+                "expected_price_observation_index"
+            ]
+            dense = config["dense_window_contract"]
+            for duplicate_sequence, empty_ref, message in (
+                (True, False, "duplicate_index_security_sequence"),
+                (False, True, "empty_index_source_ref"),
+            ):
+                mutation = temp_dir / f"mutation-{message}.duckdb"
+                _create_index(
+                    mutation, duplicate_sequence=duplicate_sequence, empty_ref=empty_ref
+                )
+                with self.assertRaisesRegex(
+                    RuntimeError, "expected_index_reconcile_failed"
+                ) as context:
+                    validate_expected_index_reconciliation(
+                        candidate_path=paths["d3_t07_candidate_observation"]
+                        if "d3_t07_candidate_observation" in paths
+                        else paths["d3_t07_candidate_daily_observation"],
+                        candidate_artifact=candidate_artifact,
+                        index_path=mutation,
+                        index_artifact=index_artifact,
+                        dense_contract=dense,
+                    )
+                self.assertIn(message, str(context.exception))
 
-    def test_actual_required_column_mutation_fails_closed(self) -> None:
-        _root, manifest_path, declaration = self._fixture(
-            missing_column="adjustment_factor"
-        )
-        path = Path(str(declaration["path"]))
-        declaration = {
-            **declaration,
-            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-        }
-        with self.assertRaisesRegex(RuntimeError, "required columns are missing"):
-            inspect_input_artifact(path, self.artifact, declaration)
+            missing_main = temp_dir / "missing-main.duckdb"
+            _create_candidate(missing_main, extra_row=True)
+            with self.assertRaisesRegex(
+                RuntimeError, "expected_index_reconcile_failed"
+            ):
+                validate_expected_index_reconciliation(
+                    candidate_path=missing_main,
+                    candidate_artifact=candidate_artifact,
+                    index_path=paths["expected_price_observation_index"],
+                    index_artifact=index_artifact,
+                    dense_contract=dense,
+                )
+
+            listing = temp_dir / "listing.duckdb"
+            _create_candidate(listing, listing_pause=True)
+            with self.assertRaisesRegex(
+                RuntimeError, "expected_index_reconcile_failed"
+            ):
+                validate_expected_index_reconciliation(
+                    candidate_path=listing,
+                    candidate_artifact=candidate_artifact,
+                    index_path=paths["expected_price_observation_index"],
+                    index_artifact=index_artifact,
+                    dense_contract=dense,
+                )
+
+    def test_d3_t07_and_d3_t08_evidence_mutations_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, _manifest, paths = _fixture(temp_dir)
+            payloads = {
+                name: load_json(path)
+                for name, path in paths.items()
+                if name.endswith("report")
+            }
+            t07_quality = payloads["d3_t07_quality_report"]
+            with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
+                mutated = copy.deepcopy(t07_quality)
+                mutated["null_ohlc_count"] = 1
+                _validate_d3_t07_evidence(
+                    candidate_path=paths["d3_t07_candidate_daily_observation"],
+                    candidate_artifact=config["input_contract"]["artifacts"][
+                        "d3_t07_candidate_daily_observation"
+                    ],
+                    quality=mutated,
+                    handoff=payloads["d3_t07_handoff_report"],
+                    gate=config["d3_t07_evidence_gate"],
+                )
+            with self.assertRaisesRegex(RuntimeError, "generation decision"):
+                mutated = copy.deepcopy(payloads["d3_t08_quality_report"])
+                mutated["d3_t08_generation_decision"] = (
+                    "blocked_pending_research_dataset_quality"
+                )
+                _validate_d3_t08_evidence(
+                    quality=mutated,
+                    handoff=payloads["d3_t08_handoff_report"],
+                    gate=config["d3_t08_evidence_gate"],
+                )
+
+    def test_formal_context_wrong_sha_dirty_output_and_missing_manifest_fail_closed(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            output = temp_dir / "EXP-A01-test"
+            base = Namespace(
+                allow_formal_run=True,
+                reviewed_implementation_sha="0" * 40,
+                config=CONFIG_PATH,
+                input_manifest=temp_dir / "missing.json",
+                input_root=temp_dir,
+                output_root=output,
+                run_id=output.name,
+            )
+            with self.assertRaisesRegex(
+                RuntimeError, "does not equal|reviewed_implementation_sha"
+            ):
+                run_formal(base)
+
+            config, manifest, _paths = _fixture(temp_dir)
+            clean_args = Namespace(
+                allow_formal_run=True,
+                reviewed_implementation_sha="a" * 40,
+                config=CONFIG_PATH,
+                input_manifest=manifest,
+                input_root=temp_dir,
+                output_root=output,
+                run_id=output.name,
+            )
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
+                    return_value=SimpleNamespace(stdout=" M dirty", returncode=0),
+                ),
+                self.assertRaisesRegex(RuntimeError, "clean worktree"),
+            ):
+                validate_formal_gate(clean_args)
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
+                    return_value=SimpleNamespace(stdout="", returncode=0),
+                ),
+            ):
+                result = validate_formal_gate(clean_args)
+            self.assertEqual(result["formal_run_executed"], False)
+            output.mkdir()
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
+                    return_value=SimpleNamespace(stdout="", returncode=0),
+                ),
+                self.assertRaisesRegex(RuntimeError, "output directory"),
+            ):
+                validate_formal_gate(clean_args)
+
+            missing_manifest_args = copy.copy(clean_args)
+            missing_manifest_args.output_root = temp_dir / "EXP-A01-missing-manifest"
+            missing_manifest_args.run_id = missing_manifest_args.output_root.name
+            missing_manifest_args.input_manifest = temp_dir / "does-not-exist.json"
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
+                    return_value=SimpleNamespace(stdout="", returncode=0),
+                ),
+                self.assertRaisesRegex(RuntimeError, "not a file"),
+            ):
+                validate_formal_gate(missing_manifest_args)
+            self.assertTrue(config)
+
+    def test_missing_expected_index_and_actual_required_column_fail_closed(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, manifest, paths = _fixture(temp_dir)
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            del payload["input_artifacts"]["expected_price_observation_index"]
+            missing = temp_dir / "missing-index-manifest.json"
+            _write_json(missing, payload)
+            args = Namespace(
+                allow_formal_run=True,
+                reviewed_implementation_sha="a" * 40,
+                config=CONFIG_PATH,
+                input_manifest=missing,
+                input_root=temp_dir,
+                output_root=temp_dir / "EXP-A01-missing-index",
+                run_id="EXP-A01-missing-index",
+            )
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment.subprocess.run",
+                    return_value=SimpleNamespace(stdout="", returncode=0),
+                ),
+                self.assertRaisesRegex(
+                    RuntimeError, "does not declare expected_price_observation_index"
+                ),
+            ):
+                validate_formal_gate(args)
+
+            bad_dir = temp_dir / "bad-candidate"
+            bad_dir.mkdir()
+            bad_candidate = bad_dir / "d3_t07_candidate_daily_observation.duckdb"
+            connection = duckdb.connect(str(bad_candidate))
+            try:
+                connection.execute(
+                    "CREATE TABLE d3_candidate_daily_observation (ts_code VARCHAR)"
+                )
+            finally:
+                connection.close()
+            artifact = config["input_contract"]["artifacts"][
+                "d3_t07_candidate_daily_observation"
+            ]
+            declaration = payload["input_artifacts"][
+                "d3_t07_candidate_daily_observation"
+            ]
+            declaration = {
+                **declaration,
+                "path": str(bad_candidate),
+                "sha256": _sha(bad_candidate),
+                "row_count": 0,
+            }
+            with self.assertRaisesRegex(RuntimeError, "required columns are missing"):
+                inspect_input_artifact(bad_candidate, artifact, declaration)
 
     def test_formal_runner_never_creates_output_without_authorization(self) -> None:
         output_dir = ROOT / "data/generated/sidecar/exp_a01/test-no-formal-output"

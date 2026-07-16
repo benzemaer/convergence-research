@@ -1,7 +1,8 @@
 """Fail-closed future formal-run gate for EXP-A01.
 
-The implementation commit only provides the gate.  It never creates a formal
-output directory and never executes the future large-data metric run.
+This implementation phase validates the complete input lineage and dense
+window contract, then stops deliberately.  It never creates a formal output
+directory and never executes the large-data metric run.
 """
 
 from __future__ import annotations
@@ -32,7 +33,9 @@ DEFAULT_CONFIG = (
     ROOT / "configs" / "sidecar" / "exp_a01_price_ma_attachment_candidates.v1.json"
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+FILE_SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+EXPECTED_INDEX_STATUSES = {"present", "listing_pause", "missing", "unresolved"}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,7 +66,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
-    """Validate the formal-run boundary without creating output or querying rows."""
+    """Validate code, manifest, evidence, tables, and dense-index lineage."""
 
     if not args.allow_formal_run:
         raise RuntimeError("formal_run_not_allowed_without_--allow-formal-run")
@@ -113,6 +116,8 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError(f"source manifest is invalid JSON: {manifest_path}") from exc
     if not isinstance(manifest, Mapping):
         raise RuntimeError("source manifest root must be an object")
+    if manifest.get("task_id") not in (None, TASK_ID):
+        raise RuntimeError("source manifest task_id does not match EXP-A01")
 
     run_id = str(args.run_id or "")
     if not run_id or Path(run_id).name != run_id:
@@ -134,17 +139,43 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
     if not input_root.is_dir():
         raise RuntimeError(f"input root is not a directory: {input_root}")
 
-    artifact = config["input_contract"]["artifacts"]["adjusted_ohlc"]
-    declaration = _extract_declaration(manifest, "adjusted_ohlc")
-    if declaration is None:
-        raise RuntimeError("source manifest does not declare adjusted_ohlc")
-    path = resolve_declared_input_path(
-        manifest_path,
-        input_root,
-        declaration,
-        artifact,
+    input_contract = config["input_contract"]
+    artifacts = input_contract["artifacts"]
+    declarations: dict[str, Mapping[str, Any]] = {}
+    paths: dict[str, Path] = {}
+    metadata: dict[str, dict[str, Any]] = {}
+    for artifact_id in input_contract["manifest_artifact_names"]:
+        artifact = artifacts[artifact_id]
+        declaration = _extract_declaration(manifest, artifact_id)
+        if declaration is None:
+            raise RuntimeError(f"source manifest does not declare {artifact_id}")
+        declarations[artifact_id] = declaration
+        path = resolve_declared_input_path(
+            manifest_path, input_root, declaration, artifact
+        )
+        paths[artifact_id] = path
+        metadata[artifact_id] = inspect_input_artifact(path, artifact, declaration)
+
+    _validate_d3_t07_evidence(
+        candidate_path=paths["d3_t07_candidate_daily_observation"],
+        candidate_artifact=artifacts["d3_t07_candidate_daily_observation"],
+        quality=metadata["d3_t07_quality_report"]["json"],
+        handoff=metadata["d3_t07_handoff_report"]["json"],
+        gate=config["d3_t07_evidence_gate"],
     )
-    metadata = inspect_input_artifact(path, artifact, declaration)
+    _validate_d3_t08_evidence(
+        quality=metadata["d3_t08_quality_report"]["json"],
+        handoff=metadata["d3_t08_handoff_report"]["json"],
+        gate=config["d3_t08_evidence_gate"],
+    )
+    index_reconciliation = validate_expected_index_reconciliation(
+        candidate_path=paths["d3_t07_candidate_daily_observation"],
+        candidate_artifact=artifacts["d3_t07_candidate_daily_observation"],
+        index_path=paths["expected_price_observation_index"],
+        index_artifact=artifacts["expected_price_observation_index"],
+        dense_contract=config["dense_window_contract"],
+    )
+
     return {
         "task_id": TASK_ID,
         "status": "gate_passed_formal_not_executed",
@@ -152,8 +183,9 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         "reviewed_implementation_sha": reviewed_sha,
         "input_manifest_path": str(manifest_path),
         "input_manifest_sha256": hashlib.sha256(manifest_raw).hexdigest(),
-        "input_path": str(path),
+        "input_paths": {key: str(value) for key, value in paths.items()},
         "input_metadata": metadata,
+        "expected_index_reconciliation": index_reconciliation,
         "output_root": str(output_root),
         "formal_run_executed": False,
     }
@@ -181,17 +213,26 @@ def resolve_declared_input_path(
             or declared_path.name != declared_path_value
         ):
             raise RuntimeError(
-                "declared adjusted_ohlc path is missing and relocation is not "
-                "authorized: "
-                f"{candidate}"
+                f"declared {artifact['artifact_id']} path is missing and relocation "
+                f"is not authorized: {candidate}"
             )
         candidate = input_root / declared_path.name
     if not candidate.is_file():
-        raise RuntimeError(f"declared adjusted_ohlc input is missing: {candidate}")
-    if declaration.get("table") != artifact.get("table"):
         raise RuntimeError(
-            "source manifest table declaration does not match implementation contract"
+            f"declared {artifact['artifact_id']} input is missing: {candidate}"
         )
+    expected_filename = str(artifact.get("filename", ""))
+    if candidate.name != expected_filename:
+        raise RuntimeError(
+            f"declared {artifact['artifact_id']} filename mismatch: "
+            f"expected={expected_filename} actual={candidate.name}"
+        )
+    if artifact.get("artifact_kind") == "duckdb_table":
+        if declaration.get("table") != artifact.get("table"):
+            raise RuntimeError(
+                f"source manifest {artifact['artifact_id']} table declaration "
+                "does not match implementation contract"
+            )
     return candidate.resolve()
 
 
@@ -200,25 +241,82 @@ def inspect_input_artifact(
     artifact: Mapping[str, Any],
     declaration: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Check hash, table identity, complete row count, and required columns."""
+    """Check declaration identity, SHA, canonical evidence, or DuckDB schema."""
 
-    for field in ("sha256", "row_count", "table"):
+    artifact_id = str(artifact.get("artifact_id", ""))
+    for field in (
+        "artifact_id",
+        "source_contract",
+        "source_role",
+        "formal_data_version",
+        "sha256",
+    ):
         if field not in declaration or declaration[field] in (None, ""):
-            raise RuntimeError(f"source manifest declaration missing {field}")
+            raise RuntimeError(
+                f"source manifest declaration missing {artifact_id}.{field}"
+            )
+    if declaration.get("artifact_id") != artifact_id:
+        raise RuntimeError(f"source manifest artifact_id mismatch: {artifact_id}")
+    for field in ("source_contract", "source_role", "formal_data_version"):
+        if declaration.get(field) != artifact.get(field):
+            raise RuntimeError(f"source manifest {artifact_id} {field} mismatch")
+    if not FILE_SHA_PATTERN.fullmatch(str(declaration["sha256"])):
+        raise RuntimeError(f"source manifest {artifact_id} sha256 is invalid")
     actual_hash = sha256_file(path)
     if actual_hash != declaration["sha256"]:
         raise RuntimeError(
-            "source manifest hash mismatch: "
+            f"source manifest hash mismatch for {artifact_id}: "
             f"declared={declaration['sha256']} actual={actual_hash}"
+        )
+
+    if artifact.get("artifact_kind") == "evidence_json":
+        raw = path.read_bytes()
+        text_errors = canonical_text_errors(raw)
+        if text_errors:
+            raise RuntimeError(
+                f"evidence JSON is not canonical for {artifact_id}: {text_errors}"
+            )
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"evidence JSON is invalid for {artifact_id}") from exc
+        if not isinstance(payload, Mapping):
+            raise RuntimeError(f"evidence JSON root is not an object for {artifact_id}")
+        missing = sorted(
+            set(str(value) for value in artifact["required_json_fields"]) - set(payload)
+        )
+        if missing:
+            raise RuntimeError(
+                f"evidence JSON fields are missing for {artifact_id}: {missing}"
+            )
+        return {
+            "artifact_id": artifact_id,
+            "sha256": actual_hash,
+            "json": dict(payload),
+        }
+
+    if artifact.get("artifact_kind") != "duckdb_table":
+        raise RuntimeError(f"unsupported artifact kind for {artifact_id}")
+    for field in ("row_count", "table", "required_columns"):
+        if field not in declaration or declaration[field] in (None, ""):
+            raise RuntimeError(
+                f"source manifest declaration missing {artifact_id}.{field}"
+            )
+    if declaration.get("table") != artifact.get("table"):
+        raise RuntimeError(
+            f"source manifest table declaration mismatch for {artifact_id}"
+        )
+    required_columns = [str(value) for value in artifact["required_columns"]]
+    declared_columns = declaration.get("required_columns")
+    if declared_columns is None or list(declared_columns) != required_columns:
+        raise RuntimeError(
+            f"source manifest required columns mismatch for {artifact_id}"
         )
     table = str(artifact["table"])
     if not IDENTIFIER_PATTERN.fullmatch(table):
-        raise RuntimeError(f"unsafe declared table identifier: {table}")
-    required_columns = [str(value) for value in artifact["required_columns"]]
-    declared_columns = declaration.get("required_columns")
-    if declared_columns is not None and list(declared_columns) != required_columns:
-        raise RuntimeError("source manifest required columns mismatch")
-
+        raise RuntimeError(
+            f"unsafe declared table identifier for {artifact_id}: {table}"
+        )
     try:
         import duckdb
     except ImportError as exc:  # pragma: no cover - environment dependent
@@ -230,23 +328,26 @@ def inspect_input_artifact(
             [table],
         ).fetchone()[0]
         if int(table_exists) != 1:
-            raise RuntimeError(f"declared table is missing: {table}")
+            raise RuntimeError(f"declared table is missing for {artifact_id}: {table}")
         actual_columns = [
             str(row[1])
-            for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+            for row in connection.execute(f"PRAGMA table_info('{table}')").fetchall()
         ]
         missing_columns = sorted(set(required_columns) - set(actual_columns))
         if missing_columns:
-            raise RuntimeError(f"required columns are missing: {missing_columns}")
+            raise RuntimeError(
+                f"required columns are missing for {artifact_id}: {missing_columns}"
+            )
         full_row_count = int(
             connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         )
         if full_row_count != int(declaration["row_count"]):
             raise RuntimeError(
-                "source manifest row count mismatch: "
+                f"source manifest row count mismatch for {artifact_id}: "
                 f"declared={declaration['row_count']} actual={full_row_count}"
             )
         return {
+            "artifact_id": artifact_id,
             "table": table,
             "actual_columns": actual_columns,
             "source_full_row_count": full_row_count,
@@ -254,6 +355,414 @@ def inspect_input_artifact(
         }
     finally:
         connection.close()
+
+
+def validate_expected_index_reconciliation(
+    *,
+    candidate_path: Path,
+    candidate_artifact: Mapping[str, Any],
+    index_path: Path,
+    index_artifact: Mapping[str, Any],
+    dense_contract: Mapping[str, Any],
+) -> dict[str, int]:
+    """Validate index ordering and exact main-table/index key reconciliation."""
+
+    candidate_table = str(candidate_artifact["table"])
+    index_table = str(index_artifact["table"])
+    for table in (candidate_table, index_table):
+        if not IDENTIFIER_PATTERN.fullmatch(table):
+            raise RuntimeError(
+                f"unsafe table identifier in dense reconciliation: {table}"
+            )
+    try:
+        import duckdb
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("duckdb is required for dense index validation") from exc
+    connection = duckdb.connect(":memory:")
+    try:
+        candidate_literal = str(candidate_path).replace("'", "''")
+        index_literal = str(index_path).replace("'", "''")
+        connection.execute(f"ATTACH '{candidate_literal}' AS candidate (READ_ONLY)")
+        connection.execute(f"ATTACH '{index_literal}' AS expected (READ_ONLY)")
+        statuses = sorted(set(str(value) for value in dense_contract["statuses"]))
+        if set(statuses) != EXPECTED_INDEX_STATUSES:
+            raise RuntimeError("dense index status vocabulary mismatch")
+
+        errors: dict[str, int] = {}
+        schema_rows = connection.execute(
+            f"PRAGMA table_info('expected.{index_table}')"
+        ).fetchall()
+        schema_types = {str(row[1]): str(row[2]).upper() for row in schema_rows}
+        sequence_type = schema_types.get("observation_sequence", "")
+        date_type = schema_types.get("trading_date", "")
+        errors["index_sequence_type_invalid"] = int(
+            not any(token in sequence_type for token in ("INT", "DECIMAL", "HUGEINT"))
+        )
+        errors["index_date_type_invalid"] = int(
+            not any(
+                token in date_type for token in ("DATE", "TIMESTAMP", "VARCHAR", "TEXT")
+            )
+        )
+        errors["invalid_index_identity"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM expected.{index_table}
+            WHERE security_id IS NULL OR trim(CAST(security_id AS VARCHAR)) = ''
+               OR trading_date IS NULL
+               OR observation_sequence IS NULL
+            """,
+        )
+        errors["invalid_index_sequence_value"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM expected.{index_table}
+            WHERE try_cast(observation_sequence AS DECIMAL(38, 10)) IS NULL
+               OR try_cast(observation_sequence AS DECIMAL(38, 10)) < 0
+               OR try_cast(observation_sequence AS DECIMAL(38, 10))
+                    != floor(try_cast(observation_sequence AS DECIMAL(38, 10)))
+            """,
+        )
+        errors["invalid_index_date"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM expected.{index_table}
+            WHERE COALESCE(
+                try_strptime(CAST(trading_date AS VARCHAR), '%Y-%m-%d'),
+                try_strptime(CAST(trading_date AS VARCHAR), '%Y%m%d')
+            ) IS NULL
+            """,
+        )
+        errors["duplicate_index_security_date"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM (
+              SELECT security_id, trading_date
+              FROM expected.{index_table}
+              GROUP BY 1, 2 HAVING count(*) > 1
+            )
+            """,
+        )
+        errors["duplicate_index_security_sequence"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM (
+              SELECT security_id, observation_sequence
+              FROM expected.{index_table}
+              GROUP BY 1, 2 HAVING count(*) > 1
+            )
+            """,
+        )
+        errors["invalid_index_status"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM expected.{index_table}
+            WHERE expected_observation_status NOT IN (
+                'present', 'listing_pause', 'missing', 'unresolved'
+            )
+               OR expected_observation_status IS NULL
+            """,
+        )
+        expected_source_contract = str(index_artifact["source_contract"]).replace(
+            "'", "''"
+        )
+        errors["empty_index_source_contract"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM expected.{index_table}
+            WHERE source_contract IS NULL OR trim(source_contract) = ''
+               OR source_contract != '{expected_source_contract}'
+            """,
+        )
+        errors["empty_index_source_ref"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM expected.{index_table}
+            WHERE source_ref IS NULL OR trim(source_ref) = ''
+            """,
+        )
+        errors["non_monotonic_index_sequence"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM (
+              SELECT observation_sequence,
+                     lag(observation_sequence) OVER (
+                       PARTITION BY security_id ORDER BY observation_sequence
+                     ) AS previous_sequence
+              FROM (
+                SELECT security_id,
+                       try_cast(observation_sequence AS DECIMAL(38, 10))
+                         AS observation_sequence
+                FROM expected.{index_table}
+              ) ordered_index
+            )
+            WHERE previous_sequence IS NOT NULL
+              AND observation_sequence != previous_sequence + 1
+            """,
+        )
+        errors["non_monotonic_index_date"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM (
+              SELECT trading_date,
+                     lag(trading_date) OVER (
+                       PARTITION BY security_id ORDER BY observation_sequence
+                     ) AS previous_date
+              FROM (
+                SELECT security_id,
+                       observation_sequence,
+                       COALESCE(
+                         try_strptime(CAST(trading_date AS VARCHAR), '%Y-%m-%d'),
+                         try_strptime(CAST(trading_date AS VARCHAR), '%Y%m%d')
+                       ) AS trading_date
+                FROM expected.{index_table}
+              ) ordered_index
+            )
+            WHERE previous_date IS NOT NULL AND trading_date <= previous_date
+            """,
+        )
+        errors["main_duplicate_security_date"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM (
+              SELECT ts_code, trade_date
+              FROM candidate.{candidate_table}
+              GROUP BY 1, 2 HAVING count(*) > 1
+            )
+            """,
+        )
+        errors["main_invalid_identity"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table}
+            WHERE ts_code IS NULL OR trim(CAST(ts_code AS VARCHAR)) = ''
+               OR trade_date IS NULL
+            """,
+        )
+        errors["main_listing_pause_row_present"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table}
+            WHERE is_listing_pause IS NOT FALSE
+            """,
+        )
+        errors["main_source_task_invalid"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table}
+            WHERE source_task_id IS NULL OR source_task_id != 'D2-T20'
+            """,
+        )
+        errors["main_generated_by_task_invalid"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table}
+            WHERE generated_by_task IS NULL OR generated_by_task != 'D3-T07'
+            """,
+        )
+        errors["main_row_provenance_missing"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table}
+            WHERE row_provenance IS NULL OR trim(row_provenance) = ''
+            """,
+        )
+        errors["main_effective_factor_invalid"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table}
+            WHERE effective_adj_factor IS NULL
+               OR NOT isfinite(effective_adj_factor)
+               OR effective_adj_factor <= 0
+            """,
+        )
+        errors["main_key_not_present_index"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*)
+            FROM candidate.{candidate_table} m
+            LEFT JOIN expected.{index_table} i
+              ON i.security_id = m.ts_code AND i.trading_date = m.trade_date
+             AND i.expected_observation_status = 'present'
+            WHERE i.security_id IS NULL
+            """,
+        )
+        errors["present_index_key_missing_main"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*)
+            FROM expected.{index_table} i
+            LEFT JOIN candidate.{candidate_table} m
+              ON m.ts_code = i.security_id AND m.trade_date = i.trading_date
+            WHERE i.expected_observation_status = 'present'
+              AND m.ts_code IS NULL
+            """,
+        )
+        errors["non_present_index_key_in_main"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*)
+            FROM expected.{index_table} i
+            JOIN candidate.{candidate_table} m
+              ON m.ts_code = i.security_id AND m.trade_date = i.trading_date
+            WHERE i.expected_observation_status != 'present'
+            """,
+        )
+        errors["index_row_count"] = _scalar_count(
+            connection, f"SELECT count(*) FROM expected.{index_table}"
+        )
+        errors["main_row_count"] = _scalar_count(
+            connection, f"SELECT count(*) FROM candidate.{candidate_table}"
+        )
+        if errors["index_row_count"] <= 0:
+            errors["empty_index"] = 1
+        failures = {
+            key: value
+            for key, value in errors.items()
+            if value > 0 and key not in {"index_row_count", "main_row_count"}
+        }
+        if failures:
+            raise RuntimeError(f"expected_index_reconcile_failed: {failures}")
+        return errors
+    finally:
+        connection.close()
+
+
+def _validate_d3_t07_evidence(
+    *,
+    candidate_path: Path,
+    candidate_artifact: Mapping[str, Any],
+    quality: Mapping[str, Any],
+    handoff: Mapping[str, Any],
+    gate: Mapping[str, Any],
+) -> None:
+    _require_equal(quality, "task_id", "D3-T07", "D3-T07 quality")
+    _require_equal(quality, "source_task_id", "D2-T20", "D3-T07 quality")
+    _require_equal(handoff, "task_id", "D3-T07", "D3-T07 handoff")
+    _require_equal(handoff, "source_task_id", "D2-T20", "D3-T07 handoff")
+    _require_equal(
+        handoff,
+        "d3_t07_generation_decision",
+        gate["accepted_generation_decision"],
+        "D3-T07 handoff",
+    )
+    _require_equal(
+        quality,
+        "candidate_generation_decision",
+        gate["accepted_generation_decision"],
+        "D3-T07 quality",
+    )
+    _require_true(handoff, gate["generated_field"], "D3-T07 handoff")
+    _require_true(quality, "candidate_observation_generated", "D3-T07 quality")
+    _require_false(handoff, gate["formal_data_version_field"], "D3-T07 handoff")
+    for field in gate["forbidden_true_fields"]:
+        _require_false(handoff, field, "D3-T07 handoff")
+    for field in gate["quality_blockers"]:
+        _require_zero(quality, field, "D3-T07 quality")
+
+    _validate_candidate_main_table(
+        candidate_path, candidate_artifact, gate["main_table_identity"]
+    )
+
+
+def _validate_candidate_main_table(
+    path: Path, artifact: Mapping[str, Any], identity: Mapping[str, Any]
+) -> None:
+    try:
+        import duckdb
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("duckdb is required for D3-T07 table validation") from exc
+    table = str(artifact["table"])
+    connection = duckdb.connect(str(path), read_only=True)
+    try:
+        source_task_id = str(identity["source_task_id"]).replace("'", "''")
+        generated_by_task = str(identity["generated_by_task"]).replace("'", "''")
+        predicates = {
+            "source_task_id_invalid": (
+                f"source_task_id IS NULL OR source_task_id != '{source_task_id}'"
+            ),
+            "generated_by_task_invalid": (
+                "generated_by_task IS NULL OR "
+                f"generated_by_task != '{generated_by_task}'"
+            ),
+            "row_provenance_missing": (
+                "row_provenance IS NULL OR trim(row_provenance) = ''"
+            ),
+            "listing_pause_present": "is_listing_pause IS NOT FALSE",
+            "effective_factor_invalid": (
+                "effective_adj_factor IS NULL OR "
+                "NOT isfinite(effective_adj_factor) OR "
+                "effective_adj_factor <= 0"
+            ),
+        }
+        failures = {
+            key: _scalar_count(
+                connection, f"SELECT count(*) FROM {table} WHERE {predicate}"
+            )
+            for key, predicate in predicates.items()
+        }
+        if any(value > 0 for value in failures.values()):
+            raise RuntimeError(f"D3-T07 main table gate failed: {failures}")
+    finally:
+        connection.close()
+
+
+def _validate_d3_t08_evidence(
+    *, quality: Mapping[str, Any], handoff: Mapping[str, Any], gate: Mapping[str, Any]
+) -> None:
+    _require_equal(quality, "task_id", "D3-T08", "D3-T08 quality")
+    _require_equal(quality, "source_task_id", "D3-T07", "D3-T08 quality")
+    _require_equal(handoff, "task_id", "D3-T08", "D3-T08 handoff")
+    _require_equal(handoff, "source_task_id", "D3-T07", "D3-T08 handoff")
+    accepted = set(gate["accepted_generation_decisions"])
+    if quality.get("d3_t08_generation_decision") not in accepted:
+        raise RuntimeError("D3-T08 quality generation decision is not accepted")
+    if handoff.get("d3_t08_generation_decision") not in accepted:
+        raise RuntimeError("D3-T08 handoff generation decision is not accepted")
+    _require_true(quality, gate["generated_field"], "D3-T08 quality")
+    _require_true(handoff, gate["generated_field"], "D3-T08 handoff")
+    _require_false(quality, gate["formal_data_version_field"], "D3-T08 quality")
+    for field in ("pcvt_values_generated", "r0_state_generated"):
+        _require_false(quality, field, "D3-T08 quality")
+    _require_false(handoff, gate["formal_data_version_field"], "D3-T08 handoff")
+    for field in gate["forbidden_true_fields"]:
+        _require_false(handoff, field, "D3-T08 handoff")
+    for field in gate["quality_blockers"]:
+        _require_zero(quality, field, "D3-T08 quality")
+
+
+def _require_equal(
+    payload: Mapping[str, Any], field: str, expected: Any, label: str
+) -> None:
+    if payload.get(field) != expected:
+        raise RuntimeError(
+            f"{label} {field} mismatch: expected={expected!r} "
+            f"actual={payload.get(field)!r}"
+        )
+
+
+def _require_true(payload: Mapping[str, Any], field: str, label: str) -> None:
+    if payload.get(field) is not True:
+        raise RuntimeError(f"{label} {field} must be true")
+
+
+def _require_false(payload: Mapping[str, Any], field: str, label: str) -> None:
+    if payload.get(field) is not False:
+        raise RuntimeError(f"{label} {field} must be false")
+
+
+def _require_zero(payload: Mapping[str, Any], field: str, label: str) -> None:
+    if field not in payload:
+        raise RuntimeError(f"{label} blocker field is missing: {field}")
+    try:
+        value = int(payload[field])
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"{label} blocker is not numeric: {field}") from exc
+    if value != 0:
+        raise RuntimeError(f"{label} blocker is nonzero: {field}={value}")
+
+
+def _scalar_count(connection: Any, sql: str) -> int:
+    return int(connection.execute(sql).fetchone()[0] or 0)
 
 
 def sha256_file(path: Path) -> str:
@@ -284,7 +793,7 @@ def _current_git_sha() -> str:
     ).stdout.strip()
 
 
-def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--input-root", type=Path)

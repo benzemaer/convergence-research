@@ -11,7 +11,7 @@
   "workflow_mode": "long_lived_same_pr",
   "phase": "implementation_review",
   "program_phase": "A01_candidate_raw_metric_implementation",
-  "implementation_review_status": "pending",
+  "implementation_review_status": "needs_revision",
   "reviewed_implementation_sha": "",
   "formal_run_allowed": false,
   "formal_run_status": "not_started",
@@ -25,21 +25,45 @@
   "existing_indicator_modified": false,
   "future_outcome_used": false,
   "price_basis": {
-    "authoritative_contract": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1",
-    "authoritative_object": "d3.daily_market_observation_values",
+    "authoritative_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+    "authoritative_object": "d3_candidate_daily_observation",
     "candidate_materialization_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
-    "adjusted_fields": ["adj_open", "adj_high", "adj_low", "adj_close"],
-    "candidate_input_aliases": {
-      "adjusted_open": ["adjusted_open", "adj_open"],
-      "adjusted_close": ["adjusted_close", "adj_close"]
+    "source_role": "exploration_research_candidate",
+    "formal_data_version": false,
+    "adjusted_fields": ["adjusted_open", "adjusted_high", "adjusted_low", "adjusted_close"],
+    "canonical_column_mapping": {
+      "security_id": "ts_code",
+      "trading_date": "trade_date",
+      "adjusted_open": "adjusted_open",
+      "adjusted_close": "adjusted_close",
+      "adjustment_factor": "effective_adj_factor"
     },
-    "adjustment_semantics": "continuous research adjusted prices from the authoritative D3 value layer; no second adjustment policy",
+    "adjustment_semantics": "D3-T07 candidate adjusted prices are consumed directly; A01 applies no second adjustment policy",
     "moving_average": "simple moving average of adjusted_close with the current observation included",
     "moving_average_windows": [5, 10, 20, 30, 60],
+    "trading_status_allowed_values": [
+      "normal_trading",
+      "limit_up",
+      "limit_down",
+      "one_price_limit_up",
+      "one_price_limit_down"
+    ],
+    "daily_status_allowed_values": ["resolved"],
+    "adjustment_factor_status_allowed_values": [
+      "resolved",
+      "not_applicable_or_carry_forward",
+      "neutral_factor_1_policy",
+      "factor_interval_policy"
+    ],
     "raw_ohlc_forbidden": true,
     "future_observations_forbidden": true,
     "centered_moving_average_forbidden": true,
-    "fill_methods_forbidden": ["forward_fill", "backward_fill", "window_compression_across_suspension"]
+    "fill_methods_forbidden": [
+      "forward_fill",
+      "backward_fill",
+      "window_compression_across_missing_expected_observation",
+      "window_compression_across_listing_pause"
+    ]
   },
   "parameters": {
     "ma_windows": [5, 10, 20, 30, 60],
@@ -95,10 +119,10 @@
       "suspension_in_required_window",
       "listing_pause_in_required_window",
       "invalid_trading_status",
-      "duplicate_security_date",
-      "non_monotonic_security_date"
+      "reopen_after_suspension"
     ],
-    "a2_a2b_window_rule": "any invalid required observation makes the 79-observation output non-valid; do not compress, skip, fill, or substitute zero",
+    "a2_a2b_window_rule": "current observation plus the prior 78 consecutive expected observation_sequence slots is exactly 79; any non-present or invalid slot makes the result non-valid",
+    "a1_window_rule": "current observation plus the prior 59 consecutive expected observation_sequence slots is exactly 60; any non-present or invalid slot makes the result non-valid",
     "unknown_not_false": true,
     "invalid_has_no_ordinary_numeric_raw_value": true
   },
@@ -109,31 +133,198 @@
     "input_root_env": "CONVERGENCE_RESEARCH_INPUT_ROOT",
     "source_manifest_resolution": "absolute_declared_path_or_relative_to_manifest_parent; no_recursive_search",
     "implementation_does_not_open_real_large_duckdb": true,
+    "manifest_artifact_names": [
+      "d3_t07_candidate_daily_observation",
+      "d3_t07_handoff_report",
+      "d3_t07_quality_report",
+      "d3_t08_handoff_report",
+      "d3_t08_quality_report",
+      "expected_price_observation_index"
+    ],
     "artifacts": {
-      "adjusted_ohlc": {
-        "logical_object": "d3.daily_market_observation_values",
-        "filename": "d3_daily_market_observation_values.duckdb",
-        "table": "daily_market_observation_values",
-        "source_contract": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1",
+      "d3_t07_candidate_daily_observation": {
+        "artifact_id": "d3_t07_candidate_daily_observation",
+        "artifact_kind": "duckdb_table",
+        "logical_object": "d3_candidate_daily_observation",
+        "filename": "d3_t07_candidate_daily_observation.duckdb",
+        "table": "d3_candidate_daily_observation",
+        "source_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+        "source_role": "exploration_research_candidate",
+        "formal_data_version": false,
+        "required_columns": [
+          "ts_code",
+          "trade_date",
+          "adjusted_open",
+          "adjusted_close",
+          "trading_status",
+          "daily_status",
+          "effective_adj_factor",
+          "adjustment_factor_status",
+          "is_listing_pause",
+          "source_task_id",
+          "generated_by_task",
+          "row_provenance"
+        ]
+      },
+      "d3_t07_handoff_report": {
+        "artifact_id": "d3_t07_handoff_report",
+        "artifact_kind": "evidence_json",
+        "logical_object": "d3_t07_handoff_candidate_report",
+        "filename": "d3_t07_handoff_candidate_report.json",
+        "source_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+        "source_role": "d3_t07_handoff_evidence",
+        "formal_data_version": false,
+        "required_json_fields": [
+          "task_id",
+          "source_task_id",
+          "d3_t07_generation_decision",
+          "d3_candidate_observation_generated",
+          "formal_data_version_published",
+          "labels_generated",
+          "returns_generated",
+          "pcvt_values_generated",
+          "r0_state_generated"
+        ]
+      },
+      "d3_t07_quality_report": {
+        "artifact_id": "d3_t07_quality_report",
+        "artifact_kind": "evidence_json",
+        "logical_object": "d3_t07_quality_report",
+        "filename": "d3_t07_quality_report.json",
+        "source_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+        "source_role": "d3_t07_quality_evidence",
+        "formal_data_version": false,
+        "required_json_fields": [
+          "task_id",
+          "source_task_id",
+          "candidate_observation_generated",
+          "candidate_generation_decision",
+          "duplicate_observation_key_count",
+          "null_ohlc_count",
+          "non_positive_price_count",
+          "high_low_violation_count",
+          "missing_effective_adj_factor_count",
+          "factor_interval_unresolved_count"
+        ]
+      },
+      "d3_t08_handoff_report": {
+        "artifact_id": "d3_t08_handoff_report",
+        "artifact_kind": "evidence_json",
+        "logical_object": "d3_t08_handoff_candidate_report",
+        "filename": "d3_t08_handoff_candidate_report.json",
+        "source_contract": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1",
+        "source_role": "d3_t08_handoff_evidence",
+        "formal_data_version": false,
+        "required_json_fields": [
+          "task_id",
+          "source_task_id",
+          "d3_t08_generation_decision",
+          "research_dataset_registry_generated",
+          "formal_data_version_published",
+          "labels_generated",
+          "returns_generated",
+          "pcvt_values_generated",
+          "r0_state_generated"
+        ]
+      },
+      "d3_t08_quality_report": {
+        "artifact_id": "d3_t08_quality_report",
+        "artifact_kind": "evidence_json",
+        "logical_object": "d3_t08_quality_report",
+        "filename": "d3_t08_quality_report.json",
+        "source_contract": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1",
+        "source_role": "d3_t08_quality_evidence",
+        "formal_data_version": false,
+        "required_json_fields": [
+          "task_id",
+          "source_task_id",
+          "d3_t08_generation_decision",
+          "research_dataset_registry_generated",
+          "formal_data_version_published",
+          "pcvt_values_generated",
+          "r0_state_generated"
+        ]
+      },
+      "expected_price_observation_index": {
+        "artifact_id": "expected_price_observation_index",
+        "artifact_kind": "duckdb_table",
+        "logical_object": "expected_price_observation_index",
+        "filename": "expected_price_observation_index.duckdb",
+        "table": "expected_price_observation_index",
+        "source_contract": "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",
+        "source_role": "authorized_dense_expected_observation_index",
+        "formal_data_version": false,
         "required_columns": [
           "security_id",
           "trading_date",
-          "adj_open",
-          "adj_close",
-          "trading_status",
-          "continuous_ohlc_integrity_status",
-          "adjustment_factor",
-          "adjustment_method",
-          "factor_as_of_time",
-          "corporate_action_flag"
-        ],
-        "canonical_column_mapping": {
-          "security_id": ["security_id", "ts_code"],
-          "trading_date": ["trading_date", "trade_date"],
-          "adjusted_open": ["adjusted_open", "adj_open"],
-          "adjusted_close": ["adjusted_close", "adj_close"]
-        }
+          "observation_sequence",
+          "expected_observation_status",
+          "source_contract",
+          "source_ref"
+        ]
       }
+    }
+  },
+  "d3_t07_evidence_gate": {
+    "accepted_generation_decision": "accepted_candidate_observation",
+    "generated_field": "d3_candidate_observation_generated",
+    "formal_data_version_field": "formal_data_version_published",
+    "forbidden_true_fields": [
+      "labels_generated",
+      "returns_generated",
+      "pcvt_values_generated",
+      "r0_state_generated"
+    ],
+    "quality_blockers": [
+      "duplicate_observation_key_count",
+      "null_ohlc_count",
+      "non_positive_price_count",
+      "high_low_violation_count",
+      "missing_effective_adj_factor_count",
+      "factor_interval_unresolved_count"
+    ],
+    "main_table_identity": {
+      "source_task_id": "D2-T20",
+      "generated_by_task": "D3-T07",
+      "listing_pause_must_be": false
+    }
+  },
+  "d3_t08_evidence_gate": {
+    "accepted_generation_decisions": [
+      "accepted_research_dataset_registry",
+      "accepted_research_dataset_registry_with_warnings"
+    ],
+    "generated_field": "research_dataset_registry_generated",
+    "formal_data_version_field": "formal_data_version_published",
+    "forbidden_true_fields": [
+      "labels_generated",
+      "returns_generated",
+      "pcvt_values_generated",
+      "r0_state_generated"
+    ],
+    "quality_blockers": [
+      "duplicate_observation_key_count",
+      "adjusted_ohlc_invalid_count",
+      "effective_adj_factor_invalid_count",
+      "adjusted_factor_mismatch_count",
+      "listing_pause_row_count",
+      "is_listing_pause_true_count",
+      "source_task_id_invalid_count",
+      "generated_by_task_invalid_count",
+      "row_provenance_missing_count"
+    ]
+  },
+  "dense_window_contract": {
+    "index_source_contract": "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",
+    "statuses": ["present", "listing_pause", "missing", "unresolved"],
+    "present_requires_exactly_one_main_row": true,
+    "non_present_must_not_be_in_main_table": true,
+    "civil_date_continuity_substitution_forbidden": true,
+    "sequence_gap_is_input_contract_error": true,
+    "window_observation_counts": {
+      "A1_LogBodyCenterToMACloudCenter_5_60": 60,
+      "A2_BodyCenterOutsideMACloudRate20_5_60": 79,
+      "A2b_BodyToMACloudGapMean20_5_60": 79
     }
   },
   "output_contract": {
