@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json",
+  "title": "EXP-A01 price-MA attachment candidate contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "task_id",
+    "experiment_id",
+    "experiment_name",
+    "program_id",
+    "research_route",
+    "candidate_layer",
+    "candidate_layer_name",
+    "workflow_mode",
+    "phase",
+    "program_phase",
+    "implementation_review_status",
+    "reviewed_implementation_sha",
+    "formal_run_allowed",
+    "formal_run_status",
+    "formal_run_executed",
+    "result_review_status",
+    "mainline_task_unchanged",
+    "mainline_current_task",
+    "formal_layer_registered",
+    "pcvt_modified",
+    "pcatv_created",
+    "existing_indicator_modified",
+    "future_outcome_used",
+    "price_basis",
+    "parameters",
+    "candidates",
+    "validity_contract",
+    "input_contract",
+    "output_contract",
+    "long_lived_program_plan"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "EXP-A01"},
+    "experiment_id": {"const": "EXP-A01"},
+    "experiment_name": {"const": "A层价格—均线贴合候选指标"},
+    "program_id": {"const": "EXP-A"},
+    "research_route": {"const": "sidecar_exploration"},
+    "candidate_layer": {"const": "A"},
+    "candidate_layer_name": {"const": "price_ma_attachment"},
+    "workflow_mode": {"const": "long_lived_same_pr"},
+    "phase": {"const": "implementation_review"},
+    "program_phase": {"const": "A01_candidate_raw_metric_implementation"},
+    "implementation_review_status": {"const": "pending"},
+    "reviewed_implementation_sha": {
+      "anyOf": [
+        {"const": ""},
+        {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      ]
+    },
+    "formal_run_allowed": {"const": false},
+    "formal_run_status": {"const": "not_started"},
+    "formal_run_executed": {"const": false},
+    "result_review_status": {"const": "not_started"},
+    "mainline_task_unchanged": {"const": true},
+    "mainline_current_task": {"const": "R3-T02"},
+    "formal_layer_registered": {"const": false},
+    "pcvt_modified": {"const": false},
+    "pcatv_created": {"const": false},
+    "existing_indicator_modified": {"const": false},
+    "future_outcome_used": {"const": false},
+    "price_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authoritative_contract",
+        "authoritative_object",
+        "candidate_materialization_contract",
+        "adjusted_fields",
+        "candidate_input_aliases",
+        "adjustment_semantics",
+        "moving_average",
+        "moving_average_windows",
+        "raw_ohlc_forbidden",
+        "future_observations_forbidden",
+        "centered_moving_average_forbidden",
+        "fill_methods_forbidden"
+      ],
+      "properties": {
+        "authoritative_contract": {"const": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"},
+        "authoritative_object": {"const": "d3.daily_market_observation_values"},
+        "candidate_materialization_contract": {"const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"},
+        "adjusted_fields": {
+          "const": ["adj_open", "adj_high", "adj_low", "adj_close"]
+        },
+        "candidate_input_aliases": {
+          "const": {
+            "adjusted_open": ["adjusted_open", "adj_open"],
+            "adjusted_close": ["adjusted_close", "adj_close"]
+          }
+        },
+        "adjustment_semantics": {"type": "string", "minLength": 1},
+        "moving_average": {"type": "string", "minLength": 1},
+        "moving_average_windows": {"const": [5, 10, 20, 30, 60]},
+        "raw_ohlc_forbidden": {"const": true},
+        "future_observations_forbidden": {"const": true},
+        "centered_moving_average_forbidden": {"const": true},
+        "fill_methods_forbidden": {
+          "const": ["forward_fill", "backward_fill", "window_compression_across_suspension"]
+        }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ma_windows",
+        "a2_rolling_window",
+        "a1_required_observations",
+        "a2_required_observations",
+        "current_day_included",
+        "raw_value_direction"
+      ],
+      "properties": {
+        "ma_windows": {"const": [5, 10, 20, 30, 60]},
+        "a2_rolling_window": {"const": 20},
+        "a1_required_observations": {"const": 60},
+        "a2_required_observations": {"const": 79},
+        "current_day_included": {"const": true},
+        "raw_value_direction": {"const": "lower_is_more_attached"}
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "validity_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validity_statuses",
+        "reason_codes",
+        "a2_a2b_window_rule",
+        "unknown_not_false",
+        "invalid_has_no_ordinary_numeric_raw_value"
+      ],
+      "properties": {
+        "validity_statuses": {
+          "const": ["valid", "unknown", "blocked", "diagnostic_required"]
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 14,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "a2_a2b_window_rule": {"type": "string", "minLength": 1},
+        "unknown_not_false": {"const": true},
+        "invalid_has_no_ordinary_numeric_raw_value": {"const": true}
+      }
+    },
+    "input_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_manifest_required",
+        "source_manifest_cli",
+        "input_root_cli",
+        "input_root_env",
+        "source_manifest_resolution",
+        "implementation_does_not_open_real_large_duckdb",
+        "artifacts"
+      ],
+      "properties": {
+        "source_manifest_required": {"const": true},
+        "source_manifest_cli": {"const": "--input-manifest"},
+        "input_root_cli": {"const": "--input-root"},
+        "input_root_env": {"const": "CONVERGENCE_RESEARCH_INPUT_ROOT"},
+        "source_manifest_resolution": {
+          "const": "absolute_declared_path_or_relative_to_manifest_parent; no_recursive_search"
+        },
+        "implementation_does_not_open_real_large_duckdb": {"const": true},
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["adjusted_ohlc"],
+          "properties": {
+            "adjusted_ohlc": {"$ref": "#/$defs/input_artifact"}
+          }
+        }
+      }
+    },
+    "output_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "future_directory",
+        "future_files",
+        "future_raw_metric_artifact_requires_manifest",
+        "no_formal_output_in_implementation",
+        "forbidden_output_fields"
+      ],
+      "properties": {
+        "future_directory": {"const": "data/generated/sidecar/exp_a01/<RUN_ID>/"},
+        "future_files": {
+          "const": [
+            "exp_a01_metric_profile.csv",
+            "exp_a01_validity_profile.csv",
+            "exp_a01_year_coverage.csv",
+            "exp_a01_manifest.json",
+            "exp_a01_validator_result.json",
+            "exp_a01_anomaly_scan.json",
+            "exp_a01_result_analysis.md"
+          ]
+        },
+        "future_raw_metric_artifact_requires_manifest": {"const": true},
+        "no_formal_output_in_implementation": {"const": true},
+        "forbidden_output_fields": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "long_lived_program_plan": {
+      "const": [
+        "A01 raw metric",
+        "A02 W120 percentile/score",
+        "A03 intralayer redundancy",
+        "A04 cross-layer redundancy",
+        "A05 state incrementality",
+        "A06 final decision"
+      ]
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indicator_id",
+        "raw_metric_name",
+        "role",
+        "formula",
+        "minimum_history",
+        "raw_value_domain",
+        "direction"
+      ],
+      "properties": {
+        "indicator_id": {"type": "string", "pattern": "^A(?:1|2b?)_"},
+        "raw_metric_name": {"type": "string", "minLength": 1},
+        "role": {"const": "candidate"},
+        "formula": {"type": "string", "minLength": 1},
+        "minimum_history": {"enum": [60, 79]},
+        "raw_value_domain": {"enum": ["finite_nonnegative", "finite_unit_interval"]},
+        "direction": {"const": "lower_is_more_attached"},
+        "boundary_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "input_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_object",
+        "filename",
+        "table",
+        "source_contract",
+        "required_columns",
+        "canonical_column_mapping"
+      ],
+      "properties": {
+        "logical_object": {"const": "d3.daily_market_observation_values"},
+        "filename": {"type": "string", "pattern": "^[^/\\\\]+\\.duckdb$"},
+        "table": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "source_contract": {"const": "D3_DAILY_MARKET_OBSERVATION_VALUES_CONTRACT_V1"},
+        "required_columns": {
+          "const": [
+            "security_id",
+            "trading_date",
+            "adj_open",
+            "adj_close",
+            "trading_status",
+            "continuous_ohlc_integrity_status",
+            "adjustment_factor",
+            "adjustment_method",
+            "factor_as_of_time",
+            "corporate_action_flag"
+          ]
+        },
+        "canonical_column_mapping": {
+          "const": {
+            "security_id": ["security_id", "ts_code"],
+            "trading_date": ["trading_date", "trade_date"],
+            "adjusted_open": ["adjusted_open", "adj_open"],
+            "adjusted_close": ["adjusted_close", "adj_close"]
+          }
+        }
+      }
+    }
+  }
+}
