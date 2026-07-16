@@ -1,0 +1,291 @@
+{
+  "$schema": "../../schemas/sidecar/exp_c01_c_layer_indicator_ablation.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "EXP-C01",
+  "experiment_id": "EXP-C01",
+  "experiment_name": "C层 C1/C2 单指标消融（W120）",
+  "research_route": "sidecar_exploration",
+  "workflow_mode": "same_pr",
+  "phase": "implementation_review",
+  "implementation_review_status": "pending",
+  "reviewed_implementation_sha": "",
+  "formal_run_allowed": false,
+  "formal_run_status": "not_started",
+  "result_review_status": "not_started",
+  "sidecar_readme_advanced": false,
+  "mainline_task_unchanged": true,
+  "mainline_current_task": "R3-T02",
+  "parameters": {
+    "W": 120,
+    "q": 0.2,
+    "weak_delta": 0.1,
+    "K": "not_applicable",
+    "d": "not_applicable",
+    "g": "not_applicable"
+  },
+  "indicator_ids": {
+    "C1": "C1_LogMASpread_5_60",
+    "C2": "C2_AdjVWAPSpread_5_60"
+  },
+  "variants": [
+    {
+      "variant_id": "baseline_pair",
+      "role": "baseline",
+      "rule": "pair_valid AND score_C_mean >= 0.80 AND score_C_min >= 0.70"
+    },
+    {
+      "variant_id": "c1_only",
+      "role": "candidate",
+      "rule": "C1 valid AND score_C1 >= 0.80"
+    },
+    {
+      "variant_id": "c2_only",
+      "role": "candidate",
+      "rule": "C2 valid AND score_C2 >= 0.80"
+    }
+  ],
+  "denominator_scope": "pair_common_valid",
+  "validity_statuses": [
+    "valid",
+    "unknown",
+    "blocked",
+    "diagnostic_required"
+  ],
+  "input_contract": {
+    "input_root_cli": "--input-root",
+    "input_root_env": "CONVERGENCE_RESEARCH_INPUT_ROOT",
+    "source_manifest_required": true,
+    "source_manifest_cli": "--input-manifest",
+    "source_manifest_resolution": "declared_path_relative_to_manifest_parent; basename_local_only_opt_in; no_recursive_search",
+    "manifest_filenames": [
+      "r0_t05_score_results_manifest.json",
+      "r0_t10_authorized_input_manifest.json"
+    ],
+    "artifacts": {
+      "indicator_score": {
+        "filename": "r0_t05_indicator_score_results.duckdb",
+        "table": "r0_t05_indicator_score_results",
+        "required_columns": [
+          "security_id",
+          "trading_date",
+          "percentile_window_W",
+          "indicator_id",
+          "score",
+          "eligible",
+          "validity_status"
+        ],
+        "indicator_ids": [
+          "C1_LogMASpread_5_60",
+          "C2_AdjVWAPSpread_5_60"
+        ],
+        "percentile_window_W": 120
+      },
+      "dimension_score": {
+        "filename": "r0_t05_dimension_score_results.duckdb",
+        "table": "r0_t05_dimension_score_results",
+        "required_columns": [
+          "security_id",
+          "trading_date",
+          "percentile_window_W",
+          "dimension",
+          "score_dimension",
+          "score_dimension_min",
+          "eligible_dimension",
+          "validity_status"
+        ],
+        "dimension": "C",
+        "percentile_window_W": 120
+      },
+      "dimension_state": {
+        "filename": "r0_t06_dimension_state_results.duckdb",
+        "table": "r0_t06_dimension_state_results",
+        "required_columns": [
+          "security_id",
+          "trading_date",
+          "percentile_window_W",
+          "q",
+          "weak_delta",
+          "dimension",
+          "dimension_active_weak",
+          "validity_status"
+        ],
+        "dimension": "C",
+        "percentile_window_W": 120,
+        "q": 0.2,
+        "weak_delta": 0.1
+      }
+    }
+  },
+  "output_contract": {
+    "directory": "data/generated/sidecar/exp_c01/<RUN_ID>/",
+    "files": {
+      "variant_profile": "exp_c01_variant_profile.csv",
+      "overlap_profile": "exp_c01_overlap_profile.csv",
+      "score_comparison": "exp_c01_score_comparison.csv",
+      "year_profile": "exp_c01_year_profile.csv",
+      "security_profile": "exp_c01_security_profile.csv",
+      "availability_profile": "exp_c01_availability_profile.csv",
+      "manifest": "exp_c01_manifest.json",
+      "validator_result": "exp_c01_validator_result.json",
+      "anomaly_scan": "exp_c01_anomaly_scan.json",
+      "result_analysis": "exp_c01_result_analysis.md"
+    },
+    "no_new_duckdb": true,
+    "main_comparison_denominator": "pair_common_valid",
+    "active_run_breaks_on": [
+      "unknown",
+      "blocked",
+      "diagnostic_required",
+      "eligible_false",
+      "score_null",
+      "missing_row"
+    ],
+    "csv_fields": {
+      "variant_profile": [
+        "variant_id",
+        "W",
+        "q",
+        "weak_delta",
+        "denominator_scope",
+        "eligible_row_count",
+        "active_true_count",
+        "active_false_count",
+        "active_rate",
+        "transition_count",
+        "transition_rate_per_100_valid_steps",
+        "valid_step_count",
+        "valid_block_count",
+        "true_to_false_transition_count",
+        "false_to_true_transition_count",
+        "segment_count",
+        "segment_start_count",
+        "segment_duration_sum",
+        "mean_segment_duration",
+        "median_segment_duration",
+        "q90_segment_duration",
+        "max_segment_duration",
+        "singleton_segment_count",
+        "singleton_segment_ratio",
+        "unique_security_count",
+        "nonzero_year_count",
+        "max_year_active_share",
+        "max_year_active_rate"
+      ],
+      "overlap_profile": [
+        "left_variant",
+        "right_variant",
+        "W",
+        "q",
+        "weak_delta",
+        "denominator_scope",
+        "common_valid_rows",
+        "n11",
+        "n10",
+        "n01",
+        "n00",
+        "left_true_count",
+        "right_true_count",
+        "jaccard",
+        "left_given_right",
+        "right_given_left",
+        "baseline_retention",
+        "candidate_precision",
+        "symmetric_difference_count",
+        "symmetric_difference_rate"
+      ],
+      "score_comparison": [
+        "comparison_id",
+        "W",
+        "q",
+        "common_valid_rows",
+        "pooled_spearman",
+        "per_security_spearman_median",
+        "per_security_spearman_q25",
+        "per_security_spearman_q75",
+        "mean_absolute_score_difference",
+        "median_absolute_score_difference",
+        "q90_absolute_score_difference",
+        "q95_absolute_score_difference"
+      ],
+      "year_profile": [
+        "calendar_year",
+        "candidate_variant",
+        "baseline_variant",
+        "W",
+        "q",
+        "common_valid_rows",
+        "baseline_true_count",
+        "candidate_true_count",
+        "active_rate",
+        "baseline_active_rate",
+        "candidate_active_rate",
+        "jaccard",
+        "baseline_retention",
+        "candidate_precision",
+        "symmetric_difference_rate"
+      ],
+      "security_profile": [
+        "security_id",
+        "candidate_variant",
+        "baseline_variant",
+        "W",
+        "q",
+        "valid_row_count",
+        "baseline_true_count",
+        "candidate_true_count",
+        "jaccard",
+        "baseline_retention",
+        "candidate_precision"
+      ],
+      "availability_profile": [
+        "indicator_id",
+        "W",
+        "q",
+        "availability_scope",
+        "input_row_count",
+        "native_valid_count",
+        "native_invalid_count",
+        "pair_common_valid_count",
+        "availability_gain_vs_pair"
+      ]
+    }
+  },
+  "anomaly_thresholds": {
+    "year_active_concentration_share": 0.5,
+    "security_active_concentration_share": 0.1,
+    "candidate_active_count_ratio_low": 0.25,
+    "candidate_active_count_ratio_high": 4.0
+  },
+  "prohibited_output_field_tokens": [
+    "P",
+    "T",
+    "V",
+    "future",
+    "return",
+    "release",
+    "backtest",
+    "portfolio",
+    "selected_indicator",
+    "winner",
+    "best_indicator",
+    "replacement_approved",
+    "C_v2",
+    "freeze_candidate"
+  ],
+  "formal_run_controls": {
+    "required_cli_flags": [
+      "--input-root",
+      "--input-manifest",
+      "--output-root",
+      "--run-id",
+      "--allow-formal-run",
+      "--reviewed-implementation-sha"
+    ],
+    "implementation_stage_must_not_open_formal_duckdb": true,
+    "formal_run_requires_explicit_reviewed_implementation_sha": true,
+    "formal_run_requires_readback_analysis": true,
+    "formal_run_requires_baseline_reconciliation_zero": true,
+    "formal_run_requires_authorized_source_manifest": true,
+    "formal_run_requires_final_governance_validation": true
+  }
+}

@@ -1,0 +1,443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_c01_c_layer_indicator_ablation.schema.json",
+  "title": "EXP-C01 C-layer C1/C2 indicator ablation contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "task_id",
+    "experiment_id",
+    "experiment_name",
+    "research_route",
+    "workflow_mode",
+    "phase",
+    "implementation_review_status",
+    "reviewed_implementation_sha",
+    "formal_run_allowed",
+    "formal_run_status",
+    "result_review_status",
+    "sidecar_readme_advanced",
+    "mainline_task_unchanged",
+    "mainline_current_task",
+    "parameters",
+    "indicator_ids",
+    "variants",
+    "denominator_scope",
+    "validity_statuses",
+    "input_contract",
+    "output_contract",
+    "anomaly_thresholds",
+    "prohibited_output_field_tokens",
+    "formal_run_controls"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "EXP-C01"},
+    "experiment_id": {"const": "EXP-C01"},
+    "experiment_name": {"const": "C层 C1/C2 单指标消融（W120）"},
+    "research_route": {"const": "sidecar_exploration"},
+    "workflow_mode": {"const": "same_pr"},
+    "phase": {"const": "implementation_review"},
+    "implementation_review_status": {"const": "pending"},
+    "reviewed_implementation_sha": {
+      "anyOf": [
+        {"const": ""},
+        {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      ]
+    },
+    "formal_run_allowed": {"const": false},
+    "formal_run_status": {"const": "not_started"},
+    "result_review_status": {"const": "not_started"},
+    "sidecar_readme_advanced": {"const": false},
+    "mainline_task_unchanged": {"const": true},
+    "mainline_current_task": {"const": "R3-T02"},
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["W", "q", "weak_delta", "K", "d", "g"],
+      "properties": {
+        "W": {"const": 120},
+        "q": {"const": 0.2},
+        "weak_delta": {"const": 0.1},
+        "K": {"const": "not_applicable"},
+        "d": {"const": "not_applicable"},
+        "g": {"const": "not_applicable"}
+      }
+    },
+    "indicator_ids": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["C1", "C2"],
+      "properties": {
+        "C1": {"const": "C1_LogMASpread_5_60"},
+        "C2": {"const": "C2_AdjVWAPSpread_5_60"}
+      }
+    },
+    "variants": {
+      "const": [
+        {
+          "variant_id": "baseline_pair",
+          "role": "baseline",
+          "rule": "pair_valid AND score_C_mean >= 0.80 AND score_C_min >= 0.70"
+        },
+        {
+          "variant_id": "c1_only",
+          "role": "candidate",
+          "rule": "C1 valid AND score_C1 >= 0.80"
+        },
+        {
+          "variant_id": "c2_only",
+          "role": "candidate",
+          "rule": "C2 valid AND score_C2 >= 0.80"
+        }
+      ]
+    },
+    "denominator_scope": {"const": "pair_common_valid"},
+    "validity_statuses": {
+      "const": ["valid", "unknown", "blocked", "diagnostic_required"]
+    },
+    "input_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_root_cli", "input_root_env", "source_manifest_required", "source_manifest_cli", "source_manifest_resolution", "manifest_filenames", "artifacts"],
+      "properties": {
+        "input_root_cli": {"const": "--input-root"},
+        "input_root_env": {"const": "CONVERGENCE_RESEARCH_INPUT_ROOT"},
+        "source_manifest_required": {"const": true},
+        "source_manifest_cli": {"const": "--input-manifest"},
+        "source_manifest_resolution": {"const": "declared_path_relative_to_manifest_parent; basename_local_only_opt_in; no_recursive_search"},
+        "manifest_filenames": {
+          "const": [
+            "r0_t05_score_results_manifest.json",
+            "r0_t10_authorized_input_manifest.json"
+          ]
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["indicator_score", "dimension_score", "dimension_state"],
+          "properties": {
+            "indicator_score": {
+              "$ref": "#/$defs/indicator_score_artifact"
+            },
+            "dimension_score": {
+              "$ref": "#/$defs/dimension_score_artifact"
+            },
+            "dimension_state": {
+              "$ref": "#/$defs/dimension_state_artifact"
+            }
+          }
+        }
+      }
+    },
+    "output_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directory", "files", "no_new_duckdb", "main_comparison_denominator", "active_run_breaks_on", "csv_fields"],
+      "properties": {
+        "directory": {"const": "data/generated/sidecar/exp_c01/<RUN_ID>/"},
+        "files": {
+          "const": {
+            "variant_profile": "exp_c01_variant_profile.csv",
+            "overlap_profile": "exp_c01_overlap_profile.csv",
+            "score_comparison": "exp_c01_score_comparison.csv",
+            "year_profile": "exp_c01_year_profile.csv",
+            "security_profile": "exp_c01_security_profile.csv",
+            "availability_profile": "exp_c01_availability_profile.csv",
+            "manifest": "exp_c01_manifest.json",
+            "validator_result": "exp_c01_validator_result.json",
+            "anomaly_scan": "exp_c01_anomaly_scan.json",
+            "result_analysis": "exp_c01_result_analysis.md"
+          }
+        },
+        "no_new_duckdb": {"const": true},
+        "main_comparison_denominator": {"const": "pair_common_valid"},
+        "active_run_breaks_on": {
+          "const": [
+            "unknown",
+            "blocked",
+            "diagnostic_required",
+            "eligible_false",
+            "score_null",
+            "missing_row"
+          ]
+        },
+        "csv_fields": {
+          "const": {
+            "variant_profile": [
+              "variant_id",
+              "W",
+              "q",
+              "weak_delta",
+              "denominator_scope",
+              "eligible_row_count",
+              "active_true_count",
+              "active_false_count",
+              "active_rate",
+              "transition_count",
+              "transition_rate_per_100_valid_steps",
+              "valid_step_count",
+              "valid_block_count",
+              "true_to_false_transition_count",
+              "false_to_true_transition_count",
+              "segment_count",
+              "segment_start_count",
+              "segment_duration_sum",
+              "mean_segment_duration",
+              "median_segment_duration",
+              "q90_segment_duration",
+              "max_segment_duration",
+              "singleton_segment_count",
+              "singleton_segment_ratio",
+              "unique_security_count",
+              "nonzero_year_count",
+              "max_year_active_share",
+              "max_year_active_rate"
+            ],
+            "overlap_profile": [
+              "left_variant",
+              "right_variant",
+              "W",
+              "q",
+              "weak_delta",
+              "denominator_scope",
+              "common_valid_rows",
+              "n11",
+              "n10",
+              "n01",
+              "n00",
+              "left_true_count",
+              "right_true_count",
+              "jaccard",
+              "left_given_right",
+              "right_given_left",
+              "baseline_retention",
+              "candidate_precision",
+              "symmetric_difference_count",
+              "symmetric_difference_rate"
+            ],
+            "score_comparison": [
+              "comparison_id",
+              "W",
+              "q",
+              "common_valid_rows",
+              "pooled_spearman",
+              "per_security_spearman_median",
+              "per_security_spearman_q25",
+              "per_security_spearman_q75",
+              "mean_absolute_score_difference",
+              "median_absolute_score_difference",
+              "q90_absolute_score_difference",
+              "q95_absolute_score_difference"
+            ],
+            "year_profile": [
+              "calendar_year",
+              "candidate_variant",
+              "baseline_variant",
+              "W",
+              "q",
+              "common_valid_rows",
+              "baseline_true_count",
+              "candidate_true_count",
+              "active_rate",
+              "baseline_active_rate",
+              "candidate_active_rate",
+              "jaccard",
+              "baseline_retention",
+              "candidate_precision",
+              "symmetric_difference_rate"
+            ],
+            "security_profile": [
+              "security_id",
+              "candidate_variant",
+              "baseline_variant",
+              "W",
+              "q",
+              "valid_row_count",
+              "baseline_true_count",
+              "candidate_true_count",
+              "jaccard",
+              "baseline_retention",
+              "candidate_precision"
+            ],
+            "availability_profile": [
+              "indicator_id",
+              "W",
+              "q",
+              "availability_scope",
+              "input_row_count",
+              "native_valid_count",
+              "native_invalid_count",
+              "pair_common_valid_count",
+              "availability_gain_vs_pair"
+            ]
+          }
+        }
+      }
+    },
+    "anomaly_thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "year_active_concentration_share",
+        "security_active_concentration_share",
+        "candidate_active_count_ratio_low",
+        "candidate_active_count_ratio_high"
+      ],
+      "properties": {
+        "year_active_concentration_share": {"const": 0.5},
+        "security_active_concentration_share": {"const": 0.1},
+        "candidate_active_count_ratio_low": {"const": 0.25},
+        "candidate_active_count_ratio_high": {"const": 4.0}
+      }
+    },
+    "prohibited_output_field_tokens": {
+      "const": [
+        "P",
+        "T",
+        "V",
+        "future",
+        "return",
+        "release",
+        "backtest",
+        "portfolio",
+        "selected_indicator",
+        "winner",
+        "best_indicator",
+        "replacement_approved",
+        "C_v2",
+        "freeze_candidate"
+      ]
+    },
+    "formal_run_controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_cli_flags",
+        "implementation_stage_must_not_open_formal_duckdb",
+        "formal_run_requires_explicit_reviewed_implementation_sha",
+        "formal_run_requires_readback_analysis",
+        "formal_run_requires_baseline_reconciliation_zero",
+        "formal_run_requires_authorized_source_manifest",
+        "formal_run_requires_final_governance_validation"
+      ],
+      "properties": {
+        "required_cli_flags": {
+          "const": [
+            "--input-root",
+            "--input-manifest",
+            "--output-root",
+            "--run-id",
+            "--allow-formal-run",
+            "--reviewed-implementation-sha"
+          ]
+        },
+        "implementation_stage_must_not_open_formal_duckdb": {"const": true},
+        "formal_run_requires_explicit_reviewed_implementation_sha": {"const": true},
+        "formal_run_requires_readback_analysis": {"const": true},
+        "formal_run_requires_baseline_reconciliation_zero": {"const": true},
+        "formal_run_requires_authorized_source_manifest": {"const": true},
+        "formal_run_requires_final_governance_validation": {"const": true}
+      }
+    }
+  },
+  "$defs": {
+    "base_artifact": {
+      "type": "object",
+      "required": ["filename", "table", "required_columns", "percentile_window_W"],
+      "properties": {
+        "filename": {"type": "string", "pattern": "^[^/\\\\]+\\.duckdb$"},
+        "table": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "required_columns": {"type": "array", "items": {"type": "string"}},
+        "percentile_window_W": {"const": 120}
+      }
+    },
+    "indicator_score_artifact": {
+      "allOf": [
+        {"$ref": "#/$defs/base_artifact"},
+        {
+          "type": "object",
+          "required": ["indicator_ids"],
+          "properties": {
+            "filename": {"const": "r0_t05_indicator_score_results.duckdb"},
+            "table": {"const": "r0_t05_indicator_score_results"},
+            "required_columns": {
+              "const": [
+                "security_id",
+                "trading_date",
+                "percentile_window_W",
+                "indicator_id",
+                "score",
+                "eligible",
+                "validity_status"
+              ]
+            },
+            "indicator_ids": {
+              "const": ["C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60"]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "dimension_score_artifact": {
+      "allOf": [
+        {"$ref": "#/$defs/base_artifact"},
+        {
+          "type": "object",
+          "required": ["dimension"],
+          "properties": {
+            "filename": {"const": "r0_t05_dimension_score_results.duckdb"},
+            "table": {"const": "r0_t05_dimension_score_results"},
+            "required_columns": {
+              "const": [
+                "security_id",
+                "trading_date",
+                "percentile_window_W",
+                "dimension",
+                "score_dimension",
+                "score_dimension_min",
+                "eligible_dimension",
+                "validity_status"
+              ]
+            },
+            "dimension": {"const": "C"}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "dimension_state_artifact": {
+      "allOf": [
+        {"$ref": "#/$defs/base_artifact"},
+        {
+          "type": "object",
+          "required": ["dimension", "q", "weak_delta"],
+          "properties": {
+            "filename": {"const": "r0_t06_dimension_state_results.duckdb"},
+            "table": {"const": "r0_t06_dimension_state_results"},
+            "required_columns": {
+              "const": [
+                "security_id",
+                "trading_date",
+                "percentile_window_W",
+                "q",
+                "weak_delta",
+                "dimension",
+                "dimension_active_weak",
+                "validity_status"
+              ]
+            },
+            "dimension": {"const": "C"},
+            "q": {"const": 0.2},
+            "weak_delta": {"const": 0.1}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "anomaly_scan": {
+    "anomalies": [],
+    "checked_artifact_count": 6,
+    "status": "passed",
+    "task_id": "EXP-C01"
+  },
+  "checked_files": [
+    "exp_c01_anomaly_scan.json",
+    "exp_c01_availability_profile.csv",
+    "exp_c01_manifest.json",
+    "exp_c01_overlap_profile.csv",
+    "exp_c01_result_analysis.md",
+    "exp_c01_score_comparison.csv",
+    "exp_c01_security_profile.csv",
+    "exp_c01_validator_result.json",
+    "exp_c01_variant_profile.csv",
+    "exp_c01_year_profile.csv"
+  ],
+  "errors": [],
+  "status": "passed",
+  "task_id": "EXP-C01",
+  "valid": true,
+  "warnings": []
+}
