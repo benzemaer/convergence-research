@@ -30,6 +30,9 @@ if str(ROOT) not in sys.path:
 
 from src.sidecar.exp_a01_price_ma_attachment import TASK_ID  # noqa: E402
 from src.sidecar.exp_a01_price_ma_attachment_formal import (  # noqa: E402
+    DEFAULT_DUCKDB_THREADS,
+    DEFAULT_MEMORY_LIMIT,
+    MAX_DUCKDB_THREADS,
     materialize_raw_metrics,
     write_compact_csvs,
 )
@@ -120,10 +123,14 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             ]["table"],
             output_path=raw_path,
             run_id=gate["run_id"],
-            memory_limit=args.memory_limit,
+            duckdb_threads=gate["duckdb_threads"],
+            memory_limit=gate["memory_limit"],
         )
         profile_metadata = write_compact_csvs(
-            output_dir=staging, raw_duckdb=raw_path, memory_limit=args.memory_limit
+            output_dir=staging,
+            raw_duckdb=raw_path,
+            duckdb_threads=gate["duckdb_threads"],
+            memory_limit=gate["memory_limit"],
         )
 
         preliminary_manifest = _build_formal_manifest(
@@ -244,9 +251,14 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         )
     if not RUN_ID_PATTERN.fullmatch(str(args.run_id or "")):
         raise RuntimeError("run-id does not match the EXP-A01 formal pattern")
-    memory_limit = getattr(args, "memory_limit", "8GB")
+    memory_limit = getattr(args, "memory_limit", DEFAULT_MEMORY_LIMIT)
     if not str(memory_limit or "").strip():
         raise RuntimeError("memory-limit must be non-empty")
+    duckdb_threads = getattr(args, "duckdb_threads", DEFAULT_DUCKDB_THREADS)
+    if isinstance(duckdb_threads, bool) or not isinstance(duckdb_threads, int):
+        raise RuntimeError("duckdb-threads must be an integer")
+    if not 1 <= duckdb_threads <= MAX_DUCKDB_THREADS:
+        raise RuntimeError(f"duckdb-threads must be between 1 and {MAX_DUCKDB_THREADS}")
 
     config_path = Path(args.config).resolve()
     config = load_json(config_path)
@@ -254,6 +266,17 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
     if config_errors:
         raise RuntimeError(
             "static config validation failed: " + ", ".join(config_errors)
+        )
+    output_contract = config["output_contract"]
+    if duckdb_threads != output_contract["duckdb_threads"]:
+        raise RuntimeError(
+            "duckdb-threads must match the governed config execution profile: "
+            f"expected={output_contract['duckdb_threads']} actual={duckdb_threads}"
+        )
+    if str(memory_limit) != str(output_contract["memory_limit"]):
+        raise RuntimeError(
+            "memory-limit must match the governed config execution profile: "
+            f"expected={output_contract['memory_limit']} actual={memory_limit}"
         )
     current_sha = _current_git_sha()
     if current_sha != reviewed_sha:
@@ -363,6 +386,10 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         "config": config,
         "config_path": config_path,
         "source_bindings": source_bindings,
+        "parallel_mode": output_contract["parallel_mode"],
+        "worker_count": output_contract["worker_count"],
+        "duckdb_threads": duckdb_threads,
+        "memory_limit": str(memory_limit),
         "formal_run_executed": False,
     }
 
@@ -1155,10 +1182,12 @@ def _build_formal_manifest(
         "formal_data_version": False,
         "started_at": started_at,
         "finished_at": finished_at,
-        "parallel_mode": "single_threaded",
-        "worker_count": 1,
-        "duckdb_threads": 1,
-        "memory_limit": args.memory_limit,
+        "parallel_mode": gate["parallel_mode"],
+        "worker_count": gate["worker_count"],
+        "duckdb_threads": gate["duckdb_threads"],
+        "memory_limit": gate["memory_limit"],
+        "execution_profile_owner_override": True,
+        "authorization_continuity": "preserved",
         "random_seed": None,
         "config": {
             "path": str(gate["config_path"].relative_to(ROOT)).replace("\\", "/"),
@@ -1222,8 +1251,10 @@ def _build_result_analysis(
         f"reviewed_implementation_sha: {gate['reviewed_sha']}",
         f"started_at: {started_at}",
         f"finished_at: {finished_at}",
-        "parallel_mode: single_threaded; worker_count: 1",
-        f"memory_limit: {args.memory_limit}",
+        f"parallel_mode: {gate['parallel_mode']}; worker_count: {gate['worker_count']}",
+        f"duckdb_threads: {gate['duckdb_threads']}",
+        f"memory_limit: {gate['memory_limit']}",
+        "execution_profile_owner_override: true; authorization_continuity: preserved",
         "",
         "## 2. Input manifest and authorization",
         f"input_manifest_sha256: {gate['input_manifest_sha256']}",
@@ -1312,7 +1343,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--allow-formal-run", action="store_true")
     parser.add_argument("--reviewed-implementation-sha")
-    parser.add_argument("--memory-limit", default="8GB")
+    parser.add_argument("--duckdb-threads", type=int, default=DEFAULT_DUCKDB_THREADS)
+    parser.add_argument("--memory-limit", default=DEFAULT_MEMORY_LIMIT)
     return parser.parse_args(argv)
 
 

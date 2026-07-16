@@ -232,6 +232,15 @@
     "d3_t08_policy": "not_required_for_EXP-A01",
     "rationale": "D3-T08 adds no A1/A2/A2b calculation field and its relevant checks are duplicated by the D3-T07 gate, direct main-table checks, dense-index reconciliation and independent full recomputation."
   },
+  "execution_profile_governance": {
+    "owner_override": true,
+    "authorization_continuity": "preserved",
+    "configuration_review_required": false,
+    "implementation_review_required": false,
+    "human_rereview_required": false,
+    "authorization_roll_forward": "automatic_after_exact_head_quality_success",
+    "scientific_contract_unchanged": true
+  },
   "d3_t07_evidence_gate": {
     "accepted_generation_decisions": [
       "accepted_candidate_observation",
@@ -288,10 +297,10 @@
     "future_raw_metric_artifact_requires_manifest": true,
     "formal_execution_implemented": true,
     "no_formal_output_in_implementation": false,
-    "parallel_mode": "single_threaded",
+    "parallel_mode": "single_process_duckdb_parallel",
     "worker_count": 1,
-    "duckdb_threads": 1,
-    "memory_limit": "8GB",
+    "duckdb_threads": 12,
+    "memory_limit": "12GB",
     "random_seed": null,
     "run_id_pattern": "^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$",
     "raw_metric_table": {

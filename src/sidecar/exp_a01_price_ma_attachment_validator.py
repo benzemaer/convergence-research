@@ -361,6 +361,22 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         if not str(governance.get("rationale", "")).strip():
             errors.append("config_input_governance_rationale_missing")
 
+    execution_governance = config.get("execution_profile_governance")
+    if not isinstance(execution_governance, Mapping):
+        errors.append("config_execution_profile_governance_missing")
+    else:
+        for key, expected in {
+            "owner_override": True,
+            "authorization_continuity": "preserved",
+            "configuration_review_required": False,
+            "implementation_review_required": False,
+            "human_rereview_required": False,
+            "authorization_roll_forward": "automatic_after_exact_head_quality_success",
+            "scientific_contract_unchanged": True,
+        }.items():
+            if execution_governance.get(key) != expected:
+                errors.append(f"config_execution_governance_{key}_mismatch")
+
     for gate_name in ("d3_t07_evidence_gate", "dense_window_contract"):
         if not isinstance(config.get(gate_name), Mapping):
             errors.append(f"config_{gate_name}_missing")
@@ -372,13 +388,13 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
             errors.append("config_output_formal_execution_missing")
         if output_contract.get("no_formal_output_in_implementation") is not False:
             errors.append("config_output_formal_guard_mismatch")
-        if output_contract.get("parallel_mode") != "single_threaded":
+        if output_contract.get("parallel_mode") != "single_process_duckdb_parallel":
             errors.append("config_output_parallel_mode_mismatch")
         if output_contract.get("worker_count") != 1:
             errors.append("config_output_worker_count_mismatch")
-        if output_contract.get("duckdb_threads") != 1:
+        if output_contract.get("duckdb_threads") != 12:
             errors.append("config_output_duckdb_threads_mismatch")
-        if output_contract.get("memory_limit") != "8GB":
+        if output_contract.get("memory_limit") != "12GB":
             errors.append("config_output_memory_limit_mismatch")
         if output_contract.get("run_id_pattern") != (
             "^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$"
@@ -2393,6 +2409,16 @@ def _validate_final_manifest_identity(
         errors.append("formal_manifest_reviewed_sha_mismatch")
     if formal_manifest.get("formal_data_version") is not False:
         errors.append("formal_manifest_formal_data_version_mismatch")
+    for field, expected in {
+        "parallel_mode": "single_process_duckdb_parallel",
+        "worker_count": 1,
+        "duckdb_threads": 12,
+        "memory_limit": "12GB",
+        "execution_profile_owner_override": True,
+        "authorization_continuity": "preserved",
+    }.items():
+        if formal_manifest.get(field) != expected:
+            errors.append(f"formal_manifest_{field}_mismatch")
     expected_input_sha = sha256_file(input_manifest_path)
     actual_input_sha = str(formal_manifest.get("input_manifest_sha256", ""))
     if not actual_input_sha:

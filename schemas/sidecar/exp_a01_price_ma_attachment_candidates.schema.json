@@ -39,6 +39,7 @@
     "input_contract",
     "d3_t07_evidence_gate",
     "input_governance",
+    "execution_profile_governance",
     "dense_window_contract",
     "output_contract",
     "long_lived_program_plan"
@@ -201,6 +202,20 @@
         "rationale": {"type": "string", "minLength": 1}
       }
     },
+    "execution_profile_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_override", "authorization_continuity", "configuration_review_required", "implementation_review_required", "human_rereview_required", "authorization_roll_forward", "scientific_contract_unchanged"],
+      "properties": {
+        "owner_override": {"const": true},
+        "authorization_continuity": {"const": "preserved"},
+        "configuration_review_required": {"const": false},
+        "implementation_review_required": {"const": false},
+        "human_rereview_required": {"const": false},
+        "authorization_roll_forward": {"const": "automatic_after_exact_head_quality_success"},
+        "scientific_contract_unchanged": {"const": true}
+      }
+    },
     "dense_window_contract": {"$ref": "#/$defs/denseWindowContract"},
     "output_contract": {
       "type": "object",
@@ -212,10 +227,10 @@
         "future_raw_metric_artifact_requires_manifest": {"const": true},
         "formal_execution_implemented": {"const": true},
         "no_formal_output_in_implementation": {"const": false},
-        "parallel_mode": {"const": "single_threaded"},
+        "parallel_mode": {"const": "single_process_duckdb_parallel"},
         "worker_count": {"const": 1},
-        "duckdb_threads": {"const": 1},
-        "memory_limit": {"const": "8GB"},
+        "duckdb_threads": {"const": 12},
+        "memory_limit": {"const": "12GB"},
         "random_seed": {"type": ["null", "integer"]},
         "run_id_pattern": {"const": "^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$"},
         "raw_metric_table": {

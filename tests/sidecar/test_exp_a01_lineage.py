@@ -299,6 +299,44 @@ class ExpA01LineageTest(unittest.TestCase):
             _config, manifest, _paths = _fixture(Path(raw))
             self.assertEqual(canonical_text_errors(manifest.read_bytes()), [])
 
+    def test_execution_profile_rejects_out_of_range_and_mismatched_resources(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            base = Namespace(
+                allow_formal_run=True,
+                reviewed_implementation_sha="a" * 40,
+                config=CONFIG_PATH,
+                input_manifest=None,
+                input_root=root,
+                output_root=root / "EXP-A01-20260716T000099Z",
+                run_id="EXP-A01-20260716T000099Z",
+                duckdb_threads=13,
+                memory_limit="12GB",
+            )
+            with self.assertRaisesRegex(RuntimeError, "between 1 and 12"):
+                validate_formal_gate(base)
+
+            mismatched_threads = copy.copy(base)
+            mismatched_threads.duckdb_threads = 1
+            with self.assertRaisesRegex(RuntimeError, "match the governed config"):
+                with patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ):
+                    validate_formal_gate(mismatched_threads)
+
+            mismatched_memory = copy.copy(base)
+            mismatched_memory.duckdb_threads = 12
+            mismatched_memory.memory_limit = "8GB"
+            with self.assertRaisesRegex(RuntimeError, "match the governed config"):
+                with patch(
+                    "scripts.sidecar.run_exp_a01_price_ma_attachment._current_git_sha",
+                    return_value="a" * 40,
+                ):
+                    validate_formal_gate(mismatched_memory)
+
     def test_four_artifact_manifest_contract_is_exact(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             _config, manifest, _paths = _fixture(Path(raw))

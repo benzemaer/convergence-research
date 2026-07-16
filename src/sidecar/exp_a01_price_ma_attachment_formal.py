@@ -86,6 +86,9 @@ _VALID_ADJUSTMENT_STATUSES = {
     "neutral_factor_1_policy",
     "factor_interval_policy",
 }
+DEFAULT_DUCKDB_THREADS = 12
+MAX_DUCKDB_THREADS = 12
+DEFAULT_MEMORY_LIMIT = "12GB"
 
 
 def materialize_raw_metrics(
@@ -96,9 +99,10 @@ def materialize_raw_metrics(
     index_table: str,
     output_path: Path,
     run_id: str,
-    memory_limit: str = "8GB",
+    duckdb_threads: int = DEFAULT_DUCKDB_THREADS,
+    memory_limit: str = DEFAULT_MEMORY_LIMIT,
 ) -> dict[str, Any]:
-    """Materialize the three raw metrics using single-threaded DuckDB SQL."""
+    """Materialize the three raw metrics with one DuckDB connection."""
 
     _require_identifier(candidate_table)
     _require_identifier(index_table)
@@ -110,9 +114,10 @@ def materialize_raw_metrics(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     connection = duckdb.connect(str(output_path))
     try:
-        connection.execute("PRAGMA threads=1")
+        _configure_duckdb_connection(
+            connection, duckdb_threads=duckdb_threads, memory_limit=memory_limit
+        )
         connection.execute("PRAGMA preserve_insertion_order=false")
-        connection.execute(f"PRAGMA memory_limit='{_sql_literal(memory_limit)}'")
         connection.execute(
             f"ATTACH '{_sql_literal(str(candidate_path))}' AS candidate (READ_ONLY)"
         )
@@ -151,7 +156,11 @@ def materialize_raw_metrics(
 
 
 def write_compact_csvs(
-    *, output_dir: Path, raw_duckdb: Path, memory_limit: str = "8GB"
+    *,
+    output_dir: Path,
+    raw_duckdb: Path,
+    duckdb_threads: int = DEFAULT_DUCKDB_THREADS,
+    memory_limit: str = DEFAULT_MEMORY_LIMIT,
 ) -> dict[str, dict[str, Any]]:
     """Write the four compact profiles from the persisted raw table."""
 
@@ -162,8 +171,9 @@ def write_compact_csvs(
 
     connection = duckdb.connect(str(raw_duckdb), read_only=True)
     try:
-        connection.execute("PRAGMA threads=1")
-        connection.execute(f"PRAGMA memory_limit='{_sql_literal(memory_limit)}'")
+        _configure_duckdb_connection(
+            connection, duckdb_threads=duckdb_threads, memory_limit=memory_limit
+        )
         specs = (
             (
                 "exp_a01_metric_profile.csv",
@@ -502,6 +512,21 @@ def _canonical_date(column: str) -> str:
 def _require_identifier(value: str) -> None:
     if not value or not all(part.isidentifier() for part in value.split(".")):
         raise ValueError(f"unsafe SQL identifier: {value!r}")
+
+
+def _configure_duckdb_connection(
+    connection: Any, *, duckdb_threads: int, memory_limit: str
+) -> None:
+    """Apply the governed single-process DuckDB resource profile."""
+
+    if isinstance(duckdb_threads, bool) or not isinstance(duckdb_threads, int):
+        raise ValueError("duckdb_threads must be an integer")
+    if not 1 <= duckdb_threads <= MAX_DUCKDB_THREADS:
+        raise ValueError(f"duckdb_threads must be between 1 and {MAX_DUCKDB_THREADS}")
+    if not isinstance(memory_limit, str) or not memory_limit.strip():
+        raise ValueError("memory_limit must be a non-empty string")
+    connection.execute(f"PRAGMA threads={duckdb_threads}")
+    connection.execute(f"PRAGMA memory_limit='{_sql_literal(memory_limit)}'")
 
 
 def _sql_literal(value: str) -> str:

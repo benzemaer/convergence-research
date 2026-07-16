@@ -31,7 +31,10 @@ from src.sidecar.exp_a01_price_ma_attachment import (
     build_dense_price_rows,
     compute_a01_metrics,
 )
-from src.sidecar.exp_a01_price_ma_attachment_formal import materialize_raw_metrics
+from src.sidecar.exp_a01_price_ma_attachment_formal import (
+    materialize_raw_metrics,
+    write_compact_csvs,
+)
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
     load_json,
     validate_formal_result,
@@ -310,7 +313,8 @@ class ExpA01FormalTest(unittest.TestCase):
             input_root=root,
             output_root=output,
             run_id=run_id,
-            memory_limit="8GB",
+            duckdb_threads=12,
+            memory_limit="12GB",
         )
         with (
             patch(
@@ -450,6 +454,95 @@ class ExpA01FormalTest(unittest.TestCase):
                 self.assertEqual(row[11], expected["required_observation_count"])
                 self.assertEqual(row[12], expected["actual_valid_observation_count"])
                 self.assertEqual(row[13], expected["metric_engine_version"])
+
+    def test_duckdb_thread_profiles_preserve_scientific_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            _manifest, paths = self._make_inputs(root)
+            raw_one = root / "thread-one.duckdb"
+            raw_twelve = root / "thread-twelve.duckdb"
+            for output_path, threads in ((raw_one, 1), (raw_twelve, 12)):
+                materialize_raw_metrics(
+                    candidate_path=paths["d3_t07_candidate_daily_observation"],
+                    candidate_table="d3_candidate_daily_observation",
+                    index_path=paths["expected_price_observation_index"],
+                    index_table="expected_price_observation_index",
+                    output_path=output_path,
+                    run_id="EXP-A01-20260716T120000000Z",
+                    duckdb_threads=threads,
+                    memory_limit="12GB",
+                )
+            profiles_one = root / "profiles-one"
+            profiles_twelve = root / "profiles-twelve"
+            profiles_one.mkdir()
+            profiles_twelve.mkdir()
+            write_compact_csvs(
+                output_dir=profiles_one,
+                raw_duckdb=raw_one,
+                duckdb_threads=1,
+                memory_limit="12GB",
+            )
+            write_compact_csvs(
+                output_dir=profiles_twelve,
+                raw_duckdb=raw_twelve,
+                duckdb_threads=12,
+                memory_limit="12GB",
+            )
+
+            raw_query = (
+                "SELECT run_id, security_id, trading_date, observation_sequence, "
+                "expected_observation_status, indicator_id, raw_metric_name, raw_value, "
+                "validity_status, reason_codes_json, input_window_start, input_window_end, "
+                "required_observation_count, actual_valid_observation_count, "
+                "metric_engine_version, source_ref FROM exp_a01_raw_metrics "
+                "ORDER BY security_id, observation_sequence, indicator_id"
+            )
+            raw_rows: list[list[tuple[object, ...]]] = []
+            for path in (raw_one, raw_twelve):
+                connection = duckdb.connect(str(path), read_only=True)
+                try:
+                    raw_rows.append(connection.execute(raw_query).fetchall())
+                finally:
+                    connection.close()
+            self.assertEqual(len(raw_rows[0]), len(raw_rows[1]))
+            for first, second in zip(raw_rows[0], raw_rows[1], strict=True):
+                self.assertEqual(first[:7], second[:7])
+                if first[7] is None or second[7] is None:
+                    self.assertEqual(first[7], second[7])
+                else:
+                    self.assertAlmostEqual(first[7], second[7], delta=1e-12)
+                self.assertEqual(first[8:], second[8:])
+
+            for filename in (
+                "exp_a01_metric_profile.csv",
+                "exp_a01_validity_profile.csv",
+                "exp_a01_year_coverage.csv",
+                "exp_a01_security_coverage.csv",
+            ):
+                with (
+                    (profiles_one / filename).open(
+                        encoding="utf-8", newline=""
+                    ) as first_handle,
+                    (profiles_twelve / filename).open(
+                        encoding="utf-8", newline=""
+                    ) as second_handle,
+                ):
+                    first_rows = list(csv.DictReader(first_handle))
+                    second_rows = list(csv.DictReader(second_handle))
+                self.assertEqual(len(first_rows), len(second_rows))
+                for first, second in zip(first_rows, second_rows, strict=True):
+                    self.assertEqual(set(first), set(second))
+                    for field in first:
+                        if first[field] == second[field]:
+                            continue
+                        try:
+                            left = float(first[field])
+                            right = float(second[field])
+                        except (TypeError, ValueError):
+                            self.assertEqual(first[field], second[field])
+                        else:
+                            tolerance = 1e-12 * max(1.0, abs(left), abs(right))
+                            self.assertLessEqual(abs(left - right), tolerance)
 
     def test_synthetic_end_to_end_publishes_nine_files_and_readback_passes(
         self,
@@ -879,7 +972,8 @@ class ExpA01FormalTest(unittest.TestCase):
             input_root=root,
             output_root=root / run_id,
             run_id=run_id,
-            memory_limit="8GB",
+            duckdb_threads=12,
+            memory_limit="12GB",
         )
 
     def _git_context(self):
