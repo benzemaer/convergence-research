@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 from src.sidecar.exp_a01_price_ma_attachment_validator import (  # noqa: E402
     EXPECTED_FORMAL_FILES,
     load_json,
-    validate_output_directory,
+    validate_formal_result,
     validate_static_config,
 )
 
@@ -30,7 +30,12 @@ DEFAULT_SCHEMA = (
 
 
 def validate(
-    config_path: Path, schema_path: Path, output_dir: Path | None
+    config_path: Path,
+    schema_path: Path,
+    output_dir: Path | None,
+    input_manifest_path: Path | None = None,
+    input_root: Path | None = None,
+    reviewed_implementation_sha: str | None = None,
 ) -> dict[str, Any]:
     config = load_json(config_path)
     errors = validate_static_config(config)
@@ -45,9 +50,19 @@ def validate(
         )
     except Exception as exc:  # noqa: BLE001
         errors.append(f"schema_validation_error:{exc}")
+    formal_result = None
     if output_dir is not None:
-        errors.extend(validate_output_directory(output_dir, config=config)["errors"])
-    return {
+        formal_result = validate_formal_result(
+            output_dir,
+            config_path=config_path,
+            schema_path=schema_path,
+            input_manifest_path=input_manifest_path,
+            input_root=input_root,
+            reviewed_implementation_sha=reviewed_implementation_sha,
+            require_final_manifest=True,
+        )
+        errors.extend(formal_result.get("errors", []))
+    result = {
         "task_id": "EXP-A01",
         "status": "passed" if not errors else "failed",
         "valid": not errors,
@@ -57,6 +72,9 @@ def validate(
         "schema": str(schema_path),
         "output_dir": str(output_dir) if output_dir is not None else None,
     }
+    if formal_result is not None:
+        result["formal_result"] = formal_result
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,9 +82,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--input-manifest", type=Path)
+    parser.add_argument("--input-root", type=Path)
+    parser.add_argument("--reviewed-implementation-sha")
     args = parser.parse_args(argv)
     try:
-        result = validate(args.config.resolve(), args.schema.resolve(), args.output_dir)
+        result = validate(
+            args.config.resolve(),
+            args.schema.resolve(),
+            args.output_dir.resolve() if args.output_dir is not None else None,
+            args.input_manifest.resolve() if args.input_manifest is not None else None,
+            args.input_root.resolve() if args.input_root is not None else None,
+            args.reviewed_implementation_sha,
+        )
     except Exception as exc:  # noqa: BLE001
         result = {"task_id": "EXP-A01", "status": "failed", "errors": [str(exc)]}
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))

@@ -21,6 +21,9 @@ from scripts.sidecar.run_exp_a01_price_ma_attachment import (
     FORMAL_SOURCE_PATHS,
     run_formal,
 )
+from scripts.sidecar.validate_exp_a01_price_ma_attachment import (
+    validate as validate_cli,
+)
 from src.sidecar.exp_a01_price_ma_attachment import (
     A1_ID,
     A2_ID,
@@ -36,6 +39,9 @@ from src.sidecar.exp_a01_price_ma_attachment_validator import (
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs/sidecar/exp_a01_price_ma_attachment_candidates.v1.json"
+CONFIG_SCHEMA_PATH = (
+    ROOT / "schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json"
+)
 
 
 def _sha(path: Path) -> str:
@@ -357,6 +363,10 @@ class ExpA01FormalTest(unittest.TestCase):
                 "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
                 return_value=self._source_bindings(),
             ),
+            patch(
+                "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                return_value=self._source_bindings(),
+            ),
         ):
             result = run_formal(args)
         self.assertEqual(result["status"], "passed")
@@ -527,6 +537,123 @@ class ExpA01FormalTest(unittest.TestCase):
                 .read_text(encoding="utf-8")
                 .lower(),
             )
+
+    def test_standalone_cli_replays_lineage_and_fails_on_manifest_mutation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            _result, manifest, output = self._run_synthetic(root, "002")
+            with patch(
+                "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                return_value=self._source_bindings(),
+            ):
+                passed = validate_cli(
+                    CONFIG_PATH,
+                    CONFIG_SCHEMA_PATH,
+                    output,
+                    manifest,
+                    root,
+                    "a" * 40,
+                )
+            self.assertEqual(passed["status"], "passed")
+            self.assertEqual(passed["formal_result"]["status"], "passed")
+
+            mutated = root / "cli-mutated"
+            shutil.copytree(output, mutated)
+            formal_manifest = json.loads(
+                (mutated / "exp_a01_manifest.json").read_text(encoding="utf-8")
+            )
+            formal_manifest["input_manifest_sha256"] = "0" * 64
+            _write_json(mutated / "exp_a01_manifest.json", formal_manifest)
+            with patch(
+                "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                return_value=self._source_bindings(),
+            ):
+                failed = validate_cli(
+                    CONFIG_PATH,
+                    CONFIG_SCHEMA_PATH,
+                    mutated,
+                    manifest,
+                    root,
+                    "a" * 40,
+                )
+            self.assertEqual(failed["status"], "failed")
+            self.assertTrue(failed["formal_result"]["errors"])
+
+            for label, mutate in (
+                (
+                    "authorization",
+                    lambda payload: payload["authorization"].update(
+                        {"authorization_status": "tampered"}
+                    ),
+                ),
+                (
+                    "cross-binding",
+                    lambda payload: payload["cross_artifact_bindings"].update(
+                        {"d3_t07_candidate_sha256": "0" * 64}
+                    ),
+                ),
+            ):
+                with self.subTest(lineage_mutation=label):
+                    mutated_manifest = root / f"{label}-manifest.json"
+                    manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+                    mutate(manifest_payload)
+                    _write_json(mutated_manifest, manifest_payload)
+                    mutated_output = root / f"cli-{label}"
+                    shutil.copytree(output, mutated_output)
+                    mutated_formal_manifest = json.loads(
+                        (mutated_output / "exp_a01_manifest.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    mutated_formal_manifest["input_manifest_path"] = str(
+                        mutated_manifest.resolve()
+                    )
+                    mutated_formal_manifest["input_manifest_sha256"] = _sha(
+                        mutated_manifest
+                    )
+                    _write_json(
+                        mutated_output / "exp_a01_manifest.json",
+                        mutated_formal_manifest,
+                    )
+                    with patch(
+                        "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                        return_value=self._source_bindings(),
+                    ):
+                        lineage_failed = validate_cli(
+                            CONFIG_PATH,
+                            CONFIG_SCHEMA_PATH,
+                            mutated_output,
+                            mutated_manifest,
+                            root,
+                            "a" * 40,
+                        )
+                    self.assertEqual(lineage_failed["status"], "failed")
+                    self.assertTrue(lineage_failed["formal_result"]["errors"])
+
+            source_mutation = root / "cli-source-binding"
+            shutil.copytree(output, source_mutation)
+            source_manifest = json.loads(
+                (source_mutation / "exp_a01_manifest.json").read_text(encoding="utf-8")
+            )
+            first_source = FORMAL_SOURCE_PATHS[0]
+            source_manifest["source_bindings"][first_source]["git_blob_sha"] = "0" * 40
+            _write_json(source_mutation / "exp_a01_manifest.json", source_manifest)
+            with patch(
+                "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                return_value=self._source_bindings(),
+            ):
+                source_failed = validate_cli(
+                    CONFIG_PATH,
+                    CONFIG_SCHEMA_PATH,
+                    source_mutation,
+                    manifest,
+                    root,
+                    "a" * 40,
+                )
+            self.assertEqual(source_failed["status"], "failed")
+            self.assertTrue(source_failed["formal_result"]["errors"])
 
     def test_same_inputs_have_deterministic_scientific_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -754,18 +881,17 @@ class ExpA01FormalTest(unittest.TestCase):
                         encoding="utf-8",
                         newline="\n",
                     )
-                config = load_json(CONFIG_PATH)
-                metadata = self._input_metadata(config, paths)
-                validation = validate_formal_result(
-                    mutated,
-                    config=config,
-                    input_manifest=json.loads(manifest.read_text(encoding="utf-8")),
-                    input_manifest_path=manifest,
-                    input_paths=paths,
-                    input_metadata=metadata,
-                    expected_index_row_count=120,
-                    reviewed_implementation_sha="a" * 40,
-                )
+                with patch(
+                    "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                    return_value=self._source_bindings(),
+                ):
+                    validation = validate_formal_result(
+                        mutated,
+                        config_path=CONFIG_PATH,
+                        input_manifest_path=manifest,
+                        input_root=root,
+                        reviewed_implementation_sha="a" * 40,
+                    )
                 self.assertEqual(validation["status"], "failed")
                 self.assertTrue(validation["errors"])
 
@@ -811,6 +937,12 @@ class ExpA01FormalTest(unittest.TestCase):
         stack.enter_context(
             patch(
                 "scripts.sidecar.run_exp_a01_price_ma_attachment._validate_committed_source_bindings",
+                return_value=self._source_bindings(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
                 return_value=self._source_bindings(),
             )
         )

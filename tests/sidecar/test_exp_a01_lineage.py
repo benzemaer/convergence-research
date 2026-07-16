@@ -23,6 +23,11 @@ from scripts.sidecar.run_exp_a01_price_ma_attachment import (
     validate_formal_gate,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
+    _inspect_independent_input_artifact,
+    _validate_cross_artifact_bindings_independent,
+    _validate_d3_t07_evidence_independent,
+    _validate_d3_t08_evidence_independent,
+    _validate_expected_index_reconciliation_independent,
     canonical_text_errors,
     load_json,
     validate_static_config,
@@ -334,6 +339,21 @@ class ExpA01LineageTest(unittest.TestCase):
             _config, manifest, _paths = _fixture(Path(raw))
             self.assertEqual(canonical_text_errors(manifest.read_bytes()), [])
 
+    def test_independent_cross_artifact_binding_mutation_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            _config, manifest, _paths = _fixture(temp_dir)
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            _validate_cross_artifact_bindings_independent(
+                payload, payload["input_artifacts"]
+            )
+            mutated = copy.deepcopy(payload)
+            mutated["cross_artifact_bindings"]["d3_t07_candidate_sha256"] = "0" * 64
+            with self.assertRaisesRegex(RuntimeError, "binding mismatch"):
+                _validate_cross_artifact_bindings_independent(
+                    mutated, mutated["input_artifacts"]
+                )
+
     def test_absolute_manifest_path_resolves_without_recursive_search(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             temp_dir = Path(raw)
@@ -368,8 +388,18 @@ class ExpA01LineageTest(unittest.TestCase):
                 paths["d3_t07_candidate_daily_observation"], artifact, declaration
             )
             self.assertEqual(metadata["source_full_row_count"], 3)
+            independent_metadata = _inspect_independent_input_artifact(
+                paths["d3_t07_candidate_daily_observation"], artifact, declaration
+            )
+            self.assertEqual(independent_metadata["source_full_row_count"], 3)
             with self.assertRaisesRegex(RuntimeError, "hash mismatch"):
                 inspect_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {**declaration, "sha256": "0" * 64},
+                )
+            with self.assertRaisesRegex(RuntimeError, "sha256 mismatch"):
+                _inspect_independent_input_artifact(
                     paths["d3_t07_candidate_daily_observation"],
                     artifact,
                     {**declaration, "sha256": "0" * 64},
@@ -380,8 +410,23 @@ class ExpA01LineageTest(unittest.TestCase):
                     artifact,
                     {**declaration, "row_count": 2},
                 )
+            with self.assertRaisesRegex(RuntimeError, "row_count mismatch"):
+                _inspect_independent_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {**declaration, "row_count": 2},
+                )
             with self.assertRaisesRegex(RuntimeError, "required columns mismatch"):
                 inspect_input_artifact(
+                    paths["d3_t07_candidate_daily_observation"],
+                    artifact,
+                    {
+                        **declaration,
+                        "required_columns": list(artifact["required_columns"])[1:],
+                    },
+                )
+            with self.assertRaisesRegex(RuntimeError, "required columns"):
+                _inspect_independent_input_artifact(
                     paths["d3_t07_candidate_daily_observation"],
                     artifact,
                     {
@@ -510,6 +555,15 @@ class ExpA01LineageTest(unittest.TestCase):
                     handoff=payloads["d3_t07_handoff_report"],
                     gate=config["d3_t07_evidence_gate"],
                 )
+                _validate_d3_t07_evidence_independent(
+                    candidate_path=paths["d3_t07_candidate_daily_observation"],
+                    candidate_artifact=config["input_contract"]["artifacts"][
+                        "d3_t07_candidate_daily_observation"
+                    ],
+                    quality=payloads["d3_t07_quality_report"],
+                    handoff=payloads["d3_t07_handoff_report"],
+                    gate=config["d3_t07_evidence_gate"],
+                )
 
         for decision in (
             "blocked_pending_quality_resolution",
@@ -530,6 +584,16 @@ class ExpA01LineageTest(unittest.TestCase):
                 mutated_handoff["d3_t07_generation_decision"] = decision
                 with self.assertRaisesRegex(RuntimeError, "generation decision"):
                     _validate_d3_t07_evidence(
+                        candidate_path=paths["d3_t07_candidate_daily_observation"],
+                        candidate_artifact=config["input_contract"]["artifacts"][
+                            "d3_t07_candidate_daily_observation"
+                        ],
+                        quality=mutated_quality,
+                        handoff=mutated_handoff,
+                        gate=config["d3_t07_evidence_gate"],
+                    )
+                with self.assertRaisesRegex(RuntimeError, "generation decision"):
+                    _validate_d3_t07_evidence_independent(
                         candidate_path=paths["d3_t07_candidate_daily_observation"],
                         candidate_artifact=config["input_contract"]["artifacts"][
                             "d3_t07_candidate_daily_observation"
@@ -612,6 +676,11 @@ class ExpA01LineageTest(unittest.TestCase):
                 handoff=payloads["d3_t08_handoff_report"],
                 gate=config["d3_t08_evidence_gate"],
             )
+            _validate_d3_t08_evidence_independent(
+                quality=quality,
+                handoff=payloads["d3_t08_handoff_report"],
+                gate=config["d3_t08_evidence_gate"],
+            )
 
             for field in (
                 "formal_data_version_published",
@@ -629,11 +698,23 @@ class ExpA01LineageTest(unittest.TestCase):
                             handoff=mutated_handoff,
                             gate=config["d3_t08_evidence_gate"],
                         )
+                    with self.assertRaisesRegex(RuntimeError, "must be false"):
+                        _validate_d3_t08_evidence_independent(
+                            quality=quality,
+                            handoff=mutated_handoff,
+                            gate=config["d3_t08_evidence_gate"],
+                        )
 
             mutated_quality = copy.deepcopy(quality)
             mutated_quality["research_dataset_registry_generated"] = False
             with self.assertRaisesRegex(RuntimeError, "must be true"):
                 _validate_d3_t08_evidence(
+                    quality=mutated_quality,
+                    handoff=payloads["d3_t08_handoff_report"],
+                    gate=config["d3_t08_evidence_gate"],
+                )
+            with self.assertRaisesRegex(RuntimeError, "must be true"):
+                _validate_d3_t08_evidence_independent(
                     quality=mutated_quality,
                     handoff=payloads["d3_t08_handoff_report"],
                     gate=config["d3_t08_evidence_gate"],
@@ -645,6 +726,12 @@ class ExpA01LineageTest(unittest.TestCase):
                     mutated_quality[blocker] = 1
                     with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
                         _validate_d3_t08_evidence(
+                            quality=mutated_quality,
+                            handoff=payloads["d3_t08_handoff_report"],
+                            gate=config["d3_t08_evidence_gate"],
+                        )
+                    with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
+                        _validate_d3_t08_evidence_independent(
                             quality=mutated_quality,
                             handoff=payloads["d3_t08_handoff_report"],
                             gate=config["d3_t08_evidence_gate"],
@@ -689,9 +776,27 @@ class ExpA01LineageTest(unittest.TestCase):
                     ],
                     dense_contract=config["dense_window_contract"],
                 )
+                independent_result = (
+                    _validate_expected_index_reconciliation_independent(
+                        candidate_path=candidate,
+                        candidate_artifact=config["input_contract"]["artifacts"][
+                            "d3_t07_candidate_daily_observation"
+                        ],
+                        index_path=index,
+                        index_artifact=config["input_contract"]["artifacts"][
+                            "expected_price_observation_index"
+                        ],
+                        dense_contract=config["dense_window_contract"],
+                    )
+                )
                 self.assertEqual(result["main_key_not_present_index"], 0)
                 self.assertEqual(result["present_index_key_missing_main"], 0)
                 self.assertEqual(result["main_duplicate_security_date"], 0)
+                self.assertEqual(independent_result["main_key_not_present_index"], 0)
+                self.assertEqual(
+                    independent_result["present_index_key_missing_main"], 0
+                )
+                self.assertEqual(independent_result["main_duplicate_security_date"], 0)
 
     def test_reconciliation_rejects_invalid_and_canonical_duplicate_dates(self) -> None:
         config = load_json(CONFIG_PATH)
@@ -748,6 +853,17 @@ class ExpA01LineageTest(unittest.TestCase):
                         dense_contract=config["dense_window_contract"],
                     )
                 self.assertIn(message, str(context.exception))
+                with self.assertRaisesRegex(
+                    RuntimeError, "expected_index_reconcile_failed"
+                ) as independent_context:
+                    _validate_expected_index_reconciliation_independent(
+                        candidate_path=candidate,
+                        candidate_artifact=candidate_artifact,
+                        index_path=index,
+                        index_artifact=index_artifact,
+                        dense_contract=config["dense_window_contract"],
+                    )
+                self.assertIn(message, str(independent_context.exception))
 
     def test_formal_context_wrong_sha_dirty_output_and_missing_manifest_fail_closed(
         self,

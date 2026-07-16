@@ -140,14 +140,9 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
         _write_json(staging / "exp_a01_manifest.json", preliminary_manifest)
         preliminary_validation = validate_formal_result(
             staging,
-            config=gate["config"],
-            input_manifest=gate["manifest"],
+            config_path=gate["config_path"],
             input_manifest_path=gate["input_manifest_path"],
-            input_paths=gate["input_paths"],
-            input_metadata=gate["input_metadata"],
-            expected_index_row_count=gate["expected_index_reconciliation"][
-                "index_row_count"
-            ],
+            input_root=args.input_root,
             reviewed_implementation_sha=gate["reviewed_sha"],
             require_final_manifest=False,
         )
@@ -197,14 +192,9 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
         _write_json(staging / "exp_a01_anomaly_scan.json", final_anomaly)
         final_validation = validate_formal_result(
             staging,
-            config=gate["config"],
-            input_manifest=gate["manifest"],
+            config_path=gate["config_path"],
             input_manifest_path=gate["input_manifest_path"],
-            input_paths=gate["input_paths"],
-            input_metadata=gate["input_metadata"],
-            expected_index_row_count=gate["expected_index_reconciliation"][
-                "index_row_count"
-            ],
+            input_root=args.input_root,
             reviewed_implementation_sha=gate["reviewed_sha"],
             require_final_manifest=True,
         )
