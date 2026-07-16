@@ -15,7 +15,6 @@ import duckdb
 
 from scripts.sidecar.run_exp_a01_price_ma_attachment import (
     _validate_d3_t07_evidence,
-    _validate_d3_t08_evidence,
     inspect_input_artifact,
     resolve_declared_input_path,
     run_formal,
@@ -23,11 +22,12 @@ from scripts.sidecar.run_exp_a01_price_ma_attachment import (
     validate_formal_gate,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
+    AUTHORIZED_MANIFEST_SCHEMA,
     _inspect_independent_input_artifact,
     _validate_cross_artifact_bindings_independent,
     _validate_d3_t07_evidence_independent,
-    _validate_d3_t08_evidence_independent,
     _validate_expected_index_reconciliation_independent,
+    _validate_json_schema,
     canonical_text_errors,
     load_json,
     validate_static_config,
@@ -171,8 +171,6 @@ def _reports(
 ) -> dict[str, Path]:
     t07_quality = temp_dir / "d3_t07_quality_report.json"
     t07_handoff = temp_dir / "d3_t07_handoff_candidate_report.json"
-    t08_quality = temp_dir / "d3_t08_quality_report.json"
-    t08_handoff = temp_dir / "d3_t08_handoff_candidate_report.json"
     _write_json(
         t07_quality,
         {
@@ -202,41 +200,9 @@ def _reports(
             "r0_state_generated": False,
         },
     )
-    t08_quality_payload = {
-        "task_id": "D3-T08",
-        "source_task_id": "D3-T07",
-        "d3_t08_generation_decision": "accepted_research_dataset_registry",
-        "research_dataset_registry_generated": True,
-        "duplicate_observation_key_count": 0,
-        "adjusted_ohlc_invalid_count": 0,
-        "effective_adj_factor_invalid_count": 0,
-        "adjusted_factor_mismatch_count": 0,
-        "listing_pause_row_count": 0,
-        "is_listing_pause_true_count": 0,
-        "source_task_id_invalid_count": 0,
-        "generated_by_task_invalid_count": 0,
-        "row_provenance_missing_count": 0,
-    }
-    _write_json(t08_quality, t08_quality_payload)
-    _write_json(
-        t08_handoff,
-        {
-            "task_id": "D3-T08",
-            "source_task_id": "D3-T07",
-            "d3_t08_generation_decision": "accepted_research_dataset_registry",
-            "research_dataset_registry_generated": True,
-            "formal_data_version_published": False,
-            "labels_generated": False,
-            "returns_generated": False,
-            "pcvt_values_generated": False,
-            "r0_state_generated": False,
-        },
-    )
     return {
         "d3_t07_quality_report": t07_quality,
         "d3_t07_handoff_report": t07_handoff,
-        "d3_t08_quality_report": t08_quality,
-        "d3_t08_handoff_report": t08_handoff,
     }
 
 
@@ -286,7 +252,7 @@ def _fixture(
         manifest,
         {
             "manifest_type": "exp_a01_authorized_input_manifest",
-            "schema_version": "exp_a01_authorized_input_manifest.v1",
+            "schema_version": "exp_a01_authorized_input_manifest.v2",
             "task_id": "EXP-A01",
             "authorized_for_task": "EXP-A01",
             "authorized_research_candidate_input": True,
@@ -296,6 +262,13 @@ def _fixture(
                 "authorized_by": "synthetic-test",
                 "authorized_at": "2026-07-16T00:00:00Z",
                 "authorization_evidence": "synthetic fixture",
+            },
+            "input_governance": {
+                "d3_t08_required": False,
+                "owner_override": True,
+                "override_reason": (
+                    "D3-T08 is not required for the EXP-A01 four-artifact contract."
+                ),
             },
             "input_artifacts": declarations,
             "cross_artifact_bindings": {
@@ -308,21 +281,8 @@ def _fixture(
                 "d3_t07_handoff_sha256": declarations["d3_t07_handoff_report"][
                     "sha256"
                 ],
-                "d3_t08_quality_sha256": declarations["d3_t08_quality_report"][
-                    "sha256"
-                ],
-                "d3_t08_handoff_sha256": declarations["d3_t08_handoff_report"][
-                    "sha256"
-                ],
                 "expected_index_sha256": declarations[
                     "expected_price_observation_index"
-                ]["sha256"],
-            },
-            "d3_t08_source_binding": {
-                "source_task_id": "D3-T07",
-                "source_candidate_artifact_id": "d3_t07_candidate_daily_observation",
-                "source_candidate_sha256": declarations[
-                    "d3_t07_candidate_daily_observation"
                 ]["sha256"],
             },
         },
@@ -338,6 +298,55 @@ class ExpA01LineageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             _config, manifest, _paths = _fixture(Path(raw))
             self.assertEqual(canonical_text_errors(manifest.read_bytes()), [])
+
+    def test_four_artifact_manifest_contract_is_exact(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            _config, manifest, _paths = _fixture(Path(raw))
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(
+                set(payload["input_artifacts"]),
+                {
+                    "d3_t07_candidate_daily_observation",
+                    "d3_t07_handoff_report",
+                    "d3_t07_quality_report",
+                    "expected_price_observation_index",
+                },
+            )
+            self.assertEqual(
+                _validate_json_schema(payload, AUTHORIZED_MANIFEST_SCHEMA, "manifest"),
+                [],
+            )
+
+            extra = copy.deepcopy(payload)
+            extra["input_artifacts"]["d3_t08_quality_report"] = {}
+            self.assertTrue(
+                _validate_json_schema(extra, AUTHORIZED_MANIFEST_SCHEMA, "manifest")
+            )
+            for artifact_id in (
+                "d3_t07_quality_report",
+                "d3_t07_handoff_report",
+                "expected_price_observation_index",
+            ):
+                missing = copy.deepcopy(payload)
+                missing["input_artifacts"].pop(artifact_id)
+                self.assertTrue(
+                    _validate_json_schema(
+                        missing, AUTHORIZED_MANIFEST_SCHEMA, "manifest"
+                    ),
+                    artifact_id,
+                )
+
+    def test_runtime_does_not_open_d3_t08_artifacts(self) -> None:
+        runner_text = (
+            ROOT / "scripts/sidecar/run_exp_a01_price_ma_attachment.py"
+        ).read_text(encoding="utf-8")
+        validator_text = (
+            ROOT / "src/sidecar/exp_a01_price_ma_attachment_validator.py"
+        ).read_text(encoding="utf-8")
+        for text in (runner_text, validator_text):
+            self.assertNotIn("d3_t08_quality_report", text)
+            self.assertNotIn("d3_t08_handoff_report", text)
+            self.assertNotIn("_validate_d3_t08", text)
 
     def test_independent_cross_artifact_binding_mutation_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -500,7 +509,7 @@ class ExpA01LineageTest(unittest.TestCase):
                     dense_contract=dense,
                 )
 
-    def test_d3_t07_and_d3_t08_evidence_mutations_fail_closed(self) -> None:
+    def test_d3_t07_evidence_mutations_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             temp_dir = Path(raw)
             config, _manifest, paths = _fixture(temp_dir)
@@ -521,16 +530,6 @@ class ExpA01LineageTest(unittest.TestCase):
                     quality=mutated,
                     handoff=payloads["d3_t07_handoff_report"],
                     gate=config["d3_t07_evidence_gate"],
-                )
-            with self.assertRaisesRegex(RuntimeError, "generation decision"):
-                mutated = copy.deepcopy(payloads["d3_t08_quality_report"])
-                mutated["d3_t08_generation_decision"] = (
-                    "blocked_pending_research_dataset_quality"
-                )
-                _validate_d3_t08_evidence(
-                    quality=mutated,
-                    handoff=payloads["d3_t08_handoff_report"],
-                    gate=config["d3_t08_evidence_gate"],
                 )
 
     def test_d3_t07_accepted_with_warnings_and_blocked_mutations(self) -> None:
@@ -653,88 +652,6 @@ class ExpA01LineageTest(unittest.TestCase):
                             quality=mutated_quality,
                             handoff=payloads["d3_t07_handoff_report"],
                             gate=config["d3_t07_evidence_gate"],
-                        )
-
-    def test_d3_t08_quality_shape_and_handoff_flags_fail_closed(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            temp_dir = Path(raw)
-            config, _manifest, paths = _fixture(temp_dir)
-            payloads = {
-                name: load_json(path)
-                for name, path in paths.items()
-                if name.endswith("report")
-            }
-            quality = payloads["d3_t08_quality_report"]
-            for field in (
-                "formal_data_version_published",
-                "pcvt_values_generated",
-                "r0_state_generated",
-            ):
-                self.assertNotIn(field, quality)
-            _validate_d3_t08_evidence(
-                quality=quality,
-                handoff=payloads["d3_t08_handoff_report"],
-                gate=config["d3_t08_evidence_gate"],
-            )
-            _validate_d3_t08_evidence_independent(
-                quality=quality,
-                handoff=payloads["d3_t08_handoff_report"],
-                gate=config["d3_t08_evidence_gate"],
-            )
-
-            for field in (
-                "formal_data_version_published",
-                "labels_generated",
-                "returns_generated",
-                "pcvt_values_generated",
-                "r0_state_generated",
-            ):
-                with self.subTest(handoff_field=field):
-                    mutated_handoff = copy.deepcopy(payloads["d3_t08_handoff_report"])
-                    mutated_handoff[field] = True
-                    with self.assertRaisesRegex(RuntimeError, "must be false"):
-                        _validate_d3_t08_evidence(
-                            quality=quality,
-                            handoff=mutated_handoff,
-                            gate=config["d3_t08_evidence_gate"],
-                        )
-                    with self.assertRaisesRegex(RuntimeError, "must be false"):
-                        _validate_d3_t08_evidence_independent(
-                            quality=quality,
-                            handoff=mutated_handoff,
-                            gate=config["d3_t08_evidence_gate"],
-                        )
-
-            mutated_quality = copy.deepcopy(quality)
-            mutated_quality["research_dataset_registry_generated"] = False
-            with self.assertRaisesRegex(RuntimeError, "must be true"):
-                _validate_d3_t08_evidence(
-                    quality=mutated_quality,
-                    handoff=payloads["d3_t08_handoff_report"],
-                    gate=config["d3_t08_evidence_gate"],
-                )
-            with self.assertRaisesRegex(RuntimeError, "must be true"):
-                _validate_d3_t08_evidence_independent(
-                    quality=mutated_quality,
-                    handoff=payloads["d3_t08_handoff_report"],
-                    gate=config["d3_t08_evidence_gate"],
-                )
-
-            for blocker in config["d3_t08_evidence_gate"]["quality_blockers"]:
-                with self.subTest(blocker=blocker):
-                    mutated_quality = copy.deepcopy(quality)
-                    mutated_quality[blocker] = 1
-                    with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
-                        _validate_d3_t08_evidence(
-                            quality=mutated_quality,
-                            handoff=payloads["d3_t08_handoff_report"],
-                            gate=config["d3_t08_evidence_gate"],
-                        )
-                    with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
-                        _validate_d3_t08_evidence_independent(
-                            quality=mutated_quality,
-                            handoff=payloads["d3_t08_handoff_report"],
-                            gate=config["d3_t08_evidence_gate"],
                         )
 
     def test_reconciliation_normalizes_candidate_and_index_date_forms(self) -> None:

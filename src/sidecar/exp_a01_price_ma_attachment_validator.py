@@ -106,8 +106,6 @@ EXPECTED_ARTIFACTS = (
     "d3_t07_candidate_daily_observation",
     "d3_t07_handoff_report",
     "d3_t07_quality_report",
-    "d3_t08_handoff_report",
-    "d3_t08_quality_report",
     "expected_price_observation_index",
 )
 EXPECTED_CANDIDATES = (
@@ -352,11 +350,18 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
             ):
                 errors.append("config_expected_index_source_contract_mismatch")
 
-    for gate_name in (
-        "d3_t07_evidence_gate",
-        "d3_t08_evidence_gate",
-        "dense_window_contract",
-    ):
+    governance = config.get("input_governance")
+    if not isinstance(governance, Mapping):
+        errors.append("config_input_governance_missing")
+    else:
+        if governance.get("d3_t08_required") is not False:
+            errors.append("config_d3_t08_required_mismatch")
+        if governance.get("d3_t08_policy") != "not_required_for_EXP-A01":
+            errors.append("config_d3_t08_policy_mismatch")
+        if not str(governance.get("rationale", "")).strip():
+            errors.append("config_input_governance_rationale_missing")
+
+    for gate_name in ("d3_t07_evidence_gate", "dense_window_contract"):
         if not isinstance(config.get(gate_name), Mapping):
             errors.append(f"config_{gate_name}_missing")
     output_contract = config.get("output_contract")
@@ -917,7 +922,7 @@ def _validate_persisted_formal_outputs(
                 "Actual run / reviewed SHA",
                 "Input manifest and authorization",
                 "D3-T07 lineage",
-                "D3-T08 evidence",
+                "Input governance override",
                 "Dense expected-index reconciliation",
                 "Fixed candidate definitions",
                 "Raw table cardinality",
@@ -1094,7 +1099,6 @@ def _derive_independent_lineage(
         "cross_artifact_bindings": "not_checked",
         "input_artifact_bindings": "not_checked",
         "d3_t07_evidence": "not_checked",
-        "d3_t08_evidence": "not_checked",
         "dense_expected_index": "not_checked",
         "formal_source_bindings": "not_checked",
         "final_manifest_bindings": "not_checked",
@@ -1220,17 +1224,6 @@ def _derive_independent_lineage(
         else:
             checks["d3_t07_evidence"] = "passed"
         try:
-            _validate_d3_t08_evidence_independent(
-                quality=input_metadata["d3_t08_quality_report"]["json"],
-                handoff=input_metadata["d3_t08_handoff_report"]["json"],
-                gate=config["d3_t08_evidence_gate"],
-            )
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"d3_t08_evidence_gate_failed:{exc}")
-            checks["d3_t08_evidence"] = "failed"
-        else:
-            checks["d3_t08_evidence"] = "passed"
-        try:
             dense_counts = _validate_expected_index_reconciliation_independent(
                 candidate_path=input_paths["d3_t07_candidate_daily_observation"],
                 candidate_artifact=artifacts["d3_t07_candidate_daily_observation"],
@@ -1340,7 +1333,7 @@ def _authorization_errors(manifest: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     expected = {
         "manifest_type": "exp_a01_authorized_input_manifest",
-        "schema_version": "exp_a01_authorized_input_manifest.v1",
+        "schema_version": "exp_a01_authorized_input_manifest.v2",
         "task_id": TASK_ID,
         "authorized_for_task": TASK_ID,
     }
@@ -1359,30 +1352,29 @@ def _authorization_errors(manifest: Mapping[str, Any]) -> list[str]:
             errors.append("authorized_manifest_authorization_status_mismatch")
         if not str(authorization.get("authorization_evidence", "")).strip():
             errors.append("authorized_manifest_authorization_evidence_missing")
+    governance = manifest.get("input_governance")
+    if not isinstance(governance, Mapping):
+        errors.append("authorized_manifest_input_governance_missing")
+    else:
+        if governance.get("d3_t08_required") is not False:
+            errors.append("authorized_manifest_d3_t08_required_mismatch")
+        if governance.get("owner_override") is not True:
+            errors.append("authorized_manifest_owner_override_missing")
+        if not str(governance.get("override_reason", "")).strip():
+            errors.append("authorized_manifest_override_reason_missing")
     artifact_ids = set(EXPECTED_ARTIFACTS)
     artifacts = manifest.get("input_artifacts")
     if not isinstance(artifacts, Mapping) or set(artifacts) != artifact_ids:
-        errors.append("authorized_manifest_exact_six_artifacts_mismatch")
+        errors.append("authorized_manifest_exact_four_artifacts_mismatch")
     bindings = manifest.get("cross_artifact_bindings")
     expected_binding_names = {
         "d3_t07_candidate_sha256",
         "d3_t07_quality_sha256",
         "d3_t07_handoff_sha256",
-        "d3_t08_quality_sha256",
-        "d3_t08_handoff_sha256",
         "expected_index_sha256",
     }
     if not isinstance(bindings, Mapping) or set(bindings) != expected_binding_names:
         errors.append("authorized_manifest_cross_binding_set_mismatch")
-    source = manifest.get("d3_t08_source_binding")
-    if not isinstance(source, Mapping):
-        errors.append("authorized_manifest_d3_t08_source_binding_missing")
-    elif (
-        source.get("source_task_id") != "D3-T07"
-        or source.get("source_candidate_artifact_id")
-        != "d3_t07_candidate_daily_observation"
-    ):
-        errors.append("authorized_manifest_d3_t08_source_binding_identity_mismatch")
     return errors
 
 
@@ -1536,20 +1528,11 @@ def _validate_cross_artifact_bindings_independent(
         "d3_t07_candidate_sha256": "d3_t07_candidate_daily_observation",
         "d3_t07_quality_sha256": "d3_t07_quality_report",
         "d3_t07_handoff_sha256": "d3_t07_handoff_report",
-        "d3_t08_quality_sha256": "d3_t08_quality_report",
-        "d3_t08_handoff_sha256": "d3_t08_handoff_report",
         "expected_index_sha256": "expected_price_observation_index",
     }
     for binding_name, artifact_id in expected.items():
         if bindings.get(binding_name) != declarations[artifact_id].get("sha256"):
             raise RuntimeError(f"binding mismatch: {binding_name}")
-    source = manifest.get("d3_t08_source_binding")
-    if not isinstance(source, Mapping):
-        raise RuntimeError("D3-T08 source binding is missing")
-    if source.get("source_candidate_sha256") != declarations[
-        "d3_t07_candidate_daily_observation"
-    ].get("sha256"):
-        raise RuntimeError("D3-T08 source candidate SHA mismatch")
 
 
 def _validate_d3_t07_evidence_independent(
@@ -1586,31 +1569,6 @@ def _validate_d3_t07_evidence_independent(
     _validate_candidate_main_table_independent(
         candidate_path, candidate_artifact, identity
     )
-
-
-def _validate_d3_t08_evidence_independent(
-    *, quality: Mapping[str, Any], handoff: Mapping[str, Any], gate: Mapping[str, Any]
-) -> None:
-    _require_equal_independent(quality, "task_id", "D3-T08", "D3-T08 quality")
-    _require_equal_independent(quality, "source_task_id", "D3-T07", "D3-T08 quality")
-    _require_equal_independent(handoff, "task_id", "D3-T08", "D3-T08 handoff")
-    _require_equal_independent(handoff, "source_task_id", "D3-T07", "D3-T08 handoff")
-    accepted = set(
-        str(value) for value in gate.get("accepted_generation_decisions", [])
-    )
-    if quality.get("d3_t08_generation_decision") not in accepted:
-        raise RuntimeError("quality generation decision is not accepted")
-    if handoff.get("d3_t08_generation_decision") not in accepted:
-        raise RuntimeError("handoff generation decision is not accepted")
-    _require_true_independent(quality, str(gate["generated_field"]), "D3-T08 quality")
-    _require_true_independent(handoff, str(gate["generated_field"]), "D3-T08 handoff")
-    _require_false_independent(
-        handoff, str(gate["formal_data_version_field"]), "D3-T08 handoff"
-    )
-    for field in gate.get("forbidden_true_fields", []):
-        _require_false_independent(handoff, str(field), "D3-T08 handoff")
-    for field in gate.get("quality_blockers", []):
-        _require_zero_independent(quality, str(field), "D3-T08 quality")
 
 
 def _validate_candidate_main_table_independent(

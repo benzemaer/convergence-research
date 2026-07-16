@@ -139,8 +139,6 @@
       "d3_t07_candidate_daily_observation",
       "d3_t07_handoff_report",
       "d3_t07_quality_report",
-      "d3_t08_handoff_report",
-      "d3_t08_quality_report",
       "expected_price_observation_index"
     ],
     "artifacts": {
@@ -209,50 +207,6 @@
           "factor_interval_unresolved_count"
         ]
       },
-      "d3_t08_handoff_report": {
-        "artifact_id": "d3_t08_handoff_report",
-        "artifact_kind": "evidence_json",
-        "logical_object": "d3_t08_handoff_candidate_report",
-        "filename": "d3_t08_handoff_candidate_report.json",
-        "source_contract": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1",
-        "source_role": "d3_t08_handoff_evidence",
-        "formal_data_version": false,
-        "required_json_fields": [
-          "task_id",
-          "source_task_id",
-          "d3_t08_generation_decision",
-          "research_dataset_registry_generated",
-          "formal_data_version_published",
-          "labels_generated",
-          "returns_generated",
-          "pcvt_values_generated",
-          "r0_state_generated"
-        ]
-      },
-      "d3_t08_quality_report": {
-        "artifact_id": "d3_t08_quality_report",
-        "artifact_kind": "evidence_json",
-        "logical_object": "d3_t08_quality_report",
-        "filename": "d3_t08_quality_report.json",
-        "source_contract": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1",
-        "source_role": "d3_t08_quality_evidence",
-        "formal_data_version": false,
-        "required_json_fields": [
-          "task_id",
-          "source_task_id",
-          "d3_t08_generation_decision",
-          "research_dataset_registry_generated",
-          "duplicate_observation_key_count",
-          "adjusted_ohlc_invalid_count",
-          "effective_adj_factor_invalid_count",
-          "adjusted_factor_mismatch_count",
-          "listing_pause_row_count",
-          "is_listing_pause_true_count",
-          "source_task_id_invalid_count",
-          "generated_by_task_invalid_count",
-          "row_provenance_missing_count"
-        ]
-      },
       "expected_price_observation_index": {
         "artifact_id": "expected_price_observation_index",
         "artifact_kind": "duckdb_table",
@@ -272,6 +226,11 @@
         ]
       }
     }
+  },
+  "input_governance": {
+    "d3_t08_required": false,
+    "d3_t08_policy": "not_required_for_EXP-A01",
+    "rationale": "D3-T08 adds no A1/A2/A2b calculation field and its relevant checks are duplicated by the D3-T07 gate, direct main-table checks, dense-index reconciliation and independent full recomputation."
   },
   "d3_t07_evidence_gate": {
     "accepted_generation_decisions": [
@@ -299,31 +258,6 @@
       "generated_by_task": "D3-T07",
       "listing_pause_must_be": false
     }
-  },
-  "d3_t08_evidence_gate": {
-    "accepted_generation_decisions": [
-      "accepted_research_dataset_registry",
-      "accepted_research_dataset_registry_with_warnings"
-    ],
-    "generated_field": "research_dataset_registry_generated",
-    "formal_data_version_field": "formal_data_version_published",
-    "forbidden_true_fields": [
-      "labels_generated",
-      "returns_generated",
-      "pcvt_values_generated",
-      "r0_state_generated"
-    ],
-    "quality_blockers": [
-      "duplicate_observation_key_count",
-      "adjusted_ohlc_invalid_count",
-      "effective_adj_factor_invalid_count",
-      "adjusted_factor_mismatch_count",
-      "listing_pause_row_count",
-      "is_listing_pause_true_count",
-      "source_task_id_invalid_count",
-      "generated_by_task_invalid_count",
-      "row_provenance_missing_count"
-    ]
   },
   "dense_window_contract": {
     "index_source_contract": "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",

@@ -169,8 +169,6 @@ class ExpA01FormalTest(unittest.TestCase):
         reports = {
             "d3_t07_quality_report": root / "d3_t07_quality_report.json",
             "d3_t07_handoff_report": root / "d3_t07_handoff_candidate_report.json",
-            "d3_t08_quality_report": root / "d3_t08_quality_report.json",
-            "d3_t08_handoff_report": root / "d3_t08_handoff_candidate_report.json",
         }
         _write_json(
             reports["d3_t07_quality_report"],
@@ -201,34 +199,6 @@ class ExpA01FormalTest(unittest.TestCase):
                 "r0_state_generated": False,
             },
         )
-        t08_quality = {
-            "task_id": "D3-T08",
-            "source_task_id": "D3-T07",
-            "d3_t08_generation_decision": "accepted_research_dataset_registry",
-            "research_dataset_registry_generated": True,
-            "duplicate_observation_key_count": 0,
-            "adjusted_ohlc_invalid_count": 0,
-            "effective_adj_factor_invalid_count": 0,
-            "adjusted_factor_mismatch_count": 0,
-            "listing_pause_row_count": 0,
-            "is_listing_pause_true_count": 0,
-            "source_task_id_invalid_count": 0,
-            "generated_by_task_invalid_count": 0,
-            "row_provenance_missing_count": 0,
-        }
-        _write_json(reports["d3_t08_quality_report"], t08_quality)
-        _write_json(
-            reports["d3_t08_handoff_report"],
-            {
-                **t08_quality,
-                "formal_data_version_published": False,
-                "labels_generated": False,
-                "returns_generated": False,
-                "pcvt_values_generated": False,
-                "r0_state_generated": False,
-            },
-        )
-
         paths = {
             "d3_t07_candidate_daily_observation": candidate_path,
             "expected_price_observation_index": index_path,
@@ -275,7 +245,7 @@ class ExpA01FormalTest(unittest.TestCase):
             manifest_path,
             {
                 "manifest_type": "exp_a01_authorized_input_manifest",
-                "schema_version": "exp_a01_authorized_input_manifest.v1",
+                "schema_version": "exp_a01_authorized_input_manifest.v2",
                 "task_id": "EXP-A01",
                 "authorized_for_task": "EXP-A01",
                 "authorized_research_candidate_input": True,
@@ -285,6 +255,11 @@ class ExpA01FormalTest(unittest.TestCase):
                     "authorized_by": "synthetic-test",
                     "authorized_at": "2026-07-16T00:00:00Z",
                     "authorization_evidence": "synthetic formal package fixture",
+                },
+                "input_governance": {
+                    "d3_t08_required": False,
+                    "owner_override": True,
+                    "override_reason": "D3-T08 is not required for the EXP-A01 four-artifact contract.",
                 },
                 "input_artifacts": declarations,
                 "cross_artifact_bindings": {
@@ -297,21 +272,8 @@ class ExpA01FormalTest(unittest.TestCase):
                     "d3_t07_handoff_sha256": declarations["d3_t07_handoff_report"][
                         "sha256"
                     ],
-                    "d3_t08_quality_sha256": declarations["d3_t08_quality_report"][
-                        "sha256"
-                    ],
-                    "d3_t08_handoff_sha256": declarations["d3_t08_handoff_report"][
-                        "sha256"
-                    ],
                     "expected_index_sha256": declarations[
                         "expected_price_observation_index"
-                    ]["sha256"],
-                },
-                "d3_t08_source_binding": {
-                    "source_task_id": "D3-T07",
-                    "source_candidate_artifact_id": "d3_t07_candidate_daily_observation",
-                    "source_candidate_sha256": declarations[
-                        "d3_t07_candidate_daily_observation"
                     ]["sha256"],
                 },
             },

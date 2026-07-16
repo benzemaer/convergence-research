@@ -55,8 +55,6 @@ class ExpA01ValidatorTest(unittest.TestCase):
                 "d3_t07_candidate_daily_observation",
                 "d3_t07_handoff_report",
                 "d3_t07_quality_report",
-                "d3_t08_handoff_report",
-                "d3_t08_quality_report",
                 "expected_price_observation_index",
             },
         )

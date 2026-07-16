@@ -339,11 +339,6 @@ def validate_formal_gate(args: argparse.Namespace) -> dict[str, Any]:
         handoff=metadata["d3_t07_handoff_report"]["json"],
         gate=config["d3_t07_evidence_gate"],
     )
-    _validate_d3_t08_evidence(
-        quality=metadata["d3_t08_quality_report"]["json"],
-        handoff=metadata["d3_t08_handoff_report"]["json"],
-        gate=config["d3_t08_evidence_gate"],
-    )
     index_reconciliation = validate_expected_index_reconciliation(
         candidate_path=paths["d3_t07_candidate_daily_observation"],
         candidate_artifact=artifacts["d3_t07_candidate_daily_observation"],
@@ -894,27 +889,6 @@ def _validate_candidate_main_table(
         connection.close()
 
 
-def _validate_d3_t08_evidence(
-    *, quality: Mapping[str, Any], handoff: Mapping[str, Any], gate: Mapping[str, Any]
-) -> None:
-    _require_equal(quality, "task_id", "D3-T08", "D3-T08 quality")
-    _require_equal(quality, "source_task_id", "D3-T07", "D3-T08 quality")
-    _require_equal(handoff, "task_id", "D3-T08", "D3-T08 handoff")
-    _require_equal(handoff, "source_task_id", "D3-T07", "D3-T08 handoff")
-    accepted = set(gate["accepted_generation_decisions"])
-    if quality.get("d3_t08_generation_decision") not in accepted:
-        raise RuntimeError("D3-T08 quality generation decision is not accepted")
-    if handoff.get("d3_t08_generation_decision") not in accepted:
-        raise RuntimeError("D3-T08 handoff generation decision is not accepted")
-    _require_true(quality, gate["generated_field"], "D3-T08 quality")
-    _require_true(handoff, gate["generated_field"], "D3-T08 handoff")
-    _require_false(handoff, gate["formal_data_version_field"], "D3-T08 handoff")
-    for field in gate["forbidden_true_fields"]:
-        _require_false(handoff, field, "D3-T08 handoff")
-    for field in gate["quality_blockers"]:
-        _require_zero(quality, field, "D3-T08 quality")
-
-
 def _require_equal(
     payload: Mapping[str, Any], field: str, expected: Any, label: str
 ) -> None:
@@ -1040,33 +1014,31 @@ def _validate_manifest_authorization_bindings(manifest: Mapping[str, Any]) -> No
         raise RuntimeError("authorized input manifest authorization status is invalid")
     if not str(authorization.get("authorization_evidence", "")).strip():
         raise RuntimeError("authorized input manifest authorization evidence is empty")
+    governance = manifest.get("input_governance")
+    if not isinstance(governance, Mapping):
+        raise RuntimeError("authorized input manifest input governance is missing")
+    if governance.get("d3_t08_required") is not False:
+        raise RuntimeError("authorized input manifest D3-T08 required flag is invalid")
+    if governance.get("owner_override") is not True:
+        raise RuntimeError("authorized input manifest D3-T08 owner override is invalid")
+    if not str(governance.get("override_reason", "")).strip():
+        raise RuntimeError("authorized input manifest D3-T08 override reason is empty")
     expected = {
         "d3_t07_candidate_daily_observation",
         "d3_t07_handoff_report",
         "d3_t07_quality_report",
-        "d3_t08_handoff_report",
-        "d3_t08_quality_report",
         "expected_price_observation_index",
     }
     artifacts = manifest.get("input_artifacts")
     if not isinstance(artifacts, Mapping) or set(artifacts) != expected:
         raise RuntimeError(
-            "authorized input manifest must declare exactly six artifacts"
+            "authorized input manifest must declare exactly four artifacts"
         )
     bindings = manifest.get("cross_artifact_bindings")
     if not isinstance(bindings, Mapping):
         raise RuntimeError(
             "authorized input manifest cross-artifact bindings are missing"
         )
-    source = manifest.get("d3_t08_source_binding")
-    if not isinstance(source, Mapping):
-        raise RuntimeError("authorized input manifest D3-T08 source binding is missing")
-    if (
-        source.get("source_task_id") != "D3-T07"
-        or source.get("source_candidate_artifact_id")
-        != "d3_t07_candidate_daily_observation"
-    ):
-        raise RuntimeError("authorized input manifest D3-T08 source binding is invalid")
 
 
 def _validate_cross_artifact_bindings(
@@ -1077,8 +1049,6 @@ def _validate_cross_artifact_bindings(
         "d3_t07_candidate_sha256": "d3_t07_candidate_daily_observation",
         "d3_t07_quality_sha256": "d3_t07_quality_report",
         "d3_t07_handoff_sha256": "d3_t07_handoff_report",
-        "d3_t08_quality_sha256": "d3_t08_quality_report",
-        "d3_t08_handoff_sha256": "d3_t08_handoff_report",
         "expected_index_sha256": "expected_price_observation_index",
     }
     for binding_name, artifact_id in expected.items():
@@ -1086,12 +1056,6 @@ def _validate_cross_artifact_bindings(
             raise RuntimeError(
                 f"authorized input manifest cross-artifact binding mismatch: {binding_name}"
             )
-    if manifest["d3_t08_source_binding"].get("source_candidate_sha256") != declarations[
-        "d3_t07_candidate_daily_observation"
-    ].get("sha256"):
-        raise RuntimeError(
-            "authorized input manifest D3-T08 candidate SHA binding mismatch"
-        )
 
 
 def _validate_committed_source_bindings(reviewed_sha: str) -> dict[str, Any]:
@@ -1269,8 +1233,8 @@ def _build_result_analysis(
         "## 3. D3-T07 lineage",
         "The D3-T07 candidate, handoff and quality evidence passed their declared source, role and quality gates.",
         "",
-        "## 4. D3-T08 evidence",
-        "The D3-T08 handoff and quality evidence passed the registered nine-blocker subset and handoff prohibition flags.",
+        "## 4. Input governance override",
+        "D3-T08 is explicitly not required for EXP-A01 under the owner-approved four-artifact input contract; no D3-T08 evidence is used or synthesized.",
         "",
         "## 5. Dense expected-index reconciliation",
         json.dumps(

@@ -38,7 +38,7 @@
     "validity_contract",
     "input_contract",
     "d3_t07_evidence_gate",
-    "d3_t08_evidence_gate",
+    "input_governance",
     "dense_window_contract",
     "output_contract",
     "long_lived_program_plan"
@@ -175,25 +175,32 @@
         "source_manifest_resolution": {"const": "absolute_declared_path_or_relative_to_manifest_parent; no_recursive_search"},
         "implementation_does_not_open_real_large_duckdb": {"const": true},
         "manifest_artifact_names": {
-          "const": ["d3_t07_candidate_daily_observation", "d3_t07_handoff_report", "d3_t07_quality_report", "d3_t08_handoff_report", "d3_t08_quality_report", "expected_price_observation_index"]
+          "const": ["d3_t07_candidate_daily_observation", "d3_t07_handoff_report", "d3_t07_quality_report", "expected_price_observation_index"]
         },
         "artifacts": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["d3_t07_candidate_daily_observation", "d3_t07_handoff_report", "d3_t07_quality_report", "d3_t08_handoff_report", "d3_t08_quality_report", "expected_price_observation_index"],
+          "required": ["d3_t07_candidate_daily_observation", "d3_t07_handoff_report", "d3_t07_quality_report", "expected_price_observation_index"],
           "properties": {
             "d3_t07_candidate_daily_observation": {"$ref": "#/$defs/inputArtifact"},
             "d3_t07_handoff_report": {"$ref": "#/$defs/inputArtifact"},
             "d3_t07_quality_report": {"$ref": "#/$defs/inputArtifact"},
-            "d3_t08_handoff_report": {"$ref": "#/$defs/inputArtifact"},
-            "d3_t08_quality_report": {"$ref": "#/$defs/d3T08QualityEvidenceArtifact"},
             "expected_price_observation_index": {"$ref": "#/$defs/inputArtifact"}
           }
         }
       }
     },
     "d3_t07_evidence_gate": {"$ref": "#/$defs/d3T07EvidenceGate"},
-    "d3_t08_evidence_gate": {"$ref": "#/$defs/d3T08EvidenceGate"},
+    "input_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["d3_t08_required", "d3_t08_policy", "rationale"],
+      "properties": {
+        "d3_t08_required": {"const": false},
+        "d3_t08_policy": {"const": "not_required_for_EXP-A01"},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
     "dense_window_contract": {"$ref": "#/$defs/denseWindowContract"},
     "output_contract": {
       "type": "object",
@@ -287,51 +294,6 @@
           "required": ["source_task_id", "generated_by_task", "listing_pause_must_be"],
           "properties": {"source_task_id": {"const": "D2-T20"}, "generated_by_task": {"const": "D3-T07"}, "listing_pause_must_be": {"const": false}}
         }
-      }
-    },
-    "d3T08QualityEvidenceArtifact": {
-      "allOf": [
-        {"$ref": "#/$defs/inputArtifact"},
-        {
-          "properties": {
-            "artifact_id": {"const": "d3_t08_quality_report"},
-            "artifact_kind": {"const": "evidence_json"},
-            "logical_object": {"const": "d3_t08_quality_report"},
-            "filename": {"const": "d3_t08_quality_report.json"},
-            "source_contract": {"const": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"},
-            "source_role": {"const": "d3_t08_quality_evidence"},
-            "formal_data_version": {"const": false},
-            "required_json_fields": {
-              "const": [
-                "task_id",
-                "source_task_id",
-                "d3_t08_generation_decision",
-                "research_dataset_registry_generated",
-                "duplicate_observation_key_count",
-                "adjusted_ohlc_invalid_count",
-                "effective_adj_factor_invalid_count",
-                "adjusted_factor_mismatch_count",
-                "listing_pause_row_count",
-                "is_listing_pause_true_count",
-                "source_task_id_invalid_count",
-                "generated_by_task_invalid_count",
-                "row_provenance_missing_count"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "d3T08EvidenceGate": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["accepted_generation_decisions", "generated_field", "formal_data_version_field", "forbidden_true_fields", "quality_blockers"],
-      "properties": {
-        "accepted_generation_decisions": {"const": ["accepted_research_dataset_registry", "accepted_research_dataset_registry_with_warnings"]},
-        "generated_field": {"const": "research_dataset_registry_generated"},
-        "formal_data_version_field": {"const": "formal_data_version_published"},
-        "forbidden_true_fields": {"const": ["labels_generated", "returns_generated", "pcvt_values_generated", "r0_state_generated"]},
-        "quality_blockers": {"const": ["duplicate_observation_key_count", "adjusted_ohlc_invalid_count", "effective_adj_factor_invalid_count", "adjusted_factor_mismatch_count", "listing_pause_row_count", "is_listing_pause_true_count", "source_task_id_invalid_count", "generated_by_task_invalid_count", "row_provenance_missing_count"]}
       }
     },
     "denseWindowContract": {
