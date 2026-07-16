@@ -45,7 +45,11 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
 
 
 def _create_candidate(
-    path: Path, *, extra_row: bool = False, listing_pause: bool = False
+    path: Path,
+    *,
+    extra_row: bool = False,
+    listing_pause: bool = False,
+    trade_dates: list[str] | None = None,
 ) -> int:
     connection = duckdb.connect(str(path))
     try:
@@ -53,7 +57,7 @@ def _create_candidate(
             """
             CREATE TABLE d3_candidate_daily_observation (
               ts_code VARCHAR,
-              trade_date DATE,
+              trade_date TEXT,
               adjusted_open DOUBLE,
               adjusted_close DOUBLE,
               trading_status VARCHAR,
@@ -69,11 +73,17 @@ def _create_candidate(
         )
         rows = []
         count = 4 if extra_row else 3
+        trade_dates = trade_dates or [
+            (date(2020, 1, 1) + timedelta(days=index)).strftime("%Y%m%d")
+            for index in range(count)
+        ]
+        if len(trade_dates) != count:
+            raise AssertionError("trade_dates must match candidate row count")
         for index in range(count):
             rows.append(
                 (
                     "SEC001",
-                    date(2020, 1, 1) + timedelta(days=index),
+                    trade_dates[index],
                     100.0,
                     100.0,
                     "normal_trading",
@@ -97,15 +107,21 @@ def _create_candidate(
 
 
 def _create_index(
-    path: Path, *, duplicate_sequence: bool = False, empty_ref: bool = False
+    path: Path,
+    *,
+    duplicate_sequence: bool = False,
+    empty_ref: bool = False,
+    date_type: str = "DATE",
+    date_values: list[object] | None = None,
 ) -> int:
+    sql_date_type = {"DATE": "DATE", "VARCHAR": "VARCHAR"}[date_type]
     connection = duckdb.connect(str(path))
     try:
         connection.execute(
-            """
+            f"""
             CREATE TABLE expected_price_observation_index (
               security_id VARCHAR,
-              trading_date DATE,
+              trading_date {sql_date_type},
               observation_sequence BIGINT,
               expected_observation_status VARCHAR,
               source_contract VARCHAR,
@@ -114,12 +130,20 @@ def _create_index(
             """
         )
         rows = []
+        date_values = date_values or [
+            (date(2020, 1, 1) + timedelta(days=index))
+            if date_type == "DATE"
+            else (date(2020, 1, 1) + timedelta(days=index)).strftime("%Y%m%d")
+            for index in range(3)
+        ]
+        if len(date_values) != 3:
+            raise AssertionError("date_values must contain exactly three rows")
         for index in range(3):
             sequence = 1 if duplicate_sequence and index == 2 else index
             rows.append(
                 (
                     "SEC001",
-                    date(2020, 1, 1) + timedelta(days=index),
+                    date_values[index],
                     sequence,
                     "present",
                     "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",
@@ -135,7 +159,11 @@ def _create_index(
         connection.close()
 
 
-def _reports(temp_dir: Path) -> dict[str, Path]:
+def _reports(
+    temp_dir: Path,
+    *,
+    t07_decision: str = "accepted_candidate_observation",
+) -> dict[str, Path]:
     t07_quality = temp_dir / "d3_t07_quality_report.json"
     t07_handoff = temp_dir / "d3_t07_handoff_candidate_report.json"
     t08_quality = temp_dir / "d3_t08_quality_report.json"
@@ -146,7 +174,7 @@ def _reports(temp_dir: Path) -> dict[str, Path]:
             "task_id": "D3-T07",
             "source_task_id": "D2-T20",
             "candidate_observation_generated": True,
-            "candidate_generation_decision": "accepted_candidate_observation",
+            "candidate_generation_decision": t07_decision,
             "duplicate_observation_key_count": 0,
             "null_ohlc_count": 0,
             "non_positive_price_count": 0,
@@ -160,7 +188,7 @@ def _reports(temp_dir: Path) -> dict[str, Path]:
         {
             "task_id": "D3-T07",
             "source_task_id": "D2-T20",
-            "d3_t07_generation_decision": "accepted_candidate_observation",
+            "d3_t07_generation_decision": t07_decision,
             "d3_candidate_observation_generated": True,
             "formal_data_version_published": False,
             "labels_generated": False,
@@ -174,9 +202,6 @@ def _reports(temp_dir: Path) -> dict[str, Path]:
         "source_task_id": "D3-T07",
         "d3_t08_generation_decision": "accepted_research_dataset_registry",
         "research_dataset_registry_generated": True,
-        "formal_data_version_published": False,
-        "pcvt_values_generated": False,
-        "r0_state_generated": False,
         "duplicate_observation_key_count": 0,
         "adjusted_ohlc_invalid_count": 0,
         "effective_adj_factor_invalid_count": 0,
@@ -210,14 +235,18 @@ def _reports(temp_dir: Path) -> dict[str, Path]:
     }
 
 
-def _fixture(temp_dir: Path) -> tuple[dict[str, object], Path, dict[str, Path]]:
+def _fixture(
+    temp_dir: Path,
+    *,
+    t07_decision: str = "accepted_candidate_observation",
+) -> tuple[dict[str, object], Path, dict[str, Path]]:
     config = load_json(CONFIG_PATH)
     artifacts = config["input_contract"]["artifacts"]
     candidate = temp_dir / "d3_t07_candidate_daily_observation.duckdb"
     index = temp_dir / "expected_price_observation_index.duckdb"
     candidate_count = _create_candidate(candidate)
     index_count = _create_index(index)
-    report_paths = _reports(temp_dir)
+    report_paths = _reports(temp_dir, t07_decision=t07_decision)
     paths = {
         "d3_t07_candidate_daily_observation": candidate,
         "expected_price_observation_index": index,
@@ -413,6 +442,267 @@ class ExpA01LineageTest(unittest.TestCase):
                     handoff=payloads["d3_t08_handoff_report"],
                     gate=config["d3_t08_evidence_gate"],
                 )
+
+    def test_d3_t07_accepted_with_warnings_and_blocked_mutations(self) -> None:
+        for decision in (
+            "accepted_candidate_observation",
+            "accepted_candidate_observation_with_warnings",
+        ):
+            with self.subTest(decision=decision), tempfile.TemporaryDirectory() as raw:
+                temp_dir = Path(raw)
+                config, _manifest, paths = _fixture(temp_dir, t07_decision=decision)
+                payloads = {
+                    name: load_json(path)
+                    for name, path in paths.items()
+                    if name.endswith("report")
+                }
+                _validate_d3_t07_evidence(
+                    candidate_path=paths["d3_t07_candidate_daily_observation"],
+                    candidate_artifact=config["input_contract"]["artifacts"][
+                        "d3_t07_candidate_daily_observation"
+                    ],
+                    quality=payloads["d3_t07_quality_report"],
+                    handoff=payloads["d3_t07_handoff_report"],
+                    gate=config["d3_t07_evidence_gate"],
+                )
+
+        for decision in (
+            "blocked_pending_quality_resolution",
+            "blocked_pending_factor_interval_resolution",
+            "blocked_pending_d2_t20_handoff",
+        ):
+            with self.subTest(decision=decision), tempfile.TemporaryDirectory() as raw:
+                temp_dir = Path(raw)
+                config, _manifest, paths = _fixture(temp_dir)
+                payloads = {
+                    name: load_json(path)
+                    for name, path in paths.items()
+                    if name.endswith("report")
+                }
+                mutated_quality = copy.deepcopy(payloads["d3_t07_quality_report"])
+                mutated_handoff = copy.deepcopy(payloads["d3_t07_handoff_report"])
+                mutated_quality["candidate_generation_decision"] = decision
+                mutated_handoff["d3_t07_generation_decision"] = decision
+                with self.assertRaisesRegex(RuntimeError, "generation decision"):
+                    _validate_d3_t07_evidence(
+                        candidate_path=paths["d3_t07_candidate_daily_observation"],
+                        candidate_artifact=config["input_contract"]["artifacts"][
+                            "d3_t07_candidate_daily_observation"
+                        ],
+                        quality=mutated_quality,
+                        handoff=mutated_handoff,
+                        gate=config["d3_t07_evidence_gate"],
+                    )
+
+        for field, payload_name in (
+            ("d3_candidate_observation_generated", "d3_t07_handoff_report"),
+            ("candidate_observation_generated", "d3_t07_quality_report"),
+        ):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as raw:
+                temp_dir = Path(raw)
+                config, _manifest, paths = _fixture(temp_dir)
+                payloads = {
+                    name: load_json(path)
+                    for name, path in paths.items()
+                    if name.endswith("report")
+                }
+                mutated_quality = copy.deepcopy(payloads["d3_t07_quality_report"])
+                mutated_handoff = copy.deepcopy(payloads["d3_t07_handoff_report"])
+                if payload_name == "d3_t07_handoff_report":
+                    mutated_handoff[field] = False
+                else:
+                    mutated_quality[field] = False
+                with self.assertRaisesRegex(RuntimeError, "must be true"):
+                    _validate_d3_t07_evidence(
+                        candidate_path=paths["d3_t07_candidate_daily_observation"],
+                        candidate_artifact=config["input_contract"]["artifacts"][
+                            "d3_t07_candidate_daily_observation"
+                        ],
+                        quality=mutated_quality,
+                        handoff=mutated_handoff,
+                        gate=config["d3_t07_evidence_gate"],
+                    )
+
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, _manifest, paths = _fixture(temp_dir)
+            payloads = {
+                name: load_json(path)
+                for name, path in paths.items()
+                if name.endswith("report")
+            }
+            for blocker in config["d3_t07_evidence_gate"]["quality_blockers"]:
+                with self.subTest(blocker=blocker):
+                    mutated_quality = copy.deepcopy(payloads["d3_t07_quality_report"])
+                    mutated_quality[blocker] = 1
+                    with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
+                        _validate_d3_t07_evidence(
+                            candidate_path=paths["d3_t07_candidate_daily_observation"],
+                            candidate_artifact=config["input_contract"]["artifacts"][
+                                "d3_t07_candidate_daily_observation"
+                            ],
+                            quality=mutated_quality,
+                            handoff=payloads["d3_t07_handoff_report"],
+                            gate=config["d3_t07_evidence_gate"],
+                        )
+
+    def test_d3_t08_quality_shape_and_handoff_flags_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            temp_dir = Path(raw)
+            config, _manifest, paths = _fixture(temp_dir)
+            payloads = {
+                name: load_json(path)
+                for name, path in paths.items()
+                if name.endswith("report")
+            }
+            quality = payloads["d3_t08_quality_report"]
+            for field in (
+                "formal_data_version_published",
+                "pcvt_values_generated",
+                "r0_state_generated",
+            ):
+                self.assertNotIn(field, quality)
+            _validate_d3_t08_evidence(
+                quality=quality,
+                handoff=payloads["d3_t08_handoff_report"],
+                gate=config["d3_t08_evidence_gate"],
+            )
+
+            for field in (
+                "formal_data_version_published",
+                "labels_generated",
+                "returns_generated",
+                "pcvt_values_generated",
+                "r0_state_generated",
+            ):
+                with self.subTest(handoff_field=field):
+                    mutated_handoff = copy.deepcopy(payloads["d3_t08_handoff_report"])
+                    mutated_handoff[field] = True
+                    with self.assertRaisesRegex(RuntimeError, "must be false"):
+                        _validate_d3_t08_evidence(
+                            quality=quality,
+                            handoff=mutated_handoff,
+                            gate=config["d3_t08_evidence_gate"],
+                        )
+
+            mutated_quality = copy.deepcopy(quality)
+            mutated_quality["research_dataset_registry_generated"] = False
+            with self.assertRaisesRegex(RuntimeError, "must be true"):
+                _validate_d3_t08_evidence(
+                    quality=mutated_quality,
+                    handoff=payloads["d3_t08_handoff_report"],
+                    gate=config["d3_t08_evidence_gate"],
+                )
+
+            for blocker in config["d3_t08_evidence_gate"]["quality_blockers"]:
+                with self.subTest(blocker=blocker):
+                    mutated_quality = copy.deepcopy(quality)
+                    mutated_quality[blocker] = 1
+                    with self.assertRaisesRegex(RuntimeError, "blocker is nonzero"):
+                        _validate_d3_t08_evidence(
+                            quality=mutated_quality,
+                            handoff=payloads["d3_t08_handoff_report"],
+                            gate=config["d3_t08_evidence_gate"],
+                        )
+
+    def test_reconciliation_normalizes_candidate_and_index_date_forms(self) -> None:
+        for label, candidate_dates, index_type, index_dates in (
+            (
+                "text-yyyymmdd-date",
+                ["20200101", "20200102", "20200103"],
+                "DATE",
+                None,
+            ),
+            (
+                "text-iso-varchar-yyyymmdd",
+                ["2020-01-01", "2020-01-02", "2020-01-03"],
+                "VARCHAR",
+                ["20200101", "20200102", "20200103"],
+            ),
+            (
+                "text-yyyymmdd-varchar-iso",
+                ["20200101", "20200102", "20200103"],
+                "VARCHAR",
+                ["2020-01-01", "2020-01-02", "2020-01-03"],
+            ),
+        ):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as raw:
+                temp_dir = Path(raw)
+                config = load_json(CONFIG_PATH)
+                candidate = temp_dir / "candidate.duckdb"
+                index = temp_dir / "index.duckdb"
+                _create_candidate(candidate, trade_dates=candidate_dates)
+                _create_index(index, date_type=index_type, date_values=index_dates)
+                result = validate_expected_index_reconciliation(
+                    candidate_path=candidate,
+                    candidate_artifact=config["input_contract"]["artifacts"][
+                        "d3_t07_candidate_daily_observation"
+                    ],
+                    index_path=index,
+                    index_artifact=config["input_contract"]["artifacts"][
+                        "expected_price_observation_index"
+                    ],
+                    dense_contract=config["dense_window_contract"],
+                )
+                self.assertEqual(result["main_key_not_present_index"], 0)
+                self.assertEqual(result["present_index_key_missing_main"], 0)
+                self.assertEqual(result["main_duplicate_security_date"], 0)
+
+    def test_reconciliation_rejects_invalid_and_canonical_duplicate_dates(self) -> None:
+        config = load_json(CONFIG_PATH)
+        candidate_artifact = config["input_contract"]["artifacts"][
+            "d3_t07_candidate_daily_observation"
+        ]
+        index_artifact = config["input_contract"]["artifacts"][
+            "expected_price_observation_index"
+        ]
+        for label, candidate_dates, index_type, index_dates, message in (
+            (
+                "invalid-main-slash",
+                ["2020/01/01", "20200102", "20200103"],
+                "DATE",
+                None,
+                "invalid_main_date",
+            ),
+            (
+                "invalid-main-calendar",
+                ["20200230", "20200102", "20200103"],
+                "DATE",
+                None,
+                "invalid_main_date",
+            ),
+            (
+                "invalid-index-calendar",
+                ["20200101", "20200102", "20200103"],
+                "VARCHAR",
+                ["2020-02-30", "2020-01-02", "2020-01-03"],
+                "invalid_index_date",
+            ),
+            (
+                "canonical-index-duplicate",
+                ["20200101", "20200102", "20200103"],
+                "VARCHAR",
+                ["20200101", "2020-01-01", "20200102"],
+                "duplicate_index_security_date",
+            ),
+        ):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as raw:
+                temp_dir = Path(raw)
+                candidate = temp_dir / "candidate.duckdb"
+                index = temp_dir / "index.duckdb"
+                _create_candidate(candidate, trade_dates=candidate_dates)
+                _create_index(index, date_type=index_type, date_values=index_dates)
+                with self.assertRaisesRegex(
+                    RuntimeError, "expected_index_reconcile_failed"
+                ) as context:
+                    validate_expected_index_reconciliation(
+                        candidate_path=candidate,
+                        candidate_artifact=candidate_artifact,
+                        index_path=index,
+                        index_artifact=index_artifact,
+                        dense_contract=config["dense_window_contract"],
+                    )
+                self.assertIn(message, str(context.exception))
 
     def test_formal_context_wrong_sha_dirty_output_and_missing_manifest_fail_closed(
         self,

@@ -240,9 +240,15 @@
           "source_task_id",
           "d3_t08_generation_decision",
           "research_dataset_registry_generated",
-          "formal_data_version_published",
-          "pcvt_values_generated",
-          "r0_state_generated"
+          "duplicate_observation_key_count",
+          "adjusted_ohlc_invalid_count",
+          "effective_adj_factor_invalid_count",
+          "adjusted_factor_mismatch_count",
+          "listing_pause_row_count",
+          "is_listing_pause_true_count",
+          "source_task_id_invalid_count",
+          "generated_by_task_invalid_count",
+          "row_provenance_missing_count"
         ]
       },
       "expected_price_observation_index": {
@@ -266,7 +272,10 @@
     }
   },
   "d3_t07_evidence_gate": {
-    "accepted_generation_decision": "accepted_candidate_observation",
+    "accepted_generation_decisions": [
+      "accepted_candidate_observation",
+      "accepted_candidate_observation_with_warnings"
+    ],
     "generated_field": "d3_candidate_observation_generated",
     "formal_data_version_field": "formal_data_version_published",
     "forbidden_true_fields": [

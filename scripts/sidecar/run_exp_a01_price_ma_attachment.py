@@ -35,6 +35,9 @@ DEFAULT_CONFIG = (
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 FILE_SHA_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+QUALIFIED_COLUMN_PATTERN = re.compile(
+    r"^(?:[A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_]*$"
+)
 EXPECTED_INDEX_STATUSES = {"present", "listing_pause", "missing", "unresolved"}
 
 
@@ -403,6 +406,8 @@ def validate_expected_index_reconciliation(
                 token in date_type for token in ("DATE", "TIMESTAMP", "VARCHAR", "TEXT")
             )
         )
+        candidate_date_expr = _canonical_sql_date_expression("m.trade_date")
+        index_date_expr = _canonical_sql_date_expression("i.trading_date")
         errors["invalid_index_identity"] = _scalar_count(
             connection,
             f"""
@@ -425,19 +430,27 @@ def validate_expected_index_reconciliation(
         errors["invalid_index_date"] = _scalar_count(
             connection,
             f"""
-            SELECT count(*) FROM expected.{index_table}
-            WHERE COALESCE(
-                try_strptime(CAST(trading_date AS VARCHAR), '%Y-%m-%d'),
-                try_strptime(CAST(trading_date AS VARCHAR), '%Y%m%d')
-            ) IS NULL
+            SELECT count(*) FROM expected.{index_table} AS i
+            WHERE {index_date_expr} IS NULL
+            """,
+        )
+        errors["invalid_main_date"] = _scalar_count(
+            connection,
+            f"""
+            SELECT count(*) FROM candidate.{candidate_table} AS m
+            WHERE {candidate_date_expr} IS NULL
             """,
         )
         errors["duplicate_index_security_date"] = _scalar_count(
             connection,
             f"""
             SELECT count(*) FROM (
-              SELECT security_id, trading_date
-              FROM expected.{index_table}
+              SELECT security_id, canonical_date
+              FROM (
+                SELECT i.security_id, {index_date_expr} AS canonical_date
+                FROM expected.{index_table} AS i
+                WHERE {index_date_expr} IS NOT NULL
+              ) canonical_index
               GROUP BY 1, 2 HAVING count(*) > 1
             )
             """,
@@ -503,29 +516,30 @@ def validate_expected_index_reconciliation(
             connection,
             f"""
             SELECT count(*) FROM (
-              SELECT trading_date,
-                     lag(trading_date) OVER (
+              SELECT canonical_date,
+                     lag(canonical_date) OVER (
                        PARTITION BY security_id ORDER BY observation_sequence
                      ) AS previous_date
               FROM (
                 SELECT security_id,
                        observation_sequence,
-                       COALESCE(
-                         try_strptime(CAST(trading_date AS VARCHAR), '%Y-%m-%d'),
-                         try_strptime(CAST(trading_date AS VARCHAR), '%Y%m%d')
-                       ) AS trading_date
-                FROM expected.{index_table}
+                       {index_date_expr} AS canonical_date
+                FROM expected.{index_table} AS i
               ) ordered_index
             )
-            WHERE previous_date IS NOT NULL AND trading_date <= previous_date
+            WHERE previous_date IS NOT NULL AND canonical_date <= previous_date
             """,
         )
         errors["main_duplicate_security_date"] = _scalar_count(
             connection,
             f"""
             SELECT count(*) FROM (
-              SELECT ts_code, trade_date
-              FROM candidate.{candidate_table}
+              SELECT ts_code, canonical_date
+              FROM (
+                SELECT m.ts_code, {candidate_date_expr} AS canonical_date
+                FROM candidate.{candidate_table} AS m
+                WHERE {candidate_date_expr} IS NOT NULL
+              ) canonical_candidate
               GROUP BY 1, 2 HAVING count(*) > 1
             )
             """,
@@ -581,7 +595,8 @@ def validate_expected_index_reconciliation(
             SELECT count(*)
             FROM candidate.{candidate_table} m
             LEFT JOIN expected.{index_table} i
-              ON i.security_id = m.ts_code AND i.trading_date = m.trade_date
+              ON i.security_id = m.ts_code
+             AND {index_date_expr} = {candidate_date_expr}
              AND i.expected_observation_status = 'present'
             WHERE i.security_id IS NULL
             """,
@@ -592,7 +607,8 @@ def validate_expected_index_reconciliation(
             SELECT count(*)
             FROM expected.{index_table} i
             LEFT JOIN candidate.{candidate_table} m
-              ON m.ts_code = i.security_id AND m.trade_date = i.trading_date
+              ON m.ts_code = i.security_id
+             AND {candidate_date_expr} = {index_date_expr}
             WHERE i.expected_observation_status = 'present'
               AND m.ts_code IS NULL
             """,
@@ -603,7 +619,8 @@ def validate_expected_index_reconciliation(
             SELECT count(*)
             FROM expected.{index_table} i
             JOIN candidate.{candidate_table} m
-              ON m.ts_code = i.security_id AND m.trade_date = i.trading_date
+              ON m.ts_code = i.security_id
+             AND {candidate_date_expr} = {index_date_expr}
             WHERE i.expected_observation_status != 'present'
             """,
         )
@@ -639,18 +656,11 @@ def _validate_d3_t07_evidence(
     _require_equal(quality, "source_task_id", "D2-T20", "D3-T07 quality")
     _require_equal(handoff, "task_id", "D3-T07", "D3-T07 handoff")
     _require_equal(handoff, "source_task_id", "D2-T20", "D3-T07 handoff")
-    _require_equal(
-        handoff,
-        "d3_t07_generation_decision",
-        gate["accepted_generation_decision"],
-        "D3-T07 handoff",
-    )
-    _require_equal(
-        quality,
-        "candidate_generation_decision",
-        gate["accepted_generation_decision"],
-        "D3-T07 quality",
-    )
+    accepted = set(gate["accepted_generation_decisions"])
+    if handoff.get("d3_t07_generation_decision") not in accepted:
+        raise RuntimeError("D3-T07 handoff generation decision is not accepted")
+    if quality.get("candidate_generation_decision") not in accepted:
+        raise RuntimeError("D3-T07 quality generation decision is not accepted")
     _require_true(handoff, gate["generated_field"], "D3-T07 handoff")
     _require_true(quality, "candidate_observation_generated", "D3-T07 quality")
     _require_false(handoff, gate["formal_data_version_field"], "D3-T07 handoff")
@@ -720,9 +730,6 @@ def _validate_d3_t08_evidence(
         raise RuntimeError("D3-T08 handoff generation decision is not accepted")
     _require_true(quality, gate["generated_field"], "D3-T08 quality")
     _require_true(handoff, gate["generated_field"], "D3-T08 handoff")
-    _require_false(quality, gate["formal_data_version_field"], "D3-T08 quality")
-    for field in ("pcvt_values_generated", "r0_state_generated"):
-        _require_false(quality, field, "D3-T08 quality")
     _require_false(handoff, gate["formal_data_version_field"], "D3-T08 handoff")
     for field in gate["forbidden_true_fields"]:
         _require_false(handoff, field, "D3-T08 handoff")
@@ -763,6 +770,19 @@ def _require_zero(payload: Mapping[str, Any], field: str, label: str) -> None:
 
 def _scalar_count(connection: Any, sql: str) -> int:
     return int(connection.execute(sql).fetchone()[0] or 0)
+
+
+def _canonical_sql_date_expression(column: str) -> str:
+    """Return the only accepted YYYY-MM-DD/YYYYMMDD-to-DATE SQL expression."""
+
+    if not QUALIFIED_COLUMN_PATTERN.fullmatch(column):
+        raise ValueError(f"unsafe SQL date column: {column!r}")
+    return (
+        "CAST(COALESCE("
+        f"try_strptime(CAST({column} AS VARCHAR), '%Y-%m-%d'), "
+        f"try_strptime(CAST({column} AS VARCHAR), '%Y%m%d')"
+        ") AS DATE)"
+    )
 
 
 def sha256_file(path: Path) -> str:

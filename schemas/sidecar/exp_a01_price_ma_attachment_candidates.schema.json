@@ -182,7 +182,7 @@
             "d3_t07_handoff_report": {"$ref": "#/$defs/inputArtifact"},
             "d3_t07_quality_report": {"$ref": "#/$defs/inputArtifact"},
             "d3_t08_handoff_report": {"$ref": "#/$defs/inputArtifact"},
-            "d3_t08_quality_report": {"$ref": "#/$defs/inputArtifact"},
+            "d3_t08_quality_report": {"$ref": "#/$defs/d3T08QualityEvidenceArtifact"},
             "expected_price_observation_index": {"$ref": "#/$defs/inputArtifact"}
           }
         }
@@ -253,9 +253,9 @@
     "d3T07EvidenceGate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["accepted_generation_decision", "generated_field", "formal_data_version_field", "forbidden_true_fields", "quality_blockers", "main_table_identity"],
+      "required": ["accepted_generation_decisions", "generated_field", "formal_data_version_field", "forbidden_true_fields", "quality_blockers", "main_table_identity"],
       "properties": {
-        "accepted_generation_decision": {"const": "accepted_candidate_observation"},
+        "accepted_generation_decisions": {"const": ["accepted_candidate_observation", "accepted_candidate_observation_with_warnings"]},
         "generated_field": {"const": "d3_candidate_observation_generated"},
         "formal_data_version_field": {"const": "formal_data_version_published"},
         "forbidden_true_fields": {"const": ["labels_generated", "returns_generated", "pcvt_values_generated", "r0_state_generated"]},
@@ -267,6 +267,39 @@
           "properties": {"source_task_id": {"const": "D2-T20"}, "generated_by_task": {"const": "D3-T07"}, "listing_pause_must_be": {"const": false}}
         }
       }
+    },
+    "d3T08QualityEvidenceArtifact": {
+      "allOf": [
+        {"$ref": "#/$defs/inputArtifact"},
+        {
+          "properties": {
+            "artifact_id": {"const": "d3_t08_quality_report"},
+            "artifact_kind": {"const": "evidence_json"},
+            "logical_object": {"const": "d3_t08_quality_report"},
+            "filename": {"const": "d3_t08_quality_report.json"},
+            "source_contract": {"const": "D3_T08_RESEARCH_DATASET_REGISTRY_CONTRACT_V1"},
+            "source_role": {"const": "d3_t08_quality_evidence"},
+            "formal_data_version": {"const": false},
+            "required_json_fields": {
+              "const": [
+                "task_id",
+                "source_task_id",
+                "d3_t08_generation_decision",
+                "research_dataset_registry_generated",
+                "duplicate_observation_key_count",
+                "adjusted_ohlc_invalid_count",
+                "effective_adj_factor_invalid_count",
+                "adjusted_factor_mismatch_count",
+                "listing_pause_row_count",
+                "is_listing_pause_true_count",
+                "source_task_id_invalid_count",
+                "generated_by_task_invalid_count",
+                "row_provenance_missing_count"
+              ]
+            }
+          }
+        }
+      ]
     },
     "d3T08EvidenceGate": {
       "type": "object",
