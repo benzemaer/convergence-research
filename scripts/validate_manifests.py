@@ -20,12 +20,23 @@ SIDECAR_PAIRS = (
         / "data/generated/sidecar/exp_a01/EXP-A01-20260717T040145984Z"
         / "exp_a01_accepted_result_handoff.json",
     ),
+    (
+        ROOT / "schemas/sidecar/exp_a03_accepted_result_handoff.schema.json",
+        ROOT / "data/generated/sidecar/exp_a03/exp_a03_accepted_result_handoff.json",
+    ),
+    (
+        ROOT / "schemas/sidecar/exp_a04_pcvt_raw_accepted_handoff.schema.json",
+        ROOT / "data/generated/sidecar/exp_a04/exp_a04_pcvt_raw_accepted_handoff.json",
+    ),
 )
 SCHEMA_ONLY = (
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
     ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
     ROOT / "schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",
     ROOT / "schemas/sidecar/exp_a03_authorized_input_manifest.schema.json",
+    ROOT / "schemas/sidecar/exp_a03_accepted_result_handoff.schema.json",
+    ROOT / "schemas/sidecar/exp_a04_authorized_input_manifest.schema.json",
+    ROOT / "schemas/sidecar/exp_a04_pcvt_raw_accepted_handoff.schema.json",
 )
 
 

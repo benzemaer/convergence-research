@@ -1,0 +1,92 @@
+{
+  "$schema": "../../schemas/sidecar/exp_a04_cross_layer_diagnostics.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "EXP-A04",
+  "experiment_id": "EXP-A04",
+  "program_id": "EXP-A",
+  "experiment_name": "A层候选跨层诊断",
+  "research_route": "sidecar_exploration",
+  "workflow_mode": "long_lived_same_pr",
+  "phase": "A04_cross_layer_diagnostics_implementation_review",
+  "program_phase": "A04_cross_layer_diagnostics",
+  "implementation_review_status": "pending",
+  "reviewed_implementation_sha": "",
+  "formal_run_allowed": false,
+  "formal_run_status": "not_started",
+  "formal_run_executed": false,
+  "formal_artifacts_generated": false,
+  "result_review_status": "not_started",
+  "EXP_A04_started": true,
+  "EXP_A05_started": false,
+  "A_layer_registered": false,
+  "PCATV_created": false,
+  "formal_data_version": false,
+  "mainline_task_unchanged": true,
+  "mainline_current_task": "R3-T02",
+  "upstream": {
+    "a03_accepted_handoff": "data/generated/sidecar/exp_a03/exp_a03_accepted_result_handoff.json",
+    "pcvt_accepted_handoff": "data/generated/sidecar/exp_a04/exp_a04_pcvt_raw_accepted_handoff.json",
+    "a01_raw_table": "exp_a01_raw_metrics",
+    "pcvt_raw_table": "r0_t04_raw_metric_results",
+    "a01_raw_binding": {
+      "path_policy": "absolute_declared_path",
+      "sha256": "23e07d95fe4dbd296aff1412c0e40ce3dced4fe6f4515fe6dda621bf051842df",
+      "row_count": 5253198,
+      "expected_key_count": 1751066,
+      "security_count": 800,
+      "date_min": "2016-01-04",
+      "date_max": "2026-06-30"
+    },
+    "pcvt_raw_binding": {
+      "path_policy": "absolute_declared_path",
+      "sha256": "89ff2979f8e151c1611c0c61b1b547783f76a4ad94953c9252b0ecef98ed56a0",
+      "row_count": 13846152,
+      "expected_key_count": 1730769,
+      "security_count": 800,
+      "date_min": "2016-01-04",
+      "date_max": "2026-06-30",
+      "table": "r0_t04_raw_metric_results"
+    }
+  },
+  "candidate_universe": {
+    "candidate_ids": [
+      "A1_LogBodyCenterToMACloudCenter_5_60",
+      "A2_BodyCenterOutsideMACloudRate20_5_60",
+      "A2b_BodyToMACloudGapMean20_5_60"
+    ],
+    "short_ids": {"A1_LogBodyCenterToMACloudCenter_5_60": "A1", "A2_BodyCenterOutsideMACloudRate20_5_60": "A2", "A2b_BodyToMACloudGapMean20_5_60": "A2b"},
+    "a_validity_status": "valid",
+    "a_raw_finite_required": true,
+    "key_fields": ["security_id", "trading_date", "observation_sequence"]
+  },
+  "pcvt_indicator_registry": [
+    {"indicator_id": "P1_NATR14", "layer": "P", "raw_metric_name": "NATR14", "raw_source_indicator_id": "P1_NATR14", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "P2_LogRange20", "layer": "P", "raw_metric_name": "LogRange20", "raw_source_indicator_id": "P2_LogRange20", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "C1_LogMASpread_5_60", "layer": "C", "raw_metric_name": "LogMASpread_5_60", "raw_source_indicator_id": "C1_LogMASpread_5_60", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "C2_AdjVWAPSpread_5_60", "layer": "C", "raw_metric_name": "AdjVWAPSpread_5_60", "raw_source_indicator_id": "C2_AdjVWAPSpread_5_60", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "T1_ER20", "layer": "T", "raw_metric_name": "ER20", "raw_source_indicator_id": "T1_ER20", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "T2_AbsTrendT20", "layer": "T", "raw_metric_name": "AbsTrendT20", "raw_source_indicator_id": "T2_AbsTrendT20", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "V1_TurnoverShrink20_60", "layer": "V", "raw_metric_name": "TurnoverShrink20_60", "raw_source_indicator_id": "V1_TurnoverShrink20_60", "raw_value_direction": "lower_is_more_convergent"},
+    {"indicator_id": "V2_LogAmount20_base", "layer": "V", "raw_metric_name": "LogAmount20", "raw_source_indicator_id": "V2_LogAmount20_base", "raw_value_direction": "lower_is_more_convergent"}
+  ],
+  "key_mapping": {
+    "a": {"security_id": "security_id", "trading_date": "trading_date", "observation_sequence": "observation_sequence"},
+    "pcvt": {"security_id": "security_id", "trading_date": "trading_date", "observation_sequence": null},
+    "join_policy": "security_id+trading_date_after_strict_uniqueness_proof"
+  },
+  "calendar_years": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026],
+  "pair_registry": {"a_candidate_count": 3, "pcvt_indicator_count": 8, "pair_count": 24, "pair_id_format": "<A_SHORT_ID>__<PCVT_INDICATOR_ID>", "direction_required": "lower_raw_is_more_convergent"},
+  "correlation": {"pearson": "corr(a_raw,pcvt_raw)", "spearman": "corr(a_midrank,pcvt_midrank)", "rank_method": "RANK plus tie-count midrank", "rank_pct": "(midrank-0.5)/N", "security_min_common_rows": 100, "year_common_rows_required": true},
+  "tail_policy": {"fractions": [0.01, 0.05, 0.1], "quantile_function": "QUANTILE_DISC", "selection": "raw_value <= threshold including all threshold ties"},
+  "hard_collision_gate": {"all_of": true, "overall_spearman_min": 0.95, "minimum_year_spearman_min": 0.9, "eligible_security_spearman_q10_min": 0.8, "tail_jaccard_005_min": 0.8, "tail_jaccard_010_min": 0.8, "pearson_used": false, "absolute_correlation_used": false},
+  "investigation_policy": {"common_rate_smaller_min": 0.8, "eligible_security_min": 720, "year_spearman_range_max": 0.3, "security_spearman_iqr10_90_max": 0.4, "overall_spearman_investigate_below_or_equal": -0.5, "near_gate_distance": 0.02},
+  "output_contract": {
+    "files": ["exp_a04_indicator_registry.csv", "exp_a04_pairwise_coverage.csv", "exp_a04_pairwise_overall.csv", "exp_a04_pairwise_year.csv", "exp_a04_pairwise_security.csv", "exp_a04_tail_overlap.csv", "exp_a04_layer_summary.csv", "exp_a04_candidate_summary.csv", "exp_a04_cross_layer_disposition.json", "exp_a04_manifest.json", "exp_a04_validator_result.json", "exp_a04_anomaly_scan.json", "exp_a04_result_analysis.md"],
+    "row_counts": {"exp_a04_indicator_registry.csv": 11, "exp_a04_pairwise_coverage.csv": 24, "exp_a04_pairwise_overall.csv": 24, "exp_a04_pairwise_year.csv": 264, "exp_a04_pairwise_security.csv": 19200, "exp_a04_tail_overlap.csv": 72, "exp_a04_layer_summary.csv": 12, "exp_a04_candidate_summary.csv": 3},
+    "raw_duckdb_generated": false,
+    "forbidden_extensions": [".duckdb", ".parquet"]
+  },
+  "analysis_headings": ["## 1. Actual run / reviewed SHA", "## 2. Accepted EXP-A03 handoff", "## 3. Accepted PCVT raw handoff", "## 4. Input artifacts and lineage", "## 5. Frozen indicator registry", "## 6. Pairwise common-universe coverage", "## 7. Overall cross-layer relationships", "## 8. Year stability", "## 9. Security stability", "## 10. Low-tail identity overlap", "## 11. Hard collision gate results", "## 12. Layer summaries", "## 13. Candidate summaries", "## 14. Provisional A05 carry-forward status", "## 15. Full invariant validation", "## 16. Independent aggregate recomputation", "## 17. Anomaly scan", "## 18. Supported conclusions", "## 19. Unsupported conclusions", "## 20. Readiness for Formal-result review"],
+  "governance": {"EXP_A04_started": true, "EXP_A05_started": false, "A_layer_registered": false, "PCATV_created": false, "candidate_set_for_A05": ["A1", "A2", "A2b"], "decision_status": "provisional_A04_diagnostic"},
+  "execution_contract": {"implementation_synthetic_only": false, "formal_execution_capable": true, "read_only_upstream_raw": true, "copy_upstream_raw_forbidden": true, "new_persistent_duckdb_forbidden": true, "pandas_forbidden": true, "full_raw_python_iteration_forbidden": true, "single_core_validator": true, "single_anomaly_scan": true, "failure_package_preservation": true, "formal_data_version": false}
+}
