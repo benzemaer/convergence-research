@@ -55,6 +55,7 @@ PCVT_LAYER = {
     PCVT_IDS[7]: "V",
 }
 YEARS = tuple(range(2016, 2027))
+SECURITY_COUNT = 800
 TAILS = (0.01, 0.05, 0.1)
 OUTPUT_FILES = {
     "exp_a04_indicator_registry.csv",
@@ -204,6 +205,13 @@ def _finite(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return result if math.isfinite(result) else None
+
+
+def _normalize_nonfinite_rows(rows: list[dict[str, Any]]) -> None:
+    for row in rows:
+        for key, value in row.items():
+            if isinstance(value, float) and not math.isfinite(value):
+                row[key] = None
 
 
 def _quantile_cont(values: list[float], fraction: float) -> float | None:
@@ -523,10 +531,53 @@ def _independent_views(
     )
 
 
+def _independent_security_registry(
+    connection: Any, a_table: str, pcvt_table: str
+) -> None:
+    a_ids = ",".join("'" + value + "'" for value in A_IDS)
+    p_ids = ",".join("'" + value + "'" for value in PCVT_IDS)
+    a_relation = f'"{a_table}"'
+    p_relation = f'v_pcvt."{pcvt_table}"'
+    for relation, ids, name, count_error in (
+        (
+            a_relation,
+            a_ids,
+            "v_a_security_registry",
+            "a_security_registry_count_mismatch",
+        ),
+        (
+            p_relation,
+            p_ids,
+            "v_pcvt_security_registry",
+            "pcvt_security_registry_count_mismatch",
+        ),
+    ):
+        null_or_empty = connection.execute(
+            f"SELECT COUNT(*) FROM {relation} WHERE indicator_id IN ({ids}) AND (security_id IS NULL OR trim(CAST(security_id AS VARCHAR))='')"
+        ).fetchone()[0]
+        if null_or_empty:
+            raise ValidationError("null_security_id_in_registry")
+        connection.execute(
+            f"CREATE OR REPLACE TEMP TABLE {name} AS SELECT DISTINCT CAST(security_id AS VARCHAR) security_id FROM {relation} WHERE indicator_id IN ({ids})"
+        )
+        count = connection.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+        if count != SECURITY_COUNT:
+            raise ValidationError(count_error)
+    a_only = connection.execute(
+        "SELECT COUNT(*) FROM (SELECT security_id FROM v_a_security_registry EXCEPT SELECT security_id FROM v_pcvt_security_registry)"
+    ).fetchone()[0]
+    pcvt_only = connection.execute(
+        "SELECT COUNT(*) FROM (SELECT security_id FROM v_pcvt_security_registry EXCEPT SELECT security_id FROM v_a_security_registry)"
+    ).fetchone()[0]
+    if a_only or pcvt_only:
+        raise ValidationError("cross_raw_security_registry_mismatch")
+
+
 def _independent_recompute(
-    connection: Any, pcvt_path: Path, a_table: str, pcvt_table: str, security_count: int
+    connection: Any, pcvt_path: Path, a_table: str, pcvt_table: str
 ) -> dict[str, list[dict[str, Any]]]:
     _independent_views(connection, pcvt_path, a_table, pcvt_table)
+    _independent_security_registry(connection, a_table, pcvt_table)
     pairs = sorted(
         [(f"{A_SHORT[a]}__{p}", a, p, PCVT_LAYER[p]) for a in A_IDS for p in PCVT_IDS]
     )
@@ -555,7 +606,7 @@ def _independent_recompute(
     connection.execute(
         """CREATE OR REPLACE TEMP TABLE v_rank_year AS SELECT *,RANK() OVER(PARTITION BY pair_id,calendar_year ORDER BY a_raw)+(COUNT(*) OVER(PARTITION BY pair_id,calendar_year,a_raw)-1)/2.0 a_rank,RANK() OVER(PARTITION BY pair_id,calendar_year ORDER BY p_raw)+(COUNT(*) OVER(PARTITION BY pair_id,calendar_year,p_raw)-1)/2.0 p_rank FROM v_join"""
     )
-    year_sql = """WITH y AS (SELECT * FROM range(2016,2027)),a AS (SELECT pair_id,calendar_year,COUNT(*) n,CORR(a_raw,p_raw) pearson_raw,CORR(a_rank,p_rank) spearman_midrank FROM v_rank_year GROUP BY pair_id,calendar_year) SELECT r.pair_id,r.a_id,r.p_id,r.layer,y.range::INTEGER,COALESCE(a.n,0),a.pearson_raw,a.spearman_midrank,CASE WHEN COALESCE(a.n,0)>0 AND a.spearman_midrank IS NULL THEN 'undefined_correlation' ELSE NULL END FROM v_registry r CROSS JOIN y LEFT JOIN a ON a.pair_id=r.pair_id AND a.calendar_year=y.range ORDER BY r.pair_id,y.range"""
+    year_sql = """WITH y AS (SELECT * FROM range(2016,2027)),a AS (SELECT pair_id,calendar_year,COUNT(*) n,CORR(a_raw,p_raw) pearson_raw,CORR(a_rank,p_rank) spearman_midrank FROM v_rank_year GROUP BY pair_id,calendar_year) SELECT r.pair_id,r.a_id,r.p_id,r.layer,y.range::INTEGER,COALESCE(a.n,0),a.pearson_raw,a.spearman_midrank,CASE WHEN COALESCE(a.n,0)>0 AND (a.spearman_midrank IS NULL OR NOT isfinite(a.spearman_midrank)) THEN 'undefined_correlation' ELSE NULL END FROM v_registry r CROSS JOIN y LEFT JOIN a ON a.pair_id=r.pair_id AND a.calendar_year=y.range ORDER BY r.pair_id,y.range"""
     years = [
         dict(zip(CSV_FIELDS["exp_a04_pairwise_year.csv"], row, strict=True))
         for row in connection.execute(year_sql).fetchall()
@@ -564,7 +615,7 @@ def _independent_recompute(
         """CREATE OR REPLACE TEMP TABLE v_rank_sec AS SELECT *,RANK() OVER(PARTITION BY pair_id,security_id ORDER BY a_raw)+(COUNT(*) OVER(PARTITION BY pair_id,security_id,a_raw)-1)/2.0 a_rank,RANK() OVER(PARTITION BY pair_id,security_id ORDER BY p_raw)+(COUNT(*) OVER(PARTITION BY pair_id,security_id,p_raw)-1)/2.0 p_rank FROM v_join"""
     )
     connection.execute(
-        """CREATE OR REPLACE TEMP TABLE v_security AS SELECT security_id FROM v_a GROUP BY security_id UNION SELECT security_id FROM v_p GROUP BY security_id"""
+        """CREATE OR REPLACE TEMP TABLE v_security AS SELECT security_id FROM v_a_security_registry ORDER BY security_id"""
     )
     sec_sql = """WITH a AS (SELECT pair_id,security_id,COUNT(*) n,CORR(a_raw,p_raw) pearson_raw,CORR(a_rank,p_rank) spearman_midrank FROM v_rank_sec GROUP BY pair_id,security_id) SELECT r.pair_id,r.a_id,r.p_id,r.layer,s.security_id,COALESCE(a.n,0),CASE WHEN COALESCE(a.n,0)>=100 AND a.pearson_raw IS NOT NULL AND a.spearman_midrank IS NOT NULL AND isfinite(a.pearson_raw) AND isfinite(a.spearman_midrank) THEN TRUE ELSE FALSE END,CASE WHEN COALESCE(a.n,0)>=100 AND a.pearson_raw IS NOT NULL AND a.spearman_midrank IS NOT NULL AND isfinite(a.pearson_raw) AND isfinite(a.spearman_midrank) THEN a.pearson_raw ELSE NULL END,CASE WHEN COALESCE(a.n,0)>=100 AND a.pearson_raw IS NOT NULL AND a.spearman_midrank IS NOT NULL AND isfinite(a.pearson_raw) AND isfinite(a.spearman_midrank) THEN a.spearman_midrank ELSE NULL END,CASE WHEN COALESCE(a.n,0)<100 THEN 'insufficient_common_rows' WHEN a.pearson_raw IS NULL OR a.spearman_midrank IS NULL OR NOT isfinite(a.pearson_raw) OR NOT isfinite(a.spearman_midrank) THEN 'undefined_correlation_constant_input' ELSE NULL END FROM v_registry r CROSS JOIN v_security s LEFT JOIN a ON a.pair_id=r.pair_id AND a.security_id=s.security_id ORDER BY r.pair_id,s.security_id"""
     securities = [
@@ -601,6 +652,8 @@ def _independent_recompute(
                     "pcvt_containment": inter / pc if pc else None,
                 }
             )
+    for rows in (coverage, overall, years, securities, tails):
+        _normalize_nonfinite_rows(rows)
     return {
         "pairwise_coverage": coverage,
         "pairwise_overall": overall,
@@ -659,6 +712,81 @@ def _compare_rows(
     return errors
 
 
+def _fixed_grid_errors(
+    recomputed: Mapping[str, list[dict[str, Any]]],
+) -> list[str]:
+    expected_pairs = {f"{A_SHORT[a]}__{p}" for a in A_IDS for p in PCVT_IDS}
+    errors: list[str] = []
+    years = recomputed["pairwise_year"]
+    securities = recomputed["pairwise_security"]
+    if len(years) != 24 * len(YEARS):
+        errors.append(f"pairwise_year_row_count_mismatch:{len(years)}")
+    year_pairs = {row["pair_id"] for row in years}
+    if year_pairs != expected_pairs:
+        errors.append("pairwise_year_pair_registry_mismatch")
+    year_values = {row["calendar_year"] for row in years}
+    if year_values != set(YEARS):
+        errors.append("pairwise_year_calendar_registry_mismatch")
+    for pair_id in sorted(expected_pairs):
+        rows = [row for row in years if row["pair_id"] == pair_id]
+        if len(rows) != len(YEARS):
+            errors.append(f"pairwise_year_rows_per_pair_mismatch:{pair_id}")
+        if {row["calendar_year"] for row in rows} != set(YEARS):
+            errors.append(f"pairwise_year_cartesian_product_mismatch:{pair_id}")
+        for row in rows:
+            if row["common_count"] == 0:
+                errors.append(
+                    f"accepted_year_missing:{row['pair_id']}:{row['calendar_year']}"
+                )
+    if len(securities) != 24 * SECURITY_COUNT:
+        errors.append(f"pairwise_security_row_count_mismatch:{len(securities)}")
+    security_pairs = {row["pair_id"] for row in securities}
+    if security_pairs != expected_pairs:
+        errors.append("pairwise_security_pair_registry_mismatch")
+    security_ids = {row["security_id"] for row in securities}
+    if len(security_ids) != SECURITY_COUNT:
+        errors.append(f"pairwise_security_registry_count_mismatch:{len(security_ids)}")
+    for pair_id in sorted(expected_pairs):
+        rows = [row for row in securities if row["pair_id"] == pair_id]
+        if len(rows) != SECURITY_COUNT:
+            errors.append(f"pairwise_security_rows_per_pair_mismatch:{pair_id}")
+        if {row["security_id"] for row in rows} != security_ids:
+            errors.append(f"pairwise_security_cartesian_product_mismatch:{pair_id}")
+    return list(dict.fromkeys(errors))
+
+
+def _semantic_mismatches(
+    expected: Any, actual: Any, path: str = "disposition"
+) -> list[str]:
+    if isinstance(expected, Mapping):
+        if not isinstance(actual, Mapping):
+            return [f"disposition_semantic_mismatch:{path}"]
+        errors: list[str] = []
+        expected_keys = set(expected)
+        actual_keys = set(actual)
+        if expected_keys != actual_keys:
+            errors.append(f"disposition_semantic_mismatch:{path}.keys")
+        for key in sorted(expected_keys & actual_keys):
+            errors.extend(
+                _semantic_mismatches(expected[key], actual[key], f"{path}.{key}")
+            )
+        return errors
+    if isinstance(expected, list):
+        if not isinstance(actual, list) or len(expected) != len(actual):
+            return [f"disposition_semantic_mismatch:{path}"]
+        errors: list[str] = []
+        for index, (left, right) in enumerate(zip(expected, actual, strict=True)):
+            errors.extend(_semantic_mismatches(left, right, f"{path}[{index}]"))
+        return errors
+    if isinstance(expected, bool) or isinstance(actual, bool):
+        equal = type(expected) is type(actual) and expected == actual
+    elif isinstance(expected, int | float) and isinstance(actual, int | float):
+        equal = _same(expected, actual)
+    else:
+        equal = type(expected) is type(actual) and expected == actual
+    return [] if equal else [f"disposition_semantic_mismatch:{path}"]
+
+
 def _independent_collisions(
     metrics: Mapping[str, list[dict[str, Any]]],
 ) -> dict[str, bool]:
@@ -699,34 +827,59 @@ def _independent_collisions(
 
 def _collision_payloads(
     metrics: Mapping[str, list[dict[str, Any]]],
+    config: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     overall = {row["pair_id"]: row for row in metrics["pairwise_overall"]}
-    years: dict[str, list[float]] = {}
     securities: dict[str, list[float]] = {}
     tails = {
         (row["pair_id"], float(row["tail_fraction"])): row
         for row in metrics["tail_overlap"]
     }
+    year_rows: dict[str, list[dict[str, Any]]] = {}
     for row in metrics["pairwise_year"]:
-        if row["common_count"] > 0 and row["spearman_midrank"] is not None:
-            years.setdefault(row["pair_id"], []).append(float(row["spearman_midrank"]))
+        year_rows.setdefault(row["pair_id"], []).append(row)
     for row in metrics["pairwise_security"]:
         if row["eligible"] and row["spearman_midrank"] is not None:
             securities.setdefault(row["pair_id"], []).append(
                 float(row["spearman_midrank"])
             )
     payloads: list[dict[str, Any]] = []
+    gate = config["hard_collision_gate"]
     for pair_id in sorted(overall):
         row = overall[pair_id]
-        y = years.get(pair_id, [])
+        y_rows = year_rows.get(pair_id, [])
+        y = [
+            float(item["spearman_midrank"])
+            for item in y_rows
+            if item["common_count"] > 0 and item["spearman_midrank"] is not None
+        ]
+        complete_years = len(y_rows) == len(YEARS) and all(
+            item["common_count"] > 0 and item["spearman_midrank"] is not None
+            for item in y_rows
+        )
         s = securities.get(pair_id, [])
         q10 = _quantile_cont(s, 0.1)
         values = {
-            "overall_spearman": (row["spearman_midrank"], 0.95),
-            "minimum_year_spearman": (min(y) if y else None, 0.90),
-            "eligible_security_spearman_q10": (q10, 0.80),
-            "tail_jaccard_005": (tails[(pair_id, 0.05)]["jaccard"], 0.80),
-            "tail_jaccard_010": (tails[(pair_id, 0.1)]["jaccard"], 0.80),
+            "overall_spearman": (
+                row["spearman_midrank"],
+                gate["overall_spearman_min"],
+            ),
+            "minimum_year_spearman": (
+                min(y) if complete_years else None,
+                gate["minimum_year_spearman_min"],
+            ),
+            "eligible_security_spearman_q10": (
+                q10,
+                gate["eligible_security_spearman_q10_min"],
+            ),
+            "tail_jaccard_005": (
+                tails[(pair_id, 0.05)]["jaccard"],
+                gate["tail_jaccard_005_min"],
+            ),
+            "tail_jaccard_010": (
+                tails[(pair_id, 0.1)]["jaccard"],
+                gate["tail_jaccard_010_min"],
+            ),
         }
         criteria = {
             name: {
@@ -883,6 +1036,48 @@ def _independent_summaries(
     return layers, candidates
 
 
+def _expected_disposition(
+    collision_payloads: list[dict[str, Any]],
+    candidate_rows: list[dict[str, Any]],
+    config: Mapping[str, Any],
+    run_id: str | None,
+) -> dict[str, Any]:
+    registry = config["pcvt_indicator_registry"]
+    return {
+        "task_id": TASK_ID,
+        "run_id": run_id,
+        "decision_version": "EXP-A04-v1",
+        "accepted_A03_candidate_set": ["A1", "A2", "A2b"],
+        "pcvt_indicator_ids": [row["indicator_id"] for row in registry],
+        "pcvt_layer_mapping": {row["indicator_id"]: row["layer"] for row in registry},
+        "pair_count": 24,
+        "common_universe_policy": "pair-specific valid finite intersection with security-date one-to-one adapter",
+        "hard_collision_thresholds": {
+            key: value
+            for key, value in config["hard_collision_gate"].items()
+            if key.endswith("_min")
+        },
+        "pair_collision_results": collision_payloads,
+        "candidate_collision_summary": {
+            A_SHORT[row["a_candidate_id"]]: {
+                "hard_collision_count": row["hard_collision_count"],
+                "hard_collision_pairs": json.loads(row["hard_collision_pairs_json"]),
+                "provisional_status_for_A05": row["provisional_status_for_A05"],
+            }
+            for row in candidate_rows
+        },
+        "candidate_set_for_A05": ["A1", "A2", "A2b"],
+        "candidate_status_for_A05": {
+            A_SHORT[row["a_candidate_id"]]: row["provisional_status_for_A05"]
+            for row in candidate_rows
+        },
+        "decision_status": "provisional_A04_diagnostic",
+        "EXP_A05_started": False,
+        "A_layer_registered": False,
+        "PCATV_created": False,
+    }
+
+
 def validate_formal_result(
     package_root: Path,
     *,
@@ -924,6 +1119,8 @@ def validate_formal_result(
     ):
         errors.append("forbidden_output_file")
     metrics: dict[str, list[dict[str, Any]]] = {}
+    collision_payloads: list[dict[str, Any]] = []
+    expected_disposition: dict[str, Any] | None = None
     try:
         for filename, fields in CSV_FIELDS.items():
             key = filename.removeprefix("exp_a04_").removesuffix(".csv")
@@ -940,12 +1137,10 @@ def validate_formal_result(
                 pcvt_raw_path,
                 a_table,
                 pcvt_table,
-                len(
-                    {row["security_id"] for row in metrics.get("pairwise_security", [])}
-                ),
             )
         finally:
             connection.close()
+        errors.extend(_fixed_grid_errors(recomputed))
         for key in (
             "pairwise_coverage",
             "pairwise_overall",
@@ -985,9 +1180,12 @@ def validate_formal_result(
                 "exp_a04_indicator_registry.csv",
             )
         )
-        collision_payloads = _collision_payloads(recomputed)
+        collision_payloads = _collision_payloads(recomputed, config)
         expected_layers, expected_candidates = _independent_summaries(
             recomputed, collision_payloads
+        )
+        expected_disposition = _expected_disposition(
+            collision_payloads, expected_candidates, config, run_id
         )
         errors.extend(
             _compare_rows(
@@ -1009,40 +1207,6 @@ def validate_formal_result(
     disposition: Mapping[str, Any] = {}
     if disposition_path.is_file():
         disposition = _load(disposition_path)
-        if disposition.get("candidate_set_for_A05") != ["A1", "A2", "A2b"]:
-            errors.append("candidate_set_auto_reduced")
-        if (
-            disposition.get("pair_count") != 24
-            or len(disposition.get("pair_collision_results", [])) != 24
-        ):
-            errors.append("disposition_pair_count_mismatch")
-        actual_collisions = disposition.get("pair_collision_results", [])
-        if len(actual_collisions) == len(collision_payloads):
-            for expected, actual in zip(
-                collision_payloads, actual_collisions, strict=True
-            ):
-                if expected.get("pair_id") != actual.get("pair_id") or expected.get(
-                    "hard_cross_layer_collision"
-                ) != actual.get("hard_cross_layer_collision"):
-                    errors.append(
-                        f"collision_result_mismatch:{expected.get('pair_id')}"
-                    )
-                    break
-        for candidate in ("A1", "A2", "A2b"):
-            expected = next(
-                row
-                for row in expected_candidates
-                if A_SHORT[row["a_candidate_id"]] == candidate
-            )
-            actual = disposition.get("candidate_collision_summary", {}).get(
-                candidate, {}
-            )
-            if (
-                actual.get("hard_collision_count") != expected["hard_collision_count"]
-                or actual.get("provisional_status_for_A05")
-                != expected["provisional_status_for_A05"]
-            ):
-                errors.append(f"candidate_collision_summary_mismatch:{candidate}")
         forbidden = {
             "winner",
             "selected_final_indicator",
@@ -1058,6 +1222,10 @@ def validate_formal_result(
             or disposition.get("PCATV_created") is not False
         ):
             errors.append("governance_flag_mismatch")
+        if expected_disposition is not None:
+            if disposition.get("candidate_set_for_A05") != ["A1", "A2", "A2b"]:
+                errors.append("candidate_set_auto_reduced")
+            errors.extend(_semantic_mismatches(expected_disposition, disposition))
     else:
         errors.append("disposition_missing")
     analysis_path = package_root / "exp_a04_result_analysis.md"

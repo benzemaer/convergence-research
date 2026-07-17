@@ -31,6 +31,7 @@ A_RAW_NAMES = {
 LAYERS = ("P", "C", "T", "V")
 TAILS = (0.01, 0.05, 0.1)
 YEARS = tuple(range(2016, 2027))
+SECURITY_COUNT = 800
 OUTPUT_FILES = (
     "exp_a04_indicator_registry.csv",
     "exp_a04_pairwise_coverage.csv",
@@ -313,6 +314,44 @@ def _build_source_views(
             break
     a_ids = ",".join(_sql(value) for value in A_IDS)
     pcvt_ids = ",".join(_sql(row["indicator_id"]) for row in registry)
+    for relation, ids, registry_name, count_error in (
+        (
+            _quote(a_table),
+            a_ids,
+            "a04_a_security_registry",
+            "a_security_registry_count_mismatch",
+        ),
+        (
+            pcvt_relation,
+            pcvt_ids,
+            "a04_pcvt_security_registry",
+            "pcvt_security_registry_count_mismatch",
+        ),
+    ):
+        null_or_empty = connection.execute(
+            f"SELECT COUNT(*) FROM {relation} WHERE indicator_id IN ({ids}) AND (security_id IS NULL OR trim(CAST(security_id AS VARCHAR))='')"
+        ).fetchone()[0]
+        if null_or_empty:
+            raise LineageError("null_security_id_in_registry")
+        connection.execute(
+            f"CREATE OR REPLACE TEMP TABLE {registry_name} AS SELECT DISTINCT CAST(security_id AS VARCHAR) AS security_id FROM {relation} WHERE indicator_id IN ({ids})"
+        )
+        count = connection.execute(f"SELECT COUNT(*) FROM {registry_name}").fetchone()[
+            0
+        ]
+        if count != SECURITY_COUNT:
+            raise LineageError(count_error)
+    a_only = connection.execute(
+        "SELECT COUNT(*) FROM (SELECT security_id FROM a04_a_security_registry EXCEPT SELECT security_id FROM a04_pcvt_security_registry)"
+    ).fetchone()[0]
+    pcvt_only = connection.execute(
+        "SELECT COUNT(*) FROM (SELECT security_id FROM a04_pcvt_security_registry EXCEPT SELECT security_id FROM a04_a_security_registry)"
+    ).fetchone()[0]
+    if a_only or pcvt_only:
+        raise LineageError("cross_raw_security_registry_mismatch")
+    connection.execute(
+        "CREATE OR REPLACE TEMP TABLE a04_security_ids AS SELECT security_id FROM a04_a_security_registry ORDER BY security_id"
+    )
     connection.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE a04_a_valid AS
@@ -501,9 +540,6 @@ def _pairwise_year(connection: Any) -> list[dict[str, Any]]:
 def _pairwise_security(connection: Any) -> list[dict[str, Any]]:
     _ranked(connection, "security_id", "a04_rank_security")
     fields = CSV_FIELDS["pairwise_security"]
-    connection.execute(
-        """CREATE OR REPLACE TEMP TABLE a04_security_ids AS SELECT security_id FROM a04_a_valid GROUP BY security_id UNION SELECT security_id FROM a04_pcvt_valid GROUP BY security_id"""
-    )
     rows = _rows(
         connection,
         """
@@ -747,8 +783,7 @@ def _collision_results(
     year_map: dict[str, list[dict[str, Any]]] = {}
     sec_map: dict[str, list[dict[str, Any]]] = {}
     for row in years:
-        if row["common_count"] > 0:
-            year_map.setdefault(row["pair_id"], []).append(row)
+        year_map.setdefault(row["pair_id"], []).append(row)
     for row in securities:
         if row["eligible"]:
             sec_map.setdefault(row["pair_id"], []).append(row)
@@ -763,9 +798,15 @@ def _collision_results(
             _float_or_none(item["spearman_midrank"])
             for item in sec_map.get(pair_id, [])
         ]
+        complete_years = year_map.get(pair_id, [])
         y_min = (
             min(y_values)
-            if y_values and all(value is not None for value in y_values)
+            if len(complete_years) == len(YEARS)
+            and all(
+                item["common_count"] > 0
+                and _float_or_none(item["spearman_midrank"]) is not None
+                for item in complete_years
+            )
             else None
         )
         s_q10 = _quantile_cont(s_values, 0.1)
@@ -938,7 +979,11 @@ def build_anomaly_scan(
         if row["pearson_raw"] is None or row["spearman_midrank"] is None:
             blocking_items.append(f"undefined_overall_correlation:{row['pair_id']}")
     for row in analysis["pairwise_year"]:
-        if row["common_count"] > 0 and row["spearman_midrank"] is None:
+        if row["common_count"] == 0:
+            blocking_items.append(
+                f"accepted_year_missing:{row['pair_id']}:{row['calendar_year']}"
+            )
+        elif row["spearman_midrank"] is None:
             blocking_items.append(
                 f"undefined_year_correlation:{row['pair_id']}:{row['calendar_year']}"
             )
