@@ -8,6 +8,7 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import duckdb
 
@@ -26,6 +27,7 @@ from src.sidecar.exp_a02_raw_domain_availability_validity_validator import (
 ROOT = Path(__file__).resolve().parents[2]
 A01_RESULT_ROOT = ROOT / "data/generated/sidecar/exp_a01/EXP-A01-20260717T040145984Z"
 HANDOFF_PATH = A01_RESULT_ROOT / "exp_a01_accepted_result_handoff.json"
+REVIEWED_ACTIVATION_SHA = "a" * 40
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -251,6 +253,11 @@ def build_synthetic_input_package(root: Path) -> dict[str, Path | int]:
             "implementation_sha": A01_IMPLEMENTATION_SHA,
             "result_commit": A01_RESULT_COMMIT,
             "raw_artifact_sha256": declarations["exp_a01_raw_metrics"]["sha256"],
+            "raw_row_count": row_count,
+            "raw_key_count": row_count // 3,
+            "security_count": declarations["exp_a01_raw_metrics"]["security_count"],
+            "date_min": declarations["exp_a01_raw_metrics"]["date_min"],
+            "date_max": declarations["exp_a01_raw_metrics"]["date_max"],
             "a01_manifest_sha256": declarations["exp_a01_manifest"]["sha256"],
             "validator_status": "passed",
             "anomaly_status": "passed",
@@ -266,6 +273,52 @@ def build_synthetic_input_package(root: Path) -> dict[str, Path | int]:
     }
 
 
+def build_formal_input_package(
+    root: Path,
+    reviewed_implementation_sha: str = REVIEWED_ACTIVATION_SHA,
+) -> dict[str, Path | int | str]:
+    package = build_synthetic_input_package(root)
+    manifest_path = Path(package["manifest"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    handoff_path = Path(package["handoff"])
+    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+    raw_declaration = manifest["input_artifacts"]["exp_a01_raw_metrics"]
+    handoff["raw_artifact"].update(
+        {
+            "sha256": raw_declaration["sha256"],
+            "row_count": raw_declaration["row_count"],
+            "expected_index_row_count": manifest["cross_artifact_bindings"][
+                "raw_key_count"
+            ],
+            "security_count": raw_declaration["security_count"],
+            "date_min": raw_declaration["date_min"],
+            "date_max": raw_declaration["date_max"],
+        }
+    )
+    handoff["compact_result"]["manifest_sha256"] = manifest["input_artifacts"][
+        "exp_a01_manifest"
+    ]["sha256"]
+    write_json(handoff_path, handoff)
+    manifest["input_artifacts"]["exp_a01_accepted_result_handoff"]["sha256"] = sha256(
+        handoff_path
+    )
+    manifest["manifest_type"] = "exp_a02_authorized_input_manifest"
+    manifest["authorization"] = {
+        "status": "approved",
+        "formal_run_allowed": True,
+        "reviewed_implementation_sha": reviewed_implementation_sha,
+        "authorized_for_task": "EXP-A02",
+        "authorization_scope": "EXP-A02 formal raw-domain availability validity only",
+    }
+    for declaration in manifest["input_artifacts"].values():
+        declaration["path_policy"] = "relative_to_manifest"
+    formal_manifest = root / "exp_a02_authorized_input_manifest.json"
+    write_json(formal_manifest, manifest)
+    package["manifest"] = formal_manifest
+    package["input_root"] = root
+    return package
+
+
 class ExpA02LineageTest(unittest.TestCase):
     def test_accepted_handoff_is_schema_valid(self) -> None:
         handoff = validate_handoff(HANDOFF_PATH)
@@ -276,7 +329,11 @@ class ExpA02LineageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             package = build_synthetic_input_package(Path(temporary))
             result = validate_input_manifest(
-                package["manifest"], allow_synthetic_fixture=True
+                package["manifest"],
+                input_root=None,
+                allow_synthetic_fixture=True,
+                allow_formal_run=False,
+                reviewed_implementation_sha=None,
             )
             self.assertEqual(
                 set(result["declarations"]), set(EXPECTED_MANIFEST_ARTIFACTS)
@@ -293,7 +350,13 @@ class ExpA02LineageTest(unittest.TestCase):
             mutated_path = root / "mutated.json"
             write_json(mutated_path, mutated)
             with self.assertRaises(Exception):
-                validate_input_manifest(mutated_path, allow_synthetic_fixture=True)
+                validate_input_manifest(
+                    mutated_path,
+                    input_root=None,
+                    allow_synthetic_fixture=True,
+                    allow_formal_run=False,
+                    reviewed_implementation_sha=None,
+                )
 
             mutated = copy.deepcopy(original)
             mutated["input_artifacts"]["d3_t08"] = mutated["input_artifacts"].pop(
@@ -301,7 +364,13 @@ class ExpA02LineageTest(unittest.TestCase):
             )
             write_json(mutated_path, mutated)
             with self.assertRaises(Exception):
-                validate_input_manifest(mutated_path, allow_synthetic_fixture=True)
+                validate_input_manifest(
+                    mutated_path,
+                    input_root=None,
+                    allow_synthetic_fixture=True,
+                    allow_formal_run=False,
+                    reviewed_implementation_sha=None,
+                )
 
     def test_each_declared_lineage_binding_mutation_fails_closed(self) -> None:
         mutations = (
@@ -358,19 +427,136 @@ class ExpA02LineageTest(unittest.TestCase):
                 mutated_path = root / "mutated.json"
                 write_json(mutated_path, mutated)
                 with self.assertRaises(Exception):
-                    validate_input_manifest(mutated_path, allow_synthetic_fixture=True)
+                    validate_input_manifest(
+                        mutated_path,
+                        input_root=None,
+                        allow_synthetic_fixture=True,
+                        allow_formal_run=False,
+                        reviewed_implementation_sha=None,
+                    )
 
-    def test_real_authorized_manifest_is_rejected_before_raw_open(self) -> None:
+    def test_formal_manifest_gates_fail_before_raw_open(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            package = build_synthetic_input_package(root)
-            manifest = json.loads(package["manifest"].read_text(encoding="utf-8"))
-            manifest["manifest_type"] = "exp_a02_authorized_input_manifest"
-            manifest["authorization"]["status"] = "approved"
-            path = root / "authorized.json"
-            write_json(path, manifest)
-            with self.assertRaisesRegex(RuntimeError, "synthetic fixture manifests"):
-                validate_input_manifest(path, allow_synthetic_fixture=True)
+            package = build_formal_input_package(root)
+            for kwargs, expected in (
+                (
+                    {
+                        "allow_synthetic_fixture": False,
+                        "allow_formal_run": False,
+                        "reviewed_implementation_sha": REVIEWED_ACTIVATION_SHA,
+                    },
+                    "formal mode only",
+                ),
+                (
+                    {
+                        "allow_synthetic_fixture": True,
+                        "allow_formal_run": False,
+                        "reviewed_implementation_sha": None,
+                    },
+                    "formal mode only",
+                ),
+            ):
+                with (
+                    self.subTest(kwargs=kwargs),
+                    patch(
+                        "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect"
+                    ) as raw_open,
+                ):
+                    with self.assertRaisesRegex(RuntimeError, expected):
+                        validate_input_manifest(
+                            package["manifest"],
+                            input_root=None,
+                            **kwargs,
+                        )
+                    raw_open.assert_not_called()
+
+            mutations = (
+                ("status", "pending"),
+                ("formal_run_allowed", False),
+                (
+                    "reviewed_implementation_sha",
+                    "b" * 40,
+                ),
+            )
+            original = json.loads(package["manifest"].read_text(encoding="utf-8"))
+            for field, value in mutations:
+                mutated = copy.deepcopy(original)
+                mutated["authorization"][field] = value
+                path = root / f"mutated-{field}.json"
+                write_json(path, mutated)
+                with (
+                    self.subTest(field=field),
+                    patch(
+                        "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect"
+                    ) as raw_open,
+                ):
+                    with self.assertRaises(Exception):
+                        validate_input_manifest(
+                            path,
+                            input_root=None,
+                            allow_synthetic_fixture=False,
+                            allow_formal_run=True,
+                            reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                        )
+                    raw_open.assert_not_called()
+
+    def test_formal_manifest_success_and_path_policies(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package = build_formal_input_package(root)
+            with patch(
+                "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect",
+                wraps=duckdb.connect,
+            ) as raw_open:
+                result = validate_input_manifest(
+                    package["manifest"],
+                    input_root=None,
+                    allow_synthetic_fixture=False,
+                    allow_formal_run=True,
+                    reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                )
+            self.assertEqual(result["metadata"]["exp_a01_raw_metrics"]["row_count"], 72)
+            self.assertTrue(
+                any(
+                    call.kwargs.get("read_only") is True
+                    for call in raw_open.call_args_list
+                )
+            )
+
+            manifest = json.loads(Path(package["manifest"]).read_text(encoding="utf-8"))
+            for declaration in manifest["input_artifacts"].values():
+                declaration["path_policy"] = "basename_local_only"
+            basename_manifest = root / "basename.json"
+            write_json(basename_manifest, manifest)
+            basename_result = validate_input_manifest(
+                basename_manifest,
+                input_root=root,
+                allow_synthetic_fixture=False,
+                allow_formal_run=True,
+                reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+            )
+            self.assertEqual(
+                basename_result["metadata"]["exp_a01_raw_metrics"]["key_count"], 24
+            )
+
+            manifest = json.loads(Path(package["manifest"]).read_text(encoding="utf-8"))
+            for declaration in manifest["input_artifacts"].values():
+                path = root / declaration["path"]
+                declaration["path_policy"] = "absolute_declared_path"
+                declaration["path"] = str(path.resolve())
+            absolute_manifest = root / "absolute.json"
+            write_json(absolute_manifest, manifest)
+            absolute_result = validate_input_manifest(
+                absolute_manifest,
+                input_root=None,
+                allow_synthetic_fixture=False,
+                allow_formal_run=True,
+                reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+            )
+            self.assertEqual(
+                absolute_result["metadata"]["exp_a01_raw_metrics"]["key_count"], 24
+            )
 
 
 if __name__ == "__main__":

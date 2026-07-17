@@ -2,11 +2,11 @@
 
 """Independent validator for the EXP-A02 aggregate package.
 
-The validator replays the accepted A01 handoff from disk, opens only a
-synthetic fixture in the implementation phase, performs set-based raw
-invariant checks, and recomputes each compact CSV with independent SQL.  It
-does not call the A02 producer query functions and it never performs a Python
-row-by-row oracle over the upstream raw table.
+The validator replays the accepted A01 handoff from disk, opens the declared
+input DuckDB read-only, performs set-based raw invariant checks, and
+recomputes each compact CSV with independent SQL. It does not call the A02
+producer query functions and it never performs a Python row-by-row oracle over
+the upstream raw table.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from pathlib import Path
@@ -66,6 +67,10 @@ EXPECTED_ARTIFACT_KINDS = {
     "exp_a01_validator_result": "a01_validator_json",
     "exp_a01_anomaly_scan": "a01_anomaly_json",
 }
+SHA40_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+SHA64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+FORMAL_MANIFEST_TYPE = "exp_a02_authorized_input_manifest"
+SYNTHETIC_MANIFEST_TYPE = "exp_a02_synthetic_input_manifest"
 EXPECTED_KEY_FIELDS = ("security_id", "trading_date", "observation_sequence")
 RAW_TYPE_EXPECTATIONS = {
     "run_id": "VARCHAR",
@@ -87,6 +92,7 @@ RAW_TYPE_EXPECTATIONS = {
 }
 MISMATCH_KEYS = (
     "lineage_mismatch",
+    "input_hash_mismatch",
     "raw_table_schema_mismatch",
     "raw_row_count_mismatch",
     "indicator_row_count_mismatch",
@@ -225,6 +231,10 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         errors.append("formal_run_executed_not_false")
     if config["formal_artifacts_generated"] is not False:
         errors.append("formal_artifacts_generated_not_false")
+    if config["phase"] != "formal_execution_activation_implementation_review":
+        errors.append("phase_not_formal_execution_activation_implementation_review")
+    if config["program_phase"] != "A02_formal_execution_activation_implementation":
+        errors.append("program_phase_not_formal_execution_activation_implementation")
     if config["input_contract"]["manifest_artifact_names"] != list(
         EXPECTED_MANIFEST_ARTIFACTS
     ):
@@ -258,18 +268,22 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         if validation.get(key) != expected:
             errors.append(f"validation_contract_{key}_mismatch")
     execution = config["execution_contract"]
-    for key in (
-        "implementation_synthetic_only",
-        "formal_execution_allowed",
-        "formal_run_not_implemented",
-        "read_only_upstream_raw",
-        "new_duckdb_forbidden",
-        "copy_upstream_raw_forbidden",
-        "pandas_forbidden",
-        "full_raw_python_iteration_forbidden",
-    ):
-        expected = False if key == "formal_execution_allowed" else True
-        if execution.get(key) is not expected:
+    expected_execution = {
+        "implementation_synthetic_only": False,
+        "formal_execution_capable": True,
+        "formal_execution_allowed": False,
+        "formal_run_not_implemented": False,
+        "formal_activation_requires_exact_sha_review": True,
+        "formal_authorization_mode": "authorized_manifest_plus_cli_exact_sha",
+        "read_only_upstream_raw": True,
+        "new_duckdb_forbidden": True,
+        "copy_upstream_raw_forbidden": True,
+        "pandas_forbidden": True,
+        "full_raw_python_iteration_forbidden": True,
+        "failure_package_preservation": True,
+    }
+    for key, expected in expected_execution.items():
+        if execution.get(key) != expected:
             errors.append(f"execution_contract_{key}_mismatch")
     return errors
 
@@ -280,17 +294,35 @@ def validate_handoff(path: Path) -> dict[str, Any]:
     return payload
 
 
-def _resolve_declared_path(manifest_path: Path, declaration: Mapping[str, Any]) -> Path:
+def _resolve_declared_path(
+    manifest_path: Path,
+    declaration: Mapping[str, Any],
+    *,
+    input_root: Path | None,
+    synthetic_fixture: bool,
+) -> Path:
     declared = str(declaration["path"])
     policy = declaration["path_policy"]
     declared_path = Path(declared)
+    if policy == "absolute_declared_path":
+        if not declared_path.is_absolute():
+            raise ValueError("absolute_declared_path requires an absolute path")
+        return declared_path.resolve()
+    if policy == "relative_to_manifest":
+        if declared_path.is_absolute():
+            raise ValueError("relative_to_manifest requires a relative path")
+        return (manifest_path.parent / declared_path).resolve()
     if policy == "basename_local_only":
+        if input_root is None:
+            raise ValueError("basename_local_only requires --input-root")
         if declared_path.name != declared or declared_path.is_absolute():
             raise ValueError("basename_local_only declaration must be a basename")
+        return (input_root.resolve() / declared_path).resolve()
+    if policy == "synthetic_fixture":
+        if not synthetic_fixture or declared_path.is_absolute():
+            raise ValueError("synthetic_fixture path policy is synthetic-only")
         return (manifest_path.parent / declared_path).resolve()
-    if declared_path.is_absolute():
-        return declared_path.resolve()
-    return (manifest_path.parent / declared_path).resolve()
+    raise ValueError(f"unsupported input path policy: {policy}")
 
 
 def _required_json_fields(
@@ -351,29 +383,60 @@ def _inspect_json(path: Path, declaration: Mapping[str, Any]) -> dict[str, Any]:
     return {"payload": payload, "row_count": None}
 
 
-def validate_input_manifest(
+def prepare_input_manifest(
     manifest_path: Path,
     *,
-    allow_synthetic_fixture: bool = False,
+    input_root: Path | None,
+    allow_synthetic_fixture: bool,
+    allow_formal_run: bool,
+    reviewed_implementation_sha: str | None,
 ) -> dict[str, Any]:
-    """Replay the A01 handoff and the five input bindings from disk.
-
-    A real authorized A02 manifest is intentionally rejected in this
-    implementation phase before its raw path is opened.  Synthetic fixtures
-    are the only executable input mode until a later reviewed SHA authorizes
-    formal execution.
-    """
+    """Validate manifest, authorization, paths, hashes and JSON evidence."""
 
     manifest_path = manifest_path.resolve()
     manifest = load_json(manifest_path)
     _validate_schema(manifest, INPUT_MANIFEST_SCHEMA)
-    synthetic = manifest["manifest_type"] == "exp_a02_synthetic_input_manifest"
-    if not allow_synthetic_fixture or not synthetic:
-        raise RuntimeError(
-            "EXP-A02 implementation accepts synthetic fixture manifests only"
-        )
-    if manifest["authorization"]["status"] != "synthetic_fixture_only":
-        raise ValueError("synthetic manifest authorization status mismatch")
+    manifest_type = manifest["manifest_type"]
+    synthetic = manifest_type == SYNTHETIC_MANIFEST_TYPE
+    formal = manifest_type == FORMAL_MANIFEST_TYPE
+    authorization = manifest["authorization"]
+    if synthetic:
+        if not allow_synthetic_fixture or allow_formal_run:
+            raise RuntimeError("synthetic manifest requires synthetic mode only")
+        if reviewed_implementation_sha is not None:
+            raise ValueError("synthetic mode must not receive a reviewed SHA")
+        if (
+            authorization["status"] != "synthetic_fixture_only"
+            or authorization["formal_run_allowed"] is not False
+        ):
+            raise ValueError("synthetic manifest authorization status mismatch")
+    elif formal:
+        if allow_synthetic_fixture or not allow_formal_run:
+            raise RuntimeError("authorized manifest requires formal mode only")
+        if not reviewed_implementation_sha or not SHA40_PATTERN.fullmatch(
+            reviewed_implementation_sha
+        ):
+            raise ValueError(
+                "formal mode requires a 40-character lowercase reviewed SHA"
+            )
+        if (
+            authorization["status"] != "approved"
+            or authorization["formal_run_allowed"] is not True
+        ):
+            raise ValueError("formal manifest authorization is not approved")
+        if (
+            authorization.get("reviewed_implementation_sha")
+            != reviewed_implementation_sha
+        ):
+            raise ValueError("formal reviewed implementation SHA mismatch")
+        if authorization.get("authorized_for_task") != TASK_ID:
+            raise ValueError("formal authorization task mismatch")
+        if authorization.get("authorization_scope") != (
+            "EXP-A02 formal raw-domain availability validity only"
+        ):
+            raise ValueError("formal authorization scope mismatch")
+    else:
+        raise ValueError(f"unsupported EXP-A02 manifest type: {manifest_type}")
     artifacts = manifest["input_artifacts"]
     if set(artifacts) != set(EXPECTED_MANIFEST_ARTIFACTS) or len(artifacts) != len(
         EXPECTED_MANIFEST_ARTIFACTS
@@ -388,10 +451,14 @@ def validate_input_manifest(
         raise ValueError("accepted A01 implementation binding mismatch")
     if bindings["result_commit"] != A01_RESULT_COMMIT:
         raise ValueError("accepted A01 result commit binding mismatch")
+    for binding_name in ("raw_artifact_sha256", "a01_manifest_sha256"):
+        if not SHA64_PATTERN.fullmatch(str(bindings[binding_name])):
+            raise ValueError(f"invalid SHA-256 binding: {binding_name}")
 
     metadata: dict[str, Any] = {}
     paths: dict[str, Path] = {}
     payloads: dict[str, dict[str, Any]] = {}
+    artifact_hashes: dict[str, str] = {}
     for artifact_id in EXPECTED_MANIFEST_ARTIFACTS:
         declaration = artifacts[artifact_id]
         if declaration["artifact_id"] != artifact_id:
@@ -400,22 +467,31 @@ def validate_input_manifest(
             raise ValueError(f"artifact_kind mismatch: {artifact_id}")
         if declaration["filename"] != Path(declaration["path"]).name:
             raise ValueError(f"artifact filename/path mismatch: {artifact_id}")
-        path = _resolve_declared_path(manifest_path, declaration)
+        policy = declaration["path_policy"]
+        if synthetic and policy != "synthetic_fixture":
+            raise ValueError("synthetic manifest requires synthetic_fixture paths")
+        if formal and policy == "synthetic_fixture":
+            raise ValueError("formal manifest cannot use synthetic_fixture paths")
+        path = _resolve_declared_path(
+            manifest_path,
+            declaration,
+            input_root=input_root,
+            synthetic_fixture=synthetic,
+        )
         if not path.is_file():
             raise FileNotFoundError(f"input artifact is missing: {path}")
+        if not SHA64_PATTERN.fullmatch(str(declaration["sha256"])):
+            raise ValueError(f"invalid artifact SHA-256: {artifact_id}")
         actual_sha = sha256_file(path)
         if actual_sha != declaration["sha256"]:
             raise ValueError(f"input artifact hash mismatch: {artifact_id}")
         paths[artifact_id] = path
-        if declaration["artifact_kind"] == "duckdb_table":
-            artifact_metadata = _inspect_duckdb(path, declaration)
-            if declaration.get("row_count") != artifact_metadata["row_count"]:
-                raise ValueError(f"input row count declaration mismatch: {artifact_id}")
-            if declaration.get("table") != artifact_metadata["table"]:
-                raise ValueError(f"input table declaration mismatch: {artifact_id}")
-            metadata[artifact_id] = artifact_metadata
-        else:
-            inspected = _inspect_json(path, declaration)
+        artifact_hashes[artifact_id] = actual_sha
+
+    for artifact_id in EXPECTED_MANIFEST_ARTIFACTS:
+        declaration = artifacts[artifact_id]
+        if declaration["artifact_kind"] != "duckdb_table":
+            inspected = _inspect_json(paths[artifact_id], declaration)
             payloads[artifact_id] = inspected["payload"]
             metadata[artifact_id] = {"row_count": None}
 
@@ -454,6 +530,15 @@ def validate_input_manifest(
         raise ValueError("validator cross-binding mismatch")
     if bindings["anomaly_status"] != anomaly.get("status"):
         raise ValueError("anomaly cross-binding mismatch")
+    if not synthetic:
+        accepted_raw = handoff["raw_artifact"]
+        if bindings["raw_artifact_sha256"] != accepted_raw["sha256"]:
+            raise ValueError("accepted A01 raw binding mismatch: raw_artifact_sha256")
+        if (
+            bindings["a01_manifest_sha256"]
+            != handoff["compact_result"]["manifest_sha256"]
+        ):
+            raise ValueError("accepted A01 manifest binding mismatch")
 
     return {
         "manifest": manifest,
@@ -465,7 +550,76 @@ def validate_input_manifest(
         "metadata": metadata,
         "handoff": handoff,
         "declarations": artifacts,
+        "artifact_hashes": artifact_hashes,
+        "reviewed_implementation_sha": reviewed_implementation_sha,
     }
+
+
+def _validate_raw_input_manifest_metadata(input_info: dict[str, Any]) -> dict[str, Any]:
+    """Validate raw table metadata after the caller has recorded input hashes."""
+
+    artifacts = input_info["declarations"]
+    bindings = input_info["manifest"]["cross_artifact_bindings"]
+    raw_declaration = artifacts["exp_a01_raw_metrics"]
+    artifact_metadata = _inspect_duckdb(
+        input_info["paths"]["exp_a01_raw_metrics"], raw_declaration
+    )
+    if raw_declaration.get("row_count") != artifact_metadata["row_count"]:
+        raise ValueError("input row count declaration mismatch: exp_a01_raw_metrics")
+    if raw_declaration.get("table") != artifact_metadata["table"]:
+        raise ValueError("input table declaration mismatch: exp_a01_raw_metrics")
+    for field in ("security_count", "date_min", "date_max"):
+        if (
+            field in raw_declaration
+            and raw_declaration[field] != artifact_metadata[field]
+        ):
+            raise ValueError(f"input {field} declaration mismatch: exp_a01_raw_metrics")
+    input_info["metadata"]["exp_a01_raw_metrics"] = artifact_metadata
+    expected_cross_bindings = {
+        "raw_row_count": artifact_metadata["row_count"],
+        "raw_key_count": artifact_metadata["key_count"],
+        "security_count": artifact_metadata["security_count"],
+        "date_min": artifact_metadata["date_min"],
+        "date_max": artifact_metadata["date_max"],
+    }
+    for field, expected in expected_cross_bindings.items():
+        if bindings[field] != expected:
+            raise ValueError(f"raw cross-binding mismatch: {field}")
+    if not input_info["synthetic_fixture"]:
+        accepted_raw = input_info["handoff"]["raw_artifact"]
+        accepted_bindings = {
+            "raw_artifact_sha256": accepted_raw["sha256"],
+            "raw_row_count": accepted_raw["row_count"],
+            "raw_key_count": accepted_raw["expected_index_row_count"],
+            "security_count": accepted_raw["security_count"],
+            "date_min": accepted_raw["date_min"],
+            "date_max": accepted_raw["date_max"],
+        }
+        for field, expected in accepted_bindings.items():
+            if bindings[field] != expected:
+                raise ValueError(f"accepted A01 raw binding mismatch: {field}")
+    return input_info
+
+
+def validate_input_manifest(
+    manifest_path: Path,
+    *,
+    input_root: Path | None,
+    allow_synthetic_fixture: bool,
+    allow_formal_run: bool,
+    reviewed_implementation_sha: str | None,
+) -> dict[str, Any]:
+    """Replay all five input bindings, including the raw table metadata."""
+
+    return _validate_raw_input_manifest_metadata(
+        prepare_input_manifest(
+            manifest_path,
+            input_root=input_root,
+            allow_synthetic_fixture=allow_synthetic_fixture,
+            allow_formal_run=allow_formal_run,
+            reviewed_implementation_sha=reviewed_implementation_sha,
+        )
+    )
 
 
 def _type_matches(actual: str, expected: str) -> bool:
@@ -987,6 +1141,30 @@ def _validate_output_manifest(
     mismatches = 0
     if manifest.get("task_id") != TASK_ID or manifest.get("run_id") != run_id:
         mismatches += 1
+    synthetic = bool(input_info["synthetic_fixture"])
+    expected_phase = "implementation_synthetic_fixture" if synthetic else "formal_run"
+    if manifest.get("phase") != expected_phase:
+        mismatches += 1
+    if manifest.get("synthetic_fixture") is not synthetic:
+        mismatches += 1
+    expected_flags = {
+        "formal_run_allowed": not synthetic,
+        "formal_run_executed": not synthetic,
+        "formal_artifacts_generated": not synthetic,
+    }
+    for field, expected in expected_flags.items():
+        if manifest.get(field) is not expected:
+            mismatches += 1
+    if not synthetic and manifest.get("reviewed_implementation_sha") != input_info.get(
+        "reviewed_implementation_sha"
+    ):
+        mismatches += 1
+    if manifest.get("EXP_A03_started") is not False:
+        mismatches += 1
+    if manifest.get("A_layer_registered") is not False:
+        mismatches += 1
+    if manifest.get("PCATV_created") is not False:
+        mismatches += 1
     if manifest.get("input_manifest_sha256") != input_info["manifest_sha256"]:
         mismatches += 1
     if not require_final_manifest and manifest.get("final_manifest") is not True:
@@ -1010,6 +1188,42 @@ def _validate_output_manifest(
             if declaration.get("path") != filename:
                 mismatches += 1
     return mismatches, manifest
+
+
+def _validate_input_hash_bindings(
+    output_manifest: Mapping[str, Any] | None,
+    input_info: Mapping[str, Any],
+) -> tuple[list[str], dict[str, str] | None, dict[str, str] | None, int | None]:
+    if output_manifest is None:
+        return (["input_hash_manifest_missing"], None, None, None)
+    before_value = output_manifest.get("input_hashes_before")
+    after_value = output_manifest.get("input_hashes_after")
+    if not isinstance(before_value, dict) or not isinstance(after_value, dict):
+        return (["input_hash_bindings_missing"], None, None, None)
+    before = {str(key): str(value) for key, value in before_value.items()}
+    after = {str(key): str(value) for key, value in after_value.items()}
+    expected = {
+        str(key): str(value) for key, value in input_info["artifact_hashes"].items()
+    }
+    errors: list[str] = []
+    if set(before) != set(EXPECTED_MANIFEST_ARTIFACTS):
+        errors.append("input_hashes_before_artifact_set_mismatch")
+    if set(after) != set(EXPECTED_MANIFEST_ARTIFACTS):
+        errors.append("input_hashes_after_artifact_set_mismatch")
+    if after != expected:
+        errors.append("input_hashes_after_current_mismatch")
+    changed_count = sum(
+        before.get(artifact_id) != after.get(artifact_id)
+        for artifact_id in EXPECTED_MANIFEST_ARTIFACTS
+    )
+    if before != after:
+        errors.append("input_hashes_before_after_differ")
+    declared_changed_count = output_manifest.get("input_hash_changed_count")
+    if declared_changed_count != changed_count:
+        errors.append("input_hash_changed_count_mismatch")
+    if changed_count != 0:
+        errors.append("input_hash_changed_count_nonzero")
+    return errors, before, after, changed_count
 
 
 def _validate_small_json_artifact(
@@ -1069,6 +1283,9 @@ def validate_package(
     require_final_manifest: bool = True,
     allow_synthetic_fixture: bool = True,
     require_diagnostics: bool = True,
+    input_root: Path | None = None,
+    allow_formal_run: bool = False,
+    reviewed_implementation_sha: str | None = None,
 ) -> dict[str, Any]:
     """Validate one A02 package and return a compact diagnostic result."""
 
@@ -1080,7 +1297,11 @@ def validate_package(
         if config_errors:
             errors.extend(config_errors)
         input_info = validate_input_manifest(
-            input_manifest_path, allow_synthetic_fixture=allow_synthetic_fixture
+            input_manifest_path,
+            input_root=input_root,
+            allow_synthetic_fixture=allow_synthetic_fixture,
+            allow_formal_run=allow_formal_run,
+            reviewed_implementation_sha=reviewed_implementation_sha,
         )
     except Exception as exc:  # noqa: BLE001
         mismatches["lineage_mismatch"] = 1
@@ -1101,6 +1322,7 @@ def validate_package(
     raw_path = input_info["paths"]["exp_a01_raw_metrics"]
     raw_metadata = input_info["metadata"]["exp_a01_raw_metrics"]
     expected_row_count = raw_metadata["key_count"]
+    raw_details: dict[str, Any] = {}
     connection = duckdb.connect(str(raw_path), read_only=True)
     try:
         raw_mismatches, raw_details = _raw_invariants(
@@ -1149,6 +1371,14 @@ def validate_package(
         require_final_manifest=require_final_manifest,
     )
     mismatches["output_manifest_mismatch"] += manifest_mismatch
+    (
+        input_hash_errors,
+        input_hashes_before,
+        input_hashes_after,
+        input_hash_changed_count,
+    ) = _validate_input_hash_bindings(output_manifest, input_info)
+    errors.extend(input_hash_errors)
+    mismatches["input_hash_mismatch"] += len(input_hash_errors)
     if output_manifest is not None:
         for filename, declaration in output_manifest.get(
             "output_artifacts", {}
@@ -1175,6 +1405,14 @@ def validate_package(
                 validator_artifact.get("status") != "passed"
                 or validator_artifact.get("valid") is not True
             )
+            if input_hashes_before is not None and input_hashes_after is not None:
+                mismatches["validator_artifact_mismatch"] += int(
+                    validator_artifact.get("input_hashes_before") != input_hashes_before
+                    or validator_artifact.get("input_hashes_after")
+                    != input_hashes_after
+                    or validator_artifact.get("input_hash_changed_count")
+                    != input_hash_changed_count
+                )
         if anomaly_artifact is not None:
             mismatches["anomaly_artifact_mismatch"] += int(
                 anomaly_artifact.get("status")
@@ -1212,6 +1450,10 @@ def validate_package(
         "input_artifact_hashes": {
             name: sha256_file(path) for name, path in input_info["paths"].items()
         },
+        "input_hashes_before": input_hashes_before,
+        "input_hashes_after": input_hashes_after,
+        "input_hash_changed_count": input_hash_changed_count,
+        "reviewed_implementation_sha": input_info.get("reviewed_implementation_sha"),
         "checked_files": sorted(path.name for path in package_root.glob("*")),
         "checked_tables": [RAW_TABLE],
     }
@@ -1222,6 +1464,8 @@ def cheap_validate_final_package(
     *,
     input_manifest_sha256: str,
     run_id: str,
+    synthetic_fixture: bool | None = None,
+    reviewed_implementation_sha: str | None = None,
 ) -> dict[str, Any]:
     """Validate only final text/hash bindings; never recompute aggregates."""
 
@@ -1239,6 +1483,27 @@ def cheap_validate_final_package(
         errors.append("final_manifest_flag_missing")
     if manifest.get("input_manifest_sha256") != input_manifest_sha256:
         errors.append("input_manifest_sha256_mismatch")
+    if "input_hashes_before" not in manifest or "input_hashes_after" not in manifest:
+        errors.append("input_hash_bindings_missing")
+    if manifest.get("input_hash_changed_count") != 0:
+        errors.append("input_hash_changed_count_nonzero")
+    if synthetic_fixture is not None:
+        if manifest.get("synthetic_fixture") is not synthetic_fixture:
+            errors.append("synthetic_fixture_flag_mismatch")
+        expected_formal = not synthetic_fixture
+        for field in (
+            "formal_run_allowed",
+            "formal_run_executed",
+            "formal_artifacts_generated",
+        ):
+            if manifest.get(field) is not expected_formal:
+                errors.append(f"{field}_mismatch")
+        if (
+            not synthetic_fixture
+            and manifest.get("reviewed_implementation_sha")
+            != reviewed_implementation_sha
+        ):
+            errors.append("reviewed_implementation_sha_mismatch")
     expected = set(OUTPUT_FILES.values()) - {OUTPUT_FILES["manifest"]}
     actual_files = {item.name for item in package_root.iterdir() if item.is_file()}
     if actual_files != expected | {OUTPUT_FILES["manifest"]}:

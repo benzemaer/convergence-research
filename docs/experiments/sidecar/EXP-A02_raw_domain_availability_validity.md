@@ -1,13 +1,17 @@
 # EXP-A02 raw domain / availability / validity
 
-EXP-A02 is the second implementation stage of the long-lived EXP-A sidecar branch. It consumes only the accepted EXP-A01 result handoff and its five bound artifacts. It does not consume D3 evidence directly, alter A1/A2/A2b formulas, register an A-layer indicator, select a winner, create PCATV, or start EXP-A03.
+EXP-A02 is the second implementation stage of the long-lived EXP-A sidecar branch. This commit activates the formal-execution path for the already approved aggregate and validator contract; it does not execute that path. It consumes only the accepted EXP-A01 result handoff and its five bound artifacts. It does not consume D3 evidence directly, alter A1/A2/A2b formulas, register an A-layer indicator, select a winner, create PCATV, or start EXP-A03.
 
 ## Governance state
 
 ```text
 task_id: EXP-A02
 program_id: EXP-A
-phase: implementation_review
+current_sidecar_task: EXP-A02 formal execution activation
+phase: formal_execution_activation_implementation_review
+approved_A02_aggregate_implementation_sha: f6f0dc961357ffe2f4cc43c07be11e804a7af992
+formal_execution_activation_sha:
+formal_execution_activation_review_status: pending
 implementation_review_status: pending
 reviewed_implementation_sha:
 formal_run_allowed: false
@@ -18,14 +22,17 @@ result_review_status: not_started
 EXP-A02_started: true
 EXP-A03_started: false
 formal_data_version: false
-execution_mode: synthetic_fixture_only
+real_authorized_input_manifest_created: false
+real_raw_opened: false
+mainline_task_unchanged: true
+mainline_current_task: R3-T02
 ```
 
-The accepted upstream is fixed to `EXP-A01-20260717T040145984Z`, result commit `b7be2577233c045e507efe05d20601a20d373c9b`, and execution implementation SHA `c9a52dc29f7d41c85ab416e99bb9ef8cc6411b9d`. The implementation package does not authorize a formal run. A later formal authorization, if any, must be issued against a newly reviewed exact implementation SHA and a separate authorized input manifest.
+The approved aggregate implementation is fixed at `f6f0dc961357ffe2f4cc43c07be11e804a7af992`; the producer file and its aggregate definitions are unchanged. The activation commit is pending exact-SHA implementation review and does not authorize a formal run. The accepted upstream is fixed to `EXP-A01-20260717T040145984Z`, result commit `b7be2577233c045e507efe05d20601a20d373c9b`, and execution implementation SHA `c9a52dc29f7d41c85ab416e99bb9ef8cc6411b9d`.
 
 ## Input contract
 
-The EXP-A02 synthetic manifest must contain exactly these five EXP-A01 artifacts, with byte SHA bindings and the accepted upstream cross-bindings replayed from disk:
+Both synthetic fixtures and a separately authorized formal manifest must contain exactly these five EXP-A01 artifacts, with byte SHA bindings and the accepted upstream cross-bindings replayed from disk:
 
 1. `exp_a01_accepted_result_handoff`;
 2. `exp_a01_raw_metrics`;
@@ -33,7 +40,7 @@ The EXP-A02 synthetic manifest must contain exactly these five EXP-A01 artifacts
 4. `exp_a01_validator_result`;
 5. `exp_a01_anomaly_scan`.
 
-The handoff must state that EXP-A01 is accepted and that EXP-A02 is eligible to consume it. The raw DuckDB is opened read-only only inside synthetic tests. The runner rejects an authorized/formal manifest during this implementation phase before opening its raw path; it accepts only `exp_a02_synthetic_input_manifest` with `formal_run_allowed=false`.
+The handoff must state that EXP-A01 is accepted and that EXP-A02 is eligible to consume it. Formal path policies are limited to absolute declared paths, paths relative to the manifest, or a basename resolved under the explicit `--input-root`; synthetic fixtures use only the synthetic-fixture policy. Formal mode requires an approved manifest, `--allow-formal-run`, a reviewed 40-character SHA, an exact clean HEAD, and a non-existing output directory. The input DuckDB is always opened read-only, and the five input hashes are recorded before and after execution. No real authorized manifest or real A01 raw has been created or opened in this activation commit.
 
 ## Implemented aggregate contract
 
@@ -51,10 +58,10 @@ Year and security `valid_rate_expected` values use the row count within the corr
 
 ## Output and failure policy
 
-The allowed compact package consists of the nine CSVs, an output manifest, validator result, anomaly scan and fixed-section result analysis. No output raw DuckDB is generated or copied. The final package is atomically published only after independent validation. A failed synthetic run preserves the staging compact diagnostics under its failure package, writes a diagnostic `failure_summary.json`, does not publish the requested output directory, and does not classify the package as a formal result.
+The allowed compact package consists of the nine CSVs, an output manifest, validator result, anomaly scan and fixed-section result analysis. No output raw DuckDB is generated or copied. The final package is atomically published only after one complete independent core validation, one anomaly scan and one cheap final-package validation. A failed synthetic or formal run preserves the staging compact diagnostics under its local-only failure package, writes a diagnostic `failure_summary.json`, does not publish the requested output directory, and does not classify the package as a formal result.
 
 ## Validation boundary
 
-The standalone CLI calls the same independent validator entrypoint used by the runner and performs the full disk-based input-lineage, raw-invariant, aggregate-recompute, persisted-CSV, manifest, diagnostic and forbidden-field checks. The validator and cheap final validator both enforce the canonical UTF-8/LF result-analysis text contract: exactly the frozen 20 headings, in order, once each, with an allowed readiness value on the final line. Tests cover producer determinism, group-local availability denominators, full-domain A2 grid detection, the five-artifact lineage contract, authorized-manifest rejection, raw deletion/duplication/unknown-indicator/null/non-finite/domain/grid/pair mutations, all nine aggregate CSV families, analysis-contract mutations, evidence mutations, standalone CLI read-only behavior, and failure-package preservation.
+The standalone CLI calls the same independent validator entrypoint used by the runner and performs the full disk-based input-lineage, raw-invariant, aggregate-recompute, persisted-CSV, manifest, input-hash, diagnostic and forbidden-field checks. The validator and cheap final validator both enforce the canonical UTF-8/LF result-analysis text contract: exactly the frozen 20 headings, in order, once each, with an allowed readiness value on the final line. Tests cover producer determinism, group-local availability denominators, full-domain A2 grid detection, the five-artifact lineage contract, formal authorization and path policies, exact-SHA failures before raw open, formal/synthetic CSV identity, input-hash mutation preservation, raw deletion/duplication/unknown-indicator/null/non-finite/domain/grid/pair mutations, all nine aggregate CSV families, analysis-contract mutations, evidence mutations, standalone CLI read-only behavior, and failure-package preservation.
 
-No real EXP-A02 formal run, large A01 raw read, result package, A-layer registration, winner selection, PCATV creation or EXP-A03 work is part of this implementation commit.
+No real EXP-A02 formal run, large A01 raw read, real authorized manifest, result package, A-layer registration, winner selection, PCATV creation or EXP-A03 work is part of this implementation commit. Formal activation review remains pending; `formal_run_allowed=false` and `formal_artifacts_generated=false` remain in force.

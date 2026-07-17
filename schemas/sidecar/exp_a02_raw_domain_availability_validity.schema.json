@@ -16,8 +16,8 @@
     "experiment_name": {"const": "A层候选raw domain、availability与validity"},
     "research_route": {"const": "sidecar_exploration"},
     "workflow_mode": {"const": "long_lived_same_pr"},
-    "phase": {"const": "implementation_review"},
-    "program_phase": {"const": "A02_raw_domain_availability_validity_implementation"},
+    "phase": {"const": "formal_execution_activation_implementation_review"},
+    "program_phase": {"const": "A02_formal_execution_activation_implementation"},
     "implementation_review_status": {"const": "pending"},
     "reviewed_implementation_sha": {"const": ""},
     "formal_run_allowed": {"const": false},
@@ -70,10 +70,13 @@
       "common_valid_sets": {"const": ["A1_A2", "A1_A2b", "A2_A2b", "A1_A2_A2b"]},
       "expected_key_fields": {"const": ["security_id", "trading_date", "observation_sequence"]}
     }},
-    "execution_contract": {"type": "object", "required": ["implementation_synthetic_only", "formal_execution_allowed", "formal_run_not_implemented", "read_only_upstream_raw", "new_duckdb_forbidden", "copy_upstream_raw_forbidden", "pandas_forbidden", "full_raw_python_iteration_forbidden", "failure_package_preservation"], "additionalProperties": true, "properties": {
-      "implementation_synthetic_only": {"const": true},
+    "execution_contract": {"type": "object", "required": ["implementation_synthetic_only", "formal_execution_capable", "formal_execution_allowed", "formal_run_not_implemented", "formal_activation_requires_exact_sha_review", "formal_authorization_mode", "read_only_upstream_raw", "new_duckdb_forbidden", "copy_upstream_raw_forbidden", "pandas_forbidden", "full_raw_python_iteration_forbidden", "failure_package_preservation"], "additionalProperties": true, "properties": {
+      "implementation_synthetic_only": {"const": false},
+      "formal_execution_capable": {"const": true},
       "formal_execution_allowed": {"const": false},
-      "formal_run_not_implemented": {"const": true},
+      "formal_run_not_implemented": {"const": false},
+      "formal_activation_requires_exact_sha_review": {"const": true},
+      "formal_authorization_mode": {"const": "authorized_manifest_plus_cli_exact_sha"},
       "read_only_upstream_raw": {"const": true},
       "new_duckdb_forbidden": {"const": true},
       "copy_upstream_raw_forbidden": {"const": true},

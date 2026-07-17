@@ -14,8 +14,15 @@
     "formal_data_version": {"const": false},
     "authorization": {
       "type": "object", "additionalProperties": false,
-      "required": ["status", "formal_run_allowed", "evidence"],
-      "properties": {"status": {"enum": ["approved", "synthetic_fixture_only"]}, "formal_run_allowed": {"const": false}, "evidence": {"type": "string", "minLength": 1}}
+      "required": ["status", "formal_run_allowed"],
+      "properties": {
+        "status": {"enum": ["approved", "synthetic_fixture_only"]},
+        "formal_run_allowed": {"type": "boolean"},
+        "evidence": {"type": "string", "minLength": 1},
+        "reviewed_implementation_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "authorized_for_task": {"const": "EXP-A02"},
+        "authorization_scope": {"const": "EXP-A02 formal raw-domain availability validity only"}
+      }
     },
     "input_artifacts": {
       "type": "object", "additionalProperties": false,
@@ -30,12 +37,17 @@
     },
     "cross_artifact_bindings": {
       "type": "object", "additionalProperties": false,
-      "required": ["accepted_run_id", "implementation_sha", "result_commit", "raw_artifact_sha256", "a01_manifest_sha256", "validator_status", "anomaly_status"],
+      "required": ["accepted_run_id", "implementation_sha", "result_commit", "raw_artifact_sha256", "raw_row_count", "raw_key_count", "security_count", "date_min", "date_max", "a01_manifest_sha256", "validator_status", "anomaly_status"],
       "properties": {
         "accepted_run_id": {"const": "EXP-A01-20260717T040145984Z"},
         "implementation_sha": {"const": "c9a52dc29f7d41c85ab416e99bb9ef8cc6411b9d"},
         "result_commit": {"const": "b7be2577233c045e507efe05d20601a20d373c9b"},
         "raw_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "raw_row_count": {"type": "integer", "minimum": 0},
+        "raw_key_count": {"type": "integer", "minimum": 0},
+        "security_count": {"type": "integer", "minimum": 0},
+        "date_min": {"type": "string", "format": "date"},
+        "date_max": {"type": "string", "format": "date"},
         "a01_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "validator_status": {"const": "passed"},
         "anomaly_status": {"const": "passed"}
@@ -51,7 +63,7 @@
         "artifact_kind": {"enum": ["handoff_json", "duckdb_table", "a01_manifest_json", "a01_validator_json", "a01_anomaly_json"]},
         "filename": {"type": "string", "minLength": 1},
         "path": {"type": "string", "minLength": 1},
-        "path_policy": {"enum": ["manifest_relative", "absolute_external", "basename_local_only", "synthetic_fixture"]},
+        "path_policy": {"enum": ["absolute_declared_path", "relative_to_manifest", "basename_local_only", "synthetic_fixture"]},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "table": {"type": "string", "minLength": 1},
         "row_count": {"type": "integer", "minimum": 0},
@@ -62,5 +74,29 @@
         "date_max": {"type": "string", "format": "date"}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"manifest_type": {"const": "exp_a02_authorized_input_manifest"}}},
+      "then": {
+        "properties": {
+          "authorization": {
+            "required": ["status", "formal_run_allowed", "reviewed_implementation_sha", "authorized_for_task", "authorization_scope"],
+            "properties": {"status": {"const": "approved"}, "formal_run_allowed": {"const": true}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"manifest_type": {"const": "exp_a02_synthetic_input_manifest"}}},
+      "then": {
+        "properties": {
+          "authorization": {
+            "required": ["status", "formal_run_allowed", "evidence"],
+            "properties": {"status": {"const": "synthetic_fixture_only"}, "formal_run_allowed": {"const": false}}
+          }
+        }
+      }
+    }
+  ]
 }

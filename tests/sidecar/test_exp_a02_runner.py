@@ -7,7 +7,11 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.sidecar.run_exp_a02_raw_domain_availability_validity import run_synthetic
+from scripts.sidecar.run_exp_a02_raw_domain_availability_validity import (
+    _formal_analysis_with_readiness,
+    run_formal,
+    run_synthetic,
+)
 from scripts.sidecar.validate_exp_a02_raw_domain_availability_validity import (
     main as validate_main,
 )
@@ -18,9 +22,14 @@ from src.sidecar.exp_a02_raw_domain_availability_validity import (
 from src.sidecar.exp_a02_raw_domain_availability_validity_validator import (
     CONFIG_PATH,
     cheap_validate_final_package,
+    sha256_file,
     validate_package,
 )
-from tests.sidecar.test_exp_a02_lineage import build_synthetic_input_package
+from tests.sidecar.test_exp_a02_lineage import (
+    REVIEWED_ACTIVATION_SHA,
+    build_formal_input_package,
+    build_synthetic_input_package,
+)
 
 
 def run_existing_fixture(
@@ -47,7 +56,316 @@ def run_fixture(root: Path, run_id: str) -> tuple[dict[str, Path | int], Path]:
     return run_existing_fixture(root, inputs, run_id)
 
 
+def run_formal_fixture(
+    root: Path, run_id: str
+) -> tuple[dict[str, Path | int | str], Path]:
+    inputs = build_formal_input_package(root / f"formal-inputs-{run_id}")
+    output = root / run_id
+    with (
+        patch(
+            "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_head",
+            return_value=REVIEWED_ACTIVATION_SHA,
+        ),
+        patch(
+            "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_worktree_status",
+            return_value="",
+        ),
+    ):
+        result = run_formal(
+            Namespace(
+                config=CONFIG_PATH,
+                input_manifest=inputs["manifest"],
+                input_root=inputs["input_root"],
+                output_root=output,
+                run_id=run_id,
+                failure_root=root / "failures",
+                allow_formal_run=True,
+                reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+            )
+        )
+    if result["status"] != "passed":
+        raise AssertionError(result)
+    return inputs, output
+
+
 class ExpA02RunnerTest(unittest.TestCase):
+    def test_formal_and_synthetic_modes_materialize_identical_csv_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, synthetic_output = run_fixture(root, "EXP-A02-20260717T000008000Z")
+            formal_inputs, formal_output = run_formal_fixture(
+                root, "EXP-A02-20260717T000009000Z"
+            )
+            for profile_name in (
+                "raw_domain_profile",
+                "indicator_availability",
+                "common_valid_availability",
+                "validity_status_profile",
+                "reason_code_profile",
+                "reason_combination_profile",
+                "year_availability",
+                "security_availability",
+                "extreme_value_sample",
+            ):
+                filename = OUTPUT_FILES[profile_name]
+                self.assertEqual(
+                    (synthetic_output / filename).read_bytes(),
+                    (formal_output / filename).read_bytes(),
+                )
+            self.assertFalse(any(formal_output.glob("*.duckdb")))
+            manifest = json.loads(
+                (formal_output / OUTPUT_FILES["manifest"]).read_text(encoding="utf-8")
+            )
+            self.assertFalse(manifest["synthetic_fixture"])
+            self.assertTrue(manifest["formal_run_allowed"])
+            self.assertTrue(manifest["formal_run_executed"])
+            self.assertEqual(
+                set(manifest["input_hashes_before"]),
+                {
+                    "exp_a01_accepted_result_handoff",
+                    "exp_a01_raw_metrics",
+                    "exp_a01_manifest",
+                    "exp_a01_validator_result",
+                    "exp_a01_anomaly_scan",
+                },
+            )
+            self.assertTrue(
+                (formal_output / OUTPUT_FILES["result_analysis"])
+                .read_text(encoding="utf-8")
+                .find(REVIEWED_ACTIVATION_SHA)
+                >= 0
+            )
+            self.assertTrue(
+                (formal_output / OUTPUT_FILES["result_analysis"])
+                .read_text(encoding="utf-8")
+                .rstrip()
+                .endswith(
+                    "ready_for_user_formal_result_review"
+                    if manifest["anomaly_status"] == "passed"
+                    else "needs_investigation_before_user_review"
+                )
+            )
+            self.assertEqual(
+                manifest["input_manifest_sha256"],
+                sha256_file(Path(formal_inputs["manifest"])),
+            )
+            before = {
+                path.name: path.read_bytes()
+                for path in formal_output.iterdir()
+                if path.is_file()
+            }
+            self.assertEqual(
+                validate_main(
+                    [
+                        "--config",
+                        str(CONFIG_PATH),
+                        "--input-manifest",
+                        str(formal_inputs["manifest"]),
+                        "--input-root",
+                        str(formal_inputs["input_root"]),
+                        "--package-dir",
+                        str(formal_output),
+                        "--run-id",
+                        "EXP-A02-20260717T000009000Z",
+                        "--allow-formal-run",
+                        "--reviewed-implementation-sha",
+                        REVIEWED_ACTIVATION_SHA,
+                    ]
+                ),
+                0,
+            )
+            after = {
+                path.name: path.read_bytes()
+                for path in formal_output.iterdir()
+                if path.is_file()
+            }
+            self.assertEqual(before, after)
+
+    def test_formal_runner_uses_single_read_only_core_and_cheap_validation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = build_formal_input_package(root / "inputs")
+            run_id = "EXP-A02-20260717T000010000Z"
+            output = root / run_id
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_head",
+                    return_value=REVIEWED_ACTIVATION_SHA,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_worktree_status",
+                    return_value="",
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.validate_package",
+                    wraps=validate_package,
+                ) as core_validator,
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.cheap_validate_final_package",
+                    wraps=cheap_validate_final_package,
+                ) as cheap_validator,
+                patch(
+                    "src.sidecar.exp_a02_raw_domain_availability_validity_validator._validator_profiles",
+                    wraps=__import__(
+                        "src.sidecar.exp_a02_raw_domain_availability_validity_validator",
+                        fromlist=["_validator_profiles"],
+                    )._validator_profiles,
+                ) as aggregate_recompute,
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.duckdb.connect",
+                    wraps=__import__("duckdb").connect,
+                ) as raw_open,
+            ):
+                result = run_formal(
+                    Namespace(
+                        config=CONFIG_PATH,
+                        input_manifest=inputs["manifest"],
+                        input_root=inputs["input_root"],
+                        output_root=output,
+                        run_id=run_id,
+                        failure_root=root / "failures",
+                        allow_formal_run=True,
+                        reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                    )
+                )
+            self.assertEqual(result["status"], "passed")
+            self.assertEqual(core_validator.call_count, 1)
+            self.assertEqual(cheap_validator.call_count, 1)
+            self.assertEqual(aggregate_recompute.call_count, 1)
+            self.assertTrue(raw_open.call_count >= 3)
+            self.assertTrue(
+                all(
+                    call.kwargs.get("read_only") is True
+                    for call in raw_open.call_args_list
+                )
+            )
+            self.assertFalse(any(output.glob("*.duckdb")))
+
+    def test_exact_sha_gate_fails_before_raw_open(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = build_formal_input_package(root / "inputs")
+            cases = (
+                ("bad-format", "not-a-sha", True, REVIEWED_ACTIVATION_SHA, ""),
+                ("head-mismatch", "b" * 40, True, "b" * 40, ""),
+                (
+                    "dirty",
+                    REVIEWED_ACTIVATION_SHA,
+                    True,
+                    REVIEWED_ACTIVATION_SHA,
+                    " M file",
+                ),
+                (
+                    "missing-formal-flag",
+                    REVIEWED_ACTIVATION_SHA,
+                    False,
+                    REVIEWED_ACTIVATION_SHA,
+                    "",
+                ),
+                ("missing-reviewed-sha", None, True, REVIEWED_ACTIVATION_SHA, ""),
+            )
+            for suffix, reviewed_sha, allow_formal, head, status in cases:
+                with (
+                    self.subTest(case=suffix),
+                    patch(
+                        "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_head",
+                        return_value=head,
+                    ),
+                    patch(
+                        "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_worktree_status",
+                        return_value=status,
+                    ),
+                    patch(
+                        "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.duckdb.connect"
+                    ) as raw_open,
+                ):
+                    with self.assertRaises(Exception):
+                        run_formal(
+                            Namespace(
+                                config=CONFIG_PATH,
+                                input_manifest=inputs["manifest"],
+                                input_root=inputs["input_root"],
+                                output_root=root / f"EXP-A02-20260717T000011{suffix}",
+                                run_id=f"EXP-A02-20260717T000011{suffix}",
+                                failure_root=root / "failures",
+                                allow_formal_run=allow_formal,
+                                reviewed_implementation_sha=reviewed_sha,
+                            )
+                        )
+                    raw_open.assert_not_called()
+
+    def test_formal_input_mutation_is_preserved_as_failed_package(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = build_formal_input_package(root / "inputs")
+            run_id = "EXP-A02-20260717T000012000Z"
+            output = root / run_id
+            from scripts.sidecar import (
+                run_exp_a02_raw_domain_availability_validity as runner,
+            )
+
+            original_anomaly_scan = runner.build_anomaly_scan
+
+            def mutate_input(*args: object, **kwargs: object) -> dict[str, object]:
+                result = original_anomaly_scan(*args, **kwargs)
+                handoff = Path(inputs["handoff"])
+                handoff.write_bytes(handoff.read_bytes() + b" ")
+                return result
+
+            with (
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_head",
+                    return_value=REVIEWED_ACTIVATION_SHA,
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_worktree_status",
+                    return_value="",
+                ),
+                patch(
+                    "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.build_anomaly_scan",
+                    side_effect=mutate_input,
+                ),
+            ):
+                result = run_formal(
+                    Namespace(
+                        config=CONFIG_PATH,
+                        input_manifest=inputs["manifest"],
+                        input_root=inputs["input_root"],
+                        output_root=output,
+                        run_id=run_id,
+                        failure_root=root / "failures",
+                        allow_formal_run=True,
+                        reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                    )
+                )
+            self.assertEqual(result["status"], "failed")
+            self.assertFalse(output.exists())
+            failure_package = root / "failures" / run_id / "package"
+            self.assertTrue(failure_package.is_dir())
+            self.assertFalse(any(failure_package.glob("*.duckdb")))
+            summary = json.loads(
+                (failure_package / "failure_summary.json").read_text(encoding="utf-8")
+            )
+            self.assertGreater(summary["input_hash_changed_count"], 0)
+            self.assertNotEqual(
+                summary["input_hashes_before"], summary["input_hashes_after"]
+            )
+
+    def test_formal_analysis_readiness_values(self) -> None:
+        analysis = "section\nold_readiness\n"
+        self.assertTrue(
+            _formal_analysis_with_readiness(analysis, "passed").endswith(
+                "ready_for_user_formal_result_review\n"
+            )
+        )
+        self.assertTrue(
+            _formal_analysis_with_readiness(
+                analysis, "passed_with_investigation_items"
+            ).endswith("needs_investigation_before_user_review\n")
+        )
+
     def test_two_synthetic_runs_have_identical_compact_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
