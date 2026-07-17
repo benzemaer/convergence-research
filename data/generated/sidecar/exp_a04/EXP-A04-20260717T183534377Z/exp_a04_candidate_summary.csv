@@ -1,0 +1,4 @@
+a_candidate_id,nearest_layer,nearest_indicator,max_overall_spearman,max_tail_jaccard_005,max_tail_jaccard_010,hard_collision_count,hard_collision_pairs_json,eligible_pair_count,low_coverage_pair_count,provisional_status_for_A05
+A1_LogBodyCenterToMACloudCenter_5_60,C,C1_LogMASpread_5_60,0.6090569042290163,0.08769076974341886,0.1552422209009315,0,[],8,0,carry_to_A05
+A2_BodyCenterOutsideMACloudRate20_5_60,T,T1_ER20,0.3608307496405175,0.04575463371579876,0.08147280072543449,0,[],8,0,carry_to_A05
+A2b_BodyToMACloudGapMean20_5_60,P,P2_LogRange20,0.7291707916321929,0.10682205759498478,0.20906183529695727,0,[],8,0,carry_to_A05
