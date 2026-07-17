@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_a01_accepted_result_handoff.schema.json",
+  "title": "EXP-A01 accepted formal-result handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "task_id",
+    "program_id",
+    "status",
+    "formal_result_review_status",
+    "accepted_run_id",
+    "implementation_sha",
+    "result_commit",
+    "formal_data_version",
+    "raw_artifact",
+    "compact_result",
+    "downstream_authorization"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/sidecar/exp_a01_accepted_result_handoff.schema.json"},
+    "task_id": {"const": "EXP-A01"},
+    "program_id": {"const": "EXP-A"},
+    "status": {"const": "completed_accepted"},
+    "formal_result_review_status": {"const": "accepted"},
+    "accepted_run_id": {"const": "EXP-A01-20260717T040145984Z"},
+    "implementation_sha": {"const": "c9a52dc29f7d41c85ab416e99bb9ef8cc6411b9d"},
+    "result_commit": {"const": "b7be2577233c045e507efe05d20601a20d373c9b"},
+    "formal_data_version": {"const": false},
+    "raw_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "filename",
+        "table",
+        "path_policy",
+        "sha256",
+        "row_count",
+        "expected_index_row_count",
+        "security_count",
+        "date_min",
+        "date_max"
+      ],
+      "properties": {
+        "artifact_id": {"const": "exp_a01_raw_metrics"},
+        "filename": {"const": "exp_a01_raw_metrics.duckdb"},
+        "table": {"const": "exp_a01_raw_metrics"},
+        "path_policy": {"const": "basename_local_only"},
+        "sha256": {"const": "23e07d95fe4dbd296aff1412c0e40ce3dced4fe6f4515fe6dda621bf051842df"},
+        "row_count": {"const": 5253198},
+        "expected_index_row_count": {"const": 1751066},
+        "security_count": {"const": 800},
+        "date_min": {"const": "2016-01-04"},
+        "date_max": {"const": "2026-06-30"}
+      }
+    },
+    "compact_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_root",
+        "manifest_sha256",
+        "validator_status",
+        "anomaly_status",
+        "full_invariant_mismatch_count",
+        "oracle_sample_mismatch_count"
+      ],
+      "properties": {
+        "repository_root": {"const": "data/generated/sidecar/exp_a01/EXP-A01-20260717T040145984Z"},
+        "manifest_sha256": {"const": "3c8c31cb59ff5c89eb7540908e0eae116b5844d461057c6d1ea51d7060dc6828"},
+        "validator_status": {"const": "passed"},
+        "anomaly_status": {"const": "passed"},
+        "full_invariant_mismatch_count": {"const": 0},
+        "oracle_sample_mismatch_count": {"const": 0}
+      }
+    },
+    "downstream_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EXP_A02_input_eligible",
+        "EXP_A03_started",
+        "A_layer_registered",
+        "PCATV_created"
+      ],
+      "properties": {
+        "EXP_A02_input_eligible": {"const": true},
+        "EXP_A03_started": {"const": false},
+        "A_layer_registered": {"const": false},
+        "PCATV_created": {"const": false}
+      }
+    }
+  }
+}

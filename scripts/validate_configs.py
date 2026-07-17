@@ -353,6 +353,8 @@ def sidecar_config_pairs() -> tuple[tuple[Path, Path], ...]:
     for schema_path in sorted(schema_root.glob("*.schema.json")):
         if schema_path.name in {
             "exp_a01_authorized_input_manifest.schema.json",
+            "exp_a01_accepted_result_handoff.schema.json",
+            "exp_a02_authorized_input_manifest.schema.json",
         }:
             continue
         schema_stem = schema_path.name.removesuffix(".schema.json")
@@ -373,6 +375,8 @@ def standalone_sidecar_schemas() -> tuple[Path, ...]:
 
     return (
         ROOT / "schemas" / "sidecar" / "exp_a01_authorized_input_manifest.schema.json",
+        ROOT / "schemas" / "sidecar" / "exp_a01_accepted_result_handoff.schema.json",
+        ROOT / "schemas" / "sidecar" / "exp_a02_authorized_input_manifest.schema.json",
     )
 
 

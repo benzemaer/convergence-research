@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
+  "title": "EXP-A02 raw domain, availability and validity implementation contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "config_version", "task_id", "experiment_id", "program_id", "experiment_name", "research_route", "workflow_mode", "phase", "program_phase", "implementation_review_status", "reviewed_implementation_sha", "formal_run_allowed", "formal_run_status", "formal_run_executed", "formal_artifacts_generated", "result_review_status", "EXP_A03_started", "formal_data_version", "mainline_task_unchanged", "mainline_current_task", "upstream", "input_contract", "indicator_universe", "output_contract", "validation_contract", "execution_contract", "anomaly_policy", "result_analysis_sections", "governance"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "EXP-A02"},
+    "experiment_id": {"const": "EXP-A02"},
+    "program_id": {"const": "EXP-A"},
+    "experiment_name": {"const": "A层候选raw domain、availability与validity"},
+    "research_route": {"const": "sidecar_exploration"},
+    "workflow_mode": {"const": "long_lived_same_pr"},
+    "phase": {"const": "implementation_review"},
+    "program_phase": {"const": "A02_raw_domain_availability_validity_implementation"},
+    "implementation_review_status": {"const": "pending"},
+    "reviewed_implementation_sha": {"const": ""},
+    "formal_run_allowed": {"const": false},
+    "formal_run_status": {"const": "not_started"},
+    "formal_run_executed": {"const": false},
+    "formal_artifacts_generated": {"const": false},
+    "result_review_status": {"const": "not_started"},
+    "EXP_A03_started": {"const": false},
+    "formal_data_version": {"const": false},
+    "mainline_task_unchanged": {"const": true},
+    "mainline_current_task": {"const": "R3-T02"},
+    "upstream": {"type": "object", "required": ["task_id", "accepted_run_id", "accepted_implementation_sha", "accepted_result_commit", "accepted_status", "formal_result_review_status"], "additionalProperties": false, "properties": {
+      "task_id": {"const": "EXP-A01"},
+      "accepted_run_id": {"const": "EXP-A01-20260717T040145984Z"},
+      "accepted_implementation_sha": {"const": "c9a52dc29f7d41c85ab416e99bb9ef8cc6411b9d"},
+      "accepted_result_commit": {"const": "b7be2577233c045e507efe05d20601a20d373c9b"},
+      "accepted_status": {"const": "completed_accepted"},
+      "formal_result_review_status": {"const": "accepted"}
+    }},
+    "input_contract": {"type": "object", "required": ["manifest_required", "manifest_cli", "upstream_consumption", "bypass_EXP_A01", "direct_D3_consumption", "manifest_artifact_names", "artifacts"], "additionalProperties": true, "properties": {
+      "manifest_required": {"const": true},
+      "manifest_cli": {"const": "--input-manifest"},
+      "upstream_consumption": {"const": "accepted_EXP_A01_artifact_only"},
+      "bypass_EXP_A01": {"const": false},
+      "direct_D3_consumption": {"const": false},
+      "manifest_artifact_names": {"const": ["exp_a01_accepted_result_handoff", "exp_a01_raw_metrics", "exp_a01_manifest", "exp_a01_validator_result", "exp_a01_anomaly_scan"]}
+    }},
+    "indicator_universe": {"type": "object", "required": ["indicator_ids", "validity_statuses", "expected_observation_statuses", "reason_codes", "domains"], "additionalProperties": true, "properties": {
+      "indicator_ids": {"const": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60", "A2b_BodyToMACloudGapMean20_5_60"]},
+      "validity_statuses": {"const": ["valid", "unknown", "blocked", "diagnostic_required"]},
+      "expected_observation_statuses": {"const": ["present", "listing_pause", "missing", "unresolved"]}
+    }},
+    "output_contract": {"type": "object", "required": ["future_result_directory", "raw_duckdb_generated", "csv_files", "json_files", "text_files", "extreme_tail_size", "csv_fields", "forbidden_output_fields"], "additionalProperties": true, "properties": {
+      "raw_duckdb_generated": {"const": false},
+      "extreme_tail_size": {"const": 20},
+      "csv_files": {"const": ["exp_a02_raw_domain_profile.csv", "exp_a02_indicator_availability.csv", "exp_a02_common_valid_availability.csv", "exp_a02_validity_status_profile.csv", "exp_a02_reason_code_profile.csv", "exp_a02_reason_combination_profile.csv", "exp_a02_year_availability.csv", "exp_a02_security_availability.csv", "exp_a02_extreme_value_sample.csv"]}
+    }},
+    "validation_contract": {"type": "object", "required": ["strategy", "upstream_consumption", "full_raw_python_recompute", "full_set_based_invariant_scan", "full_output_aggregate_recompute", "deterministic_sample_output", "single_giant_json_payload", "row_payload_in_manifest", "row_payload_in_summary", "core_validator_execution_count", "final_package_validation", "grid_residual_tolerance", "common_valid_sets", "expected_key_fields", "investigation_thresholds"], "additionalProperties": true, "properties": {
+      "strategy": {"const": "r0_t10_artifact_bound_full_aggregate_recompute_v1"},
+      "full_raw_python_recompute": {"const": false},
+      "full_set_based_invariant_scan": {"const": true},
+      "full_output_aggregate_recompute": {"const": true},
+      "deterministic_sample_output": {"const": true},
+      "single_giant_json_payload": {"const": false},
+      "row_payload_in_manifest": {"const": false},
+      "row_payload_in_summary": {"const": false},
+      "core_validator_execution_count": {"const": 1},
+      "final_package_validation": {"const": "manifest_hash_text_binding_only"},
+      "grid_residual_tolerance": {"const": 1e-12},
+      "common_valid_sets": {"const": ["A1_A2", "A1_A2b", "A2_A2b", "A1_A2_A2b"]},
+      "expected_key_fields": {"const": ["security_id", "trading_date", "observation_sequence"]}
+    }},
+    "execution_contract": {"type": "object", "required": ["implementation_synthetic_only", "formal_execution_allowed", "formal_run_not_implemented", "read_only_upstream_raw", "new_duckdb_forbidden", "copy_upstream_raw_forbidden", "pandas_forbidden", "full_raw_python_iteration_forbidden", "failure_package_preservation"], "additionalProperties": true, "properties": {
+      "implementation_synthetic_only": {"const": true},
+      "formal_execution_allowed": {"const": false},
+      "formal_run_not_implemented": {"const": true},
+      "read_only_upstream_raw": {"const": true},
+      "new_duckdb_forbidden": {"const": true},
+      "copy_upstream_raw_forbidden": {"const": true},
+      "pandas_forbidden": {"const": true},
+      "full_raw_python_iteration_forbidden": {"const": true}
+    }},
+    "anomaly_policy": {"type": "object", "required": ["blocking_rules", "investigation_rules"], "additionalProperties": true, "properties": {"blocking_rules": {"type": "array", "minItems": 1}, "investigation_rules": {"type": "array", "minItems": 1}}},
+    "result_analysis_sections": {"type": "array", "const": ["Actual run / reviewed SHA", "Accepted EXP-A01 handoff", "Input artifact and hash bindings", "Raw-table cardinality", "Raw domains", "Indicator availability", "Common-valid availability", "Validity-status distribution", "Reason-code distribution", "Reason-combination distribution", "Year availability", "Security availability", "Deterministic extreme-value sample", "Full invariant validation", "Independent aggregate recomputation", "Validator result", "Anomaly scan", "Supported conclusions", "Unsupported conclusions", "Readiness for user Formal-result review"]},
+    "governance": {"type": "object", "required": ["A_layer_registered", "PCATV_created", "EXP_A03_started", "mainline_task_unchanged", "mainline_current_task"], "additionalProperties": false, "properties": {"A_layer_registered": {"const": false}, "PCATV_created": {"const": false}, "EXP_A03_started": {"const": false}, "mainline_task_unchanged": {"const": true}, "mainline_current_task": {"const": "R3-T02"}}}
+  }
+}
