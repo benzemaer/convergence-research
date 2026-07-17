@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import math
 import shutil
 import tempfile
 import unittest
@@ -29,6 +30,7 @@ from scripts.sidecar.validate_exp_a01_price_ma_attachment import (
 from src.sidecar.exp_a01_price_ma_attachment import (
     A1_ID,
     A2_ID,
+    A2B_ID,
     INDEX_SOURCE_CONTRACT,
     build_dense_price_rows,
     compute_a01_metrics,
@@ -47,6 +49,90 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs/sidecar/exp_a01_price_ma_attachment_candidates.v1.json"
 CONFIG_SCHEMA_PATH = (
     ROOT / "schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json"
+)
+
+# Frozen from the real 601077.SH sequence 461..539 boundary reproduction.  The
+# fixture keeps the test independent of the permanent formal-input directory.
+_BOUNDARY_ROWS = (
+    (461, "20210915", 4.3758, 4.38685),
+    (462, "20210916", 4.38685, 4.34265),
+    (463, "20210917", 4.3537, 4.34265),
+    (464, "20210922", 4.2874, 4.29845),
+    (465, "20210923", 4.3095, 4.3316),
+    (466, "20210924", 4.3316, 4.29845),
+    (467, "20210927", 4.2874, 4.2653),
+    (468, "20210928", 4.2653, 4.29845),
+    (469, "20210929", 4.27635, 4.2874),
+    (470, "20210930", 4.2874, 4.2653),
+    (471, "20211008", 4.27635, 4.32055),
+    (472, "20211011", 4.32055, 4.34265),
+    (473, "20211012", 4.3316, 4.2874),
+    (474, "20211013", 4.2874, 4.3095),
+    (475, "20211014", 4.29845, 4.27635),
+    (476, "20211015", 4.2874, 4.2653),
+    (477, "20211018", 4.2653, 4.25425),
+    (478, "20211019", 4.25425, 4.2653),
+    (479, "20211020", 4.27635, 4.21005),
+    (480, "20211021", 4.2211, 4.2432),
+    (481, "20211022", 4.2432, 4.2432),
+    (482, "20211025", 4.23215, 4.2432),
+    (483, "20211026", 4.2432, 4.2432),
+    (484, "20211027", 4.2432, 4.21005),
+    (485, "20211028", 4.199, 4.1769),
+    (486, "20211029", 4.199, 4.2211),
+    (487, "20211101", 4.2211, 4.25425),
+    (488, "20211102", 4.25425, 4.21005),
+    (489, "20211103", 4.21005, 4.21005),
+    (490, "20211104", 4.2211, 4.21005),
+    (491, "20211105", 4.199, 4.18795),
+    (492, "20211108", 4.18795, 4.199),
+    (493, "20211109", 4.199, 4.199),
+    (494, "20211110", 4.199, 4.199),
+    (495, "20211111", 4.199, 4.2432),
+    (496, "20211112", 4.23215, 4.2211),
+    (497, "20211115", 4.2211, 4.23215),
+    (498, "20211116", 4.23215, 4.23215),
+    (499, "20211117", 4.2211, 4.23215),
+    (500, "20211118", 4.2211, 4.21005),
+    (501, "20211119", 4.2211, 4.2432),
+    (502, "20211122", 4.23215, 4.23215),
+    (503, "20211123", 4.23215, 4.2432),
+    (504, "20211124", 4.2432, 4.2432),
+    (505, "20211125", 4.2432, 4.23215),
+    (506, "20211126", 4.23215, 4.23215),
+    (507, "20211129", 4.21005, 4.2211),
+    (508, "20211130", 4.2211, 4.2211),
+    (509, "20211201", 4.2211, 4.23215),
+    (510, "20211202", 4.23215, 4.2432),
+    (511, "20211203", 4.2432, 4.2432),
+    (512, "20211206", 4.25425, 4.25425),
+    (513, "20211207", 4.2653, 4.2653),
+    (514, "20211208", 4.27635, 4.2653),
+    (515, "20211209", 4.25425, 4.2874),
+    (516, "20211210", 4.27635, 4.2653),
+    (517, "20211213", 4.25425, 4.2432),
+    (518, "20211214", 4.23215, 4.23215),
+    (519, "20211215", 4.2211, 4.2211),
+    (520, "20211216", 4.23215, 4.23215),
+    (521, "20211217", 4.23215, 4.23215),
+    (522, "20211220", 4.2211, 4.2211),
+    (523, "20211221", 4.21005, 4.2653),
+    (524, "20211222", 4.2653, 4.25425),
+    (525, "20211223", 4.2653, 4.25425),
+    (526, "20211224", 4.25425, 4.2432),
+    (527, "20211227", 4.25425, 4.25425),
+    (528, "20211228", 4.2432, 4.2432),
+    (529, "20211229", 4.2432, 4.25425),
+    (530, "20211230", 4.2432, 4.2432),
+    (531, "20211231", 4.2432, 4.25425),
+    (532, "20220104", 4.25425, 4.27635),
+    (533, "20220105", 4.27635, 4.29845),
+    (534, "20220106", 4.2874, 4.2874),
+    (535, "20220107", 4.2874, 4.34265),
+    (536, "20220110", 4.3537, 4.36475),
+    (537, "20220111", 4.36475, 4.40895),
+    (538, "20220112", 4.3979, 4.38685),
+    (539, "20220113", 4.38685, 4.38685),
 )
 
 
@@ -287,6 +373,204 @@ class ExpA01FormalTest(unittest.TestCase):
         )
         return manifest_path, paths
 
+    def _make_boundary_fixture(
+        self, root: Path
+    ) -> tuple[Path, Path, list[dict[str, object]]]:
+        candidate_path = root / "d3_t07_candidate_daily_observation.duckdb"
+        index_path = root / "expected_price_observation_index.duckdb"
+        candidate = duckdb.connect(str(candidate_path))
+        try:
+            candidate.execute(
+                """
+                CREATE TABLE d3_candidate_daily_observation (
+                  ts_code VARCHAR,
+                  trade_date TEXT,
+                  adjusted_open DOUBLE,
+                  adjusted_close DOUBLE,
+                  trading_status VARCHAR,
+                  daily_status VARCHAR,
+                  effective_adj_factor DOUBLE,
+                  adjustment_factor_status VARCHAR,
+                  is_listing_pause BOOLEAN,
+                  source_task_id VARCHAR,
+                  generated_by_task VARCHAR,
+                  row_provenance VARCHAR
+                )
+                """
+            )
+            candidate.executemany(
+                "INSERT INTO d3_candidate_daily_observation VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "601077.SH",
+                        trade_date,
+                        adjusted_open,
+                        adjusted_close,
+                        "listed_open_resolved_daily",
+                        "resolved",
+                        1.105,
+                        "resolved",
+                        False,
+                        "D2-T20",
+                        "D3-T07",
+                        f"fixture:601077.SH:{sequence}",
+                    )
+                    for sequence, trade_date, adjusted_open, adjusted_close in _BOUNDARY_ROWS
+                ],
+            )
+        finally:
+            candidate.close()
+
+        index = duckdb.connect(str(index_path))
+        try:
+            index.execute(
+                """
+                CREATE TABLE expected_price_observation_index (
+                  security_id VARCHAR,
+                  trading_date DATE,
+                  observation_sequence BIGINT,
+                  expected_observation_status VARCHAR,
+                  source_contract VARCHAR,
+                  source_ref VARCHAR
+                )
+                """
+            )
+            index.executemany(
+                "INSERT INTO expected_price_observation_index VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        "601077.SH",
+                        date.fromisoformat(
+                            f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}"
+                        ),
+                        sequence,
+                        "present",
+                        INDEX_SOURCE_CONTRACT,
+                        f"fixture:601077.SH:{sequence}",
+                    )
+                    for sequence, trade_date, _open, _close in _BOUNDARY_ROWS
+                ],
+            )
+        finally:
+            index.close()
+
+        history = [
+            {
+                "security_id": "601077.SH",
+                "trading_date": f"{trade_date[:4]}-{trade_date[4:6]}-{trade_date[6:]}",
+                "observation_sequence": sequence,
+                "expected_observation_status": "present",
+                "adjusted_open": adjusted_open,
+                "adjusted_close": adjusted_close,
+                "trading_status": "listed_open_resolved_daily",
+                "daily_status": "resolved",
+                "effective_adj_factor": 1.105,
+                "adjustment_factor_status": "resolved",
+                "is_listing_pause": False,
+                "row_provenance": f"fixture:601077.SH:{sequence}",
+                "source_contract": INDEX_SOURCE_CONTRACT,
+                "source_ref": f"fixture:601077.SH:{sequence}",
+            }
+            for sequence, trade_date, adjusted_open, adjusted_close in _BOUNDARY_ROWS
+        ]
+        return candidate_path, index_path, history
+
+    def test_real_601077_boundary_fixture_matches_production_and_oracle(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            candidate_path, index_path, history = self._make_boundary_fixture(root)
+            raw_path = root / "raw.duckdb"
+            metadata = materialize_raw_metrics(
+                candidate_path=candidate_path,
+                candidate_table="d3_candidate_daily_observation",
+                index_path=index_path,
+                index_table="expected_price_observation_index",
+                output_path=raw_path,
+                run_id="EXP-A01-BOUNDARY-FIXTURE",
+                duckdb_threads=12,
+                memory_limit="12GB",
+            )
+            self.assertEqual(metadata["expected_row_count"], 79 * 3)
+
+            connection = duckdb.connect(str(candidate_path), read_only=True)
+            try:
+                connection.execute(
+                    "ATTACH '"
+                    + str(index_path).replace("'", "''")
+                    + "' AS expected (READ_ONLY)"
+                )
+                boundary = connection.execute(
+                    """
+                    WITH ordered AS (
+                      SELECT i.observation_sequence, c.adjusted_open, c.adjusted_close
+                      FROM d3_candidate_daily_observation AS c
+                      JOIN expected.expected_price_observation_index AS i
+                        ON i.security_id = c.ts_code
+                       AND i.trading_date = try_strptime(c.trade_date, '%Y%m%d')::DATE
+                    ), averages AS (
+                      SELECT *,
+                        AVG(adjusted_close) OVER (ORDER BY observation_sequence ROWS BETWEEN 4 PRECEDING AND CURRENT ROW) AS ma5,
+                        AVG(adjusted_close) OVER (ORDER BY observation_sequence ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS ma10,
+                        AVG(adjusted_close) OVER (ORDER BY observation_sequence ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS ma20,
+                        AVG(adjusted_close) OVER (ORDER BY observation_sequence ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) AS ma30,
+                        AVG(adjusted_close) OVER (ORDER BY observation_sequence ROWS BETWEEN 59 PRECEDING AND CURRENT ROW) AS ma60
+                      FROM ordered
+                    ), cloud AS (
+                      SELECT *,
+                        (LN(adjusted_open) + LN(adjusted_close)) / 2.0 AS body,
+                        LEAST(LN(ma5), LN(ma10), LN(ma20), LN(ma30), LN(ma60)) AS cloud_low,
+                        GREATEST(LN(ma5), LN(ma10), LN(ma20), LN(ma30), LN(ma60)) AS cloud_high
+                      FROM averages
+                    )
+                    SELECT body, cloud_low, cloud_high,
+                      body < cloud_low - (8.0 * 2.220446049250313e-16 * GREATEST(1.0, ABS(body), ABS(cloud_low)))
+                      OR body > cloud_high + (8.0 * 2.220446049250313e-16 * GREATEST(1.0, ABS(body), ABS(cloud_high)))
+                    FROM cloud
+                    WHERE observation_sequence = 527
+                    """
+                ).fetchone()
+            finally:
+                connection.close()
+            self.assertIsNotNone(boundary)
+            self.assertFalse(bool(boundary[3]))
+
+            oracle_boundary = validator_module._independent_cloud_point(history, 66)
+            self.assertFalse(
+                validator_module._independent_outside(*oracle_boundary[:3])
+            )
+
+            connection = duckdb.connect(str(raw_path), read_only=True)
+            try:
+                production = {
+                    row[0]: {"raw_value": row[1], "validity_status": row[2]}
+                    for row in connection.execute(
+                        "SELECT indicator_id, raw_value, validity_status FROM exp_a01_raw_metrics WHERE observation_sequence = 539"
+                    ).fetchall()
+                }
+            finally:
+                connection.close()
+            oracle = {
+                row["indicator_id"]: row
+                for row in validator_module._independent_metrics(
+                    history, run_id="EXP-A01-BOUNDARY-FIXTURE"
+                )
+            }
+            self.assertEqual(production[A2_ID]["validity_status"], "valid")
+            self.assertEqual(oracle[A2_ID]["validity_status"], "valid")
+            self.assertEqual(round(float(production[A2_ID]["raw_value"]) * 20), 13)
+            self.assertEqual(round(float(oracle[A2_ID]["raw_value"]) * 20), 13)
+            self.assertEqual(float(production[A2_ID]["raw_value"]), 0.65)
+            self.assertEqual(float(oracle[A2_ID]["raw_value"]), 0.65)
+            for indicator_id in (A1_ID, A2B_ID):
+                self.assertTrue(
+                    math.isclose(
+                        float(production[indicator_id]["raw_value"]),
+                        float(oracle[indicator_id]["raw_value"]),
+                        rel_tol=1e-9,
+                        abs_tol=1e-12,
+                    )
+                )
+
     @staticmethod
     def _source_bindings() -> dict[str, dict[str, object]]:
         return {
@@ -340,6 +624,7 @@ class ExpA01FormalTest(unittest.TestCase):
         ):
             result = run_formal(args)
         self.assertEqual(result["status"], "passed")
+        self.assertFalse((root / "formal-failures" / run_id / "package").exists())
         return result, manifest, output
 
     def test_set_based_sql_matches_python_oracle_for_dense_edge_cases(self) -> None:
@@ -820,6 +1105,58 @@ class ExpA01FormalTest(unittest.TestCase):
             self.assertEqual(source_failed["status"], "failed")
             self.assertTrue(source_failed["formal_result"]["errors"])
 
+    def test_existing_package_validation_is_read_only_and_not_formal_approval(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            _result, manifest, output = self._run_synthetic(root, "003")
+            failed_package = root / "failed-package"
+            shutil.copytree(output, failed_package)
+            _write_json(
+                failed_package / "failure_summary.json",
+                {
+                    "task_id": "EXP-A01",
+                    "run_id": "EXP-A01-20260716T120000003Z",
+                    "status": "failed",
+                    "published": False,
+                    "formal_artifacts_generated": False,
+                    "formal_data_version": False,
+                    "usable_as_formal_result": False,
+                },
+            )
+            raw_before = _sha(failed_package / "exp_a01_raw_metrics.duckdb")
+            diagnostic_dir = root / "existing-package-diagnostic"
+            with patch(
+                "src.sidecar.exp_a01_price_ma_attachment_validator._validate_formal_source_bindings",
+                return_value=self._source_bindings(),
+            ):
+                result = validate_cli(
+                    CONFIG_PATH,
+                    CONFIG_SCHEMA_PATH,
+                    None,
+                    manifest,
+                    root,
+                    "a" * 40,
+                    existing_package=failed_package,
+                    diagnostic_output_dir=diagnostic_dir,
+                )
+            self.assertEqual(
+                result["validation_mode"], "existing_failed_package_read_only"
+            )
+            self.assertFalse(result["published"])
+            self.assertFalse(result["usable_as_formal_result"])
+            self.assertEqual(
+                result["formal_approval"],
+                "not_permitted_existing_package_diagnostic",
+            )
+            self.assertTrue(
+                (diagnostic_dir / "exp_a01_existing_package_validation.json").is_file()
+            )
+            self.assertEqual(
+                raw_before, _sha(failed_package / "exp_a01_raw_metrics.duckdb")
+            )
+
     def test_same_inputs_have_deterministic_scientific_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -856,7 +1193,7 @@ class ExpA01FormalTest(unittest.TestCase):
                 else:
                     self.assertEqual(first_rows, rows)
 
-    def test_failure_cleanup_removes_partial_and_final_output(self) -> None:
+    def test_failure_preserves_unpublished_package_and_raw_diagnostics(self) -> None:
         failure_points = (
             "materialize_raw_metrics",
             "write_compact_csvs",
@@ -888,6 +1225,21 @@ class ExpA01FormalTest(unittest.TestCase):
                 self.assertEqual(
                     list(root.glob(f"{Path(args.output_root).name}.partial-*")), []
                 )
+                failed_package = root / "formal-failures" / args.run_id / "package"
+                self.assertTrue(failed_package.is_dir())
+                self.assertTrue((failed_package / "failure_summary.json").is_file())
+                failure_summary = json.loads(
+                    (failed_package / "failure_summary.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertFalse(failure_summary["published"])
+                self.assertFalse(failure_summary["formal_artifacts_generated"])
+                self.assertFalse(failure_summary["usable_as_formal_result"])
+                if function_name != "materialize_raw_metrics":
+                    self.assertTrue(
+                        (failed_package / "exp_a01_raw_metrics.duckdb").is_file()
+                    )
                 self.assertEqual(
                     input_hashes, {name: _sha(path) for name, path in paths.items()}
                 )
@@ -927,6 +1279,10 @@ class ExpA01FormalTest(unittest.TestCase):
             self.assertEqual(
                 list(root.glob(f"{Path(args.output_root).name}.partial-*")), []
             )
+            failed_package = root / "formal-failures" / args.run_id / "package"
+            self.assertTrue(failed_package.is_dir())
+            self.assertTrue((failed_package / "exp_a01_raw_metrics.duckdb").is_file())
+            self.assertTrue((failed_package / "failure_summary.json").is_file())
 
     def test_validator_catches_persisted_artifact_mutations(self) -> None:
         mutations = (

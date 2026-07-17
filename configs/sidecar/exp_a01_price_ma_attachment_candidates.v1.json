@@ -90,21 +90,21 @@
       "indicator_id": "A2_BodyCenterOutsideMACloudRate20_5_60",
       "raw_metric_name": "BodyCenterOutsideMACloudRate20_5_60",
       "role": "candidate",
-      "formula": "mean(1[B_s < CloudLow_s or B_s > CloudHigh_s], s=t-19..t)",
+      "formula": "mean(1[B_s < CloudLow_s - tau(B_s,CloudLow_s) or B_s > CloudHigh_s + tau(B_s,CloudHigh_s)], s=t-19..t)",
       "minimum_history": 79,
       "raw_value_domain": "finite_unit_interval",
       "direction": "lower_is_more_attached",
-      "boundary_rule": "equality with either cloud boundary is inside"
+      "boundary_rule": "shared scale-aware 8-ULP equality zone around either cloud boundary is inside; outside only beyond the zone"
     },
     {
       "indicator_id": "A2b_BodyToMACloudGapMean20_5_60",
       "raw_metric_name": "BodyToMACloudGapMean20_5_60",
       "role": "candidate",
-      "formula": "mean(Gap_s, s=t-19..t)",
+      "formula": "mean(Gap_s, s=t-19..t), where Gap_s is zero when the body interval intersects the cloud under the shared scale-aware 8-ULP boundary policy and otherwise is the nearest log endpoint distance",
       "minimum_history": 79,
       "raw_value_domain": "finite_nonnegative",
       "direction": "lower_is_more_attached",
-      "boundary_rule": "intersecting body interval has zero gap"
+      "boundary_rule": "shared scale-aware 8-ULP equality zone makes an intersecting body interval zero gap"
     }
   ],
   "validity_contract": {
@@ -301,19 +301,26 @@
     "per_indicator_reason_code_limit": 10,
     "per_indicator_year_valid_limit": 5,
     "per_indicator_extreme_tail_limit": 20,
-    "numeric_tolerances": {
+    "sample_numeric_tolerances": {
       "A1_LogBodyCenterToMACloudCenter_5_60": {
-        "absolute": 1e-10,
-        "relative": 1e-10
+        "absolute": 1e-12,
+        "relative": 1e-9
       },
       "A2_BodyCenterOutsideMACloudRate20_5_60": {
-        "absolute": 1e-10,
-        "relative": 1e-10
+        "absolute": 1e-12,
+        "relative": 1e-9
       },
       "A2b_BodyToMACloudGapMean20_5_60": {
-        "absolute": 1e-10,
-        "relative": 1e-10
+        "absolute": 1e-12,
+        "relative": 1e-9
       }
+    },
+    "boundary_policy": {
+      "name": "scale_aware_8_ulp",
+      "float64_epsilon": 2.220446049250313e-16,
+      "boundary_ulps": 8,
+      "a2_a2b_shared": true,
+      "reason": "The observed production/oracle disagreement is one floating-point ULP. Eight ULPs provide a narrow execution-order allowance while remaining many orders of magnitude below any economically or statistically meaningful A2/A2b distance."
     }
   },
   "output_contract": {

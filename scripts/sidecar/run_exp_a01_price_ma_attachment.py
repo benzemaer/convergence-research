@@ -108,11 +108,22 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
     staging = Path(f"{output_root}.partial-{os.getpid()}")
     if staging.exists():
         raise RuntimeError(f"partial staging directory already exists: {staging}")
+    failure_root_value = getattr(args, "failure_root", None)
+    failure_root = (
+        Path(failure_root_value).resolve()
+        if failure_root_value
+        else output_root.parent / "formal-failures"
+    )
+    failed_root = failure_root / gate["run_id"] / "package"
+    if failed_root.exists():
+        raise RuntimeError(f"failed package destination already exists: {failed_root}")
 
     started_at = _utc_timestamp()
     published = False
+    failure_stage = "staging_initialization"
     try:
         staging.mkdir(parents=True)
+        failure_stage = "materialization"
         raw_path = staging / "exp_a01_raw_metrics.duckdb"
         raw_metadata = materialize_raw_metrics(
             candidate_path=gate["input_paths"]["d3_t07_candidate_daily_observation"],
@@ -128,6 +139,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             duckdb_threads=gate["duckdb_threads"],
             memory_limit=gate["memory_limit"],
         )
+        failure_stage = "profile_materialization"
         profile_metadata = write_compact_csvs(
             output_dir=staging,
             raw_duckdb=raw_path,
@@ -135,6 +147,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             memory_limit=gate["memory_limit"],
         )
 
+        failure_stage = "preliminary_manifest"
         preliminary_manifest = _build_formal_manifest(
             gate=gate,
             args=args,
@@ -147,6 +160,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             anomaly_status="pending",
         )
         _write_json(staging / "exp_a01_manifest.json", preliminary_manifest)
+        failure_stage = "preliminary_validation"
         preliminary_validation = validate_formal_result(
             staging,
             config_path=gate["config_path"],
@@ -156,6 +170,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             require_final_manifest=False,
         )
         _write_json(staging / "exp_a01_validator_result.json", preliminary_validation)
+        failure_stage = "preliminary_anomaly_scan"
         preliminary_anomaly = scan_persisted_anomalies(
             staging,
             expected_index_row_count=gate["expected_index_reconciliation"][
@@ -173,6 +188,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
                 "preliminary formal-result anomaly scan failed: "
                 + "; ".join(preliminary_anomaly.get("blocking_anomalies", []))
             )
+        failure_stage = "result_analysis"
         analysis = _build_result_analysis(
             gate=gate,
             args=args,
@@ -187,6 +203,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             analysis, encoding="utf-8", newline="\n"
         )
 
+        failure_stage = "final_manifest"
         final_manifest = _build_formal_manifest(
             gate=gate,
             args=args,
@@ -201,6 +218,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
         _write_json(staging / "exp_a01_manifest.json", final_manifest)
         manifest_sha = sha256_file(staging / "exp_a01_manifest.json")
 
+        failure_stage = "final_anomaly_scan"
         final_anomaly = scan_persisted_anomalies(
             staging,
             expected_index_row_count=gate["expected_index_reconciliation"][
@@ -209,6 +227,7 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
         )
         final_anomaly["final_manifest_sha256"] = manifest_sha
         _write_json(staging / "exp_a01_anomaly_scan.json", final_anomaly)
+        failure_stage = "final_validation"
         final_validation = _validate_final_package_bindings(
             staging,
             core_validation=preliminary_validation,
@@ -247,11 +266,40 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
             "validator_status": final_validation["status"],
             "anomaly_status": final_anomaly["status"],
         }
-    except Exception:
+    except Exception as exc:
+        if staging.exists() and not published:
+            if failed_root.exists():
+                raise RuntimeError(
+                    f"failed package destination already exists: {failed_root}"
+                ) from exc
+            failed_root.parent.mkdir(parents=True, exist_ok=True)
+            staging.rename(failed_root)
+            _write_json(
+                failed_root / "failure_summary.json",
+                {
+                    "task_id": TASK_ID,
+                    "run_id": gate["run_id"],
+                    "status": "failed",
+                    "published": False,
+                    "formal_artifacts_generated": False,
+                    "formal_data_version": False,
+                    "usable_as_formal_result": False,
+                    "failure_stage": failure_stage,
+                    "error": str(exc),
+                    "reviewed_implementation_sha": gate["reviewed_sha"],
+                    "input_manifest_path": gate["input_manifest_path"],
+                    "input_manifest_sha256": gate["input_manifest_sha256"],
+                    "failed_package_path": str(failed_root),
+                    "stdout_log_reference": getattr(
+                        args, "stdout_log_reference", "runner process stdout"
+                    ),
+                    "stderr_log_reference": getattr(
+                        args, "stderr_log_reference", "runner process stderr"
+                    ),
+                },
+            )
         if output_root.exists() and not published:
             _remove_path(output_root)
-        if staging.exists():
-            _remove_path(staging)
         raise
 
 
@@ -1380,6 +1428,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--reviewed-implementation-sha")
     parser.add_argument("--duckdb-threads", type=int, default=DEFAULT_DUCKDB_THREADS)
     parser.add_argument("--memory-limit", default=DEFAULT_MEMORY_LIMIT)
+    parser.add_argument("--failure-root", type=Path)
+    parser.add_argument("--stdout-log-reference")
+    parser.add_argument("--stderr-log-reference")
     return parser.parse_args(argv)
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -9,11 +10,14 @@ from src.sidecar.exp_a01_price_ma_attachment import (
     A1_ID,
     A2_ID,
     A2B_ID,
+    BOUNDARY_ULPS,
     INDEX_SOURCE_CONTRACT,
     compute_a01_metrics,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
     RAW_TABLE_COLUMNS,
+    _independent_gap,
+    _independent_outside,
     _independent_row_reasons,
     _sampled_raw_row_compare,
     load_json,
@@ -48,6 +52,47 @@ def dense_rows(count: int = 79) -> list[dict[str, object]]:
 
 
 class ExpA01ValidatorTest(unittest.TestCase):
+    def test_independent_a2_and_a2b_boundary_semantics_match(self) -> None:
+        body = math.log(2.0)
+        history = [
+            {
+                "adjusted_open": 2.0,
+                "adjusted_close": 2.0,
+            }
+        ]
+
+        def shift(value: float, direction: float, steps: int) -> float:
+            for _ in range(steps):
+                value = math.nextafter(value, direction)
+            return value
+
+        for steps in (0, 1, 4, 8):
+            with self.subTest(side="upper", steps=steps):
+                cloud_high = shift(body, -math.inf, steps)
+                self.assertFalse(_independent_outside(body, body - 1.0, cloud_high))
+                self.assertEqual(
+                    _independent_gap(history, 0, body, body - 1.0, cloud_high),
+                    0.0,
+                )
+            with self.subTest(side="lower", steps=steps):
+                cloud_low = shift(body, math.inf, steps)
+                self.assertFalse(_independent_outside(body, cloud_low, body + 1.0))
+                self.assertEqual(
+                    _independent_gap(history, 0, body, cloud_low, body + 1.0),
+                    0.0,
+                )
+
+        for side, cloud_low, cloud_high in (
+            ("above", body - 1.0, shift(body, -math.inf, BOUNDARY_ULPS * 4)),
+            ("below", shift(body, math.inf, BOUNDARY_ULPS * 4), body + 1.0),
+        ):
+            with self.subTest(side=side):
+                self.assertTrue(_independent_outside(body, cloud_low, cloud_high))
+                self.assertGreater(
+                    _independent_gap(history, 0, body, cloud_low, cloud_high),
+                    0.0,
+                )
+
     def test_static_config_is_frozen_to_unique_d3_t07_route(self) -> None:
         config = load_json(CONFIG_PATH)
         self.assertEqual(validate_static_config(config), [])

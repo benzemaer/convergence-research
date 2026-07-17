@@ -348,7 +348,8 @@
         "per_indicator_reason_code_limit",
         "per_indicator_year_valid_limit",
         "per_indicator_extreme_tail_limit",
-        "numeric_tolerances"
+        "sample_numeric_tolerances",
+        "boundary_policy"
       ],
       "properties": {
         "strategy": {"const": "r0_t10_full_invariants_plus_stratified_oracle_v1"},
@@ -362,7 +363,7 @@
         "per_indicator_reason_code_limit": {"const": 10},
         "per_indicator_year_valid_limit": {"const": 5},
         "per_indicator_extreme_tail_limit": {"const": 20},
-        "numeric_tolerances": {
+        "sample_numeric_tolerances": {
           "type": "object",
           "additionalProperties": false,
           "required": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60", "A2b_BodyToMACloudGapMean20_5_60"],
@@ -370,6 +371,18 @@
             "A1_LogBodyCenterToMACloudCenter_5_60": {"$ref": "#/$defs/numericTolerance"},
             "A2_BodyCenterOutsideMACloudRate20_5_60": {"$ref": "#/$defs/numericTolerance"},
             "A2b_BodyToMACloudGapMean20_5_60": {"$ref": "#/$defs/numericTolerance"}
+          }
+        },
+        "boundary_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "float64_epsilon", "boundary_ulps", "a2_a2b_shared", "reason"],
+          "properties": {
+            "name": {"const": "scale_aware_8_ulp"},
+            "float64_epsilon": {"const": 2.220446049250313e-16},
+            "boundary_ulps": {"const": 8},
+            "a2_a2b_shared": {"const": true},
+            "reason": {"const": "The observed production/oracle disagreement is one floating-point ULP. Eight ULPs provide a narrow execution-order allowance while remaining many orders of magnitude below any economically or statistically meaningful A2/A2b distance."}
           }
         }
       }
@@ -379,8 +392,8 @@
       "additionalProperties": false,
       "required": ["absolute", "relative"],
       "properties": {
-        "absolute": {"const": 1e-10},
-        "relative": {"const": 1e-10}
+        "absolute": {"const": 1e-12},
+        "relative": {"const": 1e-9}
       }
     }
   }

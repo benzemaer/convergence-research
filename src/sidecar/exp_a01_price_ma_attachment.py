@@ -21,6 +21,8 @@ MA_WINDOWS = (5, 10, 20, 30, 60)
 A2_ROLLING_WINDOW = 20
 A1_REQUIRED_OBSERVATIONS = 60
 A2_REQUIRED_OBSERVATIONS = 79
+FLOAT64_EPSILON = 2.220446049250313e-16
+BOUNDARY_ULPS = 8
 
 A1_ID = "A1_LogBodyCenterToMACloudCenter_5_60"
 A2_ID = "A2_BodyCenterOutsideMACloudRate20_5_60"
@@ -546,9 +548,17 @@ def _cloud_point(
 
 
 def _is_outside(body: float, cloud_low: float, cloud_high: float) -> bool:
-    """Use strict boundaries: equality with either cloud edge is inside."""
+    """Use a shared narrow equality zone around both cloud boundaries."""
 
-    return body < cloud_low or body > cloud_high
+    low_tolerance = boundary_tolerance(body, cloud_low)
+    high_tolerance = boundary_tolerance(body, cloud_high)
+    return body < cloud_low - low_tolerance or body > cloud_high + high_tolerance
+
+
+def boundary_tolerance(left: float, right: float) -> float:
+    """Return the fixed scale-aware eight-ULP boundary allowance."""
+
+    return BOUNDARY_ULPS * FLOAT64_EPSILON * max(1.0, abs(left), abs(right))
 
 
 def _body_cloud_gap(
@@ -564,9 +574,11 @@ def _body_cloud_gap(
         raise ValueError("missing body endpoint")
     body_low = min(math.log(current.adjusted_open), math.log(current.adjusted_close))
     body_high = max(math.log(current.adjusted_open), math.log(current.adjusted_close))
-    if body_high < cloud_low:
+    low_tolerance = boundary_tolerance(body_high, cloud_low)
+    high_tolerance = boundary_tolerance(body_low, cloud_high)
+    if body_high < cloud_low - low_tolerance:
         return cloud_low - body_high
-    if body_low > cloud_high:
+    if body_low > cloud_high + high_tolerance:
         return body_low - cloud_high
     return 0.0
 

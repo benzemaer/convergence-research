@@ -9,11 +9,17 @@ from src.sidecar.exp_a01_price_ma_attachment import (
     A1_ID,
     A2_ID,
     A2B_ID,
+    BOUNDARY_ULPS,
+    FLOAT64_EPSILON,
     INDEX_SOURCE_CONTRACT,
     OUTPUT_FIELDS,
     InputContractError,
+    _body_cloud_gap,
+    _is_outside,
+    boundary_tolerance,
     build_dense_price_rows,
     compute_a01_metrics,
+    normalize_price_rows,
 )
 
 
@@ -135,6 +141,46 @@ def set_body_center(
 
 
 class ExpA01PriceMaAttachmentTest(unittest.TestCase):
+    def test_a2_and_a2b_share_the_scale_aware_eight_ulp_boundary_zone(self) -> None:
+        rows = normalize_price_rows(make_rows(1))
+        body = math.log(100.0)
+
+        def shift(value: float, direction: float, steps: int) -> float:
+            for _ in range(steps):
+                value = math.nextafter(value, direction)
+            return value
+
+        self.assertEqual(
+            boundary_tolerance(body, body),
+            BOUNDARY_ULPS * FLOAT64_EPSILON * max(1.0, abs(body)),
+        )
+        for steps in (0, 1, 4, 8):
+            with self.subTest(side="upper", steps=steps):
+                cloud_high = shift(body, -math.inf, steps)
+                self.assertFalse(_is_outside(body, body - 1.0, cloud_high))
+                self.assertEqual(
+                    _body_cloud_gap(body, body - 1.0, cloud_high, rows, 0),
+                    0.0,
+                )
+            with self.subTest(side="lower", steps=steps):
+                cloud_low = shift(body, math.inf, steps)
+                self.assertFalse(_is_outside(body, cloud_low, body + 1.0))
+                self.assertEqual(
+                    _body_cloud_gap(body, cloud_low, body + 1.0, rows, 0),
+                    0.0,
+                )
+
+        for direction, cloud_low, cloud_high in (
+            ("above", body - 1.0, shift(body, -math.inf, 32)),
+            ("below", shift(body, math.inf, 32), body + 1.0),
+        ):
+            with self.subTest(side=direction):
+                self.assertTrue(_is_outside(body, cloud_low, cloud_high))
+                self.assertGreater(
+                    _body_cloud_gap(body, cloud_low, cloud_high, rows, 0),
+                    0.0,
+                )
+
     def test_a1_center_and_log_symmetry(self) -> None:
         centered = compute_a01_metrics(make_rows(60))
         self.assertEqual(metric_at(centered, A1_ID, 59)["raw_value"], 0.0)

@@ -48,16 +48,20 @@ CloudCenter_t = mean(L_k,t)
 候选固定为：
 
 - `A1_LogBodyCenterToMACloudCenter_5_60`：`abs(B_t - CloudCenter_t)`，最低 60 个交易观测，数值越低表示越贴合。
-- `A2_BodyCenterOutsideMACloudRate20_5_60`：最近 20 个日点中 `B_s < CloudLow_s` 或 `B_s > CloudHigh_s` 的比例，严格等于边界时计为 inside，最低 79 个交易观测，数值范围为 `[0, 1]`。
-- `A2b_BodyToMACloudGapMean20_5_60`：实体区间与均线云不相交时的最近端点 log 距离的最近 20 日均值，相交时 gap 为 0，最低 79 个交易观测，数值越低表示越贴合。
+- `A2_BodyCenterOutsideMACloudRate20_5_60`：最近 20 个日点中 `B_s < CloudLow_s` 或 `B_s > CloudHigh_s` 的比例，边界采用统一的 scale-aware 8-ULP equality zone，最低 79 个交易观测，数值范围为 `[0, 1]`。
+- `A2b_BodyToMACloudGapMean20_5_60`：实体区间与均线云不相交时的最近端点 log 距离的最近 20 日均值；使用与 A2 相同的 scale-aware 8-ULP equality zone，相交时 gap 为 0，最低 79 个交易观测，数值越低表示越贴合。
 
 三者均只使用当前及过去观测，不使用 raw unadjusted OHLC、future row、centered MA、forward/backward fill，也不跨 expected observation slot 压缩窗口或根据结果改变窗口。A1 使用当前 observation sequence 加前 59 个连续 slot 的精确 60 行；A2/A2b 使用当前 sequence 加前 78 个连续 slot 的精确 79 行。任一 slot 为 `listing_pause`、`missing`、`unresolved` 或其他 invalid 状态时，当前结果非 valid；不得跳过、填充、使用更旧的现有行或以 Outside/Gap=0 掩盖。整体价格乘以任意正数时，log 差值、边界关系和 gap 保持不变。
+
+A2/A2b 的边界容差不是 validity-status 放宽，也不是固定价格 epsilon：`boundary_tolerance(left, right) = 8 × 2.220446049250313e-16 × max(1, abs(left), abs(right))`。生产 DuckDB SQL 和独立 Python oracle 使用同一规则；A2 仍以 `outside_count` 整数精确对账，A1 不使用该边界规则。选择 8 ULP 的理由是：`The observed production/oracle disagreement is one floating-point ULP. Eight ULPs provide a narrow execution-order allowance while remaining many orders of magnitude below any economically or statistically meaningful A2/A2b distance.`
 
 ## Validity contract
 
 三个候选均 fail closed。以下情况不得产生 ordinary numeric raw value：窗口不足、缺少 adjusted open/close、缺少 required history、非正价格或 MA、adjustment failure、required window 内 suspension/listing pause、invalid trading status。`listed_open_resolved_daily` 是 D2/D3 已解析的上市开放交易日状态，对 EXP-A01 价格指标而言属于可用的 present observation；`normal_trading`、`limit_up`、`limit_down`、`one_price_limit_up` 和 `one_price_limit_down` 也属于允许的价格观察状态。`reopen_after_suspension` 为 diagnostic-required；`suspended`、`unknown` 或未注册值不得当作正常交易。该兼容修复不把 suspended、listing_pause、missing 或 unresolved 转换为有效状态。输入的 duplicate security/date、duplicate security/sequence、non-monotonic sequence/date 或 sequence gap 直接抛出 `InputContractError`，不得排序修复后继续。A2/A2b 的 79 个 expected slot 中任一 required observation 无效，整个当前输出即为非 valid。
 
-输出字段固定为 `security_id`、`trading_date`、`indicator_id`、`raw_metric_name`、`raw_value`、`validity_status`、`reason_codes`、`input_window_start`、`input_window_end`、`required_observation_count`、`actual_valid_observation_count` 和 `metric_engine_version`。invalid/unknown 输出的 `raw_value` 必须为 NULL；不输出 percentile、score、state、winner、replacement、future outcome、backtest、portfolio 或 transaction cost 字段。
+输出字段固定为 `security_id`、`trading_date`、`indicator_id`、`raw_metric_name`、`raw_value`、`validity_status`、`reason_codes`、`input_window_start`、`input_window_end`、`required_observation_count`、`actual_valid_observation_count` 和 `metric_engine_version`。invalid/unknown 输出的 `raw_value` 必须为 NULL；不输出 percentile、score、state、winner、replacement、future outcome、backtest、portfolio 或 transaction cost 字段。正式运行失败且尚未发布时，runner 将 staging 原子转移到 local-only failed package，保留 raw DuckDB 和已生成的 compact/diagnostic 文件；该包固定标记为 `published=false`、`formal_artifacts_generated=false`、`usable_as_formal_result=false`，不得提交到 Git。
+
+standalone validator 的 `--existing-package` 仅用于对 preserved failed package 做只读诊断，并将新的 validation JSON 写入独立目录；它不修改 raw、不发布 final output，也不能把旧 raw 批准为 formal result。本次 A2/A2b 生产边界语义发生变化，因此旧 raw 即使能够被重新读取，也必须重新物化后才能进入 formal run。
 
 ## 研究边界与后续阶段
 

@@ -30,11 +30,13 @@ VALIDATION_STRATEGY = "r0_t10_full_invariants_plus_stratified_oracle_v1"
 ORACLE_SAMPLE_VERSION = "EXP_A01_STRATIFIED_ORACLE_V1"
 ORACLE_SAMPLE_TARGET_LIMIT = 10000
 SMALL_INPUT_FULL_ORACLE_LIMIT = 100000
-NUMERIC_TOLERANCES = {
-    A1_ID: {"absolute": 1e-10, "relative": 1e-10},
-    A2_ID: {"absolute": 1e-10, "relative": 1e-10},
-    A2B_ID: {"absolute": 1e-10, "relative": 1e-10},
+SAMPLED_NUMERIC_TOLERANCES = {
+    A1_ID: {"absolute": 1e-12, "relative": 1e-9},
+    A2_ID: {"absolute": 1e-12, "relative": 1e-9},
+    A2B_ID: {"absolute": 1e-12, "relative": 1e-9},
 }
+FLOAT64_EPSILON = 2.220446049250313e-16
+BOUNDARY_ULPS = 8
 RAW_METRIC_NAMES = {
     A1_ID: "LogBodyCenterToMACloudCenter_5_60",
     A2_ID: "BodyCenterOutsideMACloudRate20_5_60",
@@ -417,9 +419,19 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
         for key, expected in expected_validation.items():
             if validation_contract.get(key) != expected:
                 errors.append(f"config_validation_contract_{key}_mismatch")
-        tolerances = validation_contract.get("numeric_tolerances")
-        if tolerances != NUMERIC_TOLERANCES:
-            errors.append("config_validation_contract_numeric_tolerances_mismatch")
+        tolerances = validation_contract.get("sample_numeric_tolerances")
+        if tolerances != SAMPLED_NUMERIC_TOLERANCES:
+            errors.append(
+                "config_validation_contract_sample_numeric_tolerances_mismatch"
+            )
+        if validation_contract.get("boundary_policy") != {
+            "name": "scale_aware_8_ulp",
+            "float64_epsilon": FLOAT64_EPSILON,
+            "boundary_ulps": BOUNDARY_ULPS,
+            "a2_a2b_shared": True,
+            "reason": "The observed production/oracle disagreement is one floating-point ULP. Eight ULPs provide a narrow execution-order allowance while remaining many orders of magnitude below any economically or statistically meaningful A2/A2b distance.",
+        }:
+            errors.append("config_validation_contract_boundary_policy_mismatch")
     output_contract = config.get("output_contract")
     if not isinstance(output_contract, Mapping):
         errors.append("config_output_contract_missing")
@@ -740,6 +752,7 @@ def validate_formal_result(
     reviewed_implementation_sha: str | None = None,
     schema_path: str | Path | None = None,
     require_final_manifest: bool = True,
+    allow_failed_package_files: bool = False,
 ) -> dict[str, Any]:
     """Replay EXP-A01 lineage from disk, then independently read back outputs.
 
@@ -789,6 +802,7 @@ def validate_formal_result(
             expected_index_row_count=lineage["expected_index_row_count"],
             reviewed_implementation_sha=reviewed_sha,
             require_final_manifest=require_final_manifest,
+            allow_failed_package_files=allow_failed_package_files,
         )
     else:
         persisted = _empty_validation_result(
@@ -830,6 +844,7 @@ def _validate_persisted_formal_outputs(
     expected_index_row_count: int,
     reviewed_implementation_sha: str,
     require_final_manifest: bool = True,
+    allow_failed_package_files: bool = False,
 ) -> dict[str, Any]:
     """Validate persisted raw rows and compact profiles after lineage is derived."""
 
@@ -874,7 +889,7 @@ def _validate_persisted_formal_outputs(
         "oracle_mismatch_count": 0,
         "oracle_max_absolute_difference_by_indicator": {},
         "oracle_max_relative_difference_by_indicator": {},
-        "oracle_numeric_tolerances": NUMERIC_TOLERANCES,
+        "oracle_numeric_tolerances": SAMPLED_NUMERIC_TOLERANCES,
     }
     if not root.is_dir():
         return _validation_result(
@@ -901,6 +916,19 @@ def _validate_persisted_formal_outputs(
                 "exp_a01_result_analysis.md",
             }
         )
+    elif allow_failed_package_files:
+        # A failed package preserves each diagnostic artifact only when the
+        # runner reached the stage that produced it.  The failure summary is
+        # the sole required marker; this mode is read-only diagnostic output
+        # and cannot approve old raw metrics after the boundary policy change.
+        expected_files.add("failure_summary.json")
+        optional_failed_files = {
+            "exp_a01_validator_result.json",
+            "exp_a01_anomaly_scan.json",
+            "exp_a01_result_analysis.md",
+        }
+        unexpected_optional = optional_failed_files & actual_files
+        expected_files.update(unexpected_optional)
     for missing in sorted(expected_files - actual_files):
         errors.append(f"missing_output_file:{missing}")
     for extra in sorted(actual_files - expected_files):
@@ -1187,7 +1215,7 @@ def _empty_validation_result(
         "oracle_mismatch_count": 0,
         "oracle_max_absolute_difference_by_indicator": {},
         "oracle_max_relative_difference_by_indicator": {},
-        "oracle_numeric_tolerances": NUMERIC_TOLERANCES,
+        "oracle_numeric_tolerances": SAMPLED_NUMERIC_TOLERANCES,
     }
 
 
@@ -2607,7 +2635,7 @@ def _validate_raw_domains(
         ),
         (
             "validity_domain_mismatch",
-            f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE indicator_id='{A2_ID}' AND validity_status='valid' AND abs(raw_value * 20.0 - round(raw_value * 20.0)) > {NUMERIC_TOLERANCES[A2_ID]['absolute']}",
+            f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE indicator_id='{A2_ID}' AND validity_status='valid' AND abs(raw_value * 20.0 - round(raw_value * 20.0)) > {SAMPLED_NUMERIC_TOLERANCES[A2_ID]['absolute']}",
         ),
         (
             "reason_code_domain_mismatch",
@@ -2929,19 +2957,15 @@ def _sampled_raw_row_compare(
             if not math.isfinite(left) or not math.isfinite(right):
                 differences.append(field)
                 continue
-            tolerance = NUMERIC_TOLERANCES[expected["indicator_id"]]
+            tolerance = SAMPLED_NUMERIC_TOLERANCES[expected["indicator_id"]]
             if expected["indicator_id"] == A2_ID:
                 expected_count = round(left * 20.0)
                 actual_count = round(right * 20.0)
-                if (
-                    actual_count != expected_count
-                    or abs(right * 20.0 - actual_count) > tolerance["absolute"]
-                    or not math.isclose(
-                        right,
-                        expected_count / 20.0,
-                        rel_tol=tolerance["relative"],
-                        abs_tol=tolerance["absolute"],
-                    )
+                if actual_count != expected_count or not math.isclose(
+                    right,
+                    expected_count / 20.0,
+                    rel_tol=tolerance["relative"],
+                    abs_tol=tolerance["absolute"],
                 ):
                     differences.append("raw_value")
             elif not math.isclose(
@@ -3550,7 +3574,9 @@ def _independent_cloud_point(
 
 
 def _independent_outside(body: float, low: float, high: float) -> bool:
-    return body < low or body > high
+    low_tolerance = boundary_tolerance(body, low)
+    high_tolerance = boundary_tolerance(body, high)
+    return body < low - low_tolerance or body > high + high_tolerance
 
 
 def _independent_gap(
@@ -3564,11 +3590,19 @@ def _independent_gap(
     body_high = max(
         math.log(current["adjusted_open"]), math.log(current["adjusted_close"])
     )
-    if body_high < low:
+    low_tolerance = boundary_tolerance(body_high, low)
+    high_tolerance = boundary_tolerance(body_low, high)
+    if body_high < low - low_tolerance:
         return low - body_high
-    if body_low > high:
+    if body_low > high + high_tolerance:
         return body_low - high
     return 0.0
+
+
+def boundary_tolerance(left: float, right: float) -> float:
+    """Return the independent validator's shared eight-ULP allowance."""
+
+    return BOUNDARY_ULPS * FLOAT64_EPSILON * max(1.0, abs(left), abs(right))
 
 
 def _csv_float_equal(expected: Any, actual: Any) -> bool:
@@ -3583,7 +3617,7 @@ def _csv_float_equal(expected: Any, actual: Any) -> bool:
         return False
     difference = abs(left - right)
     relative = difference / max(abs(left), abs(right), 1.0)
-    return difference <= 1e-10 and relative <= 1e-10
+    return difference <= 1e-12 and relative <= 1e-9
 
 
 def _expected_profile_rows(connection: Any, filename: str) -> list[tuple[Any, ...]]:

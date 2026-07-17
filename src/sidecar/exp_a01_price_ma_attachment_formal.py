@@ -90,6 +90,8 @@ _VALID_ADJUSTMENT_STATUSES = {
 DEFAULT_DUCKDB_THREADS = 12
 MAX_DUCKDB_THREADS = 12
 DEFAULT_MEMORY_LIMIT = "12GB"
+FLOAT64_EPSILON = 2.220446049250313e-16
+BOUNDARY_ULPS = 8
 
 
 def materialize_raw_metrics(
@@ -216,6 +218,19 @@ def _raw_metric_sql(*, candidate_table: str, index_table: str, run_id: str) -> s
     flags = _window_reason_flags()
     a1_reasons = _metric_reason_expression("a1", 60, "cloud_valid")
     a2_reasons = _metric_reason_expression("a2", 79, "a2_points_valid_count = 20")
+    a2_outside = (
+        f"(p.body < p.cloud_low - {_boundary_tolerance_sql('p.body', 'p.cloud_low')} "
+        f"OR p.body > p.cloud_high + {_boundary_tolerance_sql('p.body', 'p.cloud_high')})"
+    )
+    body_low = "LEAST(LN(p.adjusted_open), LN(p.adjusted_close))"
+    body_high = "GREATEST(LN(p.adjusted_open), LN(p.adjusted_close))"
+    a2b_gap = f"""CASE
+        WHEN {body_high} < p.cloud_low - {_boundary_tolerance_sql(body_high, "p.cloud_low")}
+          THEN p.cloud_low - {body_high}
+        WHEN {body_low} > p.cloud_high + {_boundary_tolerance_sql(body_low, "p.cloud_high")}
+          THEN {body_low} - p.cloud_high
+        ELSE 0.0
+      END"""
     return f"""
 WITH dense AS (
   SELECT
@@ -313,16 +328,10 @@ WITH dense AS (
   SELECT
     p.*,
     SUM(CASE WHEN p.cloud_valid THEN 1 ELSE 0 END) OVER p20 AS a2_points_valid_count,
-    SUM(CASE WHEN p.cloud_valid AND (p.body < p.cloud_low OR p.body > p.cloud_high)
+    SUM(CASE WHEN p.cloud_valid AND {a2_outside}
       THEN 1 ELSE 0 END) OVER p20 AS a2_outside_count,
     SUM(CASE WHEN p.cloud_valid THEN
-      CASE
-        WHEN GREATEST(LN(p.adjusted_open), LN(p.adjusted_close)) < p.cloud_low
-          THEN p.cloud_low - GREATEST(LN(p.adjusted_open), LN(p.adjusted_close))
-        WHEN LEAST(LN(p.adjusted_open), LN(p.adjusted_close)) > p.cloud_high
-          THEN LEAST(LN(p.adjusted_open), LN(p.adjusted_close)) - p.cloud_high
-        ELSE 0.0
-      END
+      {a2b_gap}
       ELSE 0.0 END) OVER p20 AS a2_gap_sum
   FROM cloud_values AS p
   WINDOW p20 AS (PARTITION BY security_id ORDER BY observation_sequence ROWS BETWEEN 19 PRECEDING AND CURRENT ROW)
@@ -507,6 +516,15 @@ def _canonical_date(column: str) -> str:
         f"try_strptime(CAST({column} AS VARCHAR), '%Y-%m-%d'), "
         f"try_strptime(CAST({column} AS VARCHAR), '%Y%m%d')"
         ") AS DATE)"
+    )
+
+
+def _boundary_tolerance_sql(left: str, right: str) -> str:
+    """Generate the shared scale-aware eight-ULP SQL boundary expression."""
+
+    return (
+        f"({BOUNDARY_ULPS}.0 * {FLOAT64_EPSILON!r} * "
+        f"GREATEST(1.0, ABS({left}), ABS({right})))"
     )
 
 
