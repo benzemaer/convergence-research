@@ -18,6 +18,7 @@ from unittest.mock import patch
 import duckdb
 
 import scripts.sidecar.run_exp_a01_price_ma_attachment as runner_module
+import src.sidecar.exp_a01_price_ma_attachment_validator as validator_module
 from scripts.sidecar.run_exp_a01_price_ma_attachment import (
     FORMAL_SOURCE_PATHS,
     run_formal,
@@ -643,6 +644,42 @@ class ExpA01FormalTest(unittest.TestCase):
                 second["oracle_sample_target_fingerprint"],
             )
             self.assertEqual(first["oracle_sample_security_count"], 1)
+
+    def test_small_input_full_oracle_is_not_capped_by_sample_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            _result, _manifest, output = self._run_synthetic(root, "004")
+            paths = {
+                "d3_t07_candidate_daily_observation": root
+                / "d3_t07_candidate_daily_observation.duckdb",
+                "expected_price_observation_index": root
+                / "expected_price_observation_index.duckdb",
+            }
+            connection = duckdb.connect(str(output / "exp_a01_raw_metrics.duckdb"))
+            try:
+                errors: list[str] = []
+                mismatches = {"oracle_sample_mismatch": 0}
+                with patch.object(validator_module, "ORACLE_SAMPLE_TARGET_LIMIT", 0):
+                    result = _validate_stratified_independent_oracle(
+                        connection,
+                        candidate_path=paths["d3_t07_candidate_daily_observation"],
+                        index_path=paths["expected_price_observation_index"],
+                        expected_index_table="expected_price_observation_index",
+                        expected_index_row_count=20368,
+                        run_id="EXP-A01-20260716T120000004Z",
+                        config=load_json(CONFIG_PATH),
+                        errors=errors,
+                        mismatch_counts=mismatches,
+                    )
+            finally:
+                connection.close()
+            self.assertEqual(errors, [])
+            self.assertEqual(mismatches["oracle_sample_mismatch"], 0)
+            self.assertEqual(result["oracle_mode"], "full_small_input")
+            self.assertEqual(
+                result["oracle_compared_raw_row_count"],
+                result["oracle_target_observation_count"] * 3,
+            )
 
     def test_runner_executes_core_validator_once_and_cheap_final_once(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

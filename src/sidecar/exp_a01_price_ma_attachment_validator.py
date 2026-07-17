@@ -3125,7 +3125,7 @@ def _validate_stratified_independent_oracle(
     target_count = int(
         connection.execute("SELECT COUNT(*) FROM oracle_sample_targets").fetchone()[0]
     )
-    if target_count > ORACLE_SAMPLE_TARGET_LIMIT:
+    if mode != "full_small_input" and target_count > ORACLE_SAMPLE_TARGET_LIMIT:
         mismatch_counts["oracle_sample_mismatch"] += 1
         errors.append("oracle_sample_target_limit_exceeded")
         return {
