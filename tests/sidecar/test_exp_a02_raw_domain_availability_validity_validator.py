@@ -245,6 +245,18 @@ class ExpA02ValidatorTest(unittest.TestCase):
                 None,
             ),
             (
+                OUTPUT_FILES["common_valid_availability"],
+                "common_valid_count",
+                "19",
+                None,
+            ),
+            (
+                OUTPUT_FILES["validity_status_profile"],
+                "row_count",
+                "19",
+                lambda row: row["validity_status"] == "valid",
+            ),
+            (
                 OUTPUT_FILES["raw_domain_profile"],
                 "q01_value",
                 "999",
@@ -255,6 +267,12 @@ class ExpA02ValidatorTest(unittest.TestCase):
                 "row_count",
                 "0",
                 lambda row: row["reason_code"] == "valid_no_blocker",
+            ),
+            (
+                OUTPUT_FILES["reason_combination_profile"],
+                "row_count",
+                "0",
+                None,
             ),
             (
                 OUTPUT_FILES["year_availability"],
@@ -291,6 +309,38 @@ class ExpA02ValidatorTest(unittest.TestCase):
                 self.assertGreater(
                     result["mismatch_counts"]["aggregate_csv_mismatch"], 0
                 )
+
+    def test_analysis_contract_fails_after_manifest_hash_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs, output, run_id = run_fixture(root)
+            analysis_path = output / OUTPUT_FILES["result_analysis"]
+            analysis = analysis_path.read_text(encoding="utf-8")
+            analysis = analysis.replace("## 11. Year availability\n", "", 1)
+            analysis_path.write_text(analysis, encoding="utf-8", newline="\n")
+            manifest_path = output / OUTPUT_FILES["manifest"]
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["output_artifacts"][OUTPUT_FILES["result_analysis"]]["sha256"] = (
+                sha256(analysis_path)
+            )
+            write_json(manifest_path, manifest)
+
+            result = validate_package(
+                output,
+                config=json.loads(CONFIG_PATH.read_text(encoding="utf-8")),
+                input_manifest_path=inputs["manifest"],
+                run_id=run_id,
+                require_final_manifest=True,
+                allow_synthetic_fixture=True,
+                require_diagnostics=True,
+            )
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(
+                any(
+                    error == "result_analysis_heading_order_or_set_invalid"
+                    for error in result["errors"]
+                )
+            )
 
     def test_lineage_and_evidence_artifact_mutations_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

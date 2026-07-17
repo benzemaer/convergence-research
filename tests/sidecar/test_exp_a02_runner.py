@@ -12,6 +12,9 @@ from scripts.sidecar.validate_exp_a02_raw_domain_availability_validity import (
     main as validate_main,
 )
 from src.sidecar.exp_a02_raw_domain_availability_validity import OUTPUT_FILES
+from src.sidecar.exp_a02_raw_domain_availability_validity import (
+    build_result_analysis as build_a02_result_analysis,
+)
 from src.sidecar.exp_a02_raw_domain_availability_validity_validator import (
     CONFIG_PATH,
     cheap_validate_final_package,
@@ -111,6 +114,41 @@ class ExpA02RunnerTest(unittest.TestCase):
             self.assertTrue(output.is_dir())
             self.assertEqual(core_validator.call_count, 1)
             self.assertEqual(cheap_validator.call_count, 1)
+
+    def test_runner_rejects_analysis_missing_middle_section(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = build_synthetic_input_package(root / "inputs")
+            run_id = "EXP-A02-20260717T000007000Z"
+            output = root / run_id
+
+            def missing_section(**kwargs: object) -> str:
+                return build_a02_result_analysis(**kwargs).replace(
+                    "## 11. Year availability\n", "", 1
+                )
+
+            with patch(
+                "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.build_result_analysis",
+                side_effect=missing_section,
+            ):
+                result = run_synthetic(
+                    Namespace(
+                        config=CONFIG_PATH,
+                        input_manifest=inputs["manifest"],
+                        output_root=output,
+                        run_id=run_id,
+                        failure_root=root / "failures",
+                        allow_synthetic_fixture=True,
+                    )
+                )
+
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["failure_stage"], "cheap_final_package_validation")
+            self.assertFalse(output.exists())
+            failure_package = root / "failures" / run_id / "package"
+            self.assertTrue(
+                (failure_package / OUTPUT_FILES["result_analysis"]).is_file()
+            )
 
     def test_standalone_cli_validates_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

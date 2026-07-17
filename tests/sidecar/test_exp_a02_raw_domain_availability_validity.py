@@ -103,6 +103,72 @@ class ExpA02ProducerTest(unittest.TestCase):
             self.assertEqual(len(profiles["reason_code_profile"]), 39)
             self.assertEqual(len(profiles["extreme_value_sample"]), 120)
 
+            year_rows = {
+                (row["calendar_year"], row["indicator_id"]): row
+                for row in profiles["year_availability"]
+            }
+            self.assertAlmostEqual(
+                float(year_rows[(2019, A1_ID)]["valid_rate_expected"]), 1.0
+            )
+            self.assertAlmostEqual(
+                float(year_rows[(2020, A1_ID)]["valid_rate_expected"]), 8 / 12
+            )
+            self.assertAlmostEqual(
+                float(year_rows[(2019, A1_ID)]["valid_rate_present"]), 1.0
+            )
+            self.assertAlmostEqual(
+                float(year_rows[(2020, A1_ID)]["valid_rate_present"]), 1.0
+            )
+
+            security_rows = {
+                (row["security_id"], row["indicator_id"]): row
+                for row in profiles["security_availability"]
+            }
+            self.assertAlmostEqual(
+                float(security_rows[("SEC001", A1_ID)]["valid_rate_expected"]), 1.0
+            )
+            self.assertAlmostEqual(
+                float(security_rows[("SEC002", A1_ID)]["valid_rate_expected"]),
+                8 / 12,
+            )
+
+    def test_a2_grid_investigation_uses_full_domain_cardinality(self) -> None:
+        extreme_sample = [
+            {"indicator_id": A2_ID, "raw_value": 0.0},
+            {"indicator_id": A2_ID, "raw_value": 1.0},
+        ]
+        broad_domain = build_anomaly_scan(
+            {
+                "raw_domain_profile": [
+                    {
+                        "indicator_id": A2_ID,
+                        "valid_count": 21,
+                        "unique_value_count": 21,
+                        "grid_violation_count": 0,
+                    }
+                ],
+                "extreme_value_sample": extreme_sample,
+            }
+        )
+        self.assertNotIn(
+            "a2_grid_levels_at_most_2", broad_domain["investigation_items"]
+        )
+
+        narrow_domain = build_anomaly_scan(
+            {
+                "raw_domain_profile": [
+                    {
+                        "indicator_id": A2_ID,
+                        "valid_count": 2,
+                        "unique_value_count": 2,
+                        "grid_violation_count": 0,
+                    }
+                ],
+                "extreme_value_sample": extreme_sample,
+            }
+        )
+        self.assertIn("a2_grid_levels_at_most_2", narrow_domain["investigation_items"])
+
     def test_status_reason_and_forbidden_field_contracts_are_explicit(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             input_package = build_synthetic_input_package(Path(temporary) / "inputs")

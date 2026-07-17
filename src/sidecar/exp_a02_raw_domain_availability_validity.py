@@ -586,7 +586,7 @@ def _year_availability(
 SELECT YEAR(trading_date) AS calendar_year,indicator_id,COUNT(*) AS row_count,
   COUNT(*) FILTER (WHERE expected_observation_status='present') AS present_count,
   COUNT(*) FILTER (WHERE validity_status='valid') AS valid_count,
-  COUNT(*) FILTER (WHERE validity_status='valid')::DOUBLE / NULLIF({expected_row_count},0) AS valid_rate_expected,
+  COUNT(*) FILTER (WHERE validity_status='valid')::DOUBLE / NULLIF(COUNT(*),0) AS valid_rate_expected,
   COUNT(*) FILTER (WHERE validity_status='valid')::DOUBLE / NULLIF(COUNT(*) FILTER (WHERE expected_observation_status='present'),0) AS valid_rate_present,
   COUNT(*) FILTER (WHERE validity_status='unknown') AS unknown_count,
   COUNT(*) FILTER (WHERE validity_status='blocked') AS blocked_count,
@@ -607,7 +607,7 @@ def _security_availability(
 SELECT security_id,indicator_id,COUNT(*) AS row_count,
   COUNT(*) FILTER (WHERE expected_observation_status='present') AS present_count,
   COUNT(*) FILTER (WHERE validity_status='valid') AS valid_count,
-  COUNT(*) FILTER (WHERE validity_status='valid')::DOUBLE / NULLIF({expected_row_count},0) AS valid_rate_expected,
+  COUNT(*) FILTER (WHERE validity_status='valid')::DOUBLE / NULLIF(COUNT(*),0) AS valid_rate_expected,
   COUNT(*) FILTER (WHERE validity_status='valid')::DOUBLE / NULLIF(COUNT(*) FILTER (WHERE expected_observation_status='present'),0) AS valid_rate_present,
   COUNT(*) FILTER (WHERE validity_status='unknown') AS unknown_count,
   COUNT(*) FILTER (WHERE validity_status='blocked') AS blocked_count,
@@ -673,14 +673,12 @@ def build_anomaly_scan(
             and int(row.get("valid_count") or 0) > 0
         ):
             investigations.append(f"valid_values_single_value:{indicator}")
-        if indicator == A2_ID and int(row.get("grid_violation_count") or 0) == 0:
-            grid_levels = {
-                value.get("raw_value")
-                for value in profiles.get("extreme_value_sample", ())
-                if value.get("indicator_id") == A2_ID
-            }
-            if len(grid_levels) <= 2:
-                investigations.append("a2_grid_levels_at_most_2")
+        if (
+            indicator == A2_ID
+            and int(row.get("grid_violation_count") or 0) == 0
+            and int(row.get("unique_value_count") or 0) <= 2
+        ):
+            investigations.append("a2_grid_levels_at_most_2")
     for row in profiles.get("year_availability", ()):
         if int(row.get("valid_count") or 0) == 0:
             investigations.append(

@@ -114,6 +114,34 @@ MISMATCH_KEYS = (
     "anomaly_artifact_mismatch",
     "forbidden_output_field",
 )
+RESULT_ANALYSIS_HEADINGS = (
+    "## 1. Actual run / reviewed SHA",
+    "## 2. Accepted EXP-A01 handoff",
+    "## 3. Input artifact and hash bindings",
+    "## 4. Raw-table cardinality",
+    "## 5. Raw domains",
+    "## 6. Indicator availability",
+    "## 7. Common-valid availability",
+    "## 8. Validity-status distribution",
+    "## 9. Reason-code distribution",
+    "## 10. Reason-combination distribution",
+    "## 11. Year availability",
+    "## 12. Security availability",
+    "## 13. Deterministic extreme-value sample",
+    "## 14. Full invariant validation",
+    "## 15. Independent aggregate recomputation",
+    "## 16. Validator result",
+    "## 17. Anomaly scan",
+    "## 18. Supported conclusions",
+    "## 19. Unsupported conclusions",
+    "## 20. Readiness for user Formal-result review",
+)
+RESULT_ANALYSIS_READINESS_VALUES = frozenset(
+    {
+        "ready_for_user_formal_result_review",
+        "needs_investigation_before_user_review",
+    }
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -150,6 +178,27 @@ def load_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"JSON root must be an object: {path}")
     return value
+
+
+def _result_analysis_text_errors(path: Path) -> list[str]:
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        return [f"result_analysis_read:{exc}"]
+    errors = canonical_text_errors(raw)
+    if errors:
+        return [f"result_analysis_text_contract:{error}" for error in errors]
+    text = raw.decode("utf-8")
+    lines = text.splitlines()
+    heading_lines = tuple(line for line in lines if line.startswith("## "))
+    if heading_lines != RESULT_ANALYSIS_HEADINGS:
+        errors.append("result_analysis_heading_order_or_set_invalid")
+    for heading in RESULT_ANALYSIS_HEADINGS:
+        if text.count(heading) != 1:
+            errors.append(f"result_analysis_heading_count:{heading}")
+    if not lines or lines[-1] not in RESULT_ANALYSIS_READINESS_VALUES:
+        errors.append("analysis_readiness_value_invalid")
+    return errors
 
 
 def _validate_schema(payload: Mapping[str, Any], schema_path: Path) -> None:
@@ -859,7 +908,7 @@ ORDER BY {_ind_order("r.indicator_id")},r.reason_codes_json
     )
 
     year_query = f"""
-SELECT YEAR(trading_date),indicator_id,COUNT(*),COUNT(*) FILTER(WHERE expected_observation_status='present'),COUNT(*) FILTER(WHERE validity_status='valid'),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF({expected_row_count},0),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF(COUNT(*) FILTER(WHERE expected_observation_status='present'),0),COUNT(*) FILTER(WHERE validity_status='unknown'),COUNT(*) FILTER(WHERE validity_status='blocked'),COUNT(*) FILTER(WHERE validity_status='diagnostic_required'),COUNT(DISTINCT security_id),COUNT(DISTINCT security_id) FILTER(WHERE validity_status='valid')
+SELECT YEAR(trading_date),indicator_id,COUNT(*),COUNT(*) FILTER(WHERE expected_observation_status='present'),COUNT(*) FILTER(WHERE validity_status='valid'),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF(COUNT(*),0),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF(COUNT(*) FILTER(WHERE expected_observation_status='present'),0),COUNT(*) FILTER(WHERE validity_status='unknown'),COUNT(*) FILTER(WHERE validity_status='blocked'),COUNT(*) FILTER(WHERE validity_status='diagnostic_required'),COUNT(DISTINCT security_id),COUNT(DISTINCT security_id) FILTER (WHERE validity_status='valid')
 FROM "{table}" GROUP BY YEAR(trading_date),indicator_id ORDER BY YEAR(trading_date),{_ind_order()}
 """
     profiles["year_availability"] = _query_rows(
@@ -867,7 +916,7 @@ FROM "{table}" GROUP BY YEAR(trading_date),indicator_id ORDER BY YEAR(trading_da
     )
 
     security_query = f"""
-SELECT security_id,indicator_id,COUNT(*),COUNT(*) FILTER(WHERE expected_observation_status='present'),COUNT(*) FILTER(WHERE validity_status='valid'),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF({expected_row_count},0),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF(COUNT(*) FILTER(WHERE expected_observation_status='present'),0),COUNT(*) FILTER(WHERE validity_status='unknown'),COUNT(*) FILTER(WHERE validity_status='blocked'),COUNT(*) FILTER(WHERE validity_status='diagnostic_required'),MIN(trading_date),MAX(trading_date),MIN(trading_date) FILTER(WHERE validity_status='valid'),MAX(trading_date) FILTER(WHERE validity_status='valid')
+SELECT security_id,indicator_id,COUNT(*),COUNT(*) FILTER(WHERE expected_observation_status='present'),COUNT(*) FILTER(WHERE validity_status='valid'),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF(COUNT(*),0),COUNT(*) FILTER(WHERE validity_status='valid')::DOUBLE/NULLIF(COUNT(*) FILTER(WHERE expected_observation_status='present'),0),COUNT(*) FILTER(WHERE validity_status='unknown'),COUNT(*) FILTER(WHERE validity_status='blocked'),COUNT(*) FILTER(WHERE validity_status='diagnostic_required'),MIN(trading_date),MAX(trading_date),MIN(trading_date) FILTER (WHERE validity_status='valid'),MAX(trading_date) FILTER (WHERE validity_status='valid')
 FROM "{table}" GROUP BY security_id,indicator_id ORDER BY security_id,{_ind_order()}
 """
     profiles["security_availability"] = _query_rows(
@@ -1140,21 +1189,9 @@ def validate_package(
             errors.append("result_analysis_missing")
             mismatches["output_manifest_mismatch"] += 1
         else:
-            analysis_text = analysis_path.read_text(encoding="utf-8")
-            for heading in (
-                "## 1. Actual run / reviewed SHA",
-                "## 20. Readiness for user Formal-result review",
-            ):
-                if heading not in analysis_text:
-                    errors.append(f"analysis_heading_missing:{heading}")
-                    mismatches["output_manifest_mismatch"] += 1
-            readiness = analysis_text.rstrip().splitlines()[-1]
-            if readiness not in {
-                "ready_for_user_formal_result_review",
-                "needs_investigation_before_user_review",
-            }:
-                errors.append("analysis_readiness_value_invalid")
-                mismatches["output_manifest_mismatch"] += 1
+            analysis_errors = _result_analysis_text_errors(analysis_path)
+            errors.extend(analysis_errors)
+            mismatches["output_manifest_mismatch"] += len(analysis_errors)
 
     blocking = sum(mismatches.values())
     status = "failed" if blocking or errors else "passed"
@@ -1219,6 +1256,11 @@ def cheap_validate_final_package(
                 errors.append(f"output_hash_mismatch:{filename}")
     if any(path.suffix.lower() == ".duckdb" for path in package_root.iterdir()):
         errors.append("new_duckdb_output_forbidden")
+    analysis_path = package_root / OUTPUT_FILES["result_analysis"]
+    if not analysis_path.is_file():
+        errors.append("result_analysis_missing")
+    else:
+        errors.extend(_result_analysis_text_errors(analysis_path))
     return {
         "status": "passed" if not errors else "failed",
         "errors": errors,
