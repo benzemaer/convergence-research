@@ -276,14 +276,19 @@ def build_synthetic_input_package(root: Path) -> dict[str, Path | int]:
 def build_formal_input_package(
     root: Path,
     reviewed_implementation_sha: str = REVIEWED_ACTIVATION_SHA,
-) -> dict[str, Path | int | str]:
+) -> dict[str, Any]:
     package = build_synthetic_input_package(root)
     manifest_path = Path(package["manifest"])
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     handoff_path = Path(package["handoff"])
     handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+    # The on-disk handoff remains the canonical accepted A01 fixture and is
+    # therefore schema-valid.  The returned payload is an explicit
+    # test-only mock used only by formal-style synthetic tests to reconcile
+    # the small fixture raw table with the frozen A01 cardinality constants.
+    formal_handoff_payload = copy.deepcopy(handoff)
     raw_declaration = manifest["input_artifacts"]["exp_a01_raw_metrics"]
-    handoff["raw_artifact"].update(
+    formal_handoff_payload["raw_artifact"].update(
         {
             "sha256": raw_declaration["sha256"],
             "row_count": raw_declaration["row_count"],
@@ -295,13 +300,9 @@ def build_formal_input_package(
             "date_max": raw_declaration["date_max"],
         }
     )
-    handoff["compact_result"]["manifest_sha256"] = manifest["input_artifacts"][
-        "exp_a01_manifest"
-    ]["sha256"]
-    write_json(handoff_path, handoff)
-    manifest["input_artifacts"]["exp_a01_accepted_result_handoff"]["sha256"] = sha256(
-        handoff_path
-    )
+    formal_handoff_payload["compact_result"]["manifest_sha256"] = manifest[
+        "input_artifacts"
+    ]["exp_a01_manifest"]["sha256"]
     manifest["manifest_type"] = "exp_a02_authorized_input_manifest"
     manifest["authorization"] = {
         "status": "approved",
@@ -316,6 +317,7 @@ def build_formal_input_package(
     write_json(formal_manifest, manifest)
     package["manifest"] = formal_manifest
     package["input_root"] = root
+    package["formal_handoff_payload"] = formal_handoff_payload
     return package
 
 
@@ -505,10 +507,16 @@ class ExpA02LineageTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             package = build_formal_input_package(root)
-            with patch(
-                "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect",
-                wraps=duckdb.connect,
-            ) as raw_open:
+            with (
+                patch(
+                    "src.sidecar.exp_a02_raw_domain_availability_validity_validator.validate_handoff",
+                    return_value=package["formal_handoff_payload"],
+                ),
+                patch(
+                    "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect",
+                    wraps=duckdb.connect,
+                ) as raw_open,
+            ):
                 result = validate_input_manifest(
                     package["manifest"],
                     input_root=None,
@@ -516,47 +524,86 @@ class ExpA02LineageTest(unittest.TestCase):
                     allow_formal_run=True,
                     reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
                 )
-            self.assertEqual(result["metadata"]["exp_a01_raw_metrics"]["row_count"], 72)
-            self.assertTrue(
-                any(
-                    call.kwargs.get("read_only") is True
-                    for call in raw_open.call_args_list
+                self.assertEqual(
+                    result["metadata"]["exp_a01_raw_metrics"]["row_count"], 72
                 )
-            )
+                self.assertTrue(
+                    any(
+                        call.kwargs.get("read_only") is True
+                        for call in raw_open.call_args_list
+                    )
+                )
+
+                manifest = json.loads(
+                    Path(package["manifest"]).read_text(encoding="utf-8")
+                )
+                for declaration in manifest["input_artifacts"].values():
+                    declaration["path_policy"] = "basename_local_only"
+                basename_manifest = root / "basename.json"
+                write_json(basename_manifest, manifest)
+                basename_result = validate_input_manifest(
+                    basename_manifest,
+                    input_root=root,
+                    allow_synthetic_fixture=False,
+                    allow_formal_run=True,
+                    reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                )
+                self.assertEqual(
+                    basename_result["metadata"]["exp_a01_raw_metrics"]["key_count"],
+                    24,
+                )
+
+                manifest = json.loads(
+                    Path(package["manifest"]).read_text(encoding="utf-8")
+                )
+                for declaration in manifest["input_artifacts"].values():
+                    path = root / declaration["path"]
+                    declaration["path_policy"] = "absolute_declared_path"
+                    declaration["path"] = str(path.resolve())
+                absolute_manifest = root / "absolute.json"
+                write_json(absolute_manifest, manifest)
+                absolute_result = validate_input_manifest(
+                    absolute_manifest,
+                    input_root=None,
+                    allow_synthetic_fixture=False,
+                    allow_formal_run=True,
+                    reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                )
+                self.assertEqual(
+                    absolute_result["metadata"]["exp_a01_raw_metrics"]["key_count"],
+                    24,
+                )
+
+    def test_formal_tampered_accepted_handoff_fails_before_raw_open(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package = build_formal_input_package(root)
+            handoff_path = Path(package["handoff"])
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+            handoff["raw_artifact"]["row_count"] = 123
+            write_json(handoff_path, handoff)
 
             manifest = json.loads(Path(package["manifest"]).read_text(encoding="utf-8"))
-            for declaration in manifest["input_artifacts"].values():
-                declaration["path_policy"] = "basename_local_only"
-            basename_manifest = root / "basename.json"
-            write_json(basename_manifest, manifest)
-            basename_result = validate_input_manifest(
-                basename_manifest,
-                input_root=root,
-                allow_synthetic_fixture=False,
-                allow_formal_run=True,
-                reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+            manifest["input_artifacts"]["exp_a01_accepted_result_handoff"]["sha256"] = (
+                sha256(handoff_path)
             )
-            self.assertEqual(
-                basename_result["metadata"]["exp_a01_raw_metrics"]["key_count"], 24
-            )
+            manifest["input_artifacts"]["exp_a01_raw_metrics"]["row_count"] = 123
+            manifest["cross_artifact_bindings"]["raw_row_count"] = 123
+            mutated_manifest = root / "tampered-formal.json"
+            write_json(mutated_manifest, manifest)
 
-            manifest = json.loads(Path(package["manifest"]).read_text(encoding="utf-8"))
-            for declaration in manifest["input_artifacts"].values():
-                path = root / declaration["path"]
-                declaration["path_policy"] = "absolute_declared_path"
-                declaration["path"] = str(path.resolve())
-            absolute_manifest = root / "absolute.json"
-            write_json(absolute_manifest, manifest)
-            absolute_result = validate_input_manifest(
-                absolute_manifest,
-                input_root=None,
-                allow_synthetic_fixture=False,
-                allow_formal_run=True,
-                reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
-            )
-            self.assertEqual(
-                absolute_result["metadata"]["exp_a01_raw_metrics"]["key_count"], 24
-            )
+            with patch(
+                "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect"
+            ) as raw_open:
+                with self.assertRaises(Exception):
+                    validate_input_manifest(
+                        mutated_manifest,
+                        input_root=None,
+                        allow_synthetic_fixture=False,
+                        allow_formal_run=True,
+                        reviewed_implementation_sha=REVIEWED_ACTIVATION_SHA,
+                    )
+                raw_open.assert_not_called()
 
 
 if __name__ == "__main__":

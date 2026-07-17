@@ -455,6 +455,7 @@ def _run(args: argparse.Namespace, *, synthetic_fixture: bool) -> dict[str, Any]
             run_id=run_id,
             synthetic_fixture=synthetic_fixture,
             reviewed_implementation_sha=reviewed_implementation_sha,
+            input_info=input_info,
         )
         if cheap_result["status"] != "passed":
             raise RuntimeError("cheap final package validation failed")

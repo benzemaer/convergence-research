@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 from scripts.sidecar.run_exp_a02_raw_domain_availability_validity import (
@@ -29,6 +30,7 @@ from tests.sidecar.test_exp_a02_lineage import (
     REVIEWED_ACTIVATION_SHA,
     build_formal_input_package,
     build_synthetic_input_package,
+    write_json,
 )
 
 
@@ -56,9 +58,7 @@ def run_fixture(root: Path, run_id: str) -> tuple[dict[str, Path | int], Path]:
     return run_existing_fixture(root, inputs, run_id)
 
 
-def run_formal_fixture(
-    root: Path, run_id: str
-) -> tuple[dict[str, Path | int | str], Path]:
+def run_formal_fixture(root: Path, run_id: str) -> tuple[dict[str, Any], Path]:
     inputs = build_formal_input_package(root / f"formal-inputs-{run_id}")
     output = root / run_id
     with (
@@ -69,6 +69,10 @@ def run_formal_fixture(
         patch(
             "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_worktree_status",
             return_value="",
+        ),
+        patch(
+            "src.sidecar.exp_a02_raw_domain_availability_validity_validator.validate_handoff",
+            return_value=inputs["formal_handoff_payload"],
         ),
     ):
         result = run_formal(
@@ -154,26 +158,30 @@ class ExpA02RunnerTest(unittest.TestCase):
                 for path in formal_output.iterdir()
                 if path.is_file()
             }
-            self.assertEqual(
-                validate_main(
-                    [
-                        "--config",
-                        str(CONFIG_PATH),
-                        "--input-manifest",
-                        str(formal_inputs["manifest"]),
-                        "--input-root",
-                        str(formal_inputs["input_root"]),
-                        "--package-dir",
-                        str(formal_output),
-                        "--run-id",
-                        "EXP-A02-20260717T000009000Z",
-                        "--allow-formal-run",
-                        "--reviewed-implementation-sha",
-                        REVIEWED_ACTIVATION_SHA,
-                    ]
-                ),
-                0,
-            )
+            with patch(
+                "src.sidecar.exp_a02_raw_domain_availability_validity_validator.validate_handoff",
+                return_value=formal_inputs["formal_handoff_payload"],
+            ):
+                self.assertEqual(
+                    validate_main(
+                        [
+                            "--config",
+                            str(CONFIG_PATH),
+                            "--input-manifest",
+                            str(formal_inputs["manifest"]),
+                            "--input-root",
+                            str(formal_inputs["input_root"]),
+                            "--package-dir",
+                            str(formal_output),
+                            "--run-id",
+                            "EXP-A02-20260717T000009000Z",
+                            "--allow-formal-run",
+                            "--reviewed-implementation-sha",
+                            REVIEWED_ACTIVATION_SHA,
+                        ]
+                    ),
+                    0,
+                )
             after = {
                 path.name: path.read_bytes()
                 for path in formal_output.iterdir()
@@ -217,6 +225,10 @@ class ExpA02RunnerTest(unittest.TestCase):
                     "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.duckdb.connect",
                     wraps=__import__("duckdb").connect,
                 ) as raw_open,
+                patch(
+                    "src.sidecar.exp_a02_raw_domain_availability_validity_validator.validate_handoff",
+                    return_value=inputs["formal_handoff_payload"],
+                ),
             ):
                 result = run_formal(
                     Namespace(
@@ -248,14 +260,29 @@ class ExpA02RunnerTest(unittest.TestCase):
             root = Path(temporary)
             inputs = build_formal_input_package(root / "inputs")
             cases = (
-                ("bad-format", "not-a-sha", True, REVIEWED_ACTIVATION_SHA, ""),
-                ("head-mismatch", "b" * 40, True, "b" * 40, ""),
+                (
+                    "bad-format",
+                    "not-a-sha",
+                    True,
+                    REVIEWED_ACTIVATION_SHA,
+                    "",
+                    "EXP-A02-20260717T000011001Z",
+                ),
+                (
+                    "head-mismatch",
+                    REVIEWED_ACTIVATION_SHA,
+                    True,
+                    "b" * 40,
+                    "",
+                    "EXP-A02-20260717T000011002Z",
+                ),
                 (
                     "dirty",
                     REVIEWED_ACTIVATION_SHA,
                     True,
                     REVIEWED_ACTIVATION_SHA,
                     " M file",
+                    "EXP-A02-20260717T000011003Z",
                 ),
                 (
                     "missing-formal-flag",
@@ -263,12 +290,27 @@ class ExpA02RunnerTest(unittest.TestCase):
                     False,
                     REVIEWED_ACTIVATION_SHA,
                     "",
+                    "EXP-A02-20260717T000011004Z",
                 ),
-                ("missing-reviewed-sha", None, True, REVIEWED_ACTIVATION_SHA, ""),
+                (
+                    "missing-reviewed-sha",
+                    None,
+                    True,
+                    REVIEWED_ACTIVATION_SHA,
+                    "",
+                    "EXP-A02-20260717T000011005Z",
+                ),
             )
-            for suffix, reviewed_sha, allow_formal, head, status in cases:
+            for (
+                case,
+                reviewed_sha,
+                allow_formal,
+                head,
+                status,
+                run_id,
+            ) in cases:
                 with (
-                    self.subTest(case=suffix),
+                    self.subTest(case=case),
                     patch(
                         "scripts.sidecar.run_exp_a02_raw_domain_availability_validity._git_head",
                         return_value=head,
@@ -279,7 +321,10 @@ class ExpA02RunnerTest(unittest.TestCase):
                     ),
                     patch(
                         "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.duckdb.connect"
-                    ) as raw_open,
+                    ) as runner_raw_open,
+                    patch(
+                        "src.sidecar.exp_a02_raw_domain_availability_validity_validator.duckdb.connect"
+                    ) as validator_raw_open,
                 ):
                     with self.assertRaises(Exception):
                         run_formal(
@@ -287,14 +332,15 @@ class ExpA02RunnerTest(unittest.TestCase):
                                 config=CONFIG_PATH,
                                 input_manifest=inputs["manifest"],
                                 input_root=inputs["input_root"],
-                                output_root=root / f"EXP-A02-20260717T000011{suffix}",
-                                run_id=f"EXP-A02-20260717T000011{suffix}",
+                                output_root=root / run_id,
+                                run_id=run_id,
                                 failure_root=root / "failures",
                                 allow_formal_run=allow_formal,
                                 reviewed_implementation_sha=reviewed_sha,
                             )
                         )
-                    raw_open.assert_not_called()
+                    runner_raw_open.assert_not_called()
+                    validator_raw_open.assert_not_called()
 
     def test_formal_input_mutation_is_preserved_as_failed_package(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -326,6 +372,10 @@ class ExpA02RunnerTest(unittest.TestCase):
                 patch(
                     "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.build_anomaly_scan",
                     side_effect=mutate_input,
+                ),
+                patch(
+                    "src.sidecar.exp_a02_raw_domain_availability_validity_validator.validate_handoff",
+                    return_value=inputs["formal_handoff_payload"],
                 ),
             ):
                 result = run_formal(
@@ -432,6 +482,89 @@ class ExpA02RunnerTest(unittest.TestCase):
             self.assertTrue(output.is_dir())
             self.assertEqual(core_validator.call_count, 1)
             self.assertEqual(cheap_validator.call_count, 1)
+
+    def test_preliminary_manifest_mismatch_is_not_cleared(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = build_synthetic_input_package(root / "inputs")
+            run_id = "EXP-A02-20260717T000013000Z"
+            output = root / run_id
+            original_validate = validate_package
+
+            def corrupt_preliminary(
+                package_root: Path, **kwargs: object
+            ) -> dict[str, Any]:
+                manifest_path = package_root / OUTPUT_FILES["manifest"]
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["phase"] = "wrong_preliminary_phase"
+                write_json(manifest_path, manifest)
+                return original_validate(package_root, **kwargs)
+
+            with patch(
+                "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.validate_package",
+                side_effect=corrupt_preliminary,
+            ) as core_validator:
+                result = run_synthetic(
+                    Namespace(
+                        config=CONFIG_PATH,
+                        input_manifest=inputs["manifest"],
+                        output_root=output,
+                        run_id=run_id,
+                        failure_root=root / "failures",
+                        allow_synthetic_fixture=True,
+                    )
+                )
+
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["failure_stage"], "anomaly_scan")
+            self.assertEqual(core_validator.call_count, 1)
+            self.assertFalse(output.exists())
+            failure_package = root / "failures" / run_id / "package"
+            validator_result = json.loads(
+                (failure_package / OUTPUT_FILES["validator_result"]).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(validator_result["status"], "failed")
+            self.assertGreater(
+                validator_result["mismatch_counts"]["output_manifest_mismatch"],
+                0,
+            )
+
+    def test_cheap_final_manifest_rejects_governance_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs = build_synthetic_input_package(root / "inputs")
+            run_id = "EXP-A02-20260717T000014000Z"
+            output = root / run_id
+            original_cheap = cheap_validate_final_package
+
+            def corrupt_final(package_root: Path, **kwargs: object) -> dict[str, Any]:
+                manifest_path = package_root / OUTPUT_FILES["manifest"]
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["EXP_A03_started"] = True
+                write_json(manifest_path, manifest)
+                return original_cheap(package_root, **kwargs)
+
+            with patch(
+                "scripts.sidecar.run_exp_a02_raw_domain_availability_validity.cheap_validate_final_package",
+                side_effect=corrupt_final,
+            ) as cheap_validator:
+                result = run_synthetic(
+                    Namespace(
+                        config=CONFIG_PATH,
+                        input_manifest=inputs["manifest"],
+                        output_root=output,
+                        run_id=run_id,
+                        failure_root=root / "failures",
+                        allow_synthetic_fixture=True,
+                    )
+                )
+
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["failure_stage"], "cheap_final_package_validation")
+            self.assertEqual(cheap_validator.call_count, 1)
+            self.assertFalse(output.exists())
 
     def test_runner_rejects_analysis_missing_middle_section(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -71,6 +71,7 @@ SHA40_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 SHA64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 FORMAL_MANIFEST_TYPE = "exp_a02_authorized_input_manifest"
 SYNTHETIC_MANIFEST_TYPE = "exp_a02_synthetic_input_manifest"
+VALIDATION_STRATEGY = "r0_t10_artifact_bound_full_aggregate_recompute_v1"
 EXPECTED_KEY_FIELDS = ("security_id", "trading_date", "observation_sequence")
 RAW_TYPE_EXPECTATIONS = {
     "run_id": "VARCHAR",
@@ -495,7 +496,13 @@ def prepare_input_manifest(
             payloads[artifact_id] = inspected["payload"]
             metadata[artifact_id] = {"row_count": None}
 
-    handoff = payloads["exp_a01_accepted_result_handoff"]
+    # The accepted A01 handoff is a frozen upstream contract.  Required-field
+    # checks above are insufficient because the handoff schema also binds the
+    # accepted run, raw artifact cardinality/hash, compact manifest hash and
+    # review statuses.  Replay it through the fixed schema before any raw
+    # DuckDB is opened.
+    handoff = validate_handoff(paths["exp_a01_accepted_result_handoff"])
+    payloads["exp_a01_accepted_result_handoff"] = handoff
     if (
         handoff["accepted_run_id"] != A01_RUN_ID
         or handoff["implementation_sha"] != A01_IMPLEMENTATION_SHA
@@ -1168,7 +1175,7 @@ def _validate_output_manifest(
     if manifest.get("input_manifest_sha256") != input_info["manifest_sha256"]:
         mismatches += 1
     if not require_final_manifest and manifest.get("final_manifest") is not True:
-        return 0, manifest
+        return mismatches, manifest
     expected_files = set(OUTPUT_FILES.values()) - {OUTPUT_FILES["manifest"]}
     actual_files = {item.name for item in package_root.iterdir() if item.is_file()}
     if actual_files != expected_files | {OUTPUT_FILES["manifest"]}:
@@ -1466,8 +1473,9 @@ def cheap_validate_final_package(
     run_id: str,
     synthetic_fixture: bool | None = None,
     reviewed_implementation_sha: str | None = None,
+    input_info: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Validate only final text/hash bindings; never recompute aggregates."""
+    """Validate final text/hash bindings; never reopen raw or recompute aggregates."""
 
     errors: list[str] = []
     manifest_path = package_root / OUTPUT_FILES["manifest"]
@@ -1483,27 +1491,130 @@ def cheap_validate_final_package(
         errors.append("final_manifest_flag_missing")
     if manifest.get("input_manifest_sha256") != input_manifest_sha256:
         errors.append("input_manifest_sha256_mismatch")
-    if "input_hashes_before" not in manifest or "input_hashes_after" not in manifest:
-        errors.append("input_hash_bindings_missing")
-    if manifest.get("input_hash_changed_count") != 0:
-        errors.append("input_hash_changed_count_nonzero")
-    if synthetic_fixture is not None:
-        if manifest.get("synthetic_fixture") is not synthetic_fixture:
+    if synthetic_fixture is None:
+        synthetic = manifest.get("synthetic_fixture")
+        if not isinstance(synthetic, bool):
+            errors.append("synthetic_fixture_flag_missing")
+            synthetic = False
+    else:
+        synthetic = synthetic_fixture
+        if manifest.get("synthetic_fixture") is not synthetic:
             errors.append("synthetic_fixture_flag_mismatch")
-        expected_formal = not synthetic_fixture
-        for field in (
-            "formal_run_allowed",
-            "formal_run_executed",
-            "formal_artifacts_generated",
-        ):
-            if manifest.get(field) is not expected_formal:
-                errors.append(f"{field}_mismatch")
-        if (
-            not synthetic_fixture
-            and manifest.get("reviewed_implementation_sha")
-            != reviewed_implementation_sha
-        ):
-            errors.append("reviewed_implementation_sha_mismatch")
+
+    expected_phase = "implementation_synthetic_fixture" if synthetic else "formal_run"
+    if manifest.get("phase") != expected_phase:
+        errors.append("phase_mismatch")
+    if manifest.get("formal_data_version") is not False:
+        errors.append("formal_data_version_mismatch")
+    expected_formal = not synthetic
+    for field in (
+        "formal_run_allowed",
+        "formal_run_executed",
+        "formal_artifacts_generated",
+    ):
+        if manifest.get(field) is not expected_formal:
+            errors.append(f"{field}_mismatch")
+    if synthetic:
+        if manifest.get("reviewed_implementation_sha") is not None:
+            errors.append("synthetic_reviewed_implementation_sha_mismatch")
+    elif (
+        not reviewed_implementation_sha
+        or not SHA40_PATTERN.fullmatch(reviewed_implementation_sha)
+        or manifest.get("reviewed_implementation_sha") != reviewed_implementation_sha
+    ):
+        errors.append("reviewed_implementation_sha_mismatch")
+
+    if manifest.get("validation_strategy") != VALIDATION_STRATEGY:
+        errors.append("validation_strategy_mismatch")
+    if manifest.get("core_validator_execution_count") != 1:
+        errors.append("core_validator_execution_count_mismatch")
+    expected_upstream = {
+        "task_id": "EXP-A01",
+        "accepted_run_id": A01_RUN_ID,
+        "implementation_sha": A01_IMPLEMENTATION_SHA,
+        "result_commit": A01_RESULT_COMMIT,
+    }
+    accepted_upstream = manifest.get("accepted_upstream")
+    if not isinstance(accepted_upstream, Mapping):
+        errors.append("accepted_upstream_missing")
+    else:
+        for field, expected in expected_upstream.items():
+            if accepted_upstream.get(field) != expected:
+                errors.append(f"accepted_upstream_{field}_mismatch")
+    for field in ("EXP_A03_started", "A_layer_registered", "PCATV_created"):
+        if manifest.get(field) is not False:
+            errors.append(f"{field}_mismatch")
+
+    before_value = manifest.get("input_hashes_before")
+    after_value = manifest.get("input_hashes_after")
+    if not isinstance(before_value, dict) or not isinstance(after_value, dict):
+        errors.append("input_hash_bindings_missing")
+    else:
+        before = {str(key): str(value) for key, value in before_value.items()}
+        after = {str(key): str(value) for key, value in after_value.items()}
+        expected_artifact_ids = set(EXPECTED_MANIFEST_ARTIFACTS)
+        if set(before) != expected_artifact_ids:
+            errors.append("input_hashes_before_artifact_set_mismatch")
+        if set(after) != expected_artifact_ids:
+            errors.append("input_hashes_after_artifact_set_mismatch")
+        if before != after:
+            errors.append("input_hashes_before_after_differ")
+        if manifest.get("input_hash_changed_count") != 0:
+            errors.append("input_hash_changed_count_nonzero")
+        input_artifacts = manifest.get("input_artifacts")
+        if not isinstance(input_artifacts, Mapping):
+            errors.append("input_artifacts_missing")
+        else:
+            declared_hashes: dict[str, str] = {}
+            for artifact_id in EXPECTED_MANIFEST_ARTIFACTS:
+                declaration = input_artifacts.get(artifact_id)
+                if not isinstance(declaration, Mapping):
+                    errors.append(f"input_artifact_missing:{artifact_id}")
+                    continue
+                declared_hashes[artifact_id] = str(declaration.get("sha256"))
+            if after != declared_hashes:
+                errors.append("input_hashes_input_artifact_binding_mismatch")
+        if input_info is not None:
+            expected_hashes = input_info.get("artifact_hashes")
+            if isinstance(expected_hashes, Mapping):
+                expected_hashes = {
+                    str(key): str(value) for key, value in expected_hashes.items()
+                }
+                if after != expected_hashes:
+                    errors.append("input_hashes_current_input_mismatch")
+
+    raw_artifacts = manifest.get("input_artifacts")
+    raw_declaration = (
+        raw_artifacts.get("exp_a01_raw_metrics")
+        if isinstance(raw_artifacts, Mapping)
+        else None
+    )
+    raw_binding_fields = {
+        "raw_row_count": "row_count",
+        "expected_key_count": "actual_key_count",
+        "security_count": "security_count",
+        "date_min": "date_min",
+        "date_max": "date_max",
+    }
+    if not isinstance(raw_declaration, Mapping):
+        errors.append("raw_input_artifact_binding_missing")
+    else:
+        for manifest_field, declaration_field in raw_binding_fields.items():
+            if manifest.get(manifest_field) != raw_declaration.get(declaration_field):
+                errors.append(f"{manifest_field}_binding_mismatch")
+        if input_info is not None:
+            raw_metadata = input_info.get("metadata", {}).get("exp_a01_raw_metrics")
+            if isinstance(raw_metadata, Mapping):
+                expected_metadata = {
+                    "raw_row_count": raw_metadata.get("row_count"),
+                    "expected_key_count": raw_metadata.get("key_count"),
+                    "security_count": raw_metadata.get("security_count"),
+                    "date_min": raw_metadata.get("date_min"),
+                    "date_max": raw_metadata.get("date_max"),
+                }
+                for field, expected in expected_metadata.items():
+                    if manifest.get(field) != expected:
+                        errors.append(f"{field}_input_metadata_mismatch")
     expected = set(OUTPUT_FILES.values()) - {OUTPUT_FILES["manifest"]}
     actual_files = {item.name for item in package_root.iterdir() if item.is_file()}
     if actual_files != expected | {OUTPUT_FILES["manifest"]}:
