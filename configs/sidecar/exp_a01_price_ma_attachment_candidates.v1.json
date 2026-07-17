@@ -231,7 +231,7 @@
   "input_governance": {
     "d3_t08_required": false,
     "d3_t08_policy": "not_required_for_EXP-A01",
-    "rationale": "D3-T08 adds no A1/A2/A2b calculation field and its relevant checks are duplicated by the D3-T07 gate, direct main-table checks, dense-index reconciliation and independent full recomputation."
+    "rationale": "D3-T08 adds no A1/A2/A2b calculation field and its relevant checks are duplicated by the D3-T07 gate, direct main-table checks, dense-index reconciliation and full persisted invariant validation plus deterministic stratified independent oracle."
   },
   "execution_profile_governance": {
     "owner_override": true,
@@ -280,6 +280,40 @@
       "A1_LogBodyCenterToMACloudCenter_5_60": 60,
       "A2_BodyCenterOutsideMACloudRate20_5_60": 79,
       "A2b_BodyToMACloudGapMean20_5_60": 79
+    }
+  },
+  "validation_contract": {
+    "strategy": "r0_t10_full_invariants_plus_stratified_oracle_v1",
+    "full_independent_recompute_required": false,
+    "full_persisted_invariant_scan_required": true,
+    "small_input_full_oracle_max_expected_observations": 100000,
+    "oracle_sample_version": "EXP_A01_STRATIFIED_ORACLE_V1",
+    "oracle_sample_target_limit": 10000,
+    "per_security_anchors": [
+      "first_observation",
+      "last_observation",
+      "first_a1_valid",
+      "first_a2_valid",
+      "deterministic_valid",
+      "deterministic_nonvalid"
+    ],
+    "per_indicator_validity_status_limit": 20,
+    "per_indicator_reason_code_limit": 10,
+    "per_indicator_year_valid_limit": 5,
+    "per_indicator_extreme_tail_limit": 20,
+    "numeric_tolerances": {
+      "A1_LogBodyCenterToMACloudCenter_5_60": {
+        "absolute": 1e-10,
+        "relative": 1e-10
+      },
+      "A2_BodyCenterOutsideMACloudRate20_5_60": {
+        "absolute": 1e-10,
+        "relative": 1e-10
+      },
+      "A2b_BodyToMACloudGapMean20_5_60": {
+        "absolute": 1e-10,
+        "relative": 1e-10
+      }
     }
   },
   "output_contract": {

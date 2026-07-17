@@ -41,6 +41,7 @@
     "input_governance",
     "execution_profile_governance",
     "dense_window_contract",
+    "validation_contract",
     "output_contract",
     "long_lived_program_plan"
   ],
@@ -217,6 +218,7 @@
       }
     },
     "dense_window_contract": {"$ref": "#/$defs/denseWindowContract"},
+    "validation_contract": {"$ref": "#/$defs/validationContract"},
     "output_contract": {
       "type": "object",
       "additionalProperties": false,
@@ -329,6 +331,56 @@
             "A2b_BodyToMACloudGapMean20_5_60": 79
           }
         }
+      }
+    },
+    "validationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "full_independent_recompute_required",
+        "full_persisted_invariant_scan_required",
+        "small_input_full_oracle_max_expected_observations",
+        "oracle_sample_version",
+        "oracle_sample_target_limit",
+        "per_security_anchors",
+        "per_indicator_validity_status_limit",
+        "per_indicator_reason_code_limit",
+        "per_indicator_year_valid_limit",
+        "per_indicator_extreme_tail_limit",
+        "numeric_tolerances"
+      ],
+      "properties": {
+        "strategy": {"const": "r0_t10_full_invariants_plus_stratified_oracle_v1"},
+        "full_independent_recompute_required": {"const": false},
+        "full_persisted_invariant_scan_required": {"const": true},
+        "small_input_full_oracle_max_expected_observations": {"const": 100000},
+        "oracle_sample_version": {"const": "EXP_A01_STRATIFIED_ORACLE_V1"},
+        "oracle_sample_target_limit": {"const": 10000},
+        "per_security_anchors": {"const": ["first_observation", "last_observation", "first_a1_valid", "first_a2_valid", "deterministic_valid", "deterministic_nonvalid"]},
+        "per_indicator_validity_status_limit": {"const": 20},
+        "per_indicator_reason_code_limit": {"const": 10},
+        "per_indicator_year_valid_limit": {"const": 5},
+        "per_indicator_extreme_tail_limit": {"const": 20},
+        "numeric_tolerances": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60", "A2b_BodyToMACloudGapMean20_5_60"],
+          "properties": {
+            "A1_LogBodyCenterToMACloudCenter_5_60": {"$ref": "#/$defs/numericTolerance"},
+            "A2_BodyCenterOutsideMACloudRate20_5_60": {"$ref": "#/$defs/numericTolerance"},
+            "A2b_BodyToMACloudGapMean20_5_60": {"$ref": "#/$defs/numericTolerance"}
+          }
+        }
+      }
+    },
+    "numericTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["absolute", "relative"],
+      "properties": {
+        "absolute": {"const": 1e-10},
+        "relative": {"const": 1e-10}
       }
     }
   }

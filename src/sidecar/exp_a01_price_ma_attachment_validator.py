@@ -26,6 +26,15 @@ INDICATOR_IDS = (A1_ID, A2_ID, A2B_ID)
 A1_REQUIRED_OBSERVATIONS = 60
 A2_REQUIRED_OBSERVATIONS = 79
 METRIC_ENGINE_VERSION = "exp_a01_price_ma_attachment.v1"
+VALIDATION_STRATEGY = "r0_t10_full_invariants_plus_stratified_oracle_v1"
+ORACLE_SAMPLE_VERSION = "EXP_A01_STRATIFIED_ORACLE_V1"
+ORACLE_SAMPLE_TARGET_LIMIT = 10000
+SMALL_INPUT_FULL_ORACLE_LIMIT = 100000
+NUMERIC_TOLERANCES = {
+    A1_ID: {"absolute": 1e-10, "relative": 1e-10},
+    A2_ID: {"absolute": 1e-10, "relative": 1e-10},
+    A2B_ID: {"absolute": 1e-10, "relative": 1e-10},
+}
 RAW_METRIC_NAMES = {
     A1_ID: "LogBodyCenterToMACloudCenter_5_60",
     A2_ID: "BodyCenterOutsideMACloudRate20_5_60",
@@ -381,6 +390,36 @@ def validate_static_config(config: Mapping[str, Any]) -> list[str]:
     for gate_name in ("d3_t07_evidence_gate", "dense_window_contract"):
         if not isinstance(config.get(gate_name), Mapping):
             errors.append(f"config_{gate_name}_missing")
+    validation_contract = config.get("validation_contract")
+    if not isinstance(validation_contract, Mapping):
+        errors.append("config_validation_contract_missing")
+    else:
+        expected_validation = {
+            "strategy": VALIDATION_STRATEGY,
+            "full_independent_recompute_required": False,
+            "full_persisted_invariant_scan_required": True,
+            "small_input_full_oracle_max_expected_observations": SMALL_INPUT_FULL_ORACLE_LIMIT,
+            "oracle_sample_version": ORACLE_SAMPLE_VERSION,
+            "oracle_sample_target_limit": ORACLE_SAMPLE_TARGET_LIMIT,
+            "per_security_anchors": [
+                "first_observation",
+                "last_observation",
+                "first_a1_valid",
+                "first_a2_valid",
+                "deterministic_valid",
+                "deterministic_nonvalid",
+            ],
+            "per_indicator_validity_status_limit": 20,
+            "per_indicator_reason_code_limit": 10,
+            "per_indicator_year_valid_limit": 5,
+            "per_indicator_extreme_tail_limit": 20,
+        }
+        for key, expected in expected_validation.items():
+            if validation_contract.get(key) != expected:
+                errors.append(f"config_validation_contract_{key}_mismatch")
+        tolerances = validation_contract.get("numeric_tolerances")
+        if tolerances != NUMERIC_TOLERANCES:
+            errors.append("config_validation_contract_numeric_tolerances_mismatch")
     output_contract = config.get("output_contract")
     if not isinstance(output_contract, Mapping):
         errors.append("config_output_contract_missing")
@@ -799,10 +838,16 @@ def _validate_persisted_formal_outputs(
     mismatch_counts = {
         "raw_table_schema_mismatch": 0,
         "raw_row_count_mismatch": 0,
+        "raw_expected_key_mismatch": 0,
+        "indicator_set_mismatch": 0,
         "duplicate_result_key": 0,
+        "static_field_mismatch": 0,
         "validity_domain_mismatch": 0,
         "reason_code_domain_mismatch": 0,
-        "independent_recompute_mismatch": 0,
+        "window_invariant_mismatch": 0,
+        "a2_a2b_pair_mismatch": 0,
+        "full_invariant_mismatch": 0,
+        "oracle_sample_mismatch": 0,
         "metric_profile_mismatch": 0,
         "validity_profile_mismatch": 0,
         "year_coverage_mismatch": 0,
@@ -811,6 +856,25 @@ def _validate_persisted_formal_outputs(
         "input_hash_changed": 0,
         "analysis_section_mismatch": 0,
         "prohibited_output_mismatch": 0,
+    }
+    validation_details: dict[str, Any] = {
+        "validation_strategy": VALIDATION_STRATEGY,
+        "full_independent_recompute_performed": False,
+        "full_persisted_invariant_scan_performed": False,
+        "oracle_mode": None,
+        "oracle_sample_version": ORACLE_SAMPLE_VERSION,
+        "oracle_target_observation_count": 0,
+        "oracle_sample_target_fingerprint": None,
+        "oracle_compared_raw_row_count": 0,
+        "oracle_sample_security_count": 0,
+        "oracle_sample_indicator_ids": [],
+        "oracle_sample_validity_statuses": [],
+        "oracle_sample_reason_codes": [],
+        "oracle_sample_years": [],
+        "oracle_mismatch_count": 0,
+        "oracle_max_absolute_difference_by_indicator": {},
+        "oracle_max_relative_difference_by_indicator": {},
+        "oracle_numeric_tolerances": NUMERIC_TOLERANCES,
     }
     if not root.is_dir():
         return _validation_result(
@@ -882,6 +946,7 @@ def _validate_persisted_formal_outputs(
                 expected_count = expected_index_row_count * 3
                 if raw_count != expected_count:
                     mismatch_counts["raw_row_count_mismatch"] += 1
+                    mismatch_counts["full_invariant_mismatch"] += 1
                     errors.append(
                         f"raw_row_count_mismatch:expected={expected_count}:actual={raw_count}"
                     )
@@ -900,14 +965,35 @@ def _validate_persisted_formal_outputs(
                 if duplicate_count:
                     mismatch_counts["duplicate_result_key"] += duplicate_count
                     errors.append(f"duplicate_result_key:{duplicate_count}")
-                _validate_raw_domains(connection, errors, mismatch_counts)
-                _validate_raw_against_independent_recompute(
+                _validate_full_persisted_invariants(
                     connection,
-                    input_paths=input_paths,
+                    expected_index_path=input_paths["expected_price_observation_index"],
+                    expected_index_table=config["input_contract"]["artifacts"][
+                        "expected_price_observation_index"
+                    ]["table"],
                     expected_index_row_count=expected_index_row_count,
                     run_id=str(formal_manifest.get("run_id", "")),
+                    config=config,
                     errors=errors,
                     mismatch_counts=mismatch_counts,
+                )
+                validation_details["full_persisted_invariant_scan_performed"] = True
+                validation_details.update(
+                    _validate_stratified_independent_oracle(
+                        connection,
+                        candidate_path=input_paths[
+                            "d3_t07_candidate_daily_observation"
+                        ],
+                        index_path=input_paths["expected_price_observation_index"],
+                        expected_index_table=config["input_contract"]["artifacts"][
+                            "expected_price_observation_index"
+                        ]["table"],
+                        expected_index_row_count=expected_index_row_count,
+                        run_id=str(formal_manifest.get("run_id", "")),
+                        config=config,
+                        errors=errors,
+                        mismatch_counts=mismatch_counts,
+                    )
                 )
                 for filename in CSV_FIELDS:
                     path = root / filename
@@ -922,8 +1008,8 @@ def _validate_persisted_formal_outputs(
                         mismatch_counts,
                     )
             except Exception as exc:  # noqa: BLE001
-                errors.append(f"independent_validation_exception:{exc}")
-                mismatch_counts["independent_recompute_mismatch"] += 1
+                errors.append(f"full_invariant_validation_exception:{exc}")
+                mismatch_counts["full_invariant_mismatch"] += 1
             finally:
                 connection.close()
 
@@ -948,7 +1034,7 @@ def _validate_persisted_formal_outputs(
                 "Reason-code profile",
                 "Year coverage",
                 "Security coverage",
-                "Independent full recomputation",
+                "Full invariant validation and stratified independent oracle",
                 "Validator result",
                 "Anomaly scan",
                 "Supported and unsupported conclusions",
@@ -998,6 +1084,7 @@ def _validate_persisted_formal_outputs(
         input_manifest_path=input_manifest_path,
         formal_manifest=formal_manifest,
     )
+    result.update(validation_details)
     result["input_hash_after_run"] = {
         artifact_id: sha256_file(
             Path(str(metadata.get("path", input_paths[artifact_id])))
@@ -1029,10 +1116,16 @@ def _empty_validation_result(
     mismatch_counts = {
         "raw_table_schema_mismatch": 0,
         "raw_row_count_mismatch": 0,
+        "raw_expected_key_mismatch": 0,
+        "indicator_set_mismatch": 0,
         "duplicate_result_key": 0,
+        "static_field_mismatch": 0,
         "validity_domain_mismatch": 0,
         "reason_code_domain_mismatch": 0,
-        "independent_recompute_mismatch": 0,
+        "window_invariant_mismatch": 0,
+        "a2_a2b_pair_mismatch": 0,
+        "full_invariant_mismatch": 0,
+        "oracle_sample_mismatch": 0,
         "metric_profile_mismatch": 0,
         "validity_profile_mismatch": 0,
         "year_coverage_mismatch": 0,
@@ -1078,6 +1171,23 @@ def _empty_validation_result(
         "input_hash_after_run": {},
         "errors": [],
         "warnings": [],
+        "validation_strategy": VALIDATION_STRATEGY,
+        "full_independent_recompute_performed": False,
+        "full_persisted_invariant_scan_performed": False,
+        "oracle_mode": None,
+        "oracle_sample_version": ORACLE_SAMPLE_VERSION,
+        "oracle_target_observation_count": 0,
+        "oracle_sample_target_fingerprint": None,
+        "oracle_compared_raw_row_count": 0,
+        "oracle_sample_security_count": 0,
+        "oracle_sample_indicator_ids": [],
+        "oracle_sample_validity_statuses": [],
+        "oracle_sample_reason_codes": [],
+        "oracle_sample_years": [],
+        "oracle_mismatch_count": 0,
+        "oracle_max_absolute_difference_by_indicator": {},
+        "oracle_max_relative_difference_by_indicator": {},
+        "oracle_numeric_tolerances": NUMERIC_TOLERANCES,
     }
 
 
@@ -2314,8 +2424,10 @@ def scan_persisted_anomalies(
             ):
                 blocking.append("validator_failed")
             mismatches = validator.get("mismatch_counts", {})
-            if int(mismatches.get("independent_recompute_mismatch", 0)):
-                blocking.append("independent_recompute_mismatch")
+            if int(mismatches.get("full_invariant_mismatch", 0)):
+                blocking.append("full_invariant_mismatch")
+            if int(mismatches.get("oracle_sample_mismatch", 0)):
+                blocking.append("oracle_sample_mismatch")
             if int(mismatches.get("artifact_hash_mismatch", 0)):
                 blocking.append("artifact_hash_mismatch")
             if int(mismatches.get("input_hash_changed", 0)):
@@ -2437,11 +2549,17 @@ def _validate_raw_table_schema(
         rows = connection.execute("PRAGMA table_info('exp_a01_raw_metrics')").fetchall()
     except Exception as exc:  # noqa: BLE001
         mismatches["raw_table_schema_mismatch"] += 1
+        mismatches["full_invariant_mismatch"] = (
+            mismatches.get("full_invariant_mismatch", 0) + 1
+        )
         errors.append(f"raw_table_missing:{exc}")
         return
     columns = [str(row[1]) for row in rows]
     if columns != list(RAW_TABLE_COLUMNS):
         mismatches["raw_table_schema_mismatch"] += 1
+        mismatches["full_invariant_mismatch"] = (
+            mismatches.get("full_invariant_mismatch", 0) + 1
+        )
         errors.append(f"raw_table_columns_mismatch:{columns}")
     types = {str(row[1]): str(row[2]).upper() for row in rows}
     for column, expected in {
@@ -2453,6 +2571,9 @@ def _validate_raw_table_schema(
     }.items():
         if column in types and expected not in types[column]:
             mismatches["raw_table_schema_mismatch"] += 1
+            mismatches["full_invariant_mismatch"] = (
+                mismatches.get("full_invariant_mismatch", 0) + 1
+            )
             errors.append(f"raw_table_type_mismatch:{column}:{types[column]}")
 
 
@@ -2462,7 +2583,7 @@ def _validate_raw_domains(
     checks = (
         (
             "validity_domain_mismatch",
-            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE validity_status NOT IN ('valid','unknown','blocked','diagnostic_required')",
+            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE validity_status IS NULL OR validity_status NOT IN ('valid','unknown','blocked','diagnostic_required')",
         ),
         (
             "validity_domain_mismatch",
@@ -2485,15 +2606,32 @@ def _validate_raw_domains(
             f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE indicator_id='{A2_ID}' AND (raw_value < 0 OR raw_value > 1)",
         ),
         (
+            "validity_domain_mismatch",
+            f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE indicator_id='{A2_ID}' AND validity_status='valid' AND abs(raw_value * 20.0 - round(raw_value * 20.0)) > {NUMERIC_TOLERANCES[A2_ID]['absolute']}",
+        ),
+        (
             "reason_code_domain_mismatch",
             """
-          SELECT COUNT(*) FROM exp_a01_raw_metrics r, LATERAL json_each(r.reason_codes_json) j
-          WHERE json_extract_string(j.value, '$') NOT IN
+          SELECT COUNT(*) FROM exp_a01_raw_metrics r, LATERAL json_each(CASE WHEN json_valid(r.reason_codes_json) THEN r.reason_codes_json ELSE '[]' END) j
+          WHERE json_valid(r.reason_codes_json)
+            AND json_extract_string(j.value, '$') NOT IN
             ('valid_no_blocker','window_insufficient','missing_adjusted_open','missing_adjusted_close',
              'missing_required_history','nonpositive_adjusted_open','nonpositive_adjusted_close','nonpositive_MA',
              'adjustment_failure','suspension_in_required_window','listing_pause_in_required_window',
              'invalid_trading_status','reopen_after_suspension')
         """,
+        ),
+        (
+            "reason_code_domain_mismatch",
+            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE reason_codes_json IS NULL OR NOT json_valid(reason_codes_json) OR (json_valid(reason_codes_json) AND json_array_length(reason_codes_json)=0)",
+        ),
+        (
+            "reason_code_domain_mismatch",
+            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE validity_status='valid' AND reason_codes_json IS DISTINCT FROM '[\"valid_no_blocker\"]'",
+        ),
+        (
+            "reason_code_domain_mismatch",
+            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE validity_status<>'valid' AND strpos(reason_codes_json, '\"valid_no_blocker\"') > 0",
         ),
     )
     for key, query in checks:
@@ -2503,75 +2641,534 @@ def _validate_raw_domains(
             errors.append(f"{key}:{count}")
 
 
-def _validate_raw_against_independent_recompute(
+def _sql_literal(value: str | Path) -> str:
+    return str(value).replace("'", "''")
+
+
+def _safe_identifier(value: str) -> str:
+    if not IDENTIFIER_PATTERN.fullmatch(value):
+        raise ValueError(f"unsafe SQL identifier: {value!r}")
+    return value
+
+
+def _attach_read_only(connection: Any, path: str | Path, alias: str) -> None:
+    databases = {
+        str(row[1]) for row in connection.execute("PRAGMA database_list").fetchall()
+    }
+    if alias not in databases:
+        connection.execute(
+            f"ATTACH '{_sql_literal(path)}' AS {_safe_identifier(alias)} (READ_ONLY)"
+        )
+
+
+def _add_invariant_count(
+    connection: Any,
+    query: str,
+    name: str,
+    errors: list[str],
+    mismatches: dict[str, int],
+) -> int:
+    count = int(connection.execute(query).fetchone()[0] or 0)
+    if count:
+        mismatches[name] = mismatches.get(name, 0) + count
+        mismatches["full_invariant_mismatch"] = (
+            mismatches.get("full_invariant_mismatch", 0) + count
+        )
+        errors.append(f"{name}:{count}")
+    return count
+
+
+def _validate_full_persisted_invariants(
     connection: Any,
     *,
-    input_paths: Mapping[str, str | Path],
+    expected_index_path: str | Path,
+    expected_index_table: str,
     expected_index_row_count: int,
     run_id: str,
+    config: Mapping[str, Any],
     errors: list[str],
     mismatch_counts: dict[str, int],
 ) -> None:
-    actual_cursor = connection.execute(
+    """Run the full persisted-output scan using DuckDB set-based invariants."""
+
+    table = _safe_identifier(expected_index_table)
+    _attach_read_only(connection, expected_index_path, "expected_lineage")
+    index_date = _canonical_sql_date_expression("i.trading_date")
+    expected_table = f"expected_lineage.{table}"
+    indicators_sql = ", ".join(f"'{indicator}'" for indicator in INDICATOR_IDS)
+    raw_key_cte = """
+      SELECT security_id, trading_date, observation_sequence,
+             COUNT(*) AS row_count,
+             COUNT(DISTINCT indicator_id) AS indicator_count
+      FROM exp_a01_raw_metrics
+      GROUP BY security_id, trading_date, observation_sequence
+    """
+    index_key_cte = f"""
+      SELECT i.security_id, {index_date} AS trading_date,
+             CAST(i.observation_sequence AS BIGINT) AS observation_sequence
+      FROM {expected_table} i
+    """
+    _add_invariant_count(
+        connection,
+        f"""
+        WITH raw_keys AS ({raw_key_cte}), index_keys AS ({index_key_cte})
+        SELECT COUNT(*) FROM index_keys i
+        LEFT JOIN raw_keys r USING (security_id, trading_date, observation_sequence)
+        WHERE r.security_id IS NULL OR r.row_count <> 3 OR r.indicator_count <> 3
+        """,
+        "raw_expected_key_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    _add_invariant_count(
+        connection,
+        f"""
+        WITH index_keys AS ({index_key_cte})
+        SELECT COUNT(*) FROM (
+          SELECT DISTINCT r.security_id, r.trading_date, r.observation_sequence
+          FROM exp_a01_raw_metrics r
+          LEFT JOIN index_keys i USING (security_id, trading_date, observation_sequence)
+          WHERE i.security_id IS NULL
+        ) extra_keys
+        """,
+        "raw_expected_key_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    _add_invariant_count(
+        connection,
+        f"""
+        WITH index_keys AS ({index_key_cte})
+        SELECT COUNT(*)
+        FROM exp_a01_raw_metrics r
+        LEFT JOIN {expected_table} i
+          ON i.security_id = r.security_id
+         AND {index_date} = r.trading_date
+         AND CAST(i.observation_sequence AS BIGINT) = r.observation_sequence
+        WHERE i.security_id IS NULL
+           OR r.expected_observation_status IS DISTINCT FROM i.expected_observation_status
+           OR r.source_ref IS DISTINCT FROM i.source_ref
+        """,
+        "raw_expected_key_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    _add_invariant_count(
+        connection,
         """
-        SELECT run_id, security_id, trading_date, observation_sequence,
-               expected_observation_status, indicator_id, raw_metric_name, raw_value,
-               validity_status, reason_codes_json, input_window_start, input_window_end,
-               required_observation_count, actual_valid_observation_count,
-               metric_engine_version, source_ref
+        SELECT COUNT(*) FROM (
+          SELECT security_id, trading_date, observation_sequence, indicator_id
+          FROM exp_a01_raw_metrics
+          GROUP BY 1,2,3,4 HAVING COUNT(*) > 1
+        ) duplicates
+        """,
+        "duplicate_result_key",
+        errors,
+        mismatch_counts,
+    )
+    _add_invariant_count(
+        connection,
+        f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE indicator_id NOT IN ({indicators_sql}) OR indicator_id IS NULL",
+        "indicator_set_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    static_queries = (
+        (
+            "static_field_mismatch",
+            f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE run_id IS DISTINCT FROM '{_sql_literal(run_id)}'",
+        ),
+        (
+            "static_field_mismatch",
+            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE metric_engine_version IS DISTINCT FROM 'exp_a01_price_ma_attachment.v1'",
+        ),
+        (
+            "static_field_mismatch",
+            f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE (indicator_id='{A1_ID}' AND raw_metric_name IS DISTINCT FROM 'LogBodyCenterToMACloudCenter_5_60') OR (indicator_id='{A2_ID}' AND raw_metric_name IS DISTINCT FROM 'BodyCenterOutsideMACloudRate20_5_60') OR (indicator_id='{A2B_ID}' AND raw_metric_name IS DISTINCT FROM 'BodyToMACloudGapMean20_5_60')",
+        ),
+        (
+            "static_field_mismatch",
+            f"SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE required_observation_count IS NULL OR (indicator_id='{A1_ID}' AND required_observation_count <> 60) OR (indicator_id IN ('{A2_ID}','{A2B_ID}') AND required_observation_count <> 79)",
+        ),
+        (
+            "static_field_mismatch",
+            "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE input_window_end IS DISTINCT FROM trading_date",
+        ),
+    )
+    for name, query in static_queries:
+        _add_invariant_count(connection, query, name, errors, mismatch_counts)
+
+    _add_invariant_count(
+        connection,
+        "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE actual_valid_observation_count IS NULL OR actual_valid_observation_count < 0 OR actual_valid_observation_count > required_observation_count",
+        "window_invariant_mismatch",
+        errors,
+        mismatch_counts,
+    )
+
+    _validate_raw_domains(connection, errors, mismatch_counts)
+    # _validate_raw_domains predates the aggregate counter; fold its direct
+    # domain/reason counts into the full-invariant total for one clear gate.
+    domain_names = {
+        "validity_domain_mismatch",
+        "reason_code_domain_mismatch",
+    }
+    mismatch_counts["full_invariant_mismatch"] += sum(
+        mismatch_counts.get(name, 0) for name in domain_names
+    )
+
+    window_query = f"""
+    WITH indexed AS (
+      SELECT {index_date} AS trading_date,
+             CAST(i.observation_sequence AS BIGINT) AS observation_sequence,
+             i.security_id,
+             COUNT(*) OVER p60 AS count60,
+             COUNT(*) OVER p79 AS count79,
+             FIRST_VALUE({index_date}) OVER p60 AS start60,
+             FIRST_VALUE({index_date}) OVER p79 AS start79
+      FROM {expected_table} i
+      WINDOW
+        p60 AS (PARTITION BY i.security_id ORDER BY CAST(i.observation_sequence AS BIGINT) ROWS BETWEEN 59 PRECEDING AND CURRENT ROW),
+        p79 AS (PARTITION BY i.security_id ORDER BY CAST(i.observation_sequence AS BIGINT) ROWS BETWEEN 78 PRECEDING AND CURRENT ROW)
+    )
+    SELECT COUNT(*) FROM exp_a01_raw_metrics r
+    JOIN indexed i USING (security_id, trading_date, observation_sequence)
+    WHERE
+      (r.indicator_id='{A1_ID}' AND ((r.validity_status='valid' AND (i.count60 <> 60 OR r.actual_valid_observation_count <> 60 OR r.input_window_start IS DISTINCT FROM i.start60)) OR (i.count60 < 60 AND (r.validity_status='valid' OR strpos(r.reason_codes_json, 'window_insufficient')=0 OR strpos(r.reason_codes_json, 'missing_required_history')=0))))
+      OR
+      (r.indicator_id IN ('{A2_ID}','{A2B_ID}') AND ((r.validity_status='valid' AND (i.count79 <> 79 OR r.actual_valid_observation_count <> 79 OR r.input_window_start IS DISTINCT FROM i.start79)) OR (i.count79 < 79 AND (r.validity_status='valid' OR strpos(r.reason_codes_json, 'window_insufficient')=0 OR strpos(r.reason_codes_json, 'missing_required_history')=0))))
+    """
+    _add_invariant_count(
+        connection,
+        window_query,
+        "window_invariant_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    pair_query = f"""
+      SELECT COUNT(*) FROM (
+        SELECT security_id, trading_date, observation_sequence,
+               MAX(validity_status) FILTER (WHERE indicator_id='{A2_ID}') AS a2_validity,
+               MAX(validity_status) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_validity,
+               MAX(reason_codes_json) FILTER (WHERE indicator_id='{A2_ID}') AS a2_reason,
+               MAX(reason_codes_json) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_reason,
+               MAX(input_window_start) FILTER (WHERE indicator_id='{A2_ID}') AS a2_start,
+               MAX(input_window_start) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_start,
+               MAX(input_window_end) FILTER (WHERE indicator_id='{A2_ID}') AS a2_end,
+               MAX(input_window_end) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_end,
+               MAX(required_observation_count) FILTER (WHERE indicator_id='{A2_ID}') AS a2_required,
+               MAX(required_observation_count) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_required,
+               MAX(actual_valid_observation_count) FILTER (WHERE indicator_id='{A2_ID}') AS a2_count,
+               MAX(actual_valid_observation_count) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_count,
+               COUNT(*) FILTER (WHERE indicator_id='{A2_ID}') AS a2_rows,
+               COUNT(*) FILTER (WHERE indicator_id='{A2B_ID}') AS a2b_rows
         FROM exp_a01_raw_metrics
-        ORDER BY security_id, observation_sequence,
-          CASE indicator_id WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END
+        GROUP BY 1,2,3
+        HAVING a2_rows <> 1 OR a2b_rows <> 1
+          OR a2_validity IS DISTINCT FROM a2b_validity
+          OR a2_reason IS DISTINCT FROM a2b_reason
+          OR a2_start IS DISTINCT FROM a2b_start
+          OR a2_end IS DISTINCT FROM a2b_end
+          OR a2_required IS DISTINCT FROM a2b_required
+          OR a2_count IS DISTINCT FROM a2b_count
+      ) pair_mismatches
+    """
+    _add_invariant_count(
+        connection,
+        pair_query,
+        "a2_a2b_pair_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    _add_invariant_count(
+        connection,
+        "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE validity_status='valid' AND expected_observation_status IS DISTINCT FROM 'present'",
+        "validity_domain_mismatch",
+        errors,
+        mismatch_counts,
+    )
+    _add_invariant_count(
+        connection,
+        "SELECT COUNT(*) FROM exp_a01_raw_metrics WHERE expected_observation_status <> 'present' AND validity_status='valid'",
+        "validity_domain_mismatch",
+        errors,
+        mismatch_counts,
+    )
+
+
+def _sample_hash_expression(alias: str = "r") -> str:
+    return (
+        "md5(CAST("
+        f"{alias}.security_id AS VARCHAR) || '|' || CAST({alias}.observation_sequence AS VARCHAR) || '|' || '{ORACLE_SAMPLE_VERSION}'"
+        ")"
+    )
+
+
+def _sampled_raw_row_compare(
+    expected: Mapping[str, Any],
+    actual: Sequence[Any] | None,
+) -> tuple[list[str], float | None, float | None]:
+    if actual is None:
+        return ["missing_persisted_row"], None, None
+    actual_map = dict(zip(RAW_TABLE_COLUMNS, actual, strict=True))
+    differences: list[str] = []
+    for field in RAW_TABLE_COLUMNS:
+        expected_value = expected[field]
+        actual_value = actual_map[field]
+        if field == "raw_value":
+            if expected_value is None or actual_value is None:
+                if expected_value is not None or actual_value is not None:
+                    differences.append(field)
+                continue
+            try:
+                left = float(expected_value)
+                right = float(actual_value)
+            except (TypeError, ValueError):
+                differences.append(field)
+                continue
+            if not math.isfinite(left) or not math.isfinite(right):
+                differences.append(field)
+                continue
+            tolerance = NUMERIC_TOLERANCES[expected["indicator_id"]]
+            if expected["indicator_id"] == A2_ID:
+                expected_count = round(left * 20.0)
+                actual_count = round(right * 20.0)
+                if (
+                    actual_count != expected_count
+                    or abs(right * 20.0 - actual_count) > tolerance["absolute"]
+                    or not math.isclose(
+                        right,
+                        expected_count / 20.0,
+                        rel_tol=tolerance["relative"],
+                        abs_tol=tolerance["absolute"],
+                    )
+                ):
+                    differences.append("raw_value")
+            elif not math.isclose(
+                left,
+                right,
+                rel_tol=tolerance["relative"],
+                abs_tol=tolerance["absolute"],
+            ):
+                differences.append("raw_value")
+        elif field == "reason_codes_json":
+            try:
+                expected_reason = json.dumps(
+                    json.loads(str(expected_value)), separators=(",", ":")
+                )
+                actual_reason = json.dumps(
+                    json.loads(str(actual_value)), separators=(",", ":")
+                )
+            except (TypeError, json.JSONDecodeError):
+                expected_reason = actual_reason = None
+            if expected_reason != actual_reason:
+                differences.append(field)
+        elif field in {"trading_date", "input_window_start", "input_window_end"}:
+            if _date_text(actual_value) != expected_value:
+                differences.append(field)
+        elif actual_value != expected_value:
+            differences.append(field)
+    try:
+        expected_float = float(expected["raw_value"])
+        actual_float = float(actual_map["raw_value"])
+        absolute = abs(expected_float - actual_float)
+        relative = absolute / max(abs(expected_float), abs(actual_float), 1.0)
+    except (TypeError, ValueError):
+        absolute = relative = None
+    return differences, absolute, relative
+
+
+def _validate_stratified_independent_oracle(
+    connection: Any,
+    *,
+    candidate_path: str | Path,
+    index_path: str | Path,
+    expected_index_table: str,
+    expected_index_row_count: int,
+    run_id: str,
+    config: Mapping[str, Any],
+    errors: list[str],
+    mismatch_counts: dict[str, int],
+) -> dict[str, Any]:
+    """Compare all rows only for a deterministic target-key sample."""
+
+    del config
+    table = _safe_identifier(expected_index_table)
+    indicators_sql = ", ".join(f"'{indicator}'" for indicator in INDICATOR_IDS)
+    _attach_read_only(connection, index_path, "expected_lineage")
+    _attach_read_only(connection, candidate_path, "candidate_lineage")
+    expected_table = f"expected_lineage.{table}"
+    mode = (
+        "full_small_input"
+        if expected_index_row_count <= SMALL_INPUT_FULL_ORACLE_LIMIT
+        else "deterministic_stratified_sample"
+    )
+    connection.execute("DROP TABLE IF EXISTS oracle_sample_targets")
+    if mode == "full_small_input":
+        connection.execute(
+            f"""
+            CREATE TEMP TABLE oracle_sample_targets AS
+            SELECT DISTINCT security_id, CAST(observation_sequence AS BIGINT) AS observation_sequence
+            FROM {expected_table}
+            """
+        )
+    else:
+        connection.execute(
+            """
+            CREATE TEMP TABLE oracle_sample_target_candidates(
+              security_id VARCHAR, observation_sequence BIGINT
+            )
+            """
+        )
+        # Every security has the first/last anchors and, when available, the
+        # first valid A1/A2 plus deterministic valid/nonvalid anchors. The
+        # hash ordering makes the choices independent of Python hash randomization.
+        anchor_queries = (
+            "SELECT security_id, MIN(observation_sequence) FROM exp_a01_raw_metrics GROUP BY 1",
+            "SELECT security_id, MAX(observation_sequence) FROM exp_a01_raw_metrics GROUP BY 1",
+            f"SELECT security_id, MIN(observation_sequence) FROM exp_a01_raw_metrics WHERE indicator_id='{A1_ID}' AND validity_status='valid' GROUP BY 1",
+            f"SELECT security_id, MIN(observation_sequence) FROM exp_a01_raw_metrics WHERE indicator_id='{A2_ID}' AND validity_status='valid' GROUP BY 1",
+            f"""
+            SELECT security_id, observation_sequence FROM (
+              SELECT r.security_id, r.observation_sequence,
+                     ROW_NUMBER() OVER (
+                       PARTITION BY r.security_id
+                       ORDER BY {_sample_hash_expression("r")}
+                     ) AS rn
+              FROM exp_a01_raw_metrics r
+              WHERE r.validity_status='valid'
+            ) ranked WHERE rn=1
+            """,
+            f"""
+            SELECT security_id, observation_sequence FROM (
+              SELECT r.security_id, r.observation_sequence,
+                     ROW_NUMBER() OVER (
+                       PARTITION BY r.security_id
+                       ORDER BY {_sample_hash_expression("r")}
+                     ) AS rn
+              FROM exp_a01_raw_metrics r
+              WHERE r.validity_status<>'valid'
+            ) ranked WHERE rn=1
+            """,
+        )
+        for query in anchor_queries:
+            connection.execute(
+                "INSERT INTO oracle_sample_target_candidates SELECT * FROM ("
+                + query
+                + ")"
+            )
+        for status in ("valid", "unknown", "blocked", "diagnostic_required"):
+            connection.execute(
+                f"""
+                INSERT INTO oracle_sample_target_candidates
+                SELECT security_id, observation_sequence
+                FROM (
+                  SELECT security_id, observation_sequence,
+                         ROW_NUMBER() OVER (PARTITION BY indicator_id, validity_status ORDER BY {_sample_hash_expression()}) AS rn
+                  FROM exp_a01_raw_metrics r
+                  WHERE validity_status='{status}'
+                ) ranked WHERE rn <= 20
+                """
+            )
+        connection.execute(
+            f"""
+            INSERT INTO oracle_sample_target_candidates
+            SELECT security_id, observation_sequence
+            FROM (
+              SELECT security_id, observation_sequence,
+                     ROW_NUMBER() OVER (PARTITION BY indicator_id, reason_code ORDER BY hash_key) AS rn
+              FROM (
+                SELECT r.security_id, r.observation_sequence, r.indicator_id,
+                       json_extract_string(j.value, '$') AS reason_code,
+                       {_sample_hash_expression("r")} AS hash_key
+                FROM exp_a01_raw_metrics r, LATERAL json_each(CASE WHEN json_valid(r.reason_codes_json) THEN r.reason_codes_json ELSE '[]' END) j
+                WHERE r.indicator_id IN ({indicators_sql})
+              ) expanded
+            ) ranked WHERE rn <= 10
+            """
+        )
+        connection.execute(
+            f"""
+            INSERT INTO oracle_sample_target_candidates
+            SELECT security_id, observation_sequence
+            FROM (
+              SELECT security_id, observation_sequence,
+                     ROW_NUMBER() OVER (PARTITION BY indicator_id, YEAR(trading_date) ORDER BY {_sample_hash_expression()}) AS rn
+              FROM exp_a01_raw_metrics r
+              WHERE validity_status='valid'
+            ) ranked WHERE rn <= 5
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO oracle_sample_target_candidates
+            SELECT security_id, observation_sequence FROM (
+              SELECT security_id, observation_sequence,
+                     ROW_NUMBER() OVER (PARTITION BY indicator_id ORDER BY raw_value ASC, security_id, observation_sequence) AS rn
+              FROM exp_a01_raw_metrics WHERE validity_status='valid'
+            ) ranked WHERE rn <= 20
+            UNION ALL
+            SELECT security_id, observation_sequence FROM (
+              SELECT security_id, observation_sequence,
+                     ROW_NUMBER() OVER (PARTITION BY indicator_id ORDER BY raw_value DESC, security_id, observation_sequence) AS rn
+              FROM exp_a01_raw_metrics WHERE validity_status='valid'
+            ) ranked WHERE rn <= 20
+            """
+        )
+        connection.execute(
+            """
+            CREATE TEMP TABLE oracle_sample_targets AS
+            SELECT DISTINCT security_id, observation_sequence
+            FROM oracle_sample_target_candidates
+            """
+        )
+    target_count = int(
+        connection.execute("SELECT COUNT(*) FROM oracle_sample_targets").fetchone()[0]
+    )
+    if target_count > ORACLE_SAMPLE_TARGET_LIMIT:
+        mismatch_counts["oracle_sample_mismatch"] += 1
+        errors.append("oracle_sample_target_limit_exceeded")
+        return {
+            "oracle_mode": mode,
+            "oracle_target_observation_count": target_count,
+            "oracle_sample_target_fingerprint": None,
+            "oracle_compared_raw_row_count": 0,
+            "oracle_sample_security_count": 0,
+            "oracle_mismatch_count": 1,
+            "oracle_sample_indicator_ids": [],
+            "oracle_sample_validity_statuses": [],
+            "oracle_sample_reason_codes": [],
+            "oracle_sample_years": [],
+            "oracle_max_absolute_difference_by_indicator": {},
+            "oracle_max_relative_difference_by_indicator": {},
+        }
+    raw_target_rows = connection.execute(
+        """
+        SELECT r.*
+        FROM exp_a01_raw_metrics r
+        JOIN oracle_sample_targets t
+          ON t.security_id=r.security_id
+         AND t.observation_sequence=r.observation_sequence
+        ORDER BY r.security_id, r.observation_sequence,
+          CASE r.indicator_id WHEN ? THEN 0 WHEN ? THEN 1 ELSE 2 END
         """,
         [A1_ID, A2_ID],
-    )
-    expected = _independent_raw_rows(
-        input_paths["d3_t07_candidate_daily_observation"],
-        input_paths["expected_price_observation_index"],
-        run_id=run_id,
-    )
-    checked = 0
-    for actual in _fetchmany(actual_cursor):
-        try:
-            expected_row = next(expected)
-        except StopIteration:
-            mismatch_counts["independent_recompute_mismatch"] += 1
-            errors.append("independent_recompute_extra_persisted_row")
-            continue
-        checked += 1
-        differences = _compare_raw_row(expected_row, actual)
-        if differences:
-            mismatch_counts["independent_recompute_mismatch"] += len(differences)
-            if len(errors) < 50:
-                errors.append(f"independent_recompute_mismatch:{differences}")
-    missing = sum(1 for _ in expected)
-    if missing:
-        mismatch_counts["independent_recompute_mismatch"] += missing
-        errors.append(f"independent_recompute_missing_rows:{missing}")
-
-
-def _fetchmany(cursor: Any, size: int = 4096) -> Iterable[tuple[Any, ...]]:
-    while True:
-        rows = cursor.fetchmany(size)
-        if not rows:
-            return
-        yield from rows
-
-
-def _independent_raw_rows(
-    candidate_path: str | Path, index_path: str | Path, *, run_id: str
-) -> Iterable[dict[str, Any]]:
-    try:
-        import duckdb
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("duckdb is required for independent recomputation") from exc
-    connection = duckdb.connect(":memory:")
-    candidate_literal = str(candidate_path).replace("'", "''")
-    index_literal = str(index_path).replace("'", "''")
-    connection.execute(f"ATTACH '{candidate_literal}' AS candidate (READ_ONLY)")
-    connection.execute(f"ATTACH '{index_literal}' AS expected (READ_ONLY)")
-    query = """
-      SELECT i.security_id,
+    ).fetchall()
+    target_fingerprint = hashlib.sha256(
+        "\n".join(
+            f"{row[0]}|{int(row[1])}"
+            for row in connection.execute(
+                "SELECT security_id, observation_sequence FROM oracle_sample_targets ORDER BY security_id, observation_sequence"
+            ).fetchall()
+        ).encode("utf-8")
+    ).hexdigest()
+    actual_by_key = {
+        (str(row[1]), int(row[3]), str(row[5])): row for row in raw_target_rows
+    }
+    history_query = f"""
+      SELECT t.security_id AS target_security_id,
+             t.observation_sequence AS target_observation_sequence,
+             i.security_id,
              CAST(COALESCE(try_strptime(CAST(i.trading_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(i.trading_date AS VARCHAR), '%Y%m%d')) AS DATE) AS trading_date,
              CAST(i.observation_sequence AS BIGINT) AS observation_sequence,
              i.expected_observation_status,
@@ -2584,26 +3181,156 @@ def _independent_raw_rows(
              CASE WHEN i.expected_observation_status='present' THEN m.is_listing_pause ELSE i.expected_observation_status='listing_pause' END AS is_listing_pause,
              CASE WHEN i.expected_observation_status='present' THEN m.row_provenance ELSE i.source_ref END AS row_provenance,
              i.source_contract, i.source_ref
-      FROM expected.expected_price_observation_index i
-      LEFT JOIN candidate.d3_candidate_daily_observation m
+      FROM oracle_sample_targets t
+      JOIN {expected_table} i
+        ON i.security_id=t.security_id
+       AND CAST(i.observation_sequence AS BIGINT) BETWEEN t.observation_sequence - 78 AND t.observation_sequence
+      LEFT JOIN candidate_lineage.d3_candidate_daily_observation m
         ON i.expected_observation_status='present'
        AND m.ts_code=i.security_id
        AND CAST(COALESCE(try_strptime(CAST(m.trade_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(m.trade_date AS VARCHAR), '%Y%m%d')) AS DATE)
            = CAST(COALESCE(try_strptime(CAST(i.trading_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(i.trading_date AS VARCHAR), '%Y%m%d')) AS DATE)
-      ORDER BY i.security_id, i.observation_sequence
+      ORDER BY t.security_id, t.observation_sequence, CAST(i.observation_sequence AS BIGINT)
     """
-    cursor = connection.execute(query)
-    history_by_security: dict[str, list[dict[str, Any]]] = {}
-    try:
-        for row in _fetchmany(cursor):
-            current = _independent_input_row(row)
-            history = history_by_security.setdefault(current["security_id"], [])
-            history.append(current)
-            if len(history) > 79:
-                del history[:-79]
-            yield from _independent_metrics(history, run_id=run_id)
-    finally:
-        connection.close()
+    cursor = connection.execute(history_query)
+    current_target: tuple[str, int] | None = None
+    history: list[dict[str, Any]] = []
+    compared = 0
+    oracle_mismatches = 0
+    max_abs: dict[str, float] = {indicator: 0.0 for indicator in INDICATOR_IDS}
+    max_rel: dict[str, float] = {indicator: 0.0 for indicator in INDICATOR_IDS}
+    sampled_statuses: set[str] = set()
+    sampled_reasons: set[str] = set()
+    sampled_years: set[str] = set()
+    sampled_indicators: set[str] = set()
+
+    def process_target(target: tuple[str, int], rows: list[dict[str, Any]]) -> None:
+        nonlocal compared, oracle_mismatches
+        for expected_row in _independent_metrics(rows, run_id=run_id):
+            key = (
+                expected_row["security_id"],
+                expected_row["observation_sequence"],
+                expected_row["indicator_id"],
+            )
+            actual = actual_by_key.get(key)
+            differences, absolute, relative = _sampled_raw_row_compare(
+                expected_row, actual
+            )
+            compared += 1
+            sampled_indicators.add(expected_row["indicator_id"])
+            sampled_statuses.add(str((actual or [None] * 16)[8]))
+            if expected_row["trading_date"]:
+                sampled_years.add(str(expected_row["trading_date"])[:4])
+            try:
+                sampled_reasons.update(
+                    str(reason)
+                    for reason in json.loads(expected_row["reason_codes_json"])
+                )
+            except (TypeError, json.JSONDecodeError):
+                pass
+            if absolute is not None:
+                max_abs[expected_row["indicator_id"]] = max(
+                    max_abs[expected_row["indicator_id"]], absolute
+                )
+            if relative is not None:
+                max_rel[expected_row["indicator_id"]] = max(
+                    max_rel[expected_row["indicator_id"]], relative
+                )
+            if differences:
+                oracle_mismatches += len(differences)
+                mismatch_counts["oracle_sample_mismatch"] += len(differences)
+                if len(errors) < 50:
+                    errors.append(
+                        f"oracle_sample_mismatch:{target[0]}:{target[1]}:{differences}"
+                    )
+
+    for row in _fetchmany(cursor):
+        target = (str(row[0]), int(row[1]))
+        if current_target is None:
+            current_target = target
+        if target != current_target:
+            process_target(current_target, history)
+            history = []
+            current_target = target
+        history.append(_independent_input_row(row[2:]))
+    if current_target is not None:
+        process_target(current_target, history)
+    observed_security_count = int(
+        connection.execute(
+            "SELECT COUNT(DISTINCT security_id) FROM exp_a01_raw_metrics"
+        ).fetchone()[0]
+    )
+    sampled_security_count = int(
+        connection.execute(
+            "SELECT COUNT(DISTINCT security_id) FROM oracle_sample_targets"
+        ).fetchone()[0]
+    )
+    observed_statuses = {
+        str(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT validity_status FROM exp_a01_raw_metrics"
+        ).fetchall()
+    }
+    observed_reasons = {
+        str(row[0])
+        for row in connection.execute(
+            """
+            SELECT DISTINCT json_extract_string(j.value, '$')
+            FROM exp_a01_raw_metrics r, LATERAL json_each(CASE WHEN json_valid(r.reason_codes_json) THEN r.reason_codes_json ELSE '[]' END) j
+            WHERE json_valid(r.reason_codes_json)
+            """
+        ).fetchall()
+    }
+    observed_years = {
+        str(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT CAST(YEAR(trading_date) AS VARCHAR) FROM exp_a01_raw_metrics WHERE validity_status='valid'"
+        ).fetchall()
+    }
+    if sampled_security_count != observed_security_count:
+        oracle_mismatches += 1
+        mismatch_counts["oracle_sample_mismatch"] += 1
+        errors.append(
+            f"oracle_sample_security_coverage_mismatch:expected={observed_security_count}:actual={sampled_security_count}"
+        )
+    if sampled_indicators != set(INDICATOR_IDS):
+        oracle_mismatches += 1
+        mismatch_counts["oracle_sample_mismatch"] += 1
+        errors.append("oracle_sample_indicator_coverage_mismatch")
+    if not observed_statuses.issubset(sampled_statuses):
+        oracle_mismatches += 1
+        mismatch_counts["oracle_sample_mismatch"] += 1
+        errors.append("oracle_sample_validity_status_coverage_mismatch")
+    if not observed_reasons.issubset(sampled_reasons):
+        oracle_mismatches += 1
+        mismatch_counts["oracle_sample_mismatch"] += 1
+        errors.append("oracle_sample_reason_code_coverage_mismatch")
+    if not observed_years.issubset(sampled_years):
+        oracle_mismatches += 1
+        mismatch_counts["oracle_sample_mismatch"] += 1
+        errors.append("oracle_sample_year_coverage_mismatch")
+    return {
+        "oracle_mode": mode,
+        "oracle_target_observation_count": target_count,
+        "oracle_sample_target_fingerprint": target_fingerprint,
+        "oracle_compared_raw_row_count": compared,
+        "oracle_sample_security_count": sampled_security_count,
+        "oracle_sample_indicator_ids": sorted(sampled_indicators),
+        "oracle_sample_validity_statuses": sorted(sampled_statuses),
+        "oracle_sample_reason_codes": sorted(sampled_reasons),
+        "oracle_sample_years": sorted(sampled_years),
+        "oracle_mismatch_count": oracle_mismatches,
+        "oracle_max_absolute_difference_by_indicator": max_abs,
+        "oracle_max_relative_difference_by_indicator": max_rel,
+    }
+
+
+def _fetchmany(cursor: Any, size: int = 4096) -> Iterable[tuple[Any, ...]]:
+    while True:
+        rows = cursor.fetchmany(size)
+        if not rows:
+            return
+        yield from rows
 
 
 def _independent_input_row(row: Sequence[Any]) -> dict[str, Any]:
@@ -2811,33 +3538,7 @@ def _independent_gap(
     return 0.0
 
 
-def _compare_raw_row(expected: Mapping[str, Any], actual: Sequence[Any]) -> list[str]:
-    differences: list[str] = []
-    actual_map = dict(zip(RAW_TABLE_COLUMNS, actual, strict=True))
-    for field in RAW_TABLE_COLUMNS:
-        expected_value = expected[field]
-        actual_value = actual_map[field]
-        if field == "raw_value":
-            if not _float_equal(expected_value, actual_value):
-                differences.append(field)
-        elif field == "reason_codes_json":
-            try:
-                actual_reason = json.dumps(
-                    json.loads(str(actual_value)), separators=(",", ":")
-                )
-            except (TypeError, json.JSONDecodeError):
-                actual_reason = None
-            if actual_reason != expected_value:
-                differences.append(field)
-        elif field in {"trading_date", "input_window_start", "input_window_end"}:
-            if _date_text(actual_value) != expected_value:
-                differences.append(field)
-        elif actual_value != expected_value:
-            differences.append(field)
-    return differences
-
-
-def _float_equal(expected: Any, actual: Any) -> bool:
+def _csv_float_equal(expected: Any, actual: Any) -> bool:
     if expected is None or actual is None:
         return expected is None and actual is None
     try:
@@ -2849,7 +3550,7 @@ def _float_equal(expected: Any, actual: Any) -> bool:
         return False
     difference = abs(left - right)
     relative = difference / max(abs(left), abs(right), 1.0)
-    return difference <= 1e-12 and relative <= 1e-12
+    return difference <= 1e-10 and relative <= 1e-10
 
 
 def _expected_profile_rows(connection: Any, filename: str) -> list[tuple[Any, ...]]:
@@ -2925,7 +3626,7 @@ def _csv_value_equal(expected: Any, actual: str) -> bool:
             return False
     if isinstance(expected, float):
         try:
-            return _float_equal(expected, float(actual))
+            return _csv_float_equal(expected, float(actual))
         except ValueError:
             return False
     return str(expected) == actual
@@ -2956,6 +3657,179 @@ def _validate_output_artifact_hashes(
         if not path.is_file() or declaration.get("sha256") != sha256_file(path):
             mismatches["artifact_hash_mismatch"] += 1
             errors.append(f"artifact_hash_mismatch:{filename}")
+
+
+def _validate_final_package_bindings(
+    output_dir: str | Path,
+    *,
+    core_validation: Mapping[str, Any],
+    anomaly: Mapping[str, Any],
+    input_manifest: Mapping[str, Any],
+    input_manifest_path: str | Path,
+    input_paths: Mapping[str, str | Path],
+    input_metadata: Mapping[str, Mapping[str, Any]],
+    reviewed_implementation_sha: str,
+    expected_manifest_sha256: str | None = None,
+    require_validator_result: bool = False,
+) -> dict[str, Any]:
+    """Perform only final-package binding checks; never rerun core validation."""
+
+    root = Path(output_dir)
+    errors: list[str] = []
+    mismatch_counts = {
+        "artifact_hash_mismatch": 0,
+        "input_hash_changed": 0,
+        "analysis_section_mismatch": 0,
+        "prohibited_output_mismatch": 0,
+    }
+    expected_files = {
+        "exp_a01_raw_metrics.duckdb",
+        "exp_a01_metric_profile.csv",
+        "exp_a01_validity_profile.csv",
+        "exp_a01_year_coverage.csv",
+        "exp_a01_security_coverage.csv",
+        "exp_a01_manifest.json",
+        "exp_a01_anomaly_scan.json",
+        "exp_a01_result_analysis.md",
+        "exp_a01_validator_result.json",
+    }
+    actual_files = {path.name for path in root.iterdir()} if root.is_dir() else set()
+    for name in sorted(expected_files - actual_files):
+        if require_validator_result or name != "exp_a01_validator_result.json":
+            errors.append(f"missing_output_file:{name}")
+    for name in sorted(actual_files - expected_files):
+        errors.append(f"unexpected_output_file:{name}")
+    if (
+        core_validation.get("status") != "passed"
+        or core_validation.get("valid") is not True
+    ):
+        errors.append("core_validation_not_passed")
+    if anomaly.get("status") == "failed":
+        errors.append("anomaly_status_failed")
+
+    manifest_path = root / "exp_a01_manifest.json"
+    formal_manifest: dict[str, Any] = {}
+    if manifest_path.is_file():
+        try:
+            raw = manifest_path.read_bytes()
+            text_errors = canonical_text_errors(raw)
+            if text_errors:
+                errors.append(f"formal_manifest_text_contract:{text_errors}")
+            value = json.loads(raw.decode("utf-8"))
+            if isinstance(value, Mapping):
+                formal_manifest = dict(value)
+            else:
+                errors.append("formal_manifest_root_not_object")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors.append(f"formal_manifest_invalid:{exc}")
+    _validate_final_manifest_identity(
+        formal_manifest,
+        errors,
+        reviewed_implementation_sha=reviewed_implementation_sha,
+        input_manifest=input_manifest,
+        input_manifest_path=input_manifest_path,
+    )
+    if (
+        expected_manifest_sha256 is not None
+        and sha256_file(manifest_path) != expected_manifest_sha256
+    ):
+        mismatch_counts["artifact_hash_mismatch"] += 1
+        errors.append("final_manifest_sha256_mismatch")
+    if formal_manifest.get("validator_status") != "passed":
+        errors.append("final_manifest_validator_status_not_passed")
+    if formal_manifest.get("anomaly_status") == "failed":
+        errors.append("final_manifest_anomaly_status_failed")
+    _validate_output_artifact_hashes(root, formal_manifest, errors, mismatch_counts)
+
+    for artifact_id, metadata in input_metadata.items():
+        path = Path(str(metadata.get("path", input_paths[artifact_id])))
+        if sha256_file(path) != metadata.get("sha256"):
+            mismatch_counts["input_hash_changed"] += 1
+            errors.append(f"input_hash_changed:{artifact_id}")
+
+    analysis_path = root / "exp_a01_result_analysis.md"
+    if analysis_path.is_file():
+        raw_analysis = analysis_path.read_bytes()
+        text_errors = canonical_text_errors(raw_analysis)
+        if text_errors:
+            mismatch_counts["analysis_section_mismatch"] += 1
+            errors.append(f"analysis_text_contract:{text_errors}")
+        analysis_text = raw_analysis.decode("utf-8", errors="replace")
+        required_sections = (
+            "Actual run / reviewed SHA",
+            "Input manifest and authorization",
+            "D3-T07 lineage",
+            "Input governance override",
+            "Dense expected-index reconciliation",
+            "Fixed candidate definitions",
+            "Raw table cardinality",
+            "Metric domains and distributions",
+            "Validity status profile",
+            "Reason-code profile",
+            "Year coverage",
+            "Security coverage",
+            "Full invariant validation and stratified independent oracle",
+            "Validator result",
+            "Anomaly scan",
+            "Supported and unsupported conclusions",
+            "Readiness for user Formal-result review",
+        )
+        missing = [
+            section for section in required_sections if section not in analysis_text
+        ]
+        if missing:
+            mismatch_counts["analysis_section_mismatch"] += len(missing)
+            errors.append(f"analysis_required_sections_missing:{missing}")
+        if any(
+            token in analysis_text.lower()
+            for token in (
+                "future_volatility",
+                "future_direction",
+                "future_outcome",
+                "backtest",
+                "winner",
+                "selected_indicator",
+                "replacement",
+                "pcatv",
+                "prediction",
+                "return",
+                "portfolio",
+                "transaction_cost",
+                "a layer approved",
+                "a02 decision",
+                "independent full recomputation",
+            )
+        ):
+            mismatch_counts["prohibited_output_mismatch"] += 1
+            errors.append("analysis_contains_prohibited_output_token")
+
+    result = dict(core_validation)
+    combined_errors = list(dict.fromkeys([*core_validation.get("errors", []), *errors]))
+    combined_counts = {
+        str(key): int(value)
+        for key, value in core_validation.get("mismatch_counts", {}).items()
+    }
+    for key, value in mismatch_counts.items():
+        combined_counts[key] = combined_counts.get(key, 0) + int(value)
+    result.update(
+        {
+            "errors": combined_errors,
+            "mismatch_counts": combined_counts,
+            "status": "passed"
+            if not combined_errors
+            and all(value == 0 for value in combined_counts.values())
+            else "failed",
+            "valid": not combined_errors
+            and all(value == 0 for value in combined_counts.values()),
+            "final_package_validation_performed": True,
+            "core_validator_reexecuted": False,
+            "oracle_reexecuted": False,
+            "final_manifest_sha256": sha256_file(manifest_path)
+            if manifest_path.is_file()
+            else None,
+        }
+    )
+    return result
 
 
 def _metric_profile_query() -> str:

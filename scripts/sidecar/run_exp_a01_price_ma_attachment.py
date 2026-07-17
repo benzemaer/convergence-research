@@ -37,6 +37,8 @@ from src.sidecar.exp_a01_price_ma_attachment_formal import (  # noqa: E402
     write_compact_csvs,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (  # noqa: E402
+    VALIDATION_STRATEGY,
+    _validate_final_package_bindings,
     canonical_text_errors,
     load_json,
     scan_persisted_anomalies,
@@ -207,13 +209,17 @@ def run_formal(args: argparse.Namespace) -> dict[str, Any]:
         )
         final_anomaly["final_manifest_sha256"] = manifest_sha
         _write_json(staging / "exp_a01_anomaly_scan.json", final_anomaly)
-        final_validation = validate_formal_result(
+        final_validation = _validate_final_package_bindings(
             staging,
-            config_path=gate["config_path"],
+            core_validation=preliminary_validation,
+            anomaly=final_anomaly,
+            input_manifest=gate["manifest"],
             input_manifest_path=gate["input_manifest_path"],
-            input_root=args.input_root,
+            input_paths=gate["input_paths"],
+            input_metadata=gate["input_metadata"],
             reviewed_implementation_sha=gate["reviewed_sha"],
-            require_final_manifest=True,
+            expected_manifest_sha256=manifest_sha,
+            require_validator_result=False,
         )
         final_validation["final_manifest_sha256"] = manifest_sha
         _write_json(staging / "exp_a01_validator_result.json", final_validation)
@@ -1219,6 +1225,9 @@ def _build_formal_manifest(
         "output_artifacts": output_artifacts,
         "validator_status": validator_status,
         "anomaly_status": anomaly_status,
+        "validation_strategy": VALIDATION_STRATEGY,
+        "full_independent_recompute_performed": False,
+        "full_persisted_invariant_scan_performed": True,
         "governance_files": [
             "exp_a01_validator_result.json",
             "exp_a01_anomaly_scan.json",
@@ -1304,8 +1313,24 @@ def _build_result_analysis(
         "## 12. Security coverage",
         "The security coverage table reports every observed security and candidate.",
         "",
-        "## 13. Independent full recomputation",
-        "The independent validator recomputed every persisted raw row from the two input DuckDBs and compared values, statuses, reasons and windows within the declared 1e-12 tolerances.",
+        "## 13. Full invariant validation and stratified independent oracle",
+        "The validator performed a full persisted DuckDB invariant and compact-profile scan. It did not perform a full Python raw-row recomputation. A deterministic stratified independent oracle compared the selected observation targets and all three indicators.",
+        f"validation_strategy: {validation.get('validation_strategy')}",
+        f"full_persisted_invariant_scan_performed: {validation.get('full_persisted_invariant_scan_performed')}",
+        f"full_independent_recompute_performed: {validation.get('full_independent_recompute_performed')}",
+        f"oracle_mode: {validation.get('oracle_mode')}",
+        f"oracle_sample_version: {validation.get('oracle_sample_version')}",
+        f"oracle_target_observation_count: {validation.get('oracle_target_observation_count')}",
+        f"oracle_sample_target_fingerprint: {validation.get('oracle_sample_target_fingerprint')}",
+        f"oracle_compared_raw_row_count: {validation.get('oracle_compared_raw_row_count')}",
+        f"oracle_sample_security_count: {validation.get('oracle_sample_security_count')}",
+        f"oracle_sample_validity_statuses: {json.dumps(validation.get('oracle_sample_validity_statuses', []), sort_keys=True)}",
+        f"oracle_sample_reason_codes: {json.dumps(validation.get('oracle_sample_reason_codes', []), sort_keys=True)}",
+        f"oracle_sample_years: {json.dumps(validation.get('oracle_sample_years', []), sort_keys=True)}",
+        f"oracle_numeric_tolerances: {json.dumps(validation.get('oracle_numeric_tolerances', {}), sort_keys=True)}",
+        f"oracle_mismatch_count: {validation.get('oracle_mismatch_count')}",
+        f"oracle_max_absolute_difference_by_indicator: {json.dumps(validation.get('oracle_max_absolute_difference_by_indicator', {}), sort_keys=True)}",
+        f"oracle_max_relative_difference_by_indicator: {json.dumps(validation.get('oracle_max_relative_difference_by_indicator', {}), sort_keys=True)}",
         f"comparison_counts: {json.dumps(validation.get('comparison_counts', {}), sort_keys=True)}",
         "",
         "## 14. Validator result",

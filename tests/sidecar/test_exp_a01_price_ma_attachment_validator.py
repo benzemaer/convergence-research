@@ -7,11 +7,15 @@ from pathlib import Path
 
 from src.sidecar.exp_a01_price_ma_attachment import (
     A1_ID,
+    A2_ID,
+    A2B_ID,
     INDEX_SOURCE_CONTRACT,
     compute_a01_metrics,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
+    RAW_TABLE_COLUMNS,
     _independent_row_reasons,
+    _sampled_raw_row_compare,
     load_json,
     validate_metric_rows,
     validate_static_config,
@@ -126,6 +130,54 @@ class ExpA01ValidatorTest(unittest.TestCase):
         ].append("adjustment_method")
         self.assertIn(
             "config_input_required_columns_mismatch", validate_static_config(config)
+        )
+
+    def test_sampled_numeric_tolerances_and_a2_integer_numerator(self) -> None:
+        base = {
+            "run_id": "EXP-A01-20260716T000000Z",
+            "security_id": "SEC001",
+            "trading_date": "2020-03-20",
+            "observation_sequence": 79,
+            "expected_observation_status": "present",
+            "raw_metric_name": "metric",
+            "validity_status": "valid",
+            "reason_codes_json": '["valid_no_blocker"]',
+            "input_window_start": "2020-01-02",
+            "input_window_end": "2020-03-20",
+            "required_observation_count": 79,
+            "actual_valid_observation_count": 79,
+            "metric_engine_version": "exp_a01_price_ma_attachment.v1",
+            "source_ref": "ref",
+        }
+
+        def row(indicator: str, value: float) -> tuple[object, ...]:
+            return tuple(
+                base[field]
+                if field != "indicator_id" and field != "raw_value"
+                else indicator
+                if field == "indicator_id"
+                else value
+                for field in RAW_TABLE_COLUMNS
+            )
+
+        for indicator in (A1_ID, A2B_ID):
+            expected = {**base, "indicator_id": indicator, "raw_value": 1.0}
+            self.assertEqual(
+                _sampled_raw_row_compare(expected, row(indicator, 1.0 + 5e-11))[0],
+                [],
+            )
+            self.assertIn(
+                "raw_value",
+                _sampled_raw_row_compare(expected, row(indicator, 1.0 + 5e-9))[0],
+            )
+
+        expected = {**base, "indicator_id": A2_ID, "raw_value": 0.15}
+        self.assertEqual(
+            _sampled_raw_row_compare(expected, row(A2_ID, 0.1500000000005))[0], []
+        )
+        self.assertIn(
+            "raw_value",
+            _sampled_raw_row_compare(expected, row(A2_ID, 0.20))[0],
         )
 
 

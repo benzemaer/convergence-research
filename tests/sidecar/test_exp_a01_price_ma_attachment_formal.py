@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 import duckdb
 
+import scripts.sidecar.run_exp_a01_price_ma_attachment as runner_module
 from scripts.sidecar.run_exp_a01_price_ma_attachment import (
     FORMAL_SOURCE_PATHS,
     run_formal,
@@ -36,6 +37,7 @@ from src.sidecar.exp_a01_price_ma_attachment_formal import (
     write_compact_csvs,
 )
 from src.sidecar.exp_a01_price_ma_attachment_validator import (
+    _validate_stratified_independent_oracle,
     load_json,
     validate_formal_result,
 )
@@ -593,6 +595,76 @@ class ExpA01FormalTest(unittest.TestCase):
                 .read_text(encoding="utf-8")
                 .lower(),
             )
+
+    def test_large_input_strategy_uses_deterministic_sample_without_full_stream(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            _result, manifest, output = self._run_synthetic(root, "003")
+            config = load_json(CONFIG_PATH)
+            paths = {
+                "d3_t07_candidate_daily_observation": root
+                / "d3_t07_candidate_daily_observation.duckdb",
+                "expected_price_observation_index": root
+                / "expected_price_observation_index.duckdb",
+            }
+            results = []
+            for _ in range(2):
+                connection = duckdb.connect(str(output / "exp_a01_raw_metrics.duckdb"))
+                try:
+                    errors: list[str] = []
+                    mismatches = {"oracle_sample_mismatch": 0}
+                    result = _validate_stratified_independent_oracle(
+                        connection,
+                        candidate_path=paths["d3_t07_candidate_daily_observation"],
+                        index_path=paths["expected_price_observation_index"],
+                        expected_index_table="expected_price_observation_index",
+                        expected_index_row_count=100001,
+                        run_id="EXP-A01-20260716T120000003Z",
+                        config=config,
+                        errors=errors,
+                        mismatch_counts=mismatches,
+                    )
+                finally:
+                    connection.close()
+                self.assertEqual(errors, [])
+                self.assertEqual(mismatches["oracle_sample_mismatch"], 0)
+                results.append(result)
+            first, second = results
+            self.assertEqual(first["oracle_mode"], "deterministic_stratified_sample")
+            self.assertLessEqual(first["oracle_target_observation_count"], 10000)
+            self.assertEqual(
+                first["oracle_compared_raw_row_count"],
+                first["oracle_target_observation_count"] * 3,
+            )
+            self.assertEqual(
+                first["oracle_sample_target_fingerprint"],
+                second["oracle_sample_target_fingerprint"],
+            )
+            self.assertEqual(first["oracle_sample_security_count"], 1)
+
+    def test_runner_executes_core_validator_once_and_cheap_final_once(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            manifest, _paths = self._make_inputs(root)
+            args = self._formal_args(root, manifest, "EXP-A01-20260716T123000Z")
+            with (
+                self._git_context(),
+                patch.object(
+                    runner_module,
+                    "validate_formal_result",
+                    wraps=runner_module.validate_formal_result,
+                ) as core_mock,
+                patch.object(
+                    runner_module,
+                    "_validate_final_package_bindings",
+                    wraps=runner_module._validate_final_package_bindings,
+                ) as final_mock,
+            ):
+                runner_module.run_formal(args)
+            self.assertEqual(core_mock.call_count, 1)
+            self.assertEqual(final_mock.call_count, 1)
 
     def test_standalone_cli_replays_lineage_and_fails_on_manifest_mutation(
         self,
