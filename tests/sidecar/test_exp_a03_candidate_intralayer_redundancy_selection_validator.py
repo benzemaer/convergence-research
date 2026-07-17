@@ -13,10 +13,15 @@ from scripts.sidecar.run_exp_a03_candidate_intralayer_redundancy_selection impor
 )
 from src.sidecar.exp_a03_candidate_intralayer_redundancy_selection_validator import (
     CONFIG_PATH,
+    cheap_validate_final_package,
     load_json,
     validate_package,
 )
-from tests.sidecar.test_exp_a03_lineage import build_synthetic_input_package
+from tests.sidecar.test_exp_a03_lineage import (
+    build_synthetic_input_package,
+    sha256,
+    write_json,
+)
 
 
 def run_fixture(root: Path, run_id: str) -> tuple[dict[str, object], Path]:
@@ -83,6 +88,55 @@ class ExpA03ValidatorTest(unittest.TestCase):
                     for error in result["errors"]
                 )
             )
+
+    def test_analysis_readiness_mutation_is_detected_by_full_and_cheap_validators(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            inputs, output = run_fixture(root, "EXP-A03-20260717T000010000Z")
+            analysis_path = output / "exp_a03_result_analysis.md"
+            analysis_path.write_text(
+                analysis_path.read_text(encoding="utf-8").replace(
+                    "needs_investigation_before_user_review",
+                    "ready_for_user_formal_result_review",
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+            manifest_path = output / "exp_a03_manifest.json"
+            manifest = load_json(manifest_path)
+            manifest["output_artifacts"][analysis_path.name]["sha256"] = sha256(
+                analysis_path
+            )
+            write_json(manifest_path, manifest)
+            full = validate_package(
+                output,
+                config=load_json(CONFIG_PATH),
+                input_manifest_path=inputs["manifest"],
+                input_root=inputs["input_root"],
+                run_id=output.name,
+                allow_synthetic_fixture=True,
+                require_final_manifest=True,
+            )
+            input_manifest = load_json(inputs["manifest"])
+            cheap = cheap_validate_final_package(
+                output,
+                run_id=output.name,
+                input_manifest_sha256=sha256(inputs["manifest"]),
+                input_hashes={
+                    artifact_id: declaration["sha256"]
+                    for artifact_id, declaration in input_manifest[
+                        "input_artifacts"
+                    ].items()
+                },
+                reviewed_implementation_sha=None,
+                synthetic_fixture=True,
+            )
+            self.assertEqual(full["status"], "failed")
+            self.assertIn("analysis_readiness_contract", full["errors"])
+            self.assertEqual(cheap["status"], "failed")
+            self.assertIn("analysis_readiness_contract", cheap["errors"])
 
     def test_disposition_mutation_is_detected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

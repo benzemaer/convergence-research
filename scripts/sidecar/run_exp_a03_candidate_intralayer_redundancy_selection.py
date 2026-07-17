@@ -359,6 +359,7 @@ def _run(args: argparse.Namespace, *, synthetic_fixture: bool) -> dict[str, Any]
                 reviewed_sha or "",
                 analysis,
                 synthetic_fixture=synthetic_fixture,
+                anomaly_status=anomaly["status"],
             ),
             encoding="utf-8",
             newline="\n",

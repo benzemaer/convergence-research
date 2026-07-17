@@ -287,16 +287,29 @@ def _pairwise(
         }
         for security_id in security_ids:
             values = grouped.get(security_id, (0, None, None))
-            eligible = int(values[0] or 0) >= minimum
+            common_count = int(values[0] or 0)
+            correlation_defined = all(
+                value is not None and math.isfinite(float(value))
+                for value in values[1:]
+            )
+            if common_count < minimum:
+                eligible = False
+                reason = "insufficient_common_rows"
+            elif not correlation_defined:
+                eligible = False
+                reason = "undefined_correlation_constant_input"
+            else:
+                eligible = True
+                reason = None
             security_rows.append(
                 {
                     "pair_id": pair_id,
                     "security_id": security_id,
-                    "common_count": int(values[0] or 0),
+                    "common_count": common_count,
                     "eligible": eligible,
                     "pearson_raw": values[1] if eligible else None,
                     "spearman_midrank": values[2] if eligible else None,
-                    "reason": None if eligible else "insufficient_common_rows",
+                    "reason": reason,
                 }
             )
     return overall, year_rows, security_rows
@@ -384,7 +397,9 @@ def _stability(
     year_values = [
         (row["pair_id"], row["spearman_midrank"])
         for row in years
-        if row["common_count"] > 0 and row["spearman_midrank"] is not None
+        if row["common_count"] > 0
+        and row["spearman_midrank"] is not None
+        and math.isfinite(float(row["spearman_midrank"]))
     ]
     if year_values:
         connection.executemany(
@@ -396,7 +411,9 @@ def _stability(
     security_values = [
         (row["pair_id"], row["spearman_midrank"])
         for row in securities
-        if row["eligible"] and row["spearman_midrank"] is not None
+        if row["eligible"]
+        and row["spearman_midrank"] is not None
+        and math.isfinite(float(row["spearman_midrank"]))
     ]
     if security_values:
         connection.executemany(
@@ -645,6 +662,7 @@ def build_result_analysis(
     analysis: Mapping[str, Any],
     *,
     synthetic_fixture: bool,
+    anomaly_status: str | None = None,
 ) -> str:
     disposition = analysis["candidate_disposition"]
     lines = ["# EXP-A03 candidate intralayer redundancy and selection"]
@@ -671,6 +689,7 @@ def build_result_analysis(
             lines.append(
                 "needs_investigation_before_user_review"
                 if synthetic_fixture
+                or anomaly_status == "passed_with_investigation_items"
                 else "ready_for_user_formal_result_review"
             )
         else:
@@ -687,6 +706,16 @@ def build_anomaly_scan(
     synthetic_fixture: bool,
 ) -> dict[str, Any]:
     blocking = list(validator_result.get("errors", []))
+
+    for row in analysis["pairwise_year"]:
+        spearman = row["spearman_midrank"]
+        if row["common_count"] > 0 and (
+            spearman is None or not math.isfinite(float(spearman))
+        ):
+            item = f"undefined_year_correlation:{row['pair_id']}:{row['calendar_year']}"
+            if item not in blocking:
+                blocking.append(item)
+
     investigations: list[str] = []
     for pair in analysis["stability_summary"]:
         if pair["year_negative_count"]:

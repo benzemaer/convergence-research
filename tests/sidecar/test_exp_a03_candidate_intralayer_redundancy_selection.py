@@ -11,6 +11,7 @@ from src.sidecar.exp_a03_candidate_intralayer_redundancy_selection import (
     _disposition,
     _rank_query,
     build_analysis,
+    build_result_analysis,
     write_outputs,
 )
 from src.sidecar.exp_a03_candidate_intralayer_redundancy_selection_validator import (
@@ -18,6 +19,7 @@ from src.sidecar.exp_a03_candidate_intralayer_redundancy_selection_validator imp
     load_json,
 )
 from tests.sidecar.test_exp_a03_lineage import (
+    INDICATORS,
     build_synthetic_input_package,
     create_synthetic_raw,
 )
@@ -94,6 +96,69 @@ class ExpA03ProducerTest(unittest.TestCase):
                 self.assertFalse(row["eligible"])
                 self.assertIsNone(row["spearman_midrank"])
                 self.assertEqual(row["reason"], "insufficient_common_rows")
+
+    def test_security_undefined_correlation_is_ineligible_and_excluded_from_q10(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            raw = Path(temporary) / "constant_security.duckdb"
+            create_synthetic_raw(raw)
+            connection = duckdb.connect(str(raw))
+            try:
+                connection.execute(
+                    "UPDATE exp_a01_raw_metrics SET raw_value=0.5 WHERE indicator_id=?",
+                    (INDICATORS[1],),
+                )
+            finally:
+                connection.close()
+            connection = duckdb.connect(str(raw), read_only=True)
+            try:
+                analysis = build_analysis(connection, load_json(CONFIG_PATH))
+            finally:
+                connection.close()
+            for pair_id in ("A1_A2", "A2_A2b"):
+                row = next(
+                    item
+                    for item in analysis["pairwise_security"]
+                    if item["pair_id"] == pair_id
+                )
+                self.assertEqual(row["common_count"], 231)
+                self.assertFalse(row["eligible"])
+                self.assertIsNone(row["pearson_raw"])
+                self.assertIsNone(row["spearman_midrank"])
+                self.assertEqual(row["reason"], "undefined_correlation_constant_input")
+                summary = next(
+                    item
+                    for item in analysis["stability_summary"]
+                    if item["pair_id"] == pair_id
+                )
+                self.assertEqual(summary["security_total_count"], 1)
+                self.assertEqual(summary["security_eligible_count"], 0)
+                self.assertEqual(summary["security_insufficient_count"], 1)
+                self.assertIsNone(summary["security_spearman_q10"])
+
+    def test_result_analysis_readiness_follows_anomaly_status(self) -> None:
+        analysis = {"candidate_disposition": {"recommended_candidate_set_for_A04": []}}
+        ready = build_result_analysis(
+            "EXP-A03-20260717T000000000Z",
+            "a" * 40,
+            analysis,
+            synthetic_fixture=False,
+            anomaly_status="passed",
+        )
+        needs_investigation = build_result_analysis(
+            "EXP-A03-20260717T000000000Z",
+            "a" * 40,
+            analysis,
+            synthetic_fixture=False,
+            anomaly_status="passed_with_investigation_items",
+        )
+        self.assertTrue(ready.rstrip().endswith("ready_for_user_formal_result_review"))
+        self.assertTrue(
+            needs_investigation.rstrip().endswith(
+                "needs_investigation_before_user_review"
+            )
+        )
 
     def test_pre_registered_disposition_branches_and_a1_collision(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

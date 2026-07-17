@@ -8,6 +8,7 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import duckdb
 
@@ -289,6 +290,48 @@ class ExpA03LineageTest(unittest.TestCase):
                         input_root=package["input_root"],
                         allow_synthetic_fixture=True,
                     )
+
+    def test_a02_artifact_mutations_fail_against_frozen_handoff_before_raw_use(
+        self,
+    ) -> None:
+        artifact_bindings = {
+            "exp_a02_manifest": ("exp_a02_manifest.json", "a02_manifest_sha256"),
+            "exp_a02_validator_result": (
+                "exp_a02_validator_result.json",
+                "a02_validator_sha256",
+            ),
+            "exp_a02_anomaly_scan": (
+                "exp_a02_anomaly_scan.json",
+                "a02_anomaly_sha256",
+            ),
+        }
+        for artifact_id, (filename, binding_field) in artifact_bindings.items():
+            with (
+                self.subTest(artifact_id=artifact_id),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                package = build_synthetic_input_package(Path(temporary))
+                artifact_path = Path(package["input_root"]) / filename
+                payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+                payload["lineage_mutation_marker"] = artifact_id
+                write_json(artifact_path, payload)
+                manifest = json.loads(package["manifest"].read_text(encoding="utf-8"))
+                mutated_hash = sha256(artifact_path)
+                manifest["input_artifacts"][artifact_id]["sha256"] = mutated_hash
+                manifest["cross_artifact_bindings"][binding_field] = mutated_hash
+                write_json(package["manifest"], manifest)
+                with patch(
+                    "src.sidecar.exp_a03_candidate_intralayer_redundancy_selection_validator.duckdb.connect"
+                ) as connect:
+                    with self.assertRaisesRegex(
+                        ValueError, "A02 accepted artifact hash mismatch"
+                    ):
+                        prepare_input_manifest(
+                            package["manifest"],
+                            input_root=package["input_root"],
+                            allow_synthetic_fixture=True,
+                        )
+                    connect.assert_not_called()
 
     def test_common_universe_does_not_treat_a1_only_as_a_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

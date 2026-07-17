@@ -340,6 +340,25 @@ def prepare_input_manifest(
     for field, value in expected_artifact_hashes.items():
         if binding[field] != value:
             raise ValueError(f"{field} mismatch")
+    accepted_artifact_hashes = {
+        "exp_a02_manifest": (
+            "exp_a02_manifest.json",
+            handoff["accepted_artifacts"]["exp_a02_manifest.json"]["sha256"],
+        ),
+        "exp_a02_validator_result": (
+            "exp_a02_validator_result.json",
+            handoff["accepted_artifacts"]["exp_a02_validator_result.json"]["sha256"],
+        ),
+        "exp_a02_anomaly_scan": (
+            "exp_a02_anomaly_scan.json",
+            handoff["accepted_artifacts"]["exp_a02_anomaly_scan.json"]["sha256"],
+        ),
+    }
+    for artifact_id, (filename, frozen_hash) in accepted_artifact_hashes.items():
+        if hashes[artifact_id] != frozen_hash:
+            raise ValueError(
+                f"A02 accepted artifact hash mismatch: {artifact_id} -> {filename}"
+            )
     raw_declaration = declarations["exp_a01_raw_metrics"]
     if binding["a01_raw_sha256"] != raw_declaration["sha256"]:
         raise ValueError("A01 raw SHA declaration/binding mismatch")
@@ -505,6 +524,17 @@ def _float_equal(actual: str | None, expected: float | None) -> bool:
     return abs(float(actual) - expected) <= 1e-8 * max(1.0, abs(expected))
 
 
+def _finite(value: Any) -> bool:
+    try:
+        return value is not None and math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _correlation_defined(pearson: Any, spearman: Any) -> bool:
+    return _finite(pearson) and _finite(spearman)
+
+
 def _json_value_equal(actual: Any, expected: Any) -> bool:
     if isinstance(expected, Mapping):
         return (
@@ -533,6 +563,14 @@ def _json_value_equal(actual: Any, expected: Any) -> bool:
         except (TypeError, ValueError):
             return False
     return actual == expected
+
+
+def _analysis_readiness_for_anomaly_status(status: Any) -> str | None:
+    if status == "passed":
+        return "ready_for_user_formal_result_review"
+    if status == "passed_with_investigation_items":
+        return "needs_investigation_before_user_review"
+    return None
 
 
 def _grouped_pair_rows(
@@ -607,7 +645,7 @@ def _independent_stability(
     year_values = [
         (pair_id, values[2])
         for (pair_id, _), values in years.items()
-        if values[0] > 0 and values[2] is not None
+        if values[0] > 0 and _finite(values[2])
     ]
     if year_values:
         connection.executemany(
@@ -619,7 +657,8 @@ def _independent_stability(
     security_values = [
         (pair_id, values[2])
         for (pair_id, _), values in securities.items()
-        if values[0] >= security_min_common_rows and values[2] is not None
+        if values[0] >= security_min_common_rows
+        and _correlation_defined(values[1], values[2])
     ]
     if security_values:
         connection.executemany(
@@ -882,6 +921,8 @@ def _independent_aggregate_check(
                 or not _float_equal(row["spearman_midrank"], expected[2])
             ):
                 errors.append(f"year_aggregate_mismatch:{pair_id}:{year}")
+            if expected[0] > 0 and not _finite(expected[2]):
+                errors.append(f"undefined_year_correlation:{pair_id}:{year}")
             if not synthetic_fixture and expected[0] == 0:
                 errors.append(f"accepted_year_missing:{pair_id}:{year}")
     security_rows = _read_csv(
@@ -909,24 +950,33 @@ def _independent_aggregate_check(
             row = security_map.get((pair_id, security_id))
             expected = grouped.get(security_id, (0, None, None))
             security_expected[(pair_id, security_id)] = expected
-            eligible = expected[0] >= security_min
+            correlation_defined = _correlation_defined(expected[1], expected[2])
+            if expected[0] < security_min:
+                expected_eligible = False
+                expected_reason = "insufficient_common_rows"
+            elif not correlation_defined:
+                expected_eligible = False
+                expected_reason = "undefined_correlation_constant_input"
+            else:
+                expected_eligible = True
+                expected_reason = ""
             if (
                 row is None
                 or int(row["common_count"]) != expected[0]
-                or row["eligible"].lower() != str(eligible).lower()
+                or row["eligible"].lower() != str(expected_eligible).lower()
             ):
                 errors.append(f"security_aggregate_mismatch:{pair_id}:{security_id}")
-            if eligible and (
+            if expected_eligible and (
                 not _float_equal(row["pearson_raw"], expected[1])
                 or not _float_equal(row["spearman_midrank"], expected[2])
             ):
                 errors.append(f"security_correlation_mismatch:{pair_id}:{security_id}")
-            if not eligible and (
+            if not expected_eligible and (
                 row["pearson_raw"] not in ("",)
                 or row["spearman_midrank"] not in ("",)
-                or row["reason"] != "insufficient_common_rows"
+                or row["reason"] != expected_reason
             ):
-                errors.append(f"security_insufficient_contract:{pair_id}:{security_id}")
+                errors.append(f"security_ineligible_contract:{pair_id}:{security_id}")
             if not synthetic_fixture and expected[0] == 0:
                 errors.append(f"accepted_security_missing:{pair_id}:{security_id}")
     tails = _read_csv(
@@ -1311,12 +1361,32 @@ def validate_package(
             positions
         ):
             errors.append("analysis_heading_contract")
-        if not text.rstrip().endswith(
-            "needs_investigation_before_user_review"
-            if input_info["synthetic_fixture"]
-            else "ready_for_user_formal_result_review"
-        ):
+        stripped = text.rstrip()
+        readiness = stripped.splitlines()[-1] if stripped else ""
+        if readiness not in {
+            "ready_for_user_formal_result_review",
+            "needs_investigation_before_user_review",
+        }:
             errors.append("analysis_readiness_contract")
+        if require_final_manifest:
+            anomaly_status = manifest.get("anomaly_status") if manifest else None
+            anomaly_path = package_root / "exp_a03_anomaly_scan.json"
+            anomaly_payload: Mapping[str, Any] | None = None
+            if not anomaly_path.is_file():
+                errors.append("anomaly_scan_missing")
+            else:
+                try:
+                    anomaly_payload = load_json(anomaly_path)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(f"anomaly_scan_contract:{exc}")
+            if anomaly_payload is not None:
+                if anomaly_payload.get("status") != anomaly_status:
+                    errors.append("anomaly_status_binding_mismatch")
+                expected_readiness = _analysis_readiness_for_anomaly_status(
+                    anomaly_payload.get("status")
+                )
+                if expected_readiness is None or readiness != expected_readiness:
+                    errors.append("analysis_readiness_contract")
     else:
         errors.append("analysis_missing")
     return {
@@ -1442,12 +1512,26 @@ def cheap_validate_final_package(
             positions
         ):
             errors.append("analysis_heading_contract")
-        expected_final = (
-            "needs_investigation_before_user_review"
-            if synthetic_fixture
-            else "ready_for_user_formal_result_review"
-        )
-        if not text.rstrip().endswith(expected_final):
+        stripped = text.rstrip()
+        readiness = stripped.splitlines()[-1] if stripped else ""
+        anomaly_path = package_root / "exp_a03_anomaly_scan.json"
+        anomaly_payload: Mapping[str, Any] | None = None
+        if not anomaly_path.is_file():
+            errors.append("anomaly_scan_missing")
+        else:
+            try:
+                anomaly_payload = load_json(anomaly_path)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"anomaly_scan_contract:{exc}")
+        if anomaly_payload is not None:
+            if anomaly_payload.get("status") != manifest.get("anomaly_status"):
+                errors.append("anomaly_status_binding_mismatch")
+            expected_final = _analysis_readiness_for_anomaly_status(
+                anomaly_payload.get("status")
+            )
+        else:
+            expected_final = None
+        if expected_final is None or readiness != expected_final:
             errors.append("analysis_readiness_contract")
     return {
         "task_id": TASK_ID,
