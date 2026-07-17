@@ -1,0 +1,4 @@
+indicator_id,expected_row_count,present_row_count,native_valid_count,native_valid_rate_expected,native_valid_rate_present,unknown_count,blocked_count,diagnostic_required_count,total_security_count,valid_security_count,total_year_count,valid_year_count,first_valid_date,last_valid_date,max_year_valid_share,max_security_valid_share
+A1_LogBodyCenterToMACloudCenter_5_60,1751066,1730769,1632073,0.9320453940628166,0.942975636841196,42899,76094,0,800,800,11,11,2016-04-01,2026-06-30,0.11675335600797268,0.0015238288973593705
+A2_BodyCenterOutsideMACloudRate20_5_60,1751066,1730769,1602937,0.9154063867381355,0.9261415012633113,55631,92498,0,800,800,11,11,2016-04-29,2026-06-30,0.11843821684819802,0.001539673736397625
+A2b_BodyToMACloudGapMean20_5_60,1751066,1730769,1602937,0.9154063867381355,0.9261415012633113,55631,92498,0,800,800,11,11,2016-04-29,2026-06-30,0.11843821684819802,0.001539673736397625
