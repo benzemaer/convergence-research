@@ -13,6 +13,35 @@ PAIRS = (
     ("run_manifest", ROOT / "templates/run_manifest.json"),
     ("artifact_manifest", ROOT / "templates/artifact_manifest.example.json"),
 )
+SIDECAR_PAIRS = (
+    (
+        ROOT / "schemas/sidecar/exp_a01_accepted_result_handoff.schema.json",
+        ROOT
+        / "data/generated/sidecar/exp_a01/EXP-A01-20260717T040145984Z"
+        / "exp_a01_accepted_result_handoff.json",
+    ),
+    (
+        ROOT / "schemas/sidecar/exp_a03_accepted_result_handoff.schema.json",
+        ROOT / "data/generated/sidecar/exp_a03/exp_a03_accepted_result_handoff.json",
+    ),
+    (
+        ROOT / "schemas/sidecar/exp_a04_pcvt_raw_accepted_handoff.schema.json",
+        ROOT / "data/generated/sidecar/exp_a04/exp_a04_pcvt_raw_accepted_handoff.json",
+    ),
+    (
+        ROOT / "schemas/sidecar/exp_a_final_research_handoff.schema.json",
+        ROOT / "data/generated/sidecar/exp_a/exp_a_final_research_handoff.json",
+    ),
+)
+SCHEMA_ONLY = (
+    ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
+    ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
+    ROOT / "schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",
+    ROOT / "schemas/sidecar/exp_a03_authorized_input_manifest.schema.json",
+    ROOT / "schemas/sidecar/exp_a03_accepted_result_handoff.schema.json",
+    ROOT / "schemas/sidecar/exp_a04_authorized_input_manifest.schema.json",
+    ROOT / "schemas/sidecar/exp_a04_pcvt_raw_accepted_handoff.schema.json",
+)
 
 
 def load_json(path: Path) -> object:
@@ -21,8 +50,18 @@ def load_json(path: Path) -> object:
 
 
 def main() -> int:
+    for schema_path in SCHEMA_ONLY:
+        Draft202012Validator.check_schema(load_json(schema_path))
+        print(f"validated schema {schema_path.relative_to(ROOT)}")
     for name, example_path in PAIRS:
         schema_path = ROOT / f"schemas/{name}.schema.json"
+        schema = load_json(schema_path)
+        Draft202012Validator.check_schema(schema)
+        Draft202012Validator(schema, format_checker=FormatChecker()).validate(
+            load_json(example_path)
+        )
+        print(f"validated {example_path.relative_to(ROOT)}")
+    for schema_path, example_path in SIDECAR_PAIRS:
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(

@@ -1,0 +1,13 @@
+indicator_id,validity_status,row_count,denominator_count,row_share
+A1_LogBodyCenterToMACloudCenter_5_60,valid,1632073,1751066,0.9320453940628166
+A1_LogBodyCenterToMACloudCenter_5_60,unknown,42899,1751066,0.024498791022154506
+A1_LogBodyCenterToMACloudCenter_5_60,blocked,76094,1751066,0.0434558149150289
+A1_LogBodyCenterToMACloudCenter_5_60,diagnostic_required,0,1751066,0.0
+A2_BodyCenterOutsideMACloudRate20_5_60,valid,1602937,1751066,0.9154063867381355
+A2_BodyCenterOutsideMACloudRate20_5_60,unknown,55631,1751066,0.031769790516177
+A2_BodyCenterOutsideMACloudRate20_5_60,blocked,92498,1751066,0.05282382274568748
+A2_BodyCenterOutsideMACloudRate20_5_60,diagnostic_required,0,1751066,0.0
+A2b_BodyToMACloudGapMean20_5_60,valid,1602937,1751066,0.9154063867381355
+A2b_BodyToMACloudGapMean20_5_60,unknown,55631,1751066,0.031769790516177
+A2b_BodyToMACloudGapMean20_5_60,blocked,92498,1751066,0.05282382274568748
+A2b_BodyToMACloudGapMean20_5_60,diagnostic_required,0,1751066,0.0

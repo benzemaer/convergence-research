@@ -1,0 +1,393 @@
+{
+  "$schema": "../../schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "EXP-A01",
+  "experiment_id": "EXP-A01",
+  "experiment_name": "A层价格—均线贴合候选指标",
+  "program_id": "EXP-A",
+  "research_route": "sidecar_exploration",
+  "candidate_layer": "A",
+  "candidate_layer_name": "price_ma_attachment",
+  "workflow_mode": "long_lived_same_pr",
+  "phase": "implementation_review",
+  "program_phase": "A01_formal_execution_package_implementation",
+  "implementation_review_status": "needs_revision",
+  "reviewed_implementation_sha": "",
+  "formal_run_allowed": false,
+  "formal_run_status": "not_started",
+  "formal_run_executed": false,
+  "formal_artifacts_generated": false,
+  "result_review_status": "not_started",
+  "EXP-A02_started": false,
+  "mainline_task_unchanged": true,
+  "mainline_current_task": "R3-T02",
+  "formal_layer_registered": false,
+  "pcvt_modified": false,
+  "pcatv_created": false,
+  "existing_indicator_modified": false,
+  "future_outcome_used": false,
+  "price_basis": {
+    "authoritative_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+    "authoritative_object": "d3_candidate_daily_observation",
+    "candidate_materialization_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+    "source_role": "exploration_research_candidate",
+    "formal_data_version": false,
+    "adjusted_fields": ["adjusted_open", "adjusted_high", "adjusted_low", "adjusted_close"],
+    "canonical_column_mapping": {
+      "security_id": "ts_code",
+      "trading_date": "trade_date",
+      "adjusted_open": "adjusted_open",
+      "adjusted_close": "adjusted_close",
+      "adjustment_factor": "effective_adj_factor"
+    },
+    "adjustment_semantics": "D3-T07 candidate adjusted prices are consumed directly; A01 applies no second adjustment policy",
+    "moving_average": "simple moving average of adjusted_close with the current observation included",
+    "moving_average_windows": [5, 10, 20, 30, 60],
+    "trading_status_allowed_values": [
+      "listed_open_resolved_daily",
+      "normal_trading",
+      "limit_up",
+      "limit_down",
+      "one_price_limit_up",
+      "one_price_limit_down"
+    ],
+    "daily_status_allowed_values": ["resolved"],
+    "adjustment_factor_status_allowed_values": [
+      "resolved",
+      "not_applicable_or_carry_forward",
+      "neutral_factor_1_policy",
+      "factor_interval_policy"
+    ],
+    "raw_ohlc_forbidden": true,
+    "future_observations_forbidden": true,
+    "centered_moving_average_forbidden": true,
+    "fill_methods_forbidden": [
+      "forward_fill",
+      "backward_fill",
+      "window_compression_across_missing_expected_observation",
+      "window_compression_across_listing_pause"
+    ]
+  },
+  "parameters": {
+    "ma_windows": [5, 10, 20, 30, 60],
+    "a2_rolling_window": 20,
+    "a1_required_observations": 60,
+    "a2_required_observations": 79,
+    "current_day_included": true,
+    "raw_value_direction": "lower_is_more_attached"
+  },
+  "candidates": [
+    {
+      "indicator_id": "A1_LogBodyCenterToMACloudCenter_5_60",
+      "raw_metric_name": "LogBodyCenterToMACloudCenter_5_60",
+      "role": "candidate",
+      "formula": "abs(B_t - mean(L_5,t,L_10,t,L_20,t,L_30,t,L_60,t))",
+      "minimum_history": 60,
+      "raw_value_domain": "finite_nonnegative",
+      "direction": "lower_is_more_attached"
+    },
+    {
+      "indicator_id": "A2_BodyCenterOutsideMACloudRate20_5_60",
+      "raw_metric_name": "BodyCenterOutsideMACloudRate20_5_60",
+      "role": "candidate",
+      "formula": "mean(1[B_s < CloudLow_s - tau(B_s,CloudLow_s) or B_s > CloudHigh_s + tau(B_s,CloudHigh_s)], s=t-19..t)",
+      "minimum_history": 79,
+      "raw_value_domain": "finite_unit_interval",
+      "direction": "lower_is_more_attached",
+      "boundary_rule": "shared scale-aware 8-ULP equality zone around either cloud boundary is inside; outside only beyond the zone"
+    },
+    {
+      "indicator_id": "A2b_BodyToMACloudGapMean20_5_60",
+      "raw_metric_name": "BodyToMACloudGapMean20_5_60",
+      "role": "candidate",
+      "formula": "mean(Gap_s, s=t-19..t), where Gap_s is zero when the body interval intersects the cloud under the shared scale-aware 8-ULP boundary policy and otherwise is the nearest log endpoint distance",
+      "minimum_history": 79,
+      "raw_value_domain": "finite_nonnegative",
+      "direction": "lower_is_more_attached",
+      "boundary_rule": "shared scale-aware 8-ULP equality zone makes an intersecting body interval zero gap"
+    }
+  ],
+  "validity_contract": {
+    "validity_statuses": ["valid", "unknown", "blocked", "diagnostic_required"],
+    "reason_codes": [
+      "valid_no_blocker",
+      "window_insufficient",
+      "missing_adjusted_open",
+      "missing_adjusted_close",
+      "missing_required_history",
+      "nonpositive_adjusted_open",
+      "nonpositive_adjusted_close",
+      "nonpositive_MA",
+      "adjustment_failure",
+      "suspension_in_required_window",
+      "listing_pause_in_required_window",
+      "invalid_trading_status",
+      "reopen_after_suspension"
+    ],
+    "a2_a2b_window_rule": "current observation plus the prior 78 consecutive expected observation_sequence slots is exactly 79; any non-present or invalid slot makes the result non-valid",
+    "a1_window_rule": "current observation plus the prior 59 consecutive expected observation_sequence slots is exactly 60; any non-present or invalid slot makes the result non-valid",
+    "unknown_not_false": true,
+    "invalid_has_no_ordinary_numeric_raw_value": true
+  },
+  "input_contract": {
+    "source_manifest_required": true,
+    "source_manifest_cli": "--input-manifest",
+    "input_root_cli": "--input-root",
+    "input_root_env": "CONVERGENCE_RESEARCH_INPUT_ROOT",
+    "source_manifest_resolution": "absolute_declared_path_or_relative_to_manifest_parent; no_recursive_search",
+    "implementation_does_not_open_real_large_duckdb": true,
+    "manifest_artifact_names": [
+      "d3_t07_candidate_daily_observation",
+      "d3_t07_handoff_report",
+      "d3_t07_quality_report",
+      "expected_price_observation_index"
+    ],
+    "artifacts": {
+      "d3_t07_candidate_daily_observation": {
+        "artifact_id": "d3_t07_candidate_daily_observation",
+        "artifact_kind": "duckdb_table",
+        "logical_object": "d3_candidate_daily_observation",
+        "filename": "d3_t07_candidate_daily_observation.duckdb",
+        "table": "d3_candidate_daily_observation",
+        "source_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+        "source_role": "exploration_research_candidate",
+        "formal_data_version": false,
+        "required_columns": [
+          "ts_code",
+          "trade_date",
+          "adjusted_open",
+          "adjusted_close",
+          "trading_status",
+          "daily_status",
+          "effective_adj_factor",
+          "adjustment_factor_status",
+          "is_listing_pause",
+          "source_task_id",
+          "generated_by_task",
+          "row_provenance"
+        ]
+      },
+      "d3_t07_handoff_report": {
+        "artifact_id": "d3_t07_handoff_report",
+        "artifact_kind": "evidence_json",
+        "logical_object": "d3_t07_handoff_candidate_report",
+        "filename": "d3_t07_handoff_candidate_report.json",
+        "source_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+        "source_role": "d3_t07_handoff_evidence",
+        "formal_data_version": false,
+        "required_json_fields": [
+          "task_id",
+          "source_task_id",
+          "d3_t07_generation_decision",
+          "d3_candidate_observation_generated",
+          "formal_data_version_published",
+          "labels_generated",
+          "returns_generated",
+          "pcvt_values_generated",
+          "r0_state_generated"
+        ]
+      },
+      "d3_t07_quality_report": {
+        "artifact_id": "d3_t07_quality_report",
+        "artifact_kind": "evidence_json",
+        "logical_object": "d3_t07_quality_report",
+        "filename": "d3_t07_quality_report.json",
+        "source_contract": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1",
+        "source_role": "d3_t07_quality_evidence",
+        "formal_data_version": false,
+        "required_json_fields": [
+          "task_id",
+          "source_task_id",
+          "candidate_observation_generated",
+          "candidate_generation_decision",
+          "duplicate_observation_key_count",
+          "null_ohlc_count",
+          "non_positive_price_count",
+          "high_low_violation_count",
+          "missing_effective_adj_factor_count",
+          "factor_interval_unresolved_count"
+        ]
+      },
+      "expected_price_observation_index": {
+        "artifact_id": "expected_price_observation_index",
+        "artifact_kind": "duckdb_table",
+        "logical_object": "expected_price_observation_index",
+        "filename": "expected_price_observation_index.duckdb",
+        "table": "expected_price_observation_index",
+        "source_contract": "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",
+        "source_role": "authorized_dense_expected_observation_index",
+        "formal_data_version": false,
+        "required_columns": [
+          "security_id",
+          "trading_date",
+          "observation_sequence",
+          "expected_observation_status",
+          "source_contract",
+          "source_ref"
+        ]
+      }
+    }
+  },
+  "input_governance": {
+    "d3_t08_required": false,
+    "d3_t08_policy": "not_required_for_EXP-A01",
+    "rationale": "D3-T08 adds no A1/A2/A2b calculation field and its relevant checks are duplicated by the D3-T07 gate, direct main-table checks, dense-index reconciliation and full persisted invariant validation plus deterministic stratified independent oracle."
+  },
+  "execution_profile_governance": {
+    "owner_override": true,
+    "authorization_continuity": "preserved",
+    "configuration_review_required": false,
+    "implementation_review_required": false,
+    "human_rereview_required": false,
+    "authorization_roll_forward": "automatic_after_exact_head_quality_success",
+    "scientific_contract_unchanged": true
+  },
+  "d3_t07_evidence_gate": {
+    "accepted_generation_decisions": [
+      "accepted_candidate_observation",
+      "accepted_candidate_observation_with_warnings"
+    ],
+    "generated_field": "d3_candidate_observation_generated",
+    "formal_data_version_field": "formal_data_version_published",
+    "forbidden_true_fields": [
+      "labels_generated",
+      "returns_generated",
+      "pcvt_values_generated",
+      "r0_state_generated"
+    ],
+    "quality_blockers": [
+      "duplicate_observation_key_count",
+      "null_ohlc_count",
+      "non_positive_price_count",
+      "high_low_violation_count",
+      "missing_effective_adj_factor_count",
+      "factor_interval_unresolved_count"
+    ],
+    "main_table_identity": {
+      "source_task_id": "D2-T20",
+      "generated_by_task": "D3-T07",
+      "listing_pause_must_be": false
+    }
+  },
+  "dense_window_contract": {
+    "index_source_contract": "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1",
+    "statuses": ["present", "listing_pause", "missing", "unresolved"],
+    "present_requires_exactly_one_main_row": true,
+    "non_present_must_not_be_in_main_table": true,
+    "civil_date_continuity_substitution_forbidden": true,
+    "sequence_gap_is_input_contract_error": true,
+    "window_observation_counts": {
+      "A1_LogBodyCenterToMACloudCenter_5_60": 60,
+      "A2_BodyCenterOutsideMACloudRate20_5_60": 79,
+      "A2b_BodyToMACloudGapMean20_5_60": 79
+    }
+  },
+  "validation_contract": {
+    "strategy": "r0_t10_full_invariants_plus_stratified_oracle_v1",
+    "full_independent_recompute_required": false,
+    "full_persisted_invariant_scan_required": true,
+    "small_input_full_oracle_max_expected_observations": 100000,
+    "oracle_sample_version": "EXP_A01_STRATIFIED_ORACLE_V1",
+    "oracle_sample_target_limit": 10000,
+    "per_security_anchors": [
+      "first_observation",
+      "last_observation",
+      "first_a1_valid",
+      "first_a2_valid",
+      "deterministic_valid",
+      "deterministic_nonvalid"
+    ],
+    "per_indicator_validity_status_limit": 20,
+    "per_indicator_reason_code_limit": 10,
+    "per_indicator_year_valid_limit": 5,
+    "per_indicator_extreme_tail_limit": 20,
+    "sample_numeric_tolerances": {
+      "A1_LogBodyCenterToMACloudCenter_5_60": {
+        "absolute": 1e-12,
+        "relative": 1e-9
+      },
+      "A2_BodyCenterOutsideMACloudRate20_5_60": {
+        "absolute": 1e-12,
+        "relative": 1e-9
+      },
+      "A2b_BodyToMACloudGapMean20_5_60": {
+        "absolute": 1e-12,
+        "relative": 1e-9
+      }
+    },
+    "boundary_policy": {
+      "name": "scale_aware_8_ulp",
+      "float64_epsilon": 2.220446049250313e-16,
+      "boundary_ulps": 8,
+      "a2_a2b_shared": true,
+      "reason": "The observed production/oracle disagreement is one floating-point ULP. Eight ULPs provide a narrow execution-order allowance while remaining many orders of magnitude below any economically or statistically meaningful A2/A2b distance."
+    }
+  },
+  "output_contract": {
+    "future_directory": "data/generated/sidecar/exp_a01/<RUN_ID>/",
+    "future_files": [
+      "exp_a01_raw_metrics.duckdb",
+      "exp_a01_metric_profile.csv",
+      "exp_a01_validity_profile.csv",
+      "exp_a01_year_coverage.csv",
+      "exp_a01_security_coverage.csv",
+      "exp_a01_manifest.json",
+      "exp_a01_validator_result.json",
+      "exp_a01_anomaly_scan.json",
+      "exp_a01_result_analysis.md"
+    ],
+    "future_raw_metric_artifact_requires_manifest": true,
+    "formal_execution_implemented": true,
+    "no_formal_output_in_implementation": false,
+    "parallel_mode": "single_process_duckdb_parallel",
+    "worker_count": 1,
+    "duckdb_threads": 12,
+    "memory_limit": "12GB",
+    "random_seed": null,
+    "run_id_pattern": "^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$",
+    "raw_metric_table": {
+      "filename": "exp_a01_raw_metrics.duckdb",
+      "table": "exp_a01_raw_metrics",
+      "required_columns": [
+        "run_id",
+        "security_id",
+        "trading_date",
+        "observation_sequence",
+        "expected_observation_status",
+        "indicator_id",
+        "raw_metric_name",
+        "raw_value",
+        "validity_status",
+        "reason_codes_json",
+        "input_window_start",
+        "input_window_end",
+        "required_observation_count",
+        "actual_valid_observation_count",
+        "metric_engine_version",
+        "source_ref"
+      ]
+    },
+    "forbidden_output_fields": [
+      "percentile",
+      "score",
+      "state",
+      "winner",
+      "selected_indicator",
+      "replacement_approved",
+      "future_return",
+      "future_volatility",
+      "future_direction",
+      "backtest",
+      "portfolio",
+      "transaction_cost"
+    ]
+  },
+  "long_lived_program_plan": [
+    "A01 raw metric",
+    "A02 W120 percentile/score",
+    "A03 intralayer redundancy",
+    "A04 cross-layer redundancy",
+    "A05 state incrementality",
+    "A06 final decision"
+  ]
+}

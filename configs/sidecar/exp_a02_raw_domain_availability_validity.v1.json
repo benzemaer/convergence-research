@@ -1,0 +1,271 @@
+{
+  "$schema": "../../schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "EXP-A02",
+  "experiment_id": "EXP-A02",
+  "program_id": "EXP-A",
+  "experiment_name": "A层候选raw domain、availability与validity",
+  "research_route": "sidecar_exploration",
+  "workflow_mode": "long_lived_same_pr",
+  "phase": "formal_execution_activation_implementation_review",
+  "program_phase": "A02_formal_execution_activation_implementation",
+  "implementation_review_status": "pending",
+  "reviewed_implementation_sha": "",
+  "formal_run_allowed": false,
+  "formal_run_status": "not_started",
+  "formal_run_executed": false,
+  "formal_artifacts_generated": false,
+  "result_review_status": "not_started",
+  "EXP_A03_started": false,
+  "formal_data_version": false,
+  "mainline_task_unchanged": true,
+  "mainline_current_task": "R3-T02",
+  "upstream": {
+    "task_id": "EXP-A01",
+    "accepted_run_id": "EXP-A01-20260717T040145984Z",
+    "accepted_implementation_sha": "c9a52dc29f7d41c85ab416e99bb9ef8cc6411b9d",
+    "accepted_result_commit": "b7be2577233c045e507efe05d20601a20d373c9b",
+    "accepted_status": "completed_accepted",
+    "formal_result_review_status": "accepted"
+  },
+  "input_contract": {
+    "manifest_required": true,
+    "manifest_cli": "--input-manifest",
+    "upstream_consumption": "accepted_EXP_A01_artifact_only",
+    "bypass_EXP_A01": false,
+    "direct_D3_consumption": false,
+    "manifest_artifact_names": [
+      "exp_a01_accepted_result_handoff",
+      "exp_a01_raw_metrics",
+      "exp_a01_manifest",
+      "exp_a01_validator_result",
+      "exp_a01_anomaly_scan"
+    ],
+    "artifacts": {
+      "exp_a01_accepted_result_handoff": {
+        "artifact_id": "exp_a01_accepted_result_handoff",
+        "artifact_kind": "handoff_json",
+        "logical_object": "exp_a01_accepted_result_handoff",
+        "filename": "exp_a01_accepted_result_handoff.json",
+        "required_json_fields": [
+          "task_id",
+          "status",
+          "formal_result_review_status",
+          "accepted_run_id",
+          "implementation_sha",
+          "result_commit",
+          "formal_data_version",
+          "raw_artifact",
+          "compact_result",
+          "downstream_authorization"
+        ]
+      },
+      "exp_a01_raw_metrics": {
+        "artifact_id": "exp_a01_raw_metrics",
+        "artifact_kind": "duckdb_table",
+        "logical_object": "exp_a01_raw_metrics",
+        "filename": "exp_a01_raw_metrics.duckdb",
+        "table": "exp_a01_raw_metrics",
+        "path_policy": "basename_local_only",
+        "required_columns": [
+          "run_id",
+          "security_id",
+          "trading_date",
+          "observation_sequence",
+          "expected_observation_status",
+          "indicator_id",
+          "raw_metric_name",
+          "raw_value",
+          "validity_status",
+          "reason_codes_json",
+          "input_window_start",
+          "input_window_end",
+          "required_observation_count",
+          "actual_valid_observation_count",
+          "metric_engine_version",
+          "source_ref"
+        ]
+      },
+      "exp_a01_manifest": {
+        "artifact_id": "exp_a01_manifest",
+        "artifact_kind": "a01_manifest_json",
+        "logical_object": "exp_a01_manifest",
+        "filename": "exp_a01_manifest.json",
+        "required_json_fields": [
+          "task_id",
+          "run_id",
+          "reviewed_implementation_sha",
+          "input_manifest_sha256",
+          "output_artifacts"
+        ]
+      },
+      "exp_a01_validator_result": {
+        "artifact_id": "exp_a01_validator_result",
+        "artifact_kind": "a01_validator_json",
+        "logical_object": "exp_a01_validator_result",
+        "filename": "exp_a01_validator_result.json",
+        "required_json_fields": [
+          "task_id",
+          "run_id",
+          "status",
+          "valid",
+          "mismatch_counts"
+        ]
+      },
+      "exp_a01_anomaly_scan": {
+        "artifact_id": "exp_a01_anomaly_scan",
+        "artifact_kind": "a01_anomaly_json",
+        "logical_object": "exp_a01_anomaly_scan",
+        "filename": "exp_a01_anomaly_scan.json",
+        "required_json_fields": [
+          "task_id",
+          "run_id",
+          "status",
+          "blocking_anomalies",
+          "investigation_items"
+        ]
+      }
+    }
+  },
+  "indicator_universe": {
+    "indicator_ids": [
+      "A1_LogBodyCenterToMACloudCenter_5_60",
+      "A2_BodyCenterOutsideMACloudRate20_5_60",
+      "A2b_BodyToMACloudGapMean20_5_60"
+    ],
+    "validity_statuses": ["valid", "unknown", "blocked", "diagnostic_required"],
+    "expected_observation_statuses": ["present", "listing_pause", "missing", "unresolved"],
+    "reason_codes": [
+      "valid_no_blocker",
+      "window_insufficient",
+      "missing_adjusted_open",
+      "missing_adjusted_close",
+      "missing_required_history",
+      "nonpositive_adjusted_open",
+      "nonpositive_adjusted_close",
+      "nonpositive_MA",
+      "adjustment_failure",
+      "suspension_in_required_window",
+      "listing_pause_in_required_window",
+      "invalid_trading_status",
+      "reopen_after_suspension"
+    ],
+    "domains": {
+      "A1_LogBodyCenterToMACloudCenter_5_60": {
+        "finite": true,
+        "nonnegative": true,
+        "continuous": true,
+        "discrete_grid_step": null
+      },
+      "A2_BodyCenterOutsideMACloudRate20_5_60": {
+        "finite": true,
+        "lower_bound": 0.0,
+        "upper_bound": 1.0,
+        "discrete_grid_step": 0.05,
+        "grid_denominator": 20
+      },
+      "A2b_BodyToMACloudGapMean20_5_60": {
+        "finite": true,
+        "nonnegative": true,
+        "continuous": true,
+        "discrete_grid_step": null
+      }
+    }
+  },
+  "output_contract": {
+    "future_result_directory": "data/generated/sidecar/exp_a02/<RUN_ID>/",
+    "raw_duckdb_generated": false,
+    "csv_files": [
+      "exp_a02_raw_domain_profile.csv",
+      "exp_a02_indicator_availability.csv",
+      "exp_a02_common_valid_availability.csv",
+      "exp_a02_validity_status_profile.csv",
+      "exp_a02_reason_code_profile.csv",
+      "exp_a02_reason_combination_profile.csv",
+      "exp_a02_year_availability.csv",
+      "exp_a02_security_availability.csv",
+      "exp_a02_extreme_value_sample.csv"
+    ],
+    "json_files": [
+      "exp_a02_manifest.json",
+      "exp_a02_validator_result.json",
+      "exp_a02_anomaly_scan.json"
+    ],
+    "text_files": ["exp_a02_result_analysis.md"],
+    "extreme_tail_size": 20,
+    "csv_fields": {
+      "exp_a02_raw_domain_profile.csv": [
+        "indicator_id", "total_row_count", "valid_count", "unknown_count", "blocked_count", "diagnostic_required_count", "valid_rate", "valid_raw_null_count", "nonvalid_raw_nonnull_count", "nonfinite_valid_count", "domain_violation_count", "min_value", "q01_value", "q05_value", "q25_value", "median_value", "q75_value", "q95_value", "q99_value", "max_value", "mean_value", "stddev_pop_value", "zero_count", "zero_rate_among_valid", "positive_count", "unique_value_count", "discrete_grid_step", "grid_violation_count", "grid_residual_max", "first_valid_date", "last_valid_date"
+      ],
+      "exp_a02_indicator_availability.csv": [
+        "indicator_id", "expected_row_count", "present_row_count", "native_valid_count", "native_valid_rate_expected", "native_valid_rate_present", "unknown_count", "blocked_count", "diagnostic_required_count", "total_security_count", "valid_security_count", "total_year_count", "valid_year_count", "first_valid_date", "last_valid_date", "max_year_valid_share", "max_security_valid_share"
+      ],
+      "exp_a02_common_valid_availability.csv": [
+        "set_id", "member_indicator_ids_json", "expected_key_count", "all_member_rows_present_count", "common_valid_count", "common_valid_rate_expected", "union_valid_count", "union_valid_rate_expected"
+      ],
+      "exp_a02_validity_status_profile.csv": ["indicator_id", "validity_status", "row_count", "denominator_count", "row_share"],
+      "exp_a02_reason_code_profile.csv": ["indicator_id", "reason_code", "row_count", "denominator_count", "row_share"],
+      "exp_a02_reason_combination_profile.csv": ["indicator_id", "reason_codes_json", "row_count", "denominator_count", "row_share"],
+      "exp_a02_year_availability.csv": ["calendar_year", "indicator_id", "row_count", "present_count", "valid_count", "valid_rate_expected", "valid_rate_present", "unknown_count", "blocked_count", "diagnostic_required_count", "unique_security_count", "valid_security_count"],
+      "exp_a02_security_availability.csv": ["security_id", "indicator_id", "row_count", "present_count", "valid_count", "valid_rate_expected", "valid_rate_present", "unknown_count", "blocked_count", "diagnostic_required_count", "first_date", "last_date", "first_valid_date", "last_valid_date"],
+      "exp_a02_extreme_value_sample.csv": ["indicator_id", "tail", "rank", "security_id", "trading_date", "observation_sequence", "raw_value"]
+    },
+    "forbidden_output_fields": [
+      "percentile", "score", "threshold", "q", "state", "active", "Jaccard", "correlation", "redundancy", "winner", "selected_indicator", "replacement", "A_layer_approved", "PCATV", "future_return", "future_volatility", "future_direction", "backtest", "portfolio", "transaction_cost"
+    ]
+  },
+  "validation_contract": {
+    "strategy": "r0_t10_artifact_bound_full_aggregate_recompute_v1",
+    "upstream_consumption": "accepted_EXP_A01_artifact_only",
+    "full_raw_python_recompute": false,
+    "full_set_based_invariant_scan": true,
+    "full_output_aggregate_recompute": true,
+    "deterministic_sample_output": true,
+    "single_giant_json_payload": false,
+    "row_payload_in_manifest": false,
+    "row_payload_in_summary": false,
+    "core_validator_execution_count": 1,
+    "final_package_validation": "manifest_hash_text_binding_only",
+    "grid_residual_tolerance": 1e-12,
+    "common_valid_sets": ["A1_A2", "A1_A2b", "A2_A2b", "A1_A2_A2b"],
+    "expected_key_fields": ["security_id", "trading_date", "observation_sequence"],
+    "investigation_thresholds": {
+      "native_valid_rate_expected_below": 0.8,
+      "max_year_valid_share_above": 0.5,
+      "max_security_valid_share_above": 0.1,
+      "a2_grid_levels_at_most": 2
+    }
+  },
+  "execution_contract": {
+    "implementation_synthetic_only": false,
+    "formal_execution_capable": true,
+    "formal_execution_allowed": false,
+    "formal_run_not_implemented": false,
+    "formal_activation_requires_exact_sha_review": true,
+    "formal_authorization_mode": "authorized_manifest_plus_cli_exact_sha",
+    "read_only_upstream_raw": true,
+    "new_duckdb_forbidden": true,
+    "copy_upstream_raw_forbidden": true,
+    "pandas_forbidden": true,
+    "full_raw_python_iteration_forbidden": true,
+    "failure_package_preservation": true
+  },
+  "anomaly_policy": {
+    "blocking_rules": [
+      "upstream_accepted_handoff_mismatch", "raw_hash_mismatch", "raw_table_identity_mismatch", "raw_row_count_mismatch", "input_artifact_hash_changed", "duplicate_or_missing_or_extra_indicator_rows", "valid_raw_null", "nonvalid_raw_nonnull", "nonfinite_valid_raw", "domain_violation", "a2_grid_violation", "a2_a2b_validity_mismatch", "a2_a2b_reason_mismatch", "a2_a2b_valid_key_mismatch", "a2_valid_a1_nonvalid", "a2b_valid_a1_nonvalid", "indicator_without_valid_rows", "common_triple_without_valid_rows", "aggregate_csv_mismatch", "manifest_hash_mismatch", "forbidden_output_field"
+    ],
+    "investigation_rules": [
+      "native_valid_rate_expected_below_0_80", "max_year_valid_share_above_0_50", "max_security_valid_share_above_0_10", "valid_values_all_zero", "valid_values_single_value", "a2_grid_levels_at_most_2", "year_without_valid_rows", "security_without_valid_rows"
+    ]
+  },
+  "result_analysis_sections": [
+    "Actual run / reviewed SHA", "Accepted EXP-A01 handoff", "Input artifact and hash bindings", "Raw-table cardinality", "Raw domains", "Indicator availability", "Common-valid availability", "Validity-status distribution", "Reason-code distribution", "Reason-combination distribution", "Year availability", "Security availability", "Deterministic extreme-value sample", "Full invariant validation", "Independent aggregate recomputation", "Validator result", "Anomaly scan", "Supported conclusions", "Unsupported conclusions", "Readiness for user Formal-result review"
+  ],
+  "governance": {
+    "A_layer_registered": false,
+    "PCATV_created": false,
+    "EXP_A03_started": false,
+    "mainline_task_unchanged": true,
+    "mainline_current_task": "R3-T02"
+  }
+}

@@ -1,0 +1,400 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json",
+  "title": "EXP-A01 price-MA attachment candidate contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "config_version",
+    "task_id",
+    "experiment_id",
+    "experiment_name",
+    "program_id",
+    "research_route",
+    "candidate_layer",
+    "candidate_layer_name",
+    "workflow_mode",
+    "phase",
+    "program_phase",
+    "implementation_review_status",
+    "reviewed_implementation_sha",
+    "formal_run_allowed",
+    "formal_run_status",
+    "formal_run_executed",
+    "formal_artifacts_generated",
+    "result_review_status",
+    "EXP-A02_started",
+    "mainline_task_unchanged",
+    "mainline_current_task",
+    "formal_layer_registered",
+    "pcvt_modified",
+    "pcatv_created",
+    "existing_indicator_modified",
+    "future_outcome_used",
+    "price_basis",
+    "parameters",
+    "candidates",
+    "validity_contract",
+    "input_contract",
+    "d3_t07_evidence_gate",
+    "input_governance",
+    "execution_profile_governance",
+    "dense_window_contract",
+    "validation_contract",
+    "output_contract",
+    "long_lived_program_plan"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/sidecar/exp_a01_price_ma_attachment_candidates.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "EXP-A01"},
+    "experiment_id": {"const": "EXP-A01"},
+    "experiment_name": {"const": "A层价格—均线贴合候选指标"},
+    "program_id": {"const": "EXP-A"},
+    "research_route": {"const": "sidecar_exploration"},
+    "candidate_layer": {"const": "A"},
+    "candidate_layer_name": {"const": "price_ma_attachment"},
+    "workflow_mode": {"const": "long_lived_same_pr"},
+    "phase": {"const": "implementation_review"},
+    "program_phase": {"const": "A01_formal_execution_package_implementation"},
+    "implementation_review_status": {"const": "needs_revision"},
+    "reviewed_implementation_sha": {
+      "anyOf": [{"const": ""}, {"type": "string", "pattern": "^[0-9a-f]{40}$"}]
+    },
+    "formal_run_allowed": {"const": false},
+    "formal_run_status": {"const": "not_started"},
+    "formal_run_executed": {"const": false},
+    "formal_artifacts_generated": {"const": false},
+    "result_review_status": {"const": "not_started"},
+    "EXP-A02_started": {"const": false},
+    "mainline_task_unchanged": {"const": true},
+    "mainline_current_task": {"const": "R3-T02"},
+    "formal_layer_registered": {"const": false},
+    "pcvt_modified": {"const": false},
+    "pcatv_created": {"const": false},
+    "existing_indicator_modified": {"const": false},
+    "future_outcome_used": {"const": false},
+    "price_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authoritative_contract",
+        "authoritative_object",
+        "candidate_materialization_contract",
+        "source_role",
+        "formal_data_version",
+        "adjusted_fields",
+        "canonical_column_mapping",
+        "adjustment_semantics",
+        "moving_average",
+        "moving_average_windows",
+        "trading_status_allowed_values",
+        "daily_status_allowed_values",
+        "adjustment_factor_status_allowed_values",
+        "raw_ohlc_forbidden",
+        "future_observations_forbidden",
+        "centered_moving_average_forbidden",
+        "fill_methods_forbidden"
+      ],
+      "properties": {
+        "authoritative_contract": {"const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"},
+        "authoritative_object": {"const": "d3_candidate_daily_observation"},
+        "candidate_materialization_contract": {"const": "D3_T07_CANDIDATE_DAILY_OBSERVATION_CONTRACT_V1"},
+        "source_role": {"const": "exploration_research_candidate"},
+        "formal_data_version": {"const": false},
+        "adjusted_fields": {"const": ["adjusted_open", "adjusted_high", "adjusted_low", "adjusted_close"]},
+        "canonical_column_mapping": {
+          "const": {
+            "security_id": "ts_code",
+            "trading_date": "trade_date",
+            "adjusted_open": "adjusted_open",
+            "adjusted_close": "adjusted_close",
+            "adjustment_factor": "effective_adj_factor"
+          }
+        },
+        "adjustment_semantics": {"type": "string", "minLength": 1},
+        "moving_average": {"type": "string", "minLength": 1},
+        "moving_average_windows": {"const": [5, 10, 20, 30, 60]},
+        "trading_status_allowed_values": {
+          "const": ["listed_open_resolved_daily", "normal_trading", "limit_up", "limit_down", "one_price_limit_up", "one_price_limit_down"]
+        },
+        "daily_status_allowed_values": {
+          "const": ["resolved"]
+        },
+        "adjustment_factor_status_allowed_values": {
+          "const": ["resolved", "not_applicable_or_carry_forward", "neutral_factor_1_policy", "factor_interval_policy"]
+        },
+        "raw_ohlc_forbidden": {"const": true},
+        "future_observations_forbidden": {"const": true},
+        "centered_moving_average_forbidden": {"const": true},
+        "fill_methods_forbidden": {
+          "const": ["forward_fill", "backward_fill", "window_compression_across_missing_expected_observation", "window_compression_across_listing_pause"]
+        }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ma_windows", "a2_rolling_window", "a1_required_observations", "a2_required_observations", "current_day_included", "raw_value_direction"],
+      "properties": {
+        "ma_windows": {"const": [5, 10, 20, 30, 60]},
+        "a2_rolling_window": {"const": 20},
+        "a1_required_observations": {"const": 60},
+        "a2_required_observations": {"const": 79},
+        "current_day_included": {"const": true},
+        "raw_value_direction": {"const": "lower_is_more_attached"}
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "validity_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validity_statuses", "reason_codes", "a2_a2b_window_rule", "a1_window_rule", "unknown_not_false", "invalid_has_no_ordinary_numeric_raw_value"],
+      "properties": {
+        "validity_statuses": {"const": ["valid", "unknown", "blocked", "diagnostic_required"]},
+        "reason_codes": {"type": "array", "minItems": 13, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "a2_a2b_window_rule": {"type": "string", "minLength": 1},
+        "a1_window_rule": {"type": "string", "minLength": 1},
+        "unknown_not_false": {"const": true},
+        "invalid_has_no_ordinary_numeric_raw_value": {"const": true}
+      }
+    },
+    "input_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_manifest_required", "source_manifest_cli", "input_root_cli", "input_root_env", "source_manifest_resolution", "implementation_does_not_open_real_large_duckdb", "manifest_artifact_names", "artifacts"],
+      "properties": {
+        "source_manifest_required": {"const": true},
+        "source_manifest_cli": {"const": "--input-manifest"},
+        "input_root_cli": {"const": "--input-root"},
+        "input_root_env": {"const": "CONVERGENCE_RESEARCH_INPUT_ROOT"},
+        "source_manifest_resolution": {"const": "absolute_declared_path_or_relative_to_manifest_parent; no_recursive_search"},
+        "implementation_does_not_open_real_large_duckdb": {"const": true},
+        "manifest_artifact_names": {
+          "const": ["d3_t07_candidate_daily_observation", "d3_t07_handoff_report", "d3_t07_quality_report", "expected_price_observation_index"]
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["d3_t07_candidate_daily_observation", "d3_t07_handoff_report", "d3_t07_quality_report", "expected_price_observation_index"],
+          "properties": {
+            "d3_t07_candidate_daily_observation": {"$ref": "#/$defs/inputArtifact"},
+            "d3_t07_handoff_report": {"$ref": "#/$defs/inputArtifact"},
+            "d3_t07_quality_report": {"$ref": "#/$defs/inputArtifact"},
+            "expected_price_observation_index": {"$ref": "#/$defs/inputArtifact"}
+          }
+        }
+      }
+    },
+    "d3_t07_evidence_gate": {"$ref": "#/$defs/d3T07EvidenceGate"},
+    "input_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["d3_t08_required", "d3_t08_policy", "rationale"],
+      "properties": {
+        "d3_t08_required": {"const": false},
+        "d3_t08_policy": {"const": "not_required_for_EXP-A01"},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
+    "execution_profile_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_override", "authorization_continuity", "configuration_review_required", "implementation_review_required", "human_rereview_required", "authorization_roll_forward", "scientific_contract_unchanged"],
+      "properties": {
+        "owner_override": {"const": true},
+        "authorization_continuity": {"const": "preserved"},
+        "configuration_review_required": {"const": false},
+        "implementation_review_required": {"const": false},
+        "human_rereview_required": {"const": false},
+        "authorization_roll_forward": {"const": "automatic_after_exact_head_quality_success"},
+        "scientific_contract_unchanged": {"const": true}
+      }
+    },
+    "dense_window_contract": {"$ref": "#/$defs/denseWindowContract"},
+    "validation_contract": {"$ref": "#/$defs/validationContract"},
+    "output_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["future_directory", "future_files", "future_raw_metric_artifact_requires_manifest", "formal_execution_implemented", "no_formal_output_in_implementation", "parallel_mode", "worker_count", "duckdb_threads", "memory_limit", "random_seed", "run_id_pattern", "raw_metric_table", "forbidden_output_fields"],
+      "properties": {
+        "future_directory": {"const": "data/generated/sidecar/exp_a01/<RUN_ID>/"},
+        "future_files": {"const": ["exp_a01_raw_metrics.duckdb", "exp_a01_metric_profile.csv", "exp_a01_validity_profile.csv", "exp_a01_year_coverage.csv", "exp_a01_security_coverage.csv", "exp_a01_manifest.json", "exp_a01_validator_result.json", "exp_a01_anomaly_scan.json", "exp_a01_result_analysis.md"]},
+        "future_raw_metric_artifact_requires_manifest": {"const": true},
+        "formal_execution_implemented": {"const": true},
+        "no_formal_output_in_implementation": {"const": false},
+        "parallel_mode": {"const": "single_process_duckdb_parallel"},
+        "worker_count": {"const": 1},
+        "duckdb_threads": {"const": 12},
+        "memory_limit": {"const": "12GB"},
+        "random_seed": {"type": ["null", "integer"]},
+        "run_id_pattern": {"const": "^EXP-A01-[0-9]{8}T[0-9]{6}(?:[0-9]{3,6})?Z$"},
+        "raw_metric_table": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["filename", "table", "required_columns"],
+          "properties": {
+            "filename": {"const": "exp_a01_raw_metrics.duckdb"},
+            "table": {"const": "exp_a01_raw_metrics"},
+            "required_columns": {"const": ["run_id", "security_id", "trading_date", "observation_sequence", "expected_observation_status", "indicator_id", "raw_metric_name", "raw_value", "validity_status", "reason_codes_json", "input_window_start", "input_window_end", "required_observation_count", "actual_valid_observation_count", "metric_engine_version", "source_ref"]}
+          }
+        },
+        "forbidden_output_fields": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "long_lived_program_plan": {
+      "const": ["A01 raw metric", "A02 W120 percentile/score", "A03 intralayer redundancy", "A04 cross-layer redundancy", "A05 state incrementality", "A06 final decision"]
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indicator_id", "raw_metric_name", "role", "formula", "minimum_history", "raw_value_domain", "direction"],
+      "properties": {
+        "indicator_id": {"type": "string", "pattern": "^A(?:1|2b?)_"},
+        "raw_metric_name": {"type": "string", "minLength": 1},
+        "role": {"const": "candidate"},
+        "formula": {"type": "string", "minLength": 1},
+        "minimum_history": {"enum": [60, 79]},
+        "raw_value_domain": {"enum": ["finite_nonnegative", "finite_unit_interval"]},
+        "direction": {"const": "lower_is_more_attached"},
+        "boundary_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "stringArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "inputArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_kind", "logical_object", "filename", "source_contract", "source_role", "formal_data_version"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "artifact_kind": {"enum": ["duckdb_table", "evidence_json"]},
+        "logical_object": {"type": "string", "minLength": 1},
+        "filename": {"type": "string", "pattern": "^[^/\\\\]+(?:\\.duckdb|\\.json)$"},
+        "table": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "source_contract": {"type": "string", "minLength": 1},
+        "source_role": {"type": "string", "minLength": 1},
+        "formal_data_version": {"const": false},
+        "required_columns": {"$ref": "#/$defs/stringArray"},
+        "required_json_fields": {"$ref": "#/$defs/stringArray"}
+      },
+      "allOf": [
+        {"if": {"properties": {"artifact_kind": {"const": "duckdb_table"}}}, "then": {"required": ["table", "required_columns"]}},
+        {"if": {"properties": {"artifact_kind": {"const": "evidence_json"}}}, "then": {"required": ["required_json_fields"]}}
+      ]
+    },
+    "d3T07EvidenceGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted_generation_decisions", "generated_field", "formal_data_version_field", "forbidden_true_fields", "quality_blockers", "main_table_identity"],
+      "properties": {
+        "accepted_generation_decisions": {"const": ["accepted_candidate_observation", "accepted_candidate_observation_with_warnings"]},
+        "generated_field": {"const": "d3_candidate_observation_generated"},
+        "formal_data_version_field": {"const": "formal_data_version_published"},
+        "forbidden_true_fields": {"const": ["labels_generated", "returns_generated", "pcvt_values_generated", "r0_state_generated"]},
+        "quality_blockers": {"const": ["duplicate_observation_key_count", "null_ohlc_count", "non_positive_price_count", "high_low_violation_count", "missing_effective_adj_factor_count", "factor_interval_unresolved_count"]},
+        "main_table_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_task_id", "generated_by_task", "listing_pause_must_be"],
+          "properties": {"source_task_id": {"const": "D2-T20"}, "generated_by_task": {"const": "D3-T07"}, "listing_pause_must_be": {"const": false}}
+        }
+      }
+    },
+    "denseWindowContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_source_contract", "statuses", "present_requires_exactly_one_main_row", "non_present_must_not_be_in_main_table", "civil_date_continuity_substitution_forbidden", "sequence_gap_is_input_contract_error", "window_observation_counts"],
+      "properties": {
+        "index_source_contract": {"const": "EXP_A01_EXPECTED_PRICE_OBSERVATION_INDEX_V1"},
+        "statuses": {"const": ["present", "listing_pause", "missing", "unresolved"]},
+        "present_requires_exactly_one_main_row": {"const": true},
+        "non_present_must_not_be_in_main_table": {"const": true},
+        "civil_date_continuity_substitution_forbidden": {"const": true},
+        "sequence_gap_is_input_contract_error": {"const": true},
+        "window_observation_counts": {
+          "const": {
+            "A1_LogBodyCenterToMACloudCenter_5_60": 60,
+            "A2_BodyCenterOutsideMACloudRate20_5_60": 79,
+            "A2b_BodyToMACloudGapMean20_5_60": 79
+          }
+        }
+      }
+    },
+    "validationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "full_independent_recompute_required",
+        "full_persisted_invariant_scan_required",
+        "small_input_full_oracle_max_expected_observations",
+        "oracle_sample_version",
+        "oracle_sample_target_limit",
+        "per_security_anchors",
+        "per_indicator_validity_status_limit",
+        "per_indicator_reason_code_limit",
+        "per_indicator_year_valid_limit",
+        "per_indicator_extreme_tail_limit",
+        "sample_numeric_tolerances",
+        "boundary_policy"
+      ],
+      "properties": {
+        "strategy": {"const": "r0_t10_full_invariants_plus_stratified_oracle_v1"},
+        "full_independent_recompute_required": {"const": false},
+        "full_persisted_invariant_scan_required": {"const": true},
+        "small_input_full_oracle_max_expected_observations": {"const": 100000},
+        "oracle_sample_version": {"const": "EXP_A01_STRATIFIED_ORACLE_V1"},
+        "oracle_sample_target_limit": {"const": 10000},
+        "per_security_anchors": {"const": ["first_observation", "last_observation", "first_a1_valid", "first_a2_valid", "deterministic_valid", "deterministic_nonvalid"]},
+        "per_indicator_validity_status_limit": {"const": 20},
+        "per_indicator_reason_code_limit": {"const": 10},
+        "per_indicator_year_valid_limit": {"const": 5},
+        "per_indicator_extreme_tail_limit": {"const": 20},
+        "sample_numeric_tolerances": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60", "A2b_BodyToMACloudGapMean20_5_60"],
+          "properties": {
+            "A1_LogBodyCenterToMACloudCenter_5_60": {"$ref": "#/$defs/numericTolerance"},
+            "A2_BodyCenterOutsideMACloudRate20_5_60": {"$ref": "#/$defs/numericTolerance"},
+            "A2b_BodyToMACloudGapMean20_5_60": {"$ref": "#/$defs/numericTolerance"}
+          }
+        },
+        "boundary_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "float64_epsilon", "boundary_ulps", "a2_a2b_shared", "reason"],
+          "properties": {
+            "name": {"const": "scale_aware_8_ulp"},
+            "float64_epsilon": {"const": 2.220446049250313e-16},
+            "boundary_ulps": {"const": 8},
+            "a2_a2b_shared": {"const": true},
+            "reason": {"const": "The observed production/oracle disagreement is one floating-point ULP. Eight ULPs provide a narrow execution-order allowance while remaining many orders of magnitude below any economically or statistically meaningful A2/A2b distance."}
+          }
+        }
+      }
+    },
+    "numericTolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["absolute", "relative"],
+      "properties": {
+        "absolute": {"const": 1e-12},
+        "relative": {"const": 1e-9}
+      }
+    }
+  }
+}

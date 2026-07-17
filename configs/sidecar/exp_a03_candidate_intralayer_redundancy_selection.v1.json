@@ -1,0 +1,129 @@
+{
+  "$schema": "../../schemas/sidecar/exp_a03_candidate_intralayer_redundancy_selection.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "EXP-A03",
+  "experiment_id": "EXP-A03",
+  "program_id": "EXP-A",
+  "experiment_name": "A层候选内部冗余与选择",
+  "research_route": "sidecar_exploration",
+  "workflow_mode": "long_lived_same_pr",
+  "phase": "A03_candidate_intralayer_implementation_review",
+  "program_phase": "A03_candidate_intralayer_redundancy_selection",
+  "implementation_review_status": "pending",
+  "reviewed_implementation_sha": "",
+  "formal_run_allowed": false,
+  "formal_run_status": "not_started",
+  "formal_run_executed": false,
+  "formal_artifacts_generated": false,
+  "result_review_status": "not_started",
+  "EXP_A03_started": true,
+  "EXP_A04_started": false,
+  "A_layer_registered": false,
+  "PCATV_created": false,
+  "formal_data_version": false,
+  "mainline_task_unchanged": true,
+  "mainline_current_task": "R3-T02",
+  "upstream": {
+    "a02_handoff_path": "data/generated/sidecar/exp_a02/exp_a02_accepted_result_handoff.json",
+    "a02_run_id": "EXP-A02-20260717T100527443Z",
+    "a02_reviewed_implementation_sha": "bfd7ad71de8638d0a9d0adde824078d7ddc595b5",
+    "a02_result_commit": "45765edcf6c8a76bc47b167822e9d7a07ec5ab10",
+    "a02_quality_run_id": "29572704449",
+    "a02_result_status": "accepted",
+    "a01_raw_sha256": "23e07d95fe4dbd296aff1412c0e40ce3dced4fe6f4515fe6dda621bf051842df",
+    "a01_raw_row_count": 5253198,
+    "expected_key_count": 1751066,
+    "triple_common_valid_count": 1602937,
+    "security_count": 800,
+    "date_min": "2016-01-04",
+    "date_max": "2026-06-30"
+  },
+  "candidate_universe": {
+    "indicator_ids": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60", "A2b_BodyToMACloudGapMean20_5_60"],
+    "pair_ids": ["A1_A2", "A1_A2b", "A2_A2b"],
+    "key_fields": ["security_id", "trading_date", "observation_sequence"],
+    "validity_status": "valid",
+    "expected_common_count": 1602937,
+    "security_count": 800,
+    "years": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+  },
+  "correlation": {
+    "pearson": "corr(left_raw,right_raw)",
+    "spearman": "corr(left_midrank,right_midrank)",
+    "rank_method": "RANK plus tie-count midrank",
+    "rank_pct": "(midrank-0.5)/N",
+    "security_min_common_rows": 100,
+    "quantile_function": "QUANTILE_CONT"
+  },
+  "tail_policy": {
+    "fractions": [0.01, 0.05, 0.1],
+    "quantile_function": "QUANTILE_DISC",
+    "selection": "raw_value <= threshold including all threshold ties",
+    "lower_raw_is_more_attached": true
+  },
+  "conditional_profile": {
+    "a2_levels": [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],
+    "quantiles": [0.05, 0.25, 0.5, 0.75, 0.95],
+    "empty_level_rows_required": true,
+    "variance_decomposition": "between_plus_within_sum_of_squares"
+  },
+  "redundancy_gate": {
+    "overall_spearman_min": 0.95,
+    "minimum_year_spearman_min": 0.9,
+    "eligible_security_spearman_q10_min": 0.8,
+    "tail_jaccard_005_min": 0.8,
+    "tail_jaccard_010_min": 0.8,
+    "eta_squared_min": 0.9,
+    "all_of": true
+  },
+  "representation_adequacy": {
+    "a2_grid_violation_max": 0,
+    "a2_unique_level_count": 21,
+    "a2_max_level_share": 0.25,
+    "a2_tail_realized_rate_005_max": 0.15,
+    "a2_tail_realized_rate_010_max": 0.25,
+    "all_of": true
+  },
+  "a1_collision": {
+    "overall_spearman_min": 0.95,
+    "minimum_year_spearman_min": 0.9,
+    "tail_jaccard_005_min": 0.8,
+    "tail_jaccard_010_min": 0.8,
+    "investigation_only": true,
+    "automatic_a1_removal": false
+  },
+  "candidate_disposition": {
+    "redundant_and_adequate_set": ["A1", "A2"],
+    "redundant_and_inadequate_set": ["A1", "A2b"],
+    "nonredundant_set": ["A1", "A2", "A2b"],
+    "decision_status": "provisional_A03_recommendation"
+  },
+  "output_contract": {
+    "future_result_directory": "data/generated/sidecar/exp_a03/<RUN_ID>/",
+    "raw_duckdb_generated": false,
+    "forbidden_extensions": [".duckdb", ".parquet"],
+    "csv_files": ["exp_a03_pairwise_overall.csv", "exp_a03_pairwise_year.csv", "exp_a03_pairwise_security.csv", "exp_a03_tail_overlap.csv", "exp_a03_a2_a2b_conditional_profile.csv", "exp_a03_a2_a2b_variance_decomposition.csv", "exp_a03_stability_summary.csv"],
+    "json_files": ["exp_a03_candidate_disposition.json", "exp_a03_manifest.json", "exp_a03_validator_result.json", "exp_a03_anomaly_scan.json"],
+    "text_files": ["exp_a03_result_analysis.md"],
+    "row_contract": {"pairwise_overall": 3, "pairwise_year": 33, "pairwise_security": 2400, "tail_overlap": 9, "conditional_profile": 21, "variance_decomposition": 1, "stability_summary": 3}
+  },
+  "analysis_headings": ["## 1. Actual run / reviewed SHA", "## 2. Accepted EXP-A02 handoff", "## 3. Input artifacts and lineage", "## 4. Frozen common-valid universe", "## 5. Overall pairwise relationships", "## 6. Year stability", "## 7. Security stability", "## 8. Low-tail identity overlap", "## 9. A2 grid and tie structure", "## 10. A2b conditional variation within A2", "## 11. A2-to-A2b variance decomposition", "## 12. A2/A2b redundancy gate", "## 13. A2 representation adequacy", "## 14. A1 collision diagnostics", "## 15. Provisional candidate dispositions", "## 16. Full invariant validation", "## 17. Independent aggregate recomputation", "## 18. Anomaly scan", "## 19. Supported conclusions", "## 20. Unsupported conclusions", "## 21. Readiness for Formal-result review"],
+  "anomaly_policy": {
+    "blocking_rules": ["a02_handoff_schema_or_hash_mismatch", "a02_binding_mismatch", "a01_raw_binding_mismatch", "common_key_mismatch", "duplicate_common_key", "missing_common_value", "nonfinite_common_raw", "a2_grid_violation", "output_row_count_mismatch", "accepted_year_missing", "accepted_security_missing", "tail_reconciliation_failure", "variance_residual_failure", "decision_rule_failure", "producer_validator_mismatch", "output_hash_mismatch", "input_hash_changed", "forbidden_output", "governance_flag_mismatch"],
+    "investigation_rules": ["a1_collision", "negative_year_spearman", "negative_security_spearman", "eligible_security_count_below_720", "a2_tail_realized_rate_high", "gate_near_threshold", "year_spearman_range_high", "security_spearman_range_high"]
+  },
+  "execution_contract": {
+    "implementation_synthetic_only": false,
+    "formal_execution_capable": true,
+    "formal_execution_allowed": false,
+    "formal_run_not_implemented": false,
+    "read_only_upstream_raw": true,
+    "copy_upstream_raw_forbidden": true,
+    "new_persistent_duckdb_forbidden": true,
+    "pandas_forbidden": true,
+    "full_raw_python_iteration_forbidden": true,
+    "failure_package_preservation": true,
+    "single_core_validator": true
+  },
+  "governance": {"EXP_A03_started": true, "EXP_A04_started": false, "A_layer_registered": false, "PCATV_created": false, "mainline_task_unchanged": true, "mainline_current_task": "R3-T02"}
+}

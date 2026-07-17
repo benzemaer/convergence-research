@@ -1,0 +1,5 @@
+set_id,member_indicator_ids_json,expected_key_count,all_member_rows_present_count,common_valid_count,common_valid_rate_expected,union_valid_count,union_valid_rate_expected
+A1_A2,"[""A1_LogBodyCenterToMACloudCenter_5_60"",""A2_BodyCenterOutsideMACloudRate20_5_60""]",1751066,1751066,1602937,0.9154063867381355,1632073,0.9320453940628166
+A1_A2b,"[""A1_LogBodyCenterToMACloudCenter_5_60"",""A2b_BodyToMACloudGapMean20_5_60""]",1751066,1751066,1602937,0.9154063867381355,1632073,0.9320453940628166
+A2_A2b,"[""A2_BodyCenterOutsideMACloudRate20_5_60"",""A2b_BodyToMACloudGapMean20_5_60""]",1751066,1751066,1602937,0.9154063867381355,1602937,0.9154063867381355
+A1_A2_A2b,"[""A1_LogBodyCenterToMACloudCenter_5_60"",""A2_BodyCenterOutsideMACloudRate20_5_60"",""A2b_BodyToMACloudGapMean20_5_60""]",1751066,1751066,1602937,0.9154063867381355,1632073,0.9320453940628166

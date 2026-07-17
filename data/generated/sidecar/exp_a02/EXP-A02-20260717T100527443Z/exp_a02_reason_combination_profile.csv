@@ -1,0 +1,16 @@
+indicator_id,reason_codes_json,row_count,denominator_count,row_share
+A1_LogBodyCenterToMACloudCenter_5_60,"[""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""invalid_trading_status""]",70602,1751066,0.04031943970130195
+A1_LogBodyCenterToMACloudCenter_5_60,"[""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""listing_pause_in_required_window"",""invalid_trading_status""]",1191,1751066,0.0006801571157226512
+A1_LogBodyCenterToMACloudCenter_5_60,"[""valid_no_blocker""]",1632073,1751066,0.9320453940628166
+A1_LogBodyCenterToMACloudCenter_5_60,"[""window_insufficient"",""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""invalid_trading_status""]",4301,1751066,0.0024562180980043013
+A1_LogBodyCenterToMACloudCenter_5_60,"[""window_insufficient"",""missing_required_history""]",42899,1751066,0.024498791022154506
+A2_BodyCenterOutsideMACloudRate20_5_60,"[""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""invalid_trading_status""]",84481,1751066,0.048245468760172376
+A2_BodyCenterOutsideMACloudRate20_5_60,"[""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""listing_pause_in_required_window"",""invalid_trading_status""]",1248,1751066,0.0007127087157194532
+A2_BodyCenterOutsideMACloudRate20_5_60,"[""valid_no_blocker""]",1602937,1751066,0.9154063867381355
+A2_BodyCenterOutsideMACloudRate20_5_60,"[""window_insufficient"",""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""invalid_trading_status""]",6769,1751066,0.003865645269795656
+A2_BodyCenterOutsideMACloudRate20_5_60,"[""window_insufficient"",""missing_required_history""]",55631,1751066,0.031769790516177
+A2b_BodyToMACloudGapMean20_5_60,"[""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""invalid_trading_status""]",84481,1751066,0.048245468760172376
+A2b_BodyToMACloudGapMean20_5_60,"[""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""listing_pause_in_required_window"",""invalid_trading_status""]",1248,1751066,0.0007127087157194532
+A2b_BodyToMACloudGapMean20_5_60,"[""valid_no_blocker""]",1602937,1751066,0.9154063867381355
+A2b_BodyToMACloudGapMean20_5_60,"[""window_insufficient"",""missing_adjusted_open"",""missing_adjusted_close"",""missing_required_history"",""adjustment_failure"",""invalid_trading_status""]",6769,1751066,0.003865645269795656
+A2b_BodyToMACloudGapMean20_5_60,"[""window_insufficient"",""missing_required_history""]",55631,1751066,0.031769790516177

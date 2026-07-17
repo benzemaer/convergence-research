@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",
+  "title": "Accepted EXP-A02 result handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "task_id", "program_id", "status", "formal_result_review_status", "accepted_run_id", "reviewed_implementation_sha", "result_commit", "result_commit_quality_run_id", "result_commit_quality_status", "formal_data_version", "compact_result_root", "A01_raw_sha256", "A01_raw_row_count", "expected_key_count", "triple_common_valid_count", "security_count", "date_min", "date_max", "validator_status", "validator_mismatch_total", "anomaly_status", "blocking_anomaly_count", "investigation_item_count", "EXP_A03_input_eligible", "EXP_A04_started", "A_layer_registered", "PCATV_created", "accepted_artifacts"],
+  "properties": {
+    "$schema": {"const": "../../schemas/sidecar/exp_a02_accepted_result_handoff.schema.json"},
+    "task_id": {"const": "EXP-A02"},
+    "program_id": {"const": "EXP-A"},
+    "status": {"const": "completed_accepted"},
+    "formal_result_review_status": {"const": "accepted"},
+    "accepted_run_id": {"const": "EXP-A02-20260717T100527443Z"},
+    "reviewed_implementation_sha": {"const": "bfd7ad71de8638d0a9d0adde824078d7ddc595b5"},
+    "result_commit": {"const": "45765edcf6c8a76bc47b167822e9d7a07ec5ab10"},
+    "result_commit_quality_run_id": {"const": "29572704449"},
+    "result_commit_quality_status": {"const": "success"},
+    "formal_data_version": {"const": false},
+    "compact_result_root": {"const": "data/generated/sidecar/exp_a02/EXP-A02-20260717T100527443Z"},
+    "A01_raw_sha256": {"const": "23e07d95fe4dbd296aff1412c0e40ce3dced4fe6f4515fe6dda621bf051842df"},
+    "A01_raw_row_count": {"const": 5253198},
+    "expected_key_count": {"const": 1751066},
+    "triple_common_valid_count": {"const": 1602937},
+    "security_count": {"const": 800},
+    "date_min": {"const": "2016-01-04"},
+    "date_max": {"const": "2026-06-30"},
+    "validator_status": {"const": "passed"},
+    "validator_mismatch_total": {"const": 0},
+    "anomaly_status": {"const": "passed"},
+    "blocking_anomaly_count": {"const": 0},
+    "investigation_item_count": {"const": 0},
+    "EXP_A03_input_eligible": {"const": true},
+    "EXP_A04_started": {"const": false},
+    "A_layer_registered": {"const": false},
+    "PCATV_created": {"const": false},
+    "accepted_artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["exp_a02_manifest.json", "exp_a02_validator_result.json", "exp_a02_anomaly_scan.json", "exp_a02_common_valid_availability.csv"],
+      "properties": {
+        "exp_a02_manifest.json": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"const": "data/generated/sidecar/exp_a02/EXP-A02-20260717T100527443Z/exp_a02_manifest.json"}, "sha256": {"const": "1675d3e12ebef1e62938c4845b89a94dd75a28678f387a22b70287b2c90c9cb5"}}},
+        "exp_a02_validator_result.json": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"const": "data/generated/sidecar/exp_a02/EXP-A02-20260717T100527443Z/exp_a02_validator_result.json"}, "sha256": {"const": "6206491d08dcfe9d73b2b0c5f516f143e2957a14186f2f8d8f296902a171741d"}}},
+        "exp_a02_anomaly_scan.json": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"const": "data/generated/sidecar/exp_a02/EXP-A02-20260717T100527443Z/exp_a02_anomaly_scan.json"}, "sha256": {"const": "0025b1bc3fe34bea7da9504e326cc3e6d4488dadba52dbf77dd904e7358d338e"}}},
+        "exp_a02_common_valid_availability.csv": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"const": "data/generated/sidecar/exp_a02/EXP-A02-20260717T100527443Z/exp_a02_common_valid_availability.csv"}, "sha256": {"const": "92e7deddc900691fc51af224017ba3fde51a4cf41821bb8cdd9bed069a8af976"}}}
+      }
+    }
+  }
+}
