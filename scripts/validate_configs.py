@@ -360,6 +360,7 @@ def sidecar_config_pairs() -> tuple[tuple[Path, Path], ...]:
             "exp_a03_accepted_result_handoff.schema.json",
             "exp_a04_authorized_input_manifest.schema.json",
             "exp_a04_pcvt_raw_accepted_handoff.schema.json",
+            "exp_a_final_research_handoff.schema.json",
         }:
             continue
         schema_stem = schema_path.name.removesuffix(".schema.json")
@@ -387,6 +388,7 @@ def standalone_sidecar_schemas() -> tuple[Path, ...]:
         ROOT / "schemas" / "sidecar" / "exp_a03_accepted_result_handoff.schema.json",
         ROOT / "schemas" / "sidecar" / "exp_a04_authorized_input_manifest.schema.json",
         ROOT / "schemas" / "sidecar" / "exp_a04_pcvt_raw_accepted_handoff.schema.json",
+        ROOT / "schemas" / "sidecar" / "exp_a_final_research_handoff.schema.json",
     )
 
 

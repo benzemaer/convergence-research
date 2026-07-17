@@ -28,6 +28,10 @@ SIDECAR_PAIRS = (
         ROOT / "schemas/sidecar/exp_a04_pcvt_raw_accepted_handoff.schema.json",
         ROOT / "data/generated/sidecar/exp_a04/exp_a04_pcvt_raw_accepted_handoff.json",
     ),
+    (
+        ROOT / "schemas/sidecar/exp_a_final_research_handoff.schema.json",
+        ROOT / "data/generated/sidecar/exp_a/exp_a_final_research_handoff.json",
+    ),
 )
 SCHEMA_ONLY = (
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",

@@ -5,10 +5,10 @@
 当前 sidecar program 状态：
 
 ```text
-current_sidecar_program: EXP-A
-current_sidecar_task: EXP-A04 cross-layer diagnostics formal result review
-workflow_mode: long_lived_same_pr
-phase: A04_formal_result_review
+current_sidecar_program: R2A
+current_sidecar_task: R2A-T01 A-layer W120 Score contract and canonical PCAVT scores
+workflow_mode: new_stage_after_exp_a_closure
+phase: EXP_A_completed_ready_to_merge
 approved_A02_aggregate_implementation_sha: f6f0dc961357ffe2f4cc43c07be11e804a7af992
 formal_execution_activation_sha: bfd7ad71de8638d0a9d0adde824078d7ddc595b5
 formal_execution_activation_review_status: approved
@@ -27,8 +27,24 @@ formal_investigation_item_count: 0
 formal_input_hash_changed_count: 0
 formal_input_manifest_sha256: 73347a2ff738dd32cb756e3aeaed229574f46da28bded501bfa407f6724b1ca0
 provisional_recommended_candidate_set_for_A04: ["A1", "A2", "A2b"]
-result_review_status: pending
-formal_result_review_status: pending
+result_review_status: accepted
+formal_result_review_status: accepted
+EXP-A_status: completed_accepted
+EXP-A_completed_through: EXP-A04
+EXP-A_final_handoff: data/generated/sidecar/exp_a/exp_a_final_research_handoff.json
+accepted_A_raw_components: ["A1", "A2"]
+excluded_A_raw_components: ["A2b"]
+A2b_exclusion_basis: user_research_scope_decision_after_A04
+A2b_statistical_redundancy_proven: false
+A_layer_score_contract_defined: false
+A_layer_score_contract_owner: R2A-T01
+next_stage: R2A
+next_task: R2A-T01
+R2A_research_scope: full_PCAVT_restudy
+R2A_inherits_R2_T08_results: false
+R2A_inherits_R2_T08_state_versions: false
+R2A_inherits_R2_T08_parameter_decisions: false
+R2A_inherits_R2_T08_R3_handoff: false
 EXP-A01_status: completed_accepted
 EXP-A01_accepted_run_id: EXP-A01-20260717T040145984Z
 EXP-A01_accepted_result_commit: b7be2577233c045e507efe05d20601a20d373c9b
@@ -78,8 +94,8 @@ EXP-A04_formal_anomaly_status: passed
 EXP-A04_formal_blocking_anomaly_count: 0
 EXP-A04_formal_investigation_item_count: 0
 EXP-A04_formal_input_hash_changed_count: 0
-EXP-A04_result_review_status: pending
-EXP-A04_formal_result_review_status: pending
+EXP-A04_result_review_status: accepted
+EXP-A04_formal_result_review_status: accepted
 EXP-A04_real_authorized_input_manifest_created: true
 EXP-A04_authorized_input_manifest_sha256: 73347a2ff738dd32cb756e3aeaed229574f46da28bded501bfa407f6724b1ca0
 EXP-A04_real_A01_raw_opened: true
@@ -88,7 +104,8 @@ EXP-A04_compact_result_package: data/generated/sidecar/exp_a04/EXP-A04-20260717T
 EXP-A05_started: false
 A_layer_registered: false
 PCATV_created: false
-program_phase: A04_cross_layer_diagnostics_formal_result_review
+R2A_T01_started: false
+program_phase: R2A
 mainline_task_unchanged: true
 mainline_current_task: R3-T02
 ```
@@ -127,3 +144,16 @@ mainline_task_unchanged: true
 ```
 
 EXP-C01 的正式结果已由用户接受：C1-only 与 C2-only 均未达到预注册 strong-substitutability reference，保留当前 C1+C2 pair，不选择或删除指标，不创建 C v2。EXP-A 不继承 EXP-C01 的 formal-run 授权；EXP-A03 的 formal run、结果审阅与 Formal-result review 均已按独立授权完成并接受，EXP-A04 的 formal run 已按独立授权完成并通过 validator/anomaly，当前停在 Formal-result review，尚未接受结果或启动 EXP-A05。
+
+## EXP-A closure and R2A handoff
+
+EXP-A 已完成至已接受的 EXP-A04 formal result。最终 handoff 位于
+data/generated/sidecar/exp_a/exp_a_final_research_handoff.json，并绑定
+EXP-A04 的 manifest、validator result、anomaly scan、disposition、candidate summary
+和 layer summary 的 committed Git bytes。接受的 raw components 为 A1 和 A2；A2b
+按 user_research_scope_decision_after_A04 排除，但该排除不表示已证明 A2b
+具有统计冗余。A-layer Score contract 尚未定义，负责任务为 R2A-T01。
+
+R2A 是独立的 full PCAVT restudy，不继承 R2-T08 的 frozen results、state versions、
+parameter decisions 或 R3 handoff。R2A-T01 尚未启动；本状态记录不定义 Score、
+PCATV、q、confirmation days、state 或 interval。
