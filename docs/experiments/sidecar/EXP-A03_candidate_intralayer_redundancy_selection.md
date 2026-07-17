@@ -56,6 +56,32 @@ Producer 使用 DuckDB read-only source connection、temporary in-memory relatio
 
 正式模式必须使用 approved A03 manifest，并在打开 A01 raw 前验证 reviewed implementation SHA、exact HEAD、指定 branch、clean worktree、合法 run ID、输出目录不存在、manifest authorization 和 A03 reviewed SHA binding。正式运行保持 `formal_data_version=false`，只读打开上游 raw，单次 core validation，compact outputs 原子发布；implementation 阶段只允许 synthetic fixture，不创建真实 A03 manifest，也不打开真实 A01 raw。
 
+## Formal run record
+
+本记录仅表示 formal execution 已完成，结果仍等待用户 Formal-result review；它不构成 candidate acceptance、winner 选择、A-layer 注册或 EXP-A04 授权。
+
+```text
+phase: formal_result_review
+reviewed_implementation_sha: dc4984138f440e28fb87fd0ee6366dd9280b9488
+formal_run_status: completed
+formal_run_id: EXP-A03-20260717T134059037Z
+formal_validator_status: passed
+formal_anomaly_status: passed
+formal_blocking_anomaly_count: 0
+formal_investigation_item_count: 0
+formal_input_hash_changed_count: 0
+formal_input_manifest_sha256: 140708f7fca3dc1838224c223f2a4e6ccdb299487b5fcc8913b5b0c59fdb7a20
+provisional_recommended_candidate_set_for_A04: ["A1", "A2", "A2b"]
+result_review_status: pending
+EXP-A04_started: false
+A_layer_registered: false
+PCATV_created: false
+```
+
+实际 package 的五项输入绑定了 accepted EXP-A02 handoff、三个冻结 A02 artifact hashes 和 accepted EXP-A01 raw；raw 为 5,253,198 行、1,751,066 expected keys、1,602,937 triple-common-valid keys、800 只证券，日期范围为 2016-01-04..2026-06-30。正式 package 含 12 个 compact artifacts，不含 DuckDB 或 Parquet；runner core validator、standalone validator 和 cheap final validation 的 mismatch 均为 0，anomaly scan 没有 blocking 或 investigation item，analysis readiness 为 `ready_for_user_formal_result_review`。
+
+独立 readback 的描述性结果为：三组 pooled common count 均为 1,602,937；A2/A2b 的 pooled Spearman 为 0.5315026，minimum yearly Spearman 为 0.4950816，eligible-security Spearman q10 为 0.4815637，5%/10% tail Jaccard 为 0.3640491/0.3685685，eta-squared 为 0.1868563。因此 A2/A2b redundancy gate 的 `all_passed` 为 `false`；A2 representation adequacy 的 `all_passed` 为 `true`。A1 collision flags 均为 `false`，provisional candidate set 保持 `["A1", "A2", "A2b"]`，三个候选均为 `retain_for_A04`。这些只是待审阅的正式结果事实，不自动转化为下游选择或科学结论。
+
 ## Failure policy
 
 任何 lineage、common key/value、duplicate、nonfinite、A2 grid、row count、accepted year/security、tail reconciliation、variance residual、decision、producer/validator、output hash、input hash、forbidden output 或 governance mismatch 都 fail closed。失败发生在 staging 后时，保留 `<failure-root>/<RUN_ID>/package` 中已生成的 compact diagnostics 和 `failure_summary.json`，不复制 A01 raw，不将 failure package 当作正式结果。negative relationship、A1 collision、security coverage、阈值邻近和分布 spread 只作为 investigation items。
