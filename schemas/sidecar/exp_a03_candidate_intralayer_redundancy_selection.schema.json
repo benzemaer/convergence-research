@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/sidecar/exp_a03_candidate_intralayer_redundancy_selection.schema.json",
+  "title": "EXP-A03 candidate intralayer redundancy and selection contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "config_version", "task_id", "experiment_id", "program_id",
+    "experiment_name", "research_route", "workflow_mode", "phase", "program_phase",
+    "implementation_review_status", "reviewed_implementation_sha", "formal_run_allowed",
+    "formal_run_status", "formal_run_executed", "formal_artifacts_generated",
+    "result_review_status", "EXP_A03_started", "EXP_A04_started", "A_layer_registered",
+    "PCATV_created", "formal_data_version", "mainline_task_unchanged", "mainline_current_task",
+    "upstream", "candidate_universe", "correlation", "tail_policy", "conditional_profile",
+    "redundancy_gate", "representation_adequacy", "a1_collision", "candidate_disposition",
+    "output_contract", "analysis_headings", "anomaly_policy", "execution_contract", "governance"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/sidecar/exp_a03_candidate_intralayer_redundancy_selection.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "EXP-A03"},
+    "experiment_id": {"const": "EXP-A03"},
+    "program_id": {"const": "EXP-A"},
+    "experiment_name": {"const": "A层候选内部冗余与选择"},
+    "research_route": {"const": "sidecar_exploration"},
+    "workflow_mode": {"const": "long_lived_same_pr"},
+    "phase": {"const": "A03_candidate_intralayer_implementation_review"},
+    "program_phase": {"const": "A03_candidate_intralayer_redundancy_selection"},
+    "implementation_review_status": {"const": "pending"},
+    "reviewed_implementation_sha": {"const": ""},
+    "formal_run_allowed": {"const": false},
+    "formal_run_status": {"const": "not_started"},
+    "formal_run_executed": {"const": false},
+    "formal_artifacts_generated": {"const": false},
+    "result_review_status": {"const": "not_started"},
+    "EXP_A03_started": {"const": true},
+    "EXP_A04_started": {"const": false},
+    "A_layer_registered": {"const": false},
+    "PCATV_created": {"const": false},
+    "formal_data_version": {"const": false},
+    "mainline_task_unchanged": {"const": true},
+    "mainline_current_task": {"const": "R3-T02"},
+    "upstream": {"type": "object", "additionalProperties": true},
+    "candidate_universe": {"type": "object", "additionalProperties": false, "required": ["indicator_ids", "pair_ids", "key_fields", "validity_status", "expected_common_count", "security_count", "years"], "properties": {
+      "indicator_ids": {"const": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60", "A2b_BodyToMACloudGapMean20_5_60"]},
+      "pair_ids": {"const": ["A1_A2", "A1_A2b", "A2_A2b"]},
+      "key_fields": {"const": ["security_id", "trading_date", "observation_sequence"]},
+      "validity_status": {"const": "valid"},
+      "expected_common_count": {"const": 1602937},
+      "security_count": {"const": 800},
+      "years": {"const": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]}
+    }},
+    "correlation": {"type": "object", "additionalProperties": false, "required": ["pearson", "spearman", "rank_method", "rank_pct", "security_min_common_rows", "quantile_function"], "properties": {
+      "pearson": {"const": "corr(left_raw,right_raw)"}, "spearman": {"const": "corr(left_midrank,right_midrank)"}, "rank_method": {"const": "RANK plus tie-count midrank"}, "rank_pct": {"const": "(midrank-0.5)/N"}, "security_min_common_rows": {"const": 100}, "quantile_function": {"const": "QUANTILE_CONT"}
+    }},
+    "tail_policy": {"type": "object", "additionalProperties": false, "required": ["fractions", "quantile_function", "selection", "lower_raw_is_more_attached"], "properties": {
+      "fractions": {"const": [0.01, 0.05, 0.1]}, "quantile_function": {"const": "QUANTILE_DISC"}, "selection": {"const": "raw_value <= threshold including all threshold ties"}, "lower_raw_is_more_attached": {"const": true}
+    }},
+    "conditional_profile": {"type": "object", "additionalProperties": true, "required": ["a2_levels", "quantiles", "empty_level_rows_required", "variance_decomposition"], "properties": {
+      "a2_levels": {"type": "array", "minItems": 21, "maxItems": 21}, "quantiles": {"const": [0.05, 0.25, 0.5, 0.75, 0.95]}, "empty_level_rows_required": {"const": true}, "variance_decomposition": {"const": "between_plus_within_sum_of_squares"}
+    }},
+    "redundancy_gate": {"type": "object", "additionalProperties": true, "required": ["overall_spearman_min", "minimum_year_spearman_min", "eligible_security_spearman_q10_min", "tail_jaccard_005_min", "tail_jaccard_010_min", "eta_squared_min", "all_of"], "properties": {
+      "overall_spearman_min": {"const": 0.95}, "minimum_year_spearman_min": {"const": 0.9}, "eligible_security_spearman_q10_min": {"const": 0.8}, "tail_jaccard_005_min": {"const": 0.8}, "tail_jaccard_010_min": {"const": 0.8}, "eta_squared_min": {"const": 0.9}, "all_of": {"const": true}
+    }},
+    "representation_adequacy": {"type": "object", "additionalProperties": true, "required": ["a2_grid_violation_max", "a2_unique_level_count", "a2_max_level_share", "a2_tail_realized_rate_005_max", "a2_tail_realized_rate_010_max", "all_of"], "properties": {
+      "a2_grid_violation_max": {"const": 0}, "a2_unique_level_count": {"const": 21}, "a2_max_level_share": {"const": 0.25}, "a2_tail_realized_rate_005_max": {"const": 0.15}, "a2_tail_realized_rate_010_max": {"const": 0.25}, "all_of": {"const": true}
+    }},
+    "a1_collision": {"type": "object", "additionalProperties": true, "required": ["overall_spearman_min", "minimum_year_spearman_min", "tail_jaccard_005_min", "tail_jaccard_010_min", "investigation_only", "automatic_a1_removal"], "properties": {
+      "overall_spearman_min": {"const": 0.95}, "minimum_year_spearman_min": {"const": 0.9}, "tail_jaccard_005_min": {"const": 0.8}, "tail_jaccard_010_min": {"const": 0.8}, "investigation_only": {"const": true}, "automatic_a1_removal": {"const": false}
+    }},
+    "candidate_disposition": {"type": "object", "additionalProperties": true, "required": ["redundant_and_adequate_set", "redundant_and_inadequate_set", "nonredundant_set", "decision_status"], "properties": {
+      "redundant_and_adequate_set": {"const": ["A1", "A2"]}, "redundant_and_inadequate_set": {"const": ["A1", "A2b"]}, "nonredundant_set": {"const": ["A1", "A2", "A2b"]}, "decision_status": {"const": "provisional_A03_recommendation"}
+    }},
+    "output_contract": {"type": "object", "additionalProperties": true, "required": ["future_result_directory", "raw_duckdb_generated", "csv_files", "json_files", "text_files", "row_contract"], "properties": {
+      "future_result_directory": {"type": "string"}, "raw_duckdb_generated": {"const": false}, "csv_files": {"const": ["exp_a03_pairwise_overall.csv", "exp_a03_pairwise_year.csv", "exp_a03_pairwise_security.csv", "exp_a03_tail_overlap.csv", "exp_a03_a2_a2b_conditional_profile.csv", "exp_a03_a2_a2b_variance_decomposition.csv", "exp_a03_stability_summary.csv"]}, "json_files": {"const": ["exp_a03_candidate_disposition.json", "exp_a03_manifest.json", "exp_a03_validator_result.json", "exp_a03_anomaly_scan.json"]}, "text_files": {"const": ["exp_a03_result_analysis.md"]}, "row_contract": {"type": "object", "required": ["pairwise_overall", "pairwise_year", "pairwise_security", "tail_overlap", "conditional_profile", "variance_decomposition", "stability_summary"], "properties": {"pairwise_overall": {"const": 3}, "pairwise_year": {"const": 33}, "pairwise_security": {"const": 2400}, "tail_overlap": {"const": 9}, "conditional_profile": {"const": 21}, "variance_decomposition": {"const": 1}, "stability_summary": {"const": 3}}}
+    }},
+    "analysis_headings": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"type": "string"}},
+    "anomaly_policy": {"type": "object", "additionalProperties": false, "required": ["blocking_rules", "investigation_rules"], "properties": {"blocking_rules": {"type": "array", "minItems": 1}, "investigation_rules": {"type": "array", "minItems": 1}}},
+    "execution_contract": {"type": "object", "additionalProperties": false, "required": ["implementation_synthetic_only", "formal_execution_capable", "formal_execution_allowed", "formal_run_not_implemented", "read_only_upstream_raw", "copy_upstream_raw_forbidden", "new_persistent_duckdb_forbidden", "pandas_forbidden", "full_raw_python_iteration_forbidden", "failure_package_preservation", "single_core_validator"], "properties": {"implementation_synthetic_only": {"const": false}, "formal_execution_capable": {"const": true}, "formal_execution_allowed": {"const": false}, "formal_run_not_implemented": {"const": false}, "read_only_upstream_raw": {"const": true}, "copy_upstream_raw_forbidden": {"const": true}, "new_persistent_duckdb_forbidden": {"const": true}, "pandas_forbidden": {"const": true}, "full_raw_python_iteration_forbidden": {"const": true}, "failure_package_preservation": {"const": true}, "single_core_validator": {"const": true}}},
+    "governance": {"type": "object", "additionalProperties": false, "required": ["EXP_A03_started", "EXP_A04_started", "A_layer_registered", "PCATV_created", "mainline_task_unchanged", "mainline_current_task"], "properties": {"EXP_A03_started": {"const": true}, "EXP_A04_started": {"const": false}, "A_layer_registered": {"const": false}, "PCATV_created": {"const": false}, "mainline_task_unchanged": {"const": true}, "mainline_current_task": {"const": "R3-T02"}}}
+  }
+}

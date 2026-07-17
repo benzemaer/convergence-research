@@ -24,6 +24,8 @@ SIDECAR_PAIRS = (
 SCHEMA_ONLY = (
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
     ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
+    ROOT / "schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",
+    ROOT / "schemas/sidecar/exp_a03_authorized_input_manifest.schema.json",
 )
 
 
