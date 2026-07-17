@@ -3165,9 +3165,35 @@ def _validate_stratified_independent_oracle(
     actual_by_key = {
         (str(row[1]), int(row[3]), str(row[5])): row for row in raw_target_rows
     }
-    history_query = f"""
-      SELECT t.security_id AS target_security_id,
+    candidate_join_sql = """
+      LEFT JOIN candidate_lineage.d3_candidate_daily_observation m
+        ON i.expected_observation_status='present'
+       AND m.ts_code=i.security_id
+       AND CAST(COALESCE(try_strptime(CAST(m.trade_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(m.trade_date AS VARCHAR), '%Y%m%d')) AS DATE)
+           = CAST(COALESCE(try_strptime(CAST(i.trading_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(i.trading_date AS VARCHAR), '%Y%m%d')) AS DATE)
+    """
+    if mode == "full_small_input":
+        target_select_sql = """
+             i.security_id AS target_security_id,
+             CAST(i.observation_sequence AS BIGINT) AS target_observation_sequence,
+        """
+        source_sql = f"FROM {expected_table} i\n{candidate_join_sql}"
+        order_sql = "i.security_id, CAST(i.observation_sequence AS BIGINT)"
+    else:
+        target_select_sql = """
+             t.security_id AS target_security_id,
              t.observation_sequence AS target_observation_sequence,
+        """
+        source_sql = f"""
+      FROM oracle_sample_targets t
+      JOIN {expected_table} i
+        ON i.security_id=t.security_id
+       AND CAST(i.observation_sequence AS BIGINT) BETWEEN t.observation_sequence - 78 AND t.observation_sequence
+      {candidate_join_sql}
+        """
+        order_sql = "t.security_id, t.observation_sequence, CAST(i.observation_sequence AS BIGINT)"
+    history_query = f"""
+      SELECT {target_select_sql}
              i.security_id,
              CAST(COALESCE(try_strptime(CAST(i.trading_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(i.trading_date AS VARCHAR), '%Y%m%d')) AS DATE) AS trading_date,
              CAST(i.observation_sequence AS BIGINT) AS observation_sequence,
@@ -3181,16 +3207,8 @@ def _validate_stratified_independent_oracle(
              CASE WHEN i.expected_observation_status='present' THEN m.is_listing_pause ELSE i.expected_observation_status='listing_pause' END AS is_listing_pause,
              CASE WHEN i.expected_observation_status='present' THEN m.row_provenance ELSE i.source_ref END AS row_provenance,
              i.source_contract, i.source_ref
-      FROM oracle_sample_targets t
-      JOIN {expected_table} i
-        ON i.security_id=t.security_id
-       AND CAST(i.observation_sequence AS BIGINT) BETWEEN t.observation_sequence - 78 AND t.observation_sequence
-      LEFT JOIN candidate_lineage.d3_candidate_daily_observation m
-        ON i.expected_observation_status='present'
-       AND m.ts_code=i.security_id
-       AND CAST(COALESCE(try_strptime(CAST(m.trade_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(m.trade_date AS VARCHAR), '%Y%m%d')) AS DATE)
-           = CAST(COALESCE(try_strptime(CAST(i.trading_date AS VARCHAR), '%Y-%m-%d'), try_strptime(CAST(i.trading_date AS VARCHAR), '%Y%m%d')) AS DATE)
-      ORDER BY t.security_id, t.observation_sequence, CAST(i.observation_sequence AS BIGINT)
+      {source_sql}
+      ORDER BY {order_sql}
     """
     cursor = connection.execute(history_query)
     current_target: tuple[str, int] | None = None
@@ -3244,17 +3262,32 @@ def _validate_stratified_independent_oracle(
                         f"oracle_sample_mismatch:{target[0]}:{target[1]}:{differences}"
                     )
 
-    for row in _fetchmany(cursor):
-        target = (str(row[0]), int(row[1]))
-        if current_target is None:
-            current_target = target
-        if target != current_target:
+    if mode == "full_small_input":
+        history_by_security: dict[str, list[dict[str, Any]]] = {}
+        for row in _fetchmany(cursor):
+            current = _independent_input_row(row[2:])
+            security_history = history_by_security.setdefault(
+                current["security_id"], []
+            )
+            security_history.append(current)
+            if len(security_history) > 79:
+                del security_history[:-79]
+            process_target(
+                (current["security_id"], current["observation_sequence"]),
+                security_history,
+            )
+    else:
+        for row in _fetchmany(cursor):
+            target = (str(row[0]), int(row[1]))
+            if current_target is None:
+                current_target = target
+            if target != current_target:
+                process_target(current_target, history)
+                history = []
+                current_target = target
+            history.append(_independent_input_row(row[2:]))
+        if current_target is not None:
             process_target(current_target, history)
-            history = []
-            current_target = target
-        history.append(_independent_input_row(row[2:]))
-    if current_target is not None:
-        process_target(current_target, history)
     observed_security_count = int(
         connection.execute(
             "SELECT COUNT(DISTINCT security_id) FROM exp_a01_raw_metrics"
