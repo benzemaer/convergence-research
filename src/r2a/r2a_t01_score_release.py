@@ -302,13 +302,18 @@ def _stage_formal_inputs(
               max(CAST(trading_date AS DATE)) last_expected_date,count(*) expected_observation_count
             FROM {spine} GROUP BY security_id;
             CREATE TABLE stage_trading_sessions AS
-            SELECT CAST(trading_date AS DATE) trading_date,
-              min(CAST(observation_sequence AS BIGINT)) session_sequence,
-              count(DISTINCT security_id) expected_security_count,
-              count(DISTINCT security_id) FILTER(WHERE expected_observation_status='present') present_security_count,
-              CAST(trading_date AS DATE)::TIMESTAMP AT TIME ZONE 'Asia/Shanghai'
+            WITH sessions AS (
+              SELECT CAST(trading_date AS DATE) trading_date,
+                count(DISTINCT security_id) expected_security_count,
+                count(DISTINCT security_id) FILTER(WHERE expected_observation_status='present') present_security_count
+              FROM {spine} GROUP BY trading_date
+            )
+            SELECT trading_date,
+              row_number() OVER(ORDER BY trading_date)-1 session_sequence,
+              expected_security_count,present_security_count,
+              trading_date::TIMESTAMP AT TIME ZONE 'Asia/Shanghai'
                 + INTERVAL 15 HOUR available_time
-            FROM {spine} GROUP BY trading_date;
+            FROM sessions;
             CREATE TABLE stage_pcvt_component_scores AS
             SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
               CASE WHEN x.indicator_id LIKE 'P%' THEN 'P' WHEN x.indicator_id LIKE 'C%' THEN 'C'
@@ -388,13 +393,21 @@ def _validate_staging(staging_path: Path) -> None:
         ).fetchone()[0]
         if spine_gaps:
             raise ScoreReleaseError("spine_observation_sequence_gap")
-        mismatched = connection.execute(
-            "SELECT count(*) FROM stage_security_observation_spine s "
-            "LEFT JOIN stage_trading_sessions t USING(trading_date) "
-            "WHERE t.trading_date IS NULL OR s.observation_sequence<>t.session_sequence"
+        session_date_order_errors = connection.execute(
+            "SELECT count(*) FROM (SELECT trading_date,lag(trading_date) OVER "
+            "(ORDER BY session_sequence) previous_date FROM stage_trading_sessions) "
+            "WHERE previous_date IS NOT NULL AND trading_date<=previous_date"
         ).fetchone()[0]
-        if mismatched:
-            raise ScoreReleaseError("spine_session_sequence_mismatch")
+        if session_date_order_errors:
+            raise ScoreReleaseError("trading_session_date_order_mismatch")
+        spine_date_order_errors = connection.execute(
+            "SELECT count(*) FROM (SELECT security_id,trading_date,lag(trading_date) OVER "
+            "(PARTITION BY security_id ORDER BY observation_sequence) previous_date "
+            "FROM stage_security_observation_spine) WHERE previous_date IS NOT NULL "
+            "AND trading_date<=previous_date"
+        ).fetchone()[0]
+        if spine_date_order_errors:
+            raise ScoreReleaseError("spine_trading_date_not_strictly_increasing")
         invalid_status = connection.execute(
             "SELECT count(*) FROM stage_security_observation_spine WHERE "
             "expected_observation_status NOT IN ('present','missing','listing_pause')"

@@ -34,6 +34,18 @@ def test_passed_receipt_generates_complete_analysis(tmp_path: Path) -> None:
     assert "Component Score distributions" in text
     assert "Yearly coverage" in text
     assert "Independent reconciliation evidence" in text
+    assert (
+        "| dimension | component | total_rows | eligible_rows | null_score_rows | "
+        "valid_rows | unknown_rows | diagnostic_required_rows | blocked_rows | min | max | mean |"
+        in text
+    )
+    assert (
+        "| dimension | total_rows | eligible_rows | null_score_rows | valid_rows | "
+        "unknown_rows | diagnostic_required_rows | blocked_rows | min | max | mean |"
+        in text
+    )
+    assert "| P | P1_NATR14 | 123 | 1 | 122 | 121 | 0 | 0 | 2 |" in text
+    assert "| P | 123 | 1 | 122 | 121 | 0 | 0 | 2 |" in text
 
 
 def test_failed_receipt_still_generates_blocked_analysis(tmp_path: Path) -> None:

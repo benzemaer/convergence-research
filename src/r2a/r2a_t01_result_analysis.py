@@ -60,25 +60,26 @@ def analyze_score_release(package_dir: str | Path) -> Path:
         component_stats = connection.execute(
             "SELECT dimension_id,component_id,count(*),count(*) FILTER(WHERE eligible),"
             "count(*) FILTER(WHERE score IS NULL),"
-            "min(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
-            "max(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
-            "avg(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
             "count(*) FILTER(WHERE validity_status='valid'),"
             "count(*) FILTER(WHERE validity_status='unknown'),"
             "count(*) FILTER(WHERE validity_status='diagnostic_required'),"
-            "count(*) FILTER(WHERE validity_status='blocked') "
+            "count(*) FILTER(WHERE validity_status='blocked'),"
+            "min(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
+            "max(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
+            "avg(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL) "
             "FROM daily_component_scores GROUP BY 1,2 ORDER BY 1,2"
         ).fetchall()
         dimension_stats = connection.execute(
             "SELECT dimension_id,count(*),count(*) FILTER(WHERE eligible_dimension),"
             "count(*) FILTER(WHERE score_dimension IS NULL),"
-            "min(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
-            "max(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
-            "avg(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
             "count(*) FILTER(WHERE validity_status='valid'),"
             "count(*) FILTER(WHERE validity_status='unknown'),"
             "count(*) FILTER(WHERE validity_status='diagnostic_required'),"
-            "count(*) FILTER(WHERE validity_status='blocked') FROM daily_dimension_scores "
+            "count(*) FILTER(WHERE validity_status='blocked'),"
+            "min(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
+            "max(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
+            "avg(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL) "
+            "FROM daily_dimension_scores "
             "GROUP BY 1 ORDER BY 1"
         ).fetchall()
         yearly_coverage = connection.execute(
@@ -148,7 +149,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     "The component has no non-NULL Score in the actual release.",
                 )
             )
-        if row[5] is not None and row[5] == row[6] == 0:
+        if row[9] is not None and row[9] == row[10] == 0:
             anomalies.append(
                 (
                     f"component_all_zero:{row[1]}",
@@ -156,7 +157,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     "All valid scores are zero.",
                 )
             )
-        if row[5] is not None and row[5] == row[6] == 1:
+        if row[9] is not None and row[9] == row[10] == 1:
             anomalies.append(
                 (f"component_all_one:{row[1]}", "blocking", "All valid scores are one.")
             )
@@ -168,7 +169,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     "The component has no eligible rows.",
                 )
             )
-        if row[8] == 0:
+        if row[5] == 0:
             anomalies.append(
                 (
                     f"component_validity_no_valid:{row[1]}",
@@ -185,7 +186,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     "The dimension has no non-NULL Score in the actual release.",
                 )
             )
-        if row[4] is not None and row[4] == row[5] == 0:
+        if row[8] is not None and row[8] == row[9] == 0:
             anomalies.append(
                 (
                     f"dimension_all_zero:{row[0]}",
@@ -193,7 +194,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     "All valid dimension scores are zero.",
                 )
             )
-        if row[4] is not None and row[4] == row[5] == 1:
+        if row[8] is not None and row[8] == row[9] == 1:
             anomalies.append(
                 (
                     f"dimension_all_one:{row[0]}",
@@ -209,7 +210,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     "The dimension has no eligible rows.",
                 )
             )
-        if row[7] == 0:
+        if row[4] == 0:
             anomalies.append(
                 (
                     f"dimension_validity_no_valid:{row[0]}",
@@ -291,21 +292,21 @@ def analyze_score_release(package_dir: str | Path) -> Path:
             "",
             "### Component Score distributions",
             "",
-            "| dimension | component | rows | eligible | NULL | min | max | mean |",
-            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| dimension | component | total_rows | eligible_rows | null_score_rows | valid_rows | unknown_rows | diagnostic_required_rows | blocked_rows | min | max | mean |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
-    lines.extend(_render_stat_row(row[:8]) for row in component_stats)
+    lines.extend(_render_stat_row(row) for row in component_stats)
     lines.extend(
         [
             "",
             "### Dimension Score distributions",
             "",
-            "| dimension | rows | eligible | NULL | min | max | mean |",
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| dimension | total_rows | eligible_rows | null_score_rows | valid_rows | unknown_rows | diagnostic_required_rows | blocked_rows | min | max | mean |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
-    lines.extend(_render_stat_row(row[:7]) for row in dimension_stats)
+    lines.extend(_render_stat_row(row) for row in dimension_stats)
     lines.extend(
         [
             "",

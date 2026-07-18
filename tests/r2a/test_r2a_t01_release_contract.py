@@ -68,6 +68,19 @@ def test_release_contract_has_only_score_fields_and_seven_tables() -> None:
     assert all(columns[0] == "score_release_id" for columns in TABLE_COLUMNS.values())
     assert all(key[0] == "score_release_id" for key in PRIMARY_KEYS.values())
     descriptor = schema_descriptor()
+    assert descriptor["sequence_domains"] == {
+        "trading_sessions.session_sequence": {
+            "scope": "global_unique_trading_date",
+            "order_by": ["trading_date"],
+            "zero_based_contiguous": True,
+        },
+        "security_observation_spine.observation_sequence": {
+            "scope": "security_id",
+            "order_by": ["trading_date"],
+            "zero_based_contiguous": True,
+            "independent_of": "trading_sessions.session_sequence",
+        },
+    }
     for table in TABLE_ORDER:
         contract = descriptor["tables"][table]
         assert all(

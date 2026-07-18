@@ -3,10 +3,16 @@
   "$id": "https://benzemaer.local/schemas/r2a/r2a_t01_score_release_schema.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "table_order", "tables"],
+  "required": ["schema_version", "table_order", "sequence_domains", "tables"],
   "properties": {
     "schema_version": {"const": "r2a_t01_score_release_schema.v1"},
     "table_order": {"const": ["securities", "trading_sessions", "security_observation_spine", "dimension_definitions", "dimension_components", "daily_component_scores", "daily_dimension_scores"]},
+    "sequence_domains": {
+      "const": {
+        "trading_sessions.session_sequence": {"scope": "global_unique_trading_date", "order_by": ["trading_date"], "zero_based_contiguous": true},
+        "security_observation_spine.observation_sequence": {"scope": "security_id", "order_by": ["trading_date"], "zero_based_contiguous": true, "independent_of": "trading_sessions.session_sequence"}
+      }
+    },
     "tables": {
       "type": "object",
       "additionalProperties": false,

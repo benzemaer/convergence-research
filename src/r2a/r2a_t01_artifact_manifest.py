@@ -328,11 +328,26 @@ FORMAL_EXECUTION_SURFACE = (
     "requirements-dev.txt",
 )
 
+SEQUENCE_DOMAINS = {
+    "trading_sessions.session_sequence": {
+        "scope": "global_unique_trading_date",
+        "order_by": ["trading_date"],
+        "zero_based_contiguous": True,
+    },
+    "security_observation_spine.observation_sequence": {
+        "scope": "security_id",
+        "order_by": ["trading_date"],
+        "zero_based_contiguous": True,
+        "independent_of": "trading_sessions.session_sequence",
+    },
+}
+
 
 def schema_descriptor() -> dict[str, Any]:
     return {
         "schema_version": "r2a_t01_score_release_schema.v1",
         "table_order": list(TABLE_ORDER),
+        "sequence_domains": SEQUENCE_DOMAINS,
         "tables": {
             table: {
                 "columns": [

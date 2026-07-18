@@ -32,8 +32,15 @@ from src.r2a.r2a_t01_validator import validate_score_release
 from tests.r2a._fixtures import synthetic_inputs
 
 
-def _formal_fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
-    synthetic_manifest, json_paths = synthetic_inputs(tmp_path / "json-inputs")
+def _formal_fixture(
+    tmp_path: Path,
+    *,
+    security_ids: tuple[str, ...] = ("000001.SZ",),
+    days: int = 123,
+) -> tuple[Path, dict[str, Path]]:
+    synthetic_manifest, json_paths = synthetic_inputs(
+        tmp_path / "json-inputs", security_ids=security_ids, days=days
+    )
     del synthetic_manifest
     database_paths: dict[str, Path] = {}
     entries: dict[str, dict[str, Any]] = {}
@@ -133,6 +140,36 @@ def _formal_fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
         },
     )
     return manifest, database_paths
+
+
+def _stagger_second_security(
+    manifest: Path, databases: dict[str, Path], security_id: str
+) -> None:
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    database = databases["security_observation_spine"]
+    with duckdb.connect(str(database)) as connection:
+        for role in FORMAL_INPUT_ORDER:
+            table = payload["inputs"][role]["logical_table_name"]
+            connection.execute(
+                f'DELETE FROM "{table}" WHERE security_id=? AND trading_date<?',
+                [security_id, "2020-01-03"],
+            )
+        spine_table = payload["inputs"]["security_observation_spine"][
+            "logical_table_name"
+        ]
+        a_table = payload["inputs"]["a_raw_observations"]["logical_table_name"]
+        connection.execute(
+            f'UPDATE "{spine_table}" SET observation_sequence=observation_sequence-2 '
+            "WHERE security_id=?",
+            [security_id],
+        )
+        connection.execute(
+            f'UPDATE "{a_table}" SET observation_sequence=observation_sequence-2 '
+            "WHERE security_id=?",
+            [security_id],
+        )
+        connection.execute("CHECKPOINT")
+    _refresh_entry(manifest, "security_observation_spine")
 
 
 def _entry_for(name: str, database: Path, logical_table: str) -> dict[str, Any]:
@@ -304,6 +341,44 @@ def test_formal_projection_matches_real_contract_shapes(tmp_path: Path) -> None:
         )
         assert reference_types["reference_window_start"] == "DATE"
         assert reference_types["reference_window_end"] == "DATE"
+
+
+def test_staggered_listing_keeps_sequence_domains_independent(tmp_path: Path) -> None:
+    manifest, databases = _formal_fixture(
+        tmp_path,
+        security_ids=("000001.SZ", "000002.SZ"),
+        days=5,
+    )
+    _stagger_second_security(manifest, databases, "000002.SZ")
+    staging = tmp_path / "staggered.duckdb"
+    _stage_formal_inputs(FormalInputAdapter(manifest), staging)
+    _validate_staging(staging)
+    with duckdb.connect(str(staging), read_only=True) as connection:
+        assert connection.execute(
+            "SELECT list(session_sequence ORDER BY trading_date) "
+            "FROM stage_trading_sessions"
+        ).fetchone()[0] == [0, 1, 2, 3, 4]
+        assert connection.execute(
+            "SELECT list(observation_sequence ORDER BY trading_date) "
+            "FROM stage_security_observation_spine WHERE security_id='000002.SZ'"
+        ).fetchone()[0] == [0, 1, 2]
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM stage_security_observation_spine s "
+                "JOIN stage_trading_sessions t USING(trading_date) "
+                "WHERE s.security_id='000002.SZ' "
+                "AND s.observation_sequence<>t.session_sequence"
+            ).fetchone()[0]
+            == 3
+        )
+    package = _build_formal_like_package(tmp_path, manifest)
+    receipt = validate_score_release(
+        package, authorized_input_manifest=manifest, formal=True
+    )
+    assert receipt["checks"]["session_sequence_zero_based_contiguous"] is True
+    assert receipt["checks"]["spine_sequence_zero_based_contiguous"] is True
+    assert receipt["checks"]["session_trading_date_strictly_increasing"] is True
+    assert receipt["checks"]["spine_trading_date_strictly_increasing"] is True
 
 
 def test_formal_like_path_is_bounded_and_never_uses_json_array_loader(

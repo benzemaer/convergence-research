@@ -224,9 +224,17 @@ def _validate_database(
         "max(observation_sequence)+1<>count(*) OR "
         "count(DISTINCT observation_sequence)<>count(*))"
     ).fetchone()[0]
-    checks["spine_session_sequence_reconciled"] = connection.execute(
-        "SELECT count(*)=0 FROM security_observation_spine s JOIN trading_sessions t "
-        "USING(score_release_id,trading_date) WHERE s.observation_sequence<>t.session_sequence"
+    checks["session_trading_date_strictly_increasing"] = connection.execute(
+        "SELECT count(*)=0 FROM (SELECT score_release_id,trading_date,"
+        "lag(trading_date) OVER(PARTITION BY score_release_id ORDER BY session_sequence) "
+        "previous_date FROM trading_sessions) WHERE previous_date IS NOT NULL "
+        "AND trading_date<=previous_date"
+    ).fetchone()[0]
+    checks["spine_trading_date_strictly_increasing"] = connection.execute(
+        "SELECT count(*)=0 FROM (SELECT score_release_id,security_id,trading_date,"
+        "lag(trading_date) OVER(PARTITION BY score_release_id,security_id "
+        "ORDER BY observation_sequence) previous_date FROM security_observation_spine) "
+        "WHERE previous_date IS NOT NULL AND trading_date<=previous_date"
     ).fetchone()[0]
     checks.update(_availability_checks(connection))
     checks.update(_score_and_dimension_checks(connection))

@@ -12,17 +12,11 @@ from typing import Any
 import duckdb
 from jsonschema import Draft202012Validator, FormatChecker
 
-from src.r2a.r2a_t01_input_manifest import sha256_file
+from src.r2a.r2a_t01_input_manifest import FORMAL_INPUT_NAMES, sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t01_authorized_input_manifest.schema.json"
-FORMAL_INPUT_ORDER = (
-    "security_observation_spine",
-    "pcvt_component_scores",
-    "pcvt_dimension_scores",
-    "a_raw_observations",
-    "pcvt_validation_raw",
-)
+FORMAL_INPUT_ORDER = FORMAL_INPUT_NAMES
 VALIDATION_ONLY_INPUTS = {"pcvt_validation_raw"}
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
