@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t02_dynamic_request.schema.json",
+  "title": "R2A-T02 canonical dynamic-state request envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_schema_version", "request_id", "request_hash", "spec"],
+  "properties": {
+    "request_schema_version": {"const": "r2a_t02_dynamic_request.v1"},
+    "request_id": {
+      "type": "string",
+      "pattern": "^pcavt-dynreq-v1-[0-9a-f]{16}$"
+    },
+    "request_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "spec": {
+      "$ref": "r2a_t02_dynamic_request_spec.schema.json"
+    }
+  }
+}

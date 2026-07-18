@@ -153,10 +153,17 @@ readme_advanced: true
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
-next_task: R2A-T02
-R2A-T02_allowed_to_start: true_after_PR_109_merge
-R2A-T02_started: false
-DONE: present
+R2A-T01_DONE: present
+R2A-T02_status: protocol_freeze_candidate_pending_review
+R2A-T02_started: true
+dynamic_protocol_version_candidate: pcavt_dynamic_state_protocol.v1
+bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
+protocol_package_status: complete_pending_review
+real_score_data_read: false
+dynamic_evaluator_implemented: false
+dynamic_state_materialized: false
+R2A-T03_allowed_to_start: false
+DONE: absent
 ```
 
 ## 命名与路径规则

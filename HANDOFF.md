@@ -9,11 +9,10 @@
 ```text
 repository: benzemaer/convergence-research
 local_repository: D:\Code\convergence-research
-current_branch: codex/r2a-t01-score-release-implementation
-remote_branch: origin/codex/r2a-t01-score-release-implementation
-base_main_sha: 2e623d0e207be2568f235f659c83a794f3b56ffb
-R2A PR: #109
-PR state: acceptance closure pending Quality and merge
+current_branch: codex/r2a-t02-dynamic-state-protocol
+remote_branch: pending first push
+base_main_sha: 34eee561218141d64a2e347e532d88c0fb09c33c
+R2A-T01 PR: #109 / merged
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
 reviewed_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
@@ -40,11 +39,18 @@ independent_review_execution_status: completed
 independent_review_result: passed
 independent_review_mismatch_count: 0
 readme_advanced: true
-next_task: R2A-T02
-R2A-T02_allowed_to_start: true_after_PR_109_merge
-R2A-T02_started: false
-DONE: present
-next gate: PR #109 closure Quality and merge
+R2A-T01_DONE: present
+R2A-T02_status: protocol_freeze_candidate_pending_review
+R2A-T02_started: true
+dynamic_protocol_version_candidate: pcavt_dynamic_state_protocol.v1
+bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
+protocol_package_status: complete_pending_review
+real_score_data_read: false
+dynamic_evaluator_implemented: false
+dynamic_state_materialized: false
+R2A-T03_allowed_to_start: false
+DONE: absent
+next gate: R2A-T02 Draft PR protocol review
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
@@ -57,15 +63,17 @@ formal run 已由 execution commit `7c3fe76c575eb350a8e94d2f7534d123e865a64c`
 Owner 已接受 run `R2A-T01-20260718T103110891Z` 及 Score release
 `pcavt-score-w120-v1-c7e04f11a2cd09aa`；accepted handoff 与 canonical `DONE` 已建立。
 该验收只注册 canonical PCAVT W120 Score release 与 A-layer W120 Score contract，未创建
-动态 PCAVT 状态。R2A-T02 只有在 PR #109 合并后才允许开始，当前仍为未启动。
+动态 PCAVT 状态。PR #109 已合并；R2A-T02 已启动并形成 protocol freeze candidate，当前只
+等待协议审阅。T02 未读取真实 Score data、未实现 evaluator、未物化动态状态，也未创建
+`DONE`；R2A-T03 仍不允许启动。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
 ```text
-2e623d0e207be2568f235f659c83a794f3b56ffb
+34eee561218141d64a2e347e532d88c0fb09c33c
 ```
 
-该提交是 R2A 文档 gate PR #108 的 merge commit。
+该提交是 R2A-T01 PR #109 的 merge commit，也是 R2A-T02 的唯一允许基线。
 
 ---
 
@@ -298,17 +306,17 @@ migration manifest、inventory CSV、大型 DuckDB、外部 authorized manifest 
 
 ## 4. 当前停在哪里
 
-当前没有未解释的技术异常；R2A-T01 已完成唯一一次 formal run、独立 validator 和实际
-结果分析，停在 formal-result review，等待 PR #109 的独立审阅。
+R2A-T01 已正式接受并通过 PR #109 合并。R2A-T02 已从该 merge commit 启动，协议、配置、
+请求 schema、canonicalization、identity 与 synthetic truth tables 已形成候选包，当前停在
+protocol review。没有读取真实 Score DuckDB，也没有生产 evaluator 或动态结果。
 
 准确状态：
 
 ```text
-branch: codex/r2a-t01-score-release-implementation
-remote branch: established
-branch base: 2e623d0e207be2568f235f659c83a794f3b56ffb
-R2A PR: #109
-PR state: acceptance closure pending Quality and merge
+branch: codex/r2a-t02-dynamic-state-protocol
+remote branch: pending first push
+branch base: 34eee561218141d64a2e347e532d88c0fb09c33c
+R2A-T01 PR: #109 / merged
 reviewed implementation SHA: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
 reviewed execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
@@ -335,11 +343,18 @@ independent_review_execution_status: completed
 independent_review_result: passed
 independent_review_mismatch_count: 0
 readme_advanced: true
-next_task: R2A-T02
-R2A-T02_allowed_to_start: true_after_PR_109_merge
-R2A-T02_started: false
-DONE: present
-next gate: PR #109 closure Quality and merge
+R2A-T01_DONE: present
+R2A-T02_status: protocol_freeze_candidate_pending_review
+R2A-T02_started: true
+dynamic_protocol_version_candidate: pcavt_dynamic_state_protocol.v1
+bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
+protocol_package_status: complete_pending_review
+real_score_data_read: false
+dynamic_evaluator_implemented: false
+dynamic_state_materialized: false
+R2A-T03_allowed_to_start: false
+DONE: absent
+next gate: R2A-T02 Draft PR protocol review
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
@@ -934,5 +949,8 @@ Owner 已接受 run R2A-T01-20260718T103110891Z 与 release pcavt-score-w120-v1-
 independent_review_execution_status=completed；independent_review_result=passed；independent_review_mismatch_count=0。
 A_layer_W120_score_contract_registered=true；canonical_PCAVT_score_release_registered=true；PCAVT_dynamic_state_created=false。
 长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
-next_task=R2A-T02；R2A-T02_allowed_to_start=true_after_PR_109_merge；R2A-T02_started=false。
+R2A-T02_status=protocol_freeze_candidate_pending_review；dynamic_protocol_version_candidate=pcavt_dynamic_state_protocol.v1。
+R2A-T02_started=true；protocol_package_status=complete_pending_review；real_score_data_read=false。
+dynamic_evaluator_implemented=false；dynamic_state_materialized=false；DONE=absent；R2A-T03_allowed_to_start=false。
+当前停止点是 R2A-T02 protocol review。
 ```

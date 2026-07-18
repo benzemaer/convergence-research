@@ -42,6 +42,8 @@ R2A_PAIRS = (
     ),
 )
 SCHEMA_ONLY = (
+    ROOT / "schemas/r2a/r2a_t02_dynamic_request_spec.schema.json",
+    ROOT / "schemas/r2a/r2a_t02_dynamic_request.schema.json",
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
     ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
     ROOT / "schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",

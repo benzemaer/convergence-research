@@ -322,6 +322,10 @@ CONFIGS = (
         ROOT / "configs/r2a/r2a_t01_eod_availability_policy.v1.json",
     ),
     (
+        ROOT / "schemas/r2a/r2a_t02_dynamic_state_protocol.schema.json",
+        ROOT / "configs/r2a/r2a_t02_dynamic_state_protocol.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
