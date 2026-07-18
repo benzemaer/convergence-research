@@ -15,27 +15,32 @@ base_main_sha: 2e623d0e207be2568f235f659c83a794f3b56ffb
 R2A PR: #109
 PR state: Draft
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
+formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
+formal_execution_quality: 29640937790 / success
 implementation_review_status: passed
 R2A stage doctrine: merged via PR #108
 R2A-T01 protocol / implementation planning: completed
 R2A-T01 implementation: completed and reviewed
-R2A-T01_status: formal_authorized_not_started
+R2A-T01_status: formal_result_review
 formal_run_allowed: true
 real_input_read_allowed: true
-formal_run_status: authorized_not_started
-result_review_status: not_started
+formal_run_status: completed_pending_formal_result_review
+formal_run_attempts: 1 / 1
+additional_formal_run_allowed: false
+result_review_status: pending
 readme_advanced: false
 R2A-T02_allowed_to_start: false
-next gate: execution commit Quality, then one authorized formal run
+next gate: PR #109 formal-result review
 A_layer_score_contract_defined: true
 A_layer_registered: false
 PCAVT_created: false
 ```
 
 阶段纲领已通过 PR #108 合并。R2A-T01 implementation 已在 Draft PR #109 完成审阅，
-批准的 implementation SHA 为 `3f36357be9d469d7a9751eef79f368676d7ec97a`。当前仅授权在
-authorization commit 的精确 Quality 通过后执行一次 formal run；不授权接受 T01、创建
-`DONE`、注册 A-layer、合并 PR #109 或启动 R2A-T02。
+批准的 implementation SHA 为 `3f36357be9d469d7a9751eef79f368676d7ec97a`。唯一一次
+formal run 已由 execution commit `7c3fe76c575eb350a8e94d2f7534d123e865a64c`
+完成，validator 与 result analysis 均通过，结果只进入 formal-result review；不授权接受
+T01、创建 `DONE`、注册 A-layer、合并 PR #109 或启动 R2A-T02。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -276,7 +281,8 @@ migration manifest、inventory CSV、大型 DuckDB、外部 authorized manifest 
 
 ## 4. 当前停在哪里
 
-当前没有技术阻塞；R2A-T01 已获一次 formal run 授权，但尚未开始读取正式输入。
+当前没有未解释的技术异常；R2A-T01 已完成唯一一次 formal run、独立 validator 和实际
+结果分析，停在 formal-result review，等待 PR #109 的独立审阅。
 
 准确状态：
 
@@ -287,27 +293,32 @@ branch base: 2e623d0e207be2568f235f659c83a794f3b56ffb
 R2A PR: #109
 PR state: Draft
 reviewed implementation SHA: 3f36357be9d469d7a9751eef79f368676d7ec97a
+formal execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
+formal execution Quality: 29640937790 / success
 implementation review status: passed
 R2A stage doctrine: merged via PR #108
 R2A-T01 protocol / implementation planning: completed
 R2A-T01 implementation: completed and reviewed
-R2A-T01 status: formal_authorized_not_started
+R2A-T01 status: formal_result_review
 formal_run_allowed: true
 real_input_read_allowed: true
-formal_run_status: authorized_not_started
-result_review_status: not_started
+formal_run_status: completed_pending_formal_result_review
+formal_run_attempts: 1 / 1
+additional_formal_run_allowed: false
+result_review_status: pending
 readme_advanced: false
 R2A-T02_allowed_to_start: false
-next gate: authorization execution commit Quality, then one formal run
+next gate: PR #109 formal-result review
 A-layer Score contract: defined in reviewed implementation
-canonical PCAVT Score artifact: not materialized
+canonical PCAVT Score artifact: materialized as publish_candidate; pending formal-result review
 A-layer: not registered
 PCAVT: not created
 ```
 
-当前 formal 权限仅适用于 reviewed implementation SHA 和即将产生的 authorization execution
-commit。必须先等待 execution commit 的精确 Quality 成功，再按 local-only manifest 绑定五个
-accepted source 并执行一次 formal run。成功后也只能进入 **R2A-T01 formal-result review**。
+Formal run ID 为 `R2A-T01-20260718T103110891Z`，Score release ID 为
+`pcavt-score-w120-v1-c7e04f11a2cd09aa`。唯一一次运行已消费，不得重跑。正式 package
+的 validator status 与 analysis status 均为 `passed`，release recommendation 为
+`publish_candidate`，但这不等于正式接受或发布；当前只能停在 **R2A-T01 formal-result review**。
 
 ---
 
@@ -883,8 +894,8 @@ A2b 已按研究范围排除。
 A-layer W120 Score contract 已在 reviewed implementation 中定义。
 R2A 是 PCAVT 的独立完整重研，不继承 R2-T08 结果。
 R2A-T01 Draft PR #109 的 implementation review 已通过；reviewed implementation SHA 为 3f36357be9d469d7a9751eef79f368676d7ec97a。
-R2A-T01 当前为 formal_authorized_not_started；formal_run_allowed=true，real_input_read_allowed=true。
-下一 gate 是 authorization execution commit 的精确 Quality，随后只执行一次已授权 formal run。
+R2A-T01 当前为 formal_result_review；formal_run_status=completed_pending_formal_result_review，result_review_status=pending。
+唯一 formal execution commit 为 7c3fe76c575eb350a8e94d2f7534d123e865a64c；Quality 29640937790 success；不得再次运行。
 长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
-Formal 成功后也只进入 formal-result review；不要创建 DONE、推进 README gate 或启动 R2A-T02。
+当前只进入 formal-result review；不要创建 DONE、推进 README gate、注册 A-layer、接受 T01 或启动 R2A-T02。
 ```

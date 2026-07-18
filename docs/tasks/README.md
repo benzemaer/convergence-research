@@ -127,13 +127,17 @@ R2-T08_formal_task_completed: false
 R2_evidence_chain_status: passed_pending_T08_scientific_review_and_merge
 R3_handoff_eligible: true
 R3_allowed_to_start: false
-R2A-T01_status: formal_authorized_not_started
+R2A-T01_status: formal_result_review
 implementation_review_status: passed
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
+formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
+formal_execution_quality: 29640937790 / success
 formal_run_allowed: true
 real_input_read_allowed: true
-formal_run_status: authorized_not_started
-result_review_status: not_started
+formal_run_status: completed_pending_formal_result_review
+formal_run_attempts: 1 / 1
+additional_formal_run_allowed: false
+result_review_status: pending
 readme_advanced: false
 R2A-T02_allowed_to_start: false
 ```
