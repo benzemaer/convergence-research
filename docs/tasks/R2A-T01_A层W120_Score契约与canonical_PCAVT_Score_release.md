@@ -181,8 +181,11 @@ formal_run_attempts: 1 / 1
 additional_formal_run_allowed: false
 result_review_status: pending
 review_evidence_bundle_status: prepared
+independent_review_execution_status: completed
+independent_review_result: passed
 readme_advanced: false
 R2A-T02_allowed_to_start: false
+DONE: absent
 ```
 
 Formal 结果快照：
@@ -212,6 +215,12 @@ data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/formal-review/
 `r2a_t01_formal_review_extract.duckdb` 是不超过 12 只证券完整历史与全市场聚合组成的
 派生审阅 extract，不是 formal artifact。Bundle 不含完整 Score database、authorized input
 manifest、source spec、shard、log 或 `DONE`，也没有重跑 materializer、validator 或 analyzer。
+
+独立 review-only 程序已对 30-table extract 完成文件 identity、12 只证券 strict-past
+Score、五维 mean/min、accepted PCVT source reconciliation、sequence、expected-empty、
+availability、全市场 aggregate arithmetic 与年度合理性复算。Independent status 为
+`passed`，recommendation 为 `accept_candidate`，全部 mismatch 为 0；这不改变
+`result_review_status=pending`，也不构成 T01 acceptance。
 
 `publish_candidate` 只表示结果包可进入 formal-result review，不表示 T01 已接受、A-layer 已注册
 或 PCAVT 已创建。当前停止点只能是 R2A-T01 formal-result review；不得再次运行、创建

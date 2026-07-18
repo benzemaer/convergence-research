@@ -32,8 +32,11 @@ formal_run_attempts: 1 / 1
 additional_formal_run_allowed: false
 result_review_status: pending
 review_evidence_bundle_status: prepared
+independent_review_execution_status: completed
+independent_review_result: passed
 readme_advanced: false
 R2A-T02_allowed_to_start: false
+DONE: absent
 next gate: PR #109 formal-result review
 A_layer_score_contract_defined: true
 A_layer_registered: false
@@ -47,6 +50,9 @@ formal run 已由 execution commit `7c3fe76c575eb350a8e94d2f7534d123e865a64c`
 T01、创建 `DONE`、注册 A-layer、合并 PR #109 或启动 R2A-T02。Owner 已明确批准
 execution amendment，审阅绑定的 execution commit 仍为上述 SHA，不要求 successor formal
 run。Formal review evidence bundle 已准备，但 `result_review_status` 仍为 `pending`。
+Review-only 程序对已提交 extract 完成独立只读复算，结果为 `passed`，recommendation 为
+`accept_candidate`；该 recommendation 不构成 T01 acceptance，停止点仍是 independent
+formal-result review。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -316,8 +322,11 @@ formal_run_attempts: 1 / 1
 additional_formal_run_allowed: false
 result_review_status: pending
 review_evidence_bundle_status: prepared
+independent_review_execution_status: completed
+independent_review_result: passed
 readme_advanced: false
 R2A-T02_allowed_to_start: false
+DONE: absent
 next gate: PR #109 formal-result review
 A-layer Score contract: defined in reviewed implementation
 canonical PCAVT Score artifact: materialized as publish_candidate; pending formal-result review
@@ -911,6 +920,7 @@ R2A-T01 Draft PR #109 的 implementation review 已通过；reviewed implementat
 R2A-T01 当前为 formal_result_review；formal_run_status=completed_pending_formal_result_review，result_review_status=pending。
 唯一 formal execution commit 为 7c3fe76c575eb350a8e94d2f7534d123e865a64c；Quality 29640937790 success；不得再次运行。
 Owner 已批准 execution amendment；successor_formal_run_required=false；review_evidence_bundle_status=prepared。
+independent_review_execution_status=completed；independent_review_result=passed；result_review_status=pending。
 长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
 当前只进入 formal-result review；不要创建 DONE、推进 README gate、注册 A-layer、接受 T01 或启动 R2A-T02。
 ```

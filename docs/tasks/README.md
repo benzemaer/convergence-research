@@ -142,8 +142,11 @@ formal_run_attempts: 1 / 1
 additional_formal_run_allowed: false
 result_review_status: pending
 review_evidence_bundle_status: prepared
+independent_review_execution_status: completed
+independent_review_result: passed
 readme_advanced: false
 R2A-T02_allowed_to_start: false
+DONE: absent
 ```
 
 ## 命名与路径规则
