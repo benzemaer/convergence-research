@@ -3,7 +3,7 @@
   "task_id": "R2A-T02",
   "protocol_config_version": "r2a_t02_dynamic_state_protocol.v1",
   "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
-  "status": "protocol_freeze_candidate_pending_review",
+  "status": "accepted",
   "json_input_policy": {
     "scope": "all_external_request_json_objects_at_every_nesting_level",
     "duplicate_object_member_behavior": "reject",

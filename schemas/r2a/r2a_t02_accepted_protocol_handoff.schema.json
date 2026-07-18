@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t02_accepted_protocol_handoff.schema.json",
+  "title": "R2A-T02 accepted dynamic state protocol handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "task_id",
+    "stage_id",
+    "status",
+    "protocol_review_status",
+    "reviewed_protocol_head",
+    "reviewed_protocol_head_Quality",
+    "dynamic_protocol_version",
+    "protocol_config_version",
+    "request_spec_schema_version",
+    "canonical_request_schema_version",
+    "score_release_id",
+    "accepted_score_run_id",
+    "accepted_score_handoff_sha256",
+    "file_identities",
+    "frozen_parameters",
+    "golden_identity",
+    "review_outcome",
+    "downstream_authorization"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../../../../schemas/r2a/r2a_t02_accepted_protocol_handoff.schema.json"
+    },
+    "task_id": {"const": "R2A-T02"},
+    "stage_id": {"const": "R2A"},
+    "status": {"const": "completed_accepted"},
+    "protocol_review_status": {"const": "accepted"},
+    "reviewed_protocol_head": {
+      "const": "6c3198a6fd270b81fbeb13649eda51f4222f89d6"
+    },
+    "reviewed_protocol_head_Quality": {"const": "29649468929 / success"},
+    "dynamic_protocol_version": {
+      "const": "pcavt_dynamic_state_protocol.v1"
+    },
+    "protocol_config_version": {
+      "const": "r2a_t02_dynamic_state_protocol.v1"
+    },
+    "request_spec_schema_version": {
+      "const": "r2a_t02_dynamic_request_spec.v1"
+    },
+    "canonical_request_schema_version": {
+      "const": "r2a_t02_dynamic_request.v1"
+    },
+    "score_release_id": {
+      "const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"
+    },
+    "accepted_score_run_id": {"const": "R2A-T01-20260718T103110891Z"},
+    "accepted_score_handoff_sha256": {
+      "const": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"
+    },
+    "file_identities": {
+      "const": {
+        "protocol_config": {
+          "filename": "r2a_t02_dynamic_state_protocol.v1.json",
+          "sha256": "bd57b1c90a340fe19e52450676b48f3d9f8cba20b93e344da429b5f378540d99"
+        },
+        "protocol_schema": {
+          "filename": "r2a_t02_dynamic_state_protocol.schema.json",
+          "sha256": "67182eb6e0e06787c3733b8ac52ac780c34de09c112a86fec5028fda8dffaa19"
+        },
+        "request_spec_schema": {
+          "filename": "r2a_t02_dynamic_request_spec.schema.json",
+          "sha256": "d31f7ed1bab15d0d573f86e77fa878a2bad3bd59bce1361891bf455caea0f2aa"
+        },
+        "canonical_request_schema": {
+          "filename": "r2a_t02_dynamic_request.schema.json",
+          "sha256": "8d41334247847319fadfd4891e9bb5b21fd1898ec296878e8714ae48a25288e1"
+        },
+        "request_identity_source": {
+          "filename": "r2a_t02_request_identity.py",
+          "sha256": "87f873f58af21ec03d396f92472b3e0dcb413d7cb8c1b63f23f99edf20adfc79"
+        },
+        "builder_cli": {
+          "filename": "build_r2a_t02_dynamic_request.py",
+          "sha256": "e5d5b788f0006c81f05d550b09307f07beca7681e70a5408fabe4132e4456c31"
+        },
+        "task_document": {
+          "filename": "R2A-T02_动态状态协议冻结.md",
+          "sha256": "0eb56bd7787f855298912ded386c468b8d7e6b79dc1dfc860cf674eeacf8df5b"
+        }
+      }
+    },
+    "frozen_parameters": {
+      "const": {
+        "dimension_universe": ["P", "C", "A", "V", "T"],
+        "selected_dimension_nonempty_subset_count": 31,
+        "allowed_q_bp": [1000, 1500, 2000, 2500],
+        "q_spec_count": 3124,
+        "allowed_confirmation_k": [2, 3, 4, 5, 6, 7],
+        "scientific_request_spec_count": 18744
+      }
+    },
+    "golden_identity": {
+      "const": {
+        "request_hash": "fda529f47faece8b7756159247e3c07c261721c4013270981929a4dfe5f9959d",
+        "request_id": "pcavt-dynreq-v1-fda529f47faece8b"
+      }
+    },
+    "review_outcome": {
+      "const": {
+        "protocol_review_blocking_issue_count": 0,
+        "duplicate_json_key_policy_verified": true,
+        "null_and_non_finite_semantics_verified": true,
+        "reason_propagation_verified": true,
+        "termination_derivation_verified": true,
+        "actual_18744_canonicalization_verified": true,
+        "test_status": "passed",
+        "test_count": 141,
+        "real_score_data_read": false,
+        "dynamic_evaluator_implemented": false,
+        "dynamic_state_materialized": false
+      }
+    },
+    "downstream_authorization": {
+      "const": {
+        "R2A_T03_input_eligible": true,
+        "R2A_T03_started": false,
+        "dynamic_protocol_accepted": true,
+        "dynamic_protocol_registered": false,
+        "PCAVT_dynamic_state_created": false
+      }
+    }
+  }
+}

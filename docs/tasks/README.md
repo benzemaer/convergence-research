@@ -154,16 +154,22 @@ A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
 R2A-T01_DONE: present
-R2A-T02_status: protocol_freeze_candidate_pending_review
+R2A-T02_status: completed_accepted
 R2A-T02_started: true
-dynamic_protocol_version_candidate: pcavt_dynamic_state_protocol.v1
+protocol_review_status: accepted
+reviewed_protocol_head: 6c3198a6fd270b81fbeb13649eda51f4222f89d6
+dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
 bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
-protocol_package_status: complete_pending_review
+protocol_package_status: accepted
 real_score_data_read: false
 dynamic_evaluator_implemented: false
 dynamic_state_materialized: false
-R2A-T02_DONE: absent
-R2A-T03_allowed_to_start: false
+dynamic_protocol_accepted: true
+dynamic_protocol_registered: false
+R2A-T02_DONE: present
+next_task: R2A-T03
+R2A-T03_allowed_to_start: true_after_PR_110_merge
+R2A-T03_started: false
 ```
 
 ## 命名与路径规则

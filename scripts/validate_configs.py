@@ -412,6 +412,7 @@ def standalone_r2a_schemas() -> tuple[Path, ...]:
         ROOT / "schemas/r2a/r2a_t01_score_release_schema.schema.json",
         ROOT / "schemas/r2a/r2a_t01_score_release_manifest.schema.json",
         ROOT / "schemas/r2a/r2a_t01_validation_receipt.schema.json",
+        ROOT / "schemas/r2a/r2a_t02_accepted_protocol_handoff.schema.json",
     )
 
 

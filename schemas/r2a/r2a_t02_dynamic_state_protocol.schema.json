@@ -33,7 +33,7 @@
     "task_id": {"const": "R2A-T02"},
     "protocol_config_version": {"const": "r2a_t02_dynamic_state_protocol.v1"},
     "dynamic_protocol_version": {"const": "pcavt_dynamic_state_protocol.v1"},
-    "status": {"const": "protocol_freeze_candidate_pending_review"},
+    "status": {"const": "accepted"},
     "json_input_policy": {
       "const": {
         "scope": "all_external_request_json_objects_at_every_nesting_level",

@@ -1,0 +1,11 @@
+{
+  "task_id": "R2A-T02",
+  "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
+  "reviewed_protocol_head": "6c3198a6fd270b81fbeb13649eda51f4222f89d6",
+  "accepted_protocol_handoff_filename": "r2a_t02_accepted_protocol_handoff.json",
+  "accepted_protocol_handoff_sha256": "f8ff97543b95ba3676acd36ea3d48adb06dfb1f9ab51a7ee7b8413003e1b5082",
+  "accepted_protocol_config_filename": "r2a_t02_dynamic_state_protocol.v1.json",
+  "accepted_protocol_config_sha256": "bd57b1c90a340fe19e52450676b48f3d9f8cba20b93e344da429b5f378540d99",
+  "golden_request_hash": "fda529f47faece8b7756159247e3c07c261721c4013270981929a4dfe5f9959d",
+  "acceptance_status": "completed_accepted"
+}
