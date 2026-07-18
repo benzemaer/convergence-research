@@ -12,15 +12,21 @@ local_repository: D:\Code\convergence-research
 current_branch: codex/r2a-pcavt-research
 remote_branch: origin/codex/r2a-pcavt-research
 base_main_sha_before_HANDOFF_commit: 7e6da62235d823b4258d45f583d2918820f92496
-worktree_status_at_handoff: clean
-open_PR_for_R2A: none
-R2A_T01_started: false
+worktree_status_at_review_start: clean
+R2A PR: #108
+PR state: Draft
+PR head at review start: 2b5cb85fe818cd2670357861f98fd3d2426a001f
+R2A stage doctrine: drafted in docs/stages/R2A_PCAVT动态收敛状态体系.md; pending review
+R2A-T01 protocol / implementation planning: completed
+R2A-T01 implementation: not started
+formal_run_allowed: false
+next gate: PR #108 document review and R2A-T01 plan approval
 A_layer_score_contract_defined: false
 A_layer_registered: false
 PCAVT_created: false
 ```
 
-`HANDOFF.md` 是 R2A 分支上的纯文档提交。创建本文件不表示 `R2A-T01` 已经启动，也不授权真实数据物化、状态计算或创建 PCAVT。
+`HANDOFF.md` 与阶段纲领目前共同位于 Draft PR #108。上述 PR head 仅是本轮文档审阅开始时的 Git 快照，不是永久科学版本，也不是 formal source binding。R2A-T01 的 protocol / implementation planning 已完成，但尚待批准；implementation 尚未开始，当前不授权真实数据物化、状态计算、formal run 或创建 PCAVT。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -49,7 +55,7 @@ A2: A2_BodyCenterOutsideMACloudRate20_5_60
 A2b: A2b_BodyToMACloudGapMean20_5_60
 ```
 
-现在准备启动一个新的完整研究阶段：
+现在正在审阅一个新的完整研究阶段：
 
 ```text
 stage: R2A
@@ -57,7 +63,13 @@ research_object: PCAVT
 first_task: R2A-T01
 ```
 
-R2A 的最终目的与旧 R2 类似：从参数/协议研究、状态扫描、用户决策、正式物化、无前视回放、版本冻结，最终形成新的 R3 handoff。
+R2A 的总目标是建立以下分层体系，并最终形成支持动态请求的新 R3 handoff：
+
+```text
+immutable canonical PCAVT Score release
+→ parameterized dynamic state evaluator
+→ request-scoped daily states and intervals
+```
 
 但 R2A 的研究对象是加入 A 层后的新架构 PCAVT，而不是对旧 R2-T08 结果做小修补。
 
@@ -79,12 +91,14 @@ R2A_inherits_R2_T08_R3_handoff: false
 - frozen state versions；
 - K/d/g 参数；
 - q 向量；
-- canonical daily state；
-- event-zone interval；
-- version registry；
+- 固定逐日状态表；
+- 固定事件区间；
+- 唯一状态版本；
 - R3 handoff。
 
 “可以复用工程资产”与“继承旧研究结论”是两件不同的事，不能混淆。
+
+PCAVT 是可选维度全集，不是固定嵌套顺序。`selected_dimensions` 是用户请求参数；未选择维度不参与联合条件，也不使用默认 q。R2A 长期物化的是 Score release，动态结果按请求生成，不选择唯一 q/K 组合，也不注册唯一 canonical state version。
 
 ---
 
@@ -261,18 +275,23 @@ migration manifest、inventory CSV、大型 DuckDB、外部 authorized manifest 
 branch: codex/r2a-pcavt-research
 remote branch: established
 branch base before HANDOFF.md: 7e6da62235d823b4258d45f583d2918820f92496
-worktree: clean
-R2A PR: not created
-R2A-T01: not started
+R2A PR: #108
+PR state: Draft
+PR head at review start: 2b5cb85fe818cd2670357861f98fd3d2426a001f
+R2A stage doctrine: drafted in docs/stages/R2A_PCAVT动态收敛状态体系.md; pending review
+R2A-T01 protocol / implementation planning: completed
+R2A-T01 implementation: not started
+formal_run_allowed: false
+next gate: PR #108 document review and R2A-T01 plan approval
 A-layer Score contract: not defined
 canonical PCAVT Score artifact: not materialized
 A-layer: not registered
 PCAVT: not created
 ```
 
-当前暂停点是 **R2A-T01 启动前的协议设计边界**。
+这里的 PR head 是当前审阅快照，不是永久科学版本。当前暂停点是 **PR #108 文档审阅与 R2A-T01 plan approval**。
 
-新会话不能直接运行数据。必须先把 R2A-T01 的职责、输入绑定、Score contract、输出 contract、validator 和 formal gate 定义清楚。
+新会话不能直接运行数据或开始 implementation。R2A-T01 的职责、输入绑定、Score contract、输出 contract、validator 和 formal gate 已完成规划，必须先通过 plan approval，再由单独授权启动 implementation；formal 仍需后续独立授权。
 
 ---
 
@@ -414,13 +433,13 @@ artifact manifest
 
 ---
 
-## 6. R2A-T01 尚需明确的工程决策
+## 6. R2A-T01 规划中的工程决策边界
 
-以下问题尚未正式冻结，新会话必须在写 Codex 指令前逐项决策。
+R2A-T01 protocol / implementation planning 已完成。以下工程边界保留在计划中，须在 plan approval 时确认；本交接文档不自行批准、实施或改写其文件设计。
 
 ## 6.1 P/C/V/T Score 的来源
 
-需要在两种方案中作出明确选择：
+计划保留了两种来源方案的取舍边界：
 
 ### 方案 A：复用已接受的 R0-T05 W120 Score rows
 
@@ -439,11 +458,11 @@ artifact manifest
 
 缺点：计算成本和实现范围更大，也可能无意义地重做已验证逻辑。
 
-当前推荐倾向：
+规划中的推荐倾向：
 
 > 可以复用已接受的 P/C/V/T W120 Score artifact，但必须在 R2A-T01 中独立验证并重新建立 canonical PCAVT Score interface；A Score 必须由 accepted A1/A2 raw 新计算。不要继承任何 R2-T08 state result。
 
-这只是推荐，不是已冻结结论。
+这只是待 plan approval 的推荐，不是已冻结结论。
 
 ## 6.2 PCAVT 维度顺序和命名
 
@@ -461,14 +480,14 @@ PCTAV
 PCVT+A
 ```
 
-旧代码和旧 artifact 中 dimension order、变量命名与缩写并不总是直观一致。R2A-T01/T02 必须在 registry 中显式声明：
+旧代码和旧 artifact 中 dimension order、变量命名与缩写并不总是直观一致。R2A-T01/T02 必须在 registry 或 protocol 中显式声明：
 
 ```text
 dimension IDs
 dimension order
 component registry
 output field names
-state nesting order（后续 T02）
+selected_dimensions 的请求表示与 canonical normalization（后续 T02）
 ```
 
 绝对不能只根据旧变量名推断顺序。
@@ -496,87 +515,41 @@ formal runner / formal validator:
 
 ---
 
-## 7. R2A 后续建议路线
+## 7. R2A 动态状态任务路线
 
-下面是建议路线，与旧 R2 的职责结构同构，但所有 task 都使用独立的 `R2A-*` identity。
+所有 task 使用独立的 `R2A-*` identity，路线与动态阶段纲领一致：
 
-### R2A-T01
+### R2A-T01：canonical PCAVT Score release
 
-```text
-A-layer W120 Score contract
-canonical PCAVT Score materialization
-```
+冻结 A-layer W120 Score contract，并物化不可变 canonical PCAVT Score release。T01 严格不包含 q、K、raw/confirmed state 或 interval。
 
-### R2A-T02
+### R2A-T02：dynamic state protocol freeze
 
-```text
-PCAVT state / event-zone protocol freeze
-```
+冻结 `selected_dimensions`、`q_by_dimension`、`confirmation_k`、complete-case validity、raw state、连续确认、区间、zero-event 与请求 ID/hash 协议。T02 不选择唯一 q/K 组合。
 
-在这一阶段才定义：
+### R2A-T03：parameterized evaluator implementation
 
-- q vector；
-- A layer 的 mean/min gate；
-- V/T 是否参与 raw gate；
-- dimension order / nesting；
-- confirmation streak；
-- interval start/end；
-- validity propagation。
+实现从 Score release 到 request-scoped daily states 和 intervals 的参数化 evaluator，并覆盖 q/K 响应、未选维度隔离、无回填、invalid interruption 与 zero-event 等测试边界。
 
-### R2A-T03
+### R2A-T04：real-data parameter-response and scientific audit
 
-```text
-candidate parameter scan
-event-zone geometry audit
-manual chart sampling
-```
+在有独立授权后，对代表性动态请求执行真实数据参数响应与科学合理性审核。目标是确认允许参数域内响应合理，而不是挑选或冻结唯一参数。
 
-检查：
+### R2A-T05：formal dynamic evaluation package
 
-- coverage；
-- interval count；
-- duration；
-- fragmentation；
-- security breadth；
-- year stability；
-- boundary cases；
-- 人工图形合理性。
+为明确的动态请求建立可复现、不可变的 formal evaluation package；长期 canonical lineage 仍是 Score release，动态结果保持 request-scoped。
 
-### R2A-T04
+### R2A-T06：no-lookahead replay
 
-```text
-hard gate
-Pareto comparison
-user decision
-freeze plan
-```
+验证 strict-past、available-time、逐日 replay、缺失 observation interruption 与并行一致性。
 
-### R2A-T05
+### R2A-T07：protocol/release version registration
 
-```text
-canonical daily state / event zone / membership materialization
-```
+注册 Score release、dimension definition、dynamic protocol、engine、schema 与 artifact hashes；不注册唯一 canonical state version。
 
-### R2A-T06
+### R2A-T08：stage acceptance and dynamic R3 handoff
 
-```text
-no-lookahead replay
-consistency acceptance
-```
-
-### R2A-T07
-
-```text
-state version registry
-final freeze manifest
-```
-
-### R2A-T08
-
-```text
-R2A stage acceptance
-new R3 handoff
-```
+完成阶段验收并形成提供动态状态查询接口的新 R3 handoff，而不是交付单一固定事件表。
 
 只有 R2A-T08 被正式接受后，新的 PCAVT handoff 才能取代旧 R2-T08 handoff，成为新的 R3 入口。
 
@@ -584,66 +557,30 @@ new R3 handoff
 
 ---
 
-## 8. 当前参数意图，但尚未冻结
+## 8. 动态请求参数边界
 
-用户当前研究意图：
+PCAVT 是可选维度全集，不是固定嵌套顺序。用户通过 `selected_dimensions` 指定本次请求包含哪些维度；未选择维度不参与联合条件，也不使用默认 q。
 
-```text
-W = 120
-qP = 0.2
-qC = 0.2
-qA = 0.2
-kdg parameters: 暂不使用
-raw=true 连续 >= 5 天：初步确认区间方案
-```
-
-这些内容需要正确理解。
-
-## 8.1 q 的方向
-
-当前 Score 定义为 `1 - percentile`，因此若 q=0.2 表示最低 20% raw tail，则通常对应：
+每个已选择维度独立使用：
 
 ```text
-Score >= 0.8
+qD ∈ {0.10, 0.15, 0.20, 0.25}
 ```
 
-但这个映射必须在 R2A-T02 contract 中正式写出，不能仅靠口头约定。
-
-## 8.2 qV 与 qT 未决
-
-目前只提出了：
+当前 Score 定义为 `1 - percentile`，因此维度主阈值为 `Score >= 1 - qD`。弱组件门固定为：
 
 ```text
-qP, qC, qA
+weak_delta = 0.10
+dimension_min >= 1 - qD - weak_delta
 ```
 
-尚未明确：
+连续确认参数为：
 
 ```text
-qV
-qT
-V/T 是否参与 raw gate
+confirmation_k ∈ {2,3,4,5,6,7}
 ```
 
-不能在实现中默认为旧 R2 值，也不能静默排除 V/T。
-
-## 8.3 “不使用 K”与“连续 5 天”不能自相矛盾
-
-即使不沿用旧参数名 K，连续 5 天本质上仍是一个确认 streak 参数。
-
-建议后续使用明确字段：
-
-```text
-confirmation_streak_observations = 5
-```
-
-不要一边声明“不使用 K”，一边在代码中硬编码 `>=5` 而不进入 contract。
-
-## 8.4 五天方案只是候选
-
-“raw=true 连续 >=5 天视为收敛区间”目前需要人工筛选验证。
-
-它不是已冻结规则。R2A-T03 必须通过统计分布和图形抽样验证，再由 R2A-T04 作用户决策。
+首版不使用 d/g、gap tolerance、退出延迟或区间自动合并。R2A 不选择唯一 q/K 组合，不注册唯一 canonical state version；长期物化的是 Score release，动态 daily states 和 intervals 按请求生成。
 
 ---
 
@@ -671,7 +608,8 @@ branch = codex/r2a-pcavt-research
 local branch = remote branch
 worktree clean
 base main ancestor includes 7e6da62235d823b4258d45f583d2918820f92496
-no R2A PR exists
+PR #108 is Draft
+PR head matches the current review snapshot or an explicitly reviewed successor commit
 ```
 
 然后读取：
@@ -684,15 +622,16 @@ R0-T05 strict-past Score contract/materializer
 R2-T01..R2-T08 task route and accepted artifacts
 ```
 
-下一条真正的 Codex 指令应只做：
+下一步只允许做：
 
 ```text
-R2A-T01 protocol / implementation planning
+PR #108 document review
+R2A-T01 plan approval
 ```
 
-推荐先输出完整的 R2A-T01 plan，明确输入、输出、复用边界、formal gates 和任务拆分，再决定是否立即实现。
+R2A-T01 protocol / implementation planning 已完成，但 approval 尚未完成。不得把 plan completion 误写为 implementation started，也不得在本次文档审阅中启动 implementation。
 
-不要在没有计划审阅的情况下直接运行真实数据。
+不要在没有 plan approval、implementation review 和独立 formal 授权的情况下运行真实数据。
 
 ---
 
@@ -725,7 +664,7 @@ preliminary manifest architecture
 错误做法：
 
 ```text
-在 R2A-T01 同时定义 W、q、五天确认和区间结束
+在 R2A-T01 同时定义 W、任意 q、confirmation_k 和区间结束
 ```
 
 正确做法：
@@ -740,10 +679,10 @@ R2A-T02+: State / confirmation / interval
 可以参考旧代码，但不能默认复用旧：
 
 ```text
-K3
-d2/g1
-qT/qV
-state versions
+旧固定确认天数
+旧 d/g 组合
+旧固定维度阈值
+旧固定状态版本
 R3 handoff
 ```
 
@@ -869,7 +808,7 @@ R2A-T01-G02
 
 ## 10.12 不要自动推进到 PR、formal 或下一阶段
 
-当前没有 R2A PR。
+当前 R2A Draft PR 是 #108；保持 Draft，先完成文档审阅与 R2A-T01 plan approval，不得自行标记 Ready for review 或合并。
 
 任何 implementation 完成后都应停在 implementation review；formal 必须经过独立授权。
 
@@ -924,7 +863,9 @@ A1+A2 已选定。
 A2b 已按研究范围排除。
 A-layer Score 尚未定义。
 R2A 是 PCAVT 的独立完整重研，不继承 R2-T08 结果。
-当前分支已建立并推送，但没有 PR，R2A-T01 尚未开始。
-下一步先设计并审阅 R2A-T01，再冻结 W120 A Score contract，最后物化新的 canonical PCAVT Scores。
-不要直接跑数据，不要混入 q/五天区间，不要重开 A2b，不要依赖旧绝对路径。
+R2A Draft PR #108 正在审阅；审阅起点 head 为 2b5cb85fe818cd2670357861f98fd3d2426a001f，该 SHA 只是审阅快照，不是永久科学版本。
+动态阶段纲领已起草并待审；R2A-T01 protocol / implementation planning 已完成，implementation 尚未开始。
+下一 gate 是 PR #108 文档审阅与 R2A-T01 plan approval；formal_run_allowed=false。
+长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
+不要直接跑数据，不要在 T01 混入 q/K/state/interval，不要重开 A2b，不要依赖旧绝对路径。
 ```

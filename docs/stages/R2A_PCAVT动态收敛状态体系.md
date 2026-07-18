@@ -446,29 +446,51 @@ Score release 通过
 
 完成 runner 和 validator 不代表 task 完成。
 
+### 1. 所有 formal 任务共同要求
+
 任何 formal 运行后，必须立即读取实际 artifacts，完成：
 
 ```text
-实际表检查
+实际 artifact 和结果表检查
 关键字段独立复算
 结果合理性分析
 异常扫描
-参数响应分析
 独立 result_analysis.md
 ```
 
-如果出现以下异常，必须停止下游推进：
+### 2. Score release formal，包括 R2A-T01
+
+必须完成：
 
 ```text
+strict-past percentile 样本复算
+component Score 复算
+dimension mean/min 复算
+P/C/V/T source reconciliation
+spine coverage
+五维 cardinality
+validity 和 availability reconciliation
 全零
-全 NULL
 全一
-参数无响应
-层级或集合关系异常
+全 NULL
 数量级突变
-与上游 availability 不一致
-组件均值或最小值复算不一致
-observation spine 缺失或跳号
+score domain 和组件数量异常
 ```
 
-异常未解释前，不得标记 completed，不得推进 README gate，不得发布给另一个项目使用。
+R2A-T01 不执行也不要求 q response、K response、streak、interval 或集合层级分析。
+
+### 3. Dynamic evaluation formal，包括 R2A-T04/T05/T06
+
+除共同要求外，还必须完成：
+
+```text
+q response
+K response
+增加 selected dimensions 后的集合收缩
+streak/confirmation/interval 关系
+invalid interruption
+zero-event 合理性
+未选维度隔离
+```
+
+如果发生全零、全一、全 NULL、数量级突变、与上游 availability 不一致，或属于当前任务验收范围的复算/响应/集合关系异常，必须停止下游推进。异常未解释前，不得标记 completed，不得推进 README gate，不得发布数据。
