@@ -1,0 +1,812 @@
+{
+  "schema_version": "r2a_t01_score_release_schema.v1",
+  "sequence_domains": {
+    "security_observation_spine.observation_sequence": {
+      "independent_of": "trading_sessions.session_sequence",
+      "order_by": [
+        "trading_date"
+      ],
+      "scope": "security_id",
+      "zero_based_contiguous": true
+    },
+    "trading_sessions.session_sequence": {
+      "order_by": [
+        "trading_date"
+      ],
+      "scope": "global_unique_trading_date",
+      "zero_based_contiguous": true
+    }
+  },
+  "table_order": [
+    "securities",
+    "trading_sessions",
+    "security_observation_spine",
+    "dimension_definitions",
+    "dimension_components",
+    "daily_component_scores",
+    "daily_dimension_scores"
+  ],
+  "tables": {
+    "daily_component_scores": {
+      "canonical_order": [
+        "score_release_id",
+        "security_id",
+        "trading_date",
+        "observation_sequence",
+        "dimension_id",
+        "component_id",
+        "percentile_window_W",
+        "raw_value",
+        "percentile",
+        "score",
+        "eligible",
+        "validity_status",
+        "reason_codes",
+        "reference_observation_count",
+        "reference_window_start",
+        "reference_window_end",
+        "current_value_in_reference_set",
+        "tie_method",
+        "score_engine_version",
+        "source_role",
+        "source_run_id",
+        "available_time"
+      ],
+      "check_constraints": [
+        "observation_sequence >= 0",
+        "percentile_window_W = 120",
+        "validity_status in (valid,unknown,diagnostic_required,blocked)",
+        "reason_codes nonempty",
+        "reference_observation_count between 0 and 120",
+        "current_value_in_reference_set = false",
+        "tie_method = midrank",
+        "source_role in (accepted_r0_w120,recomputed_a_raw)",
+        "eligible_score_consistency"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "security_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "trading_date",
+          "nullable": false,
+          "type": "DATE"
+        },
+        {
+          "name": "observation_sequence",
+          "nullable": false,
+          "type": "BIGINT"
+        },
+        {
+          "name": "dimension_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "component_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "percentile_window_W",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "raw_value",
+          "nullable": true,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "percentile",
+          "nullable": true,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "score",
+          "nullable": true,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "eligible",
+          "nullable": false,
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "validity_status",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "reason_codes",
+          "nullable": false,
+          "type": "VARCHAR[]"
+        },
+        {
+          "name": "reference_observation_count",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "reference_window_start",
+          "nullable": true,
+          "type": "DATE"
+        },
+        {
+          "name": "reference_window_end",
+          "nullable": true,
+          "type": "DATE"
+        },
+        {
+          "name": "current_value_in_reference_set",
+          "nullable": false,
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "tie_method",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "score_engine_version",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "source_role",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "source_run_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "available_time",
+          "nullable": false,
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "enum_domains": {
+        "source_role": [
+          "accepted_r0_w120",
+          "recomputed_a_raw"
+        ],
+        "tie_method": [
+          "midrank"
+        ],
+        "validity_status": [
+          "valid",
+          "unknown",
+          "diagnostic_required",
+          "blocked"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "columns": [
+            "score_release_id",
+            "security_id",
+            "trading_date"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "security_id",
+            "trading_date"
+          ],
+          "referenced_table": "security_observation_spine"
+        },
+        {
+          "columns": [
+            "score_release_id",
+            "dimension_id",
+            "component_id"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "dimension_id",
+            "component_id"
+          ],
+          "referenced_table": "dimension_components"
+        }
+      ],
+      "primary_key": [
+        "score_release_id",
+        "security_id",
+        "trading_date",
+        "dimension_id",
+        "component_id"
+      ],
+      "unique_constraints": []
+    },
+    "daily_dimension_scores": {
+      "canonical_order": [
+        "score_release_id",
+        "security_id",
+        "trading_date",
+        "observation_sequence",
+        "dimension_id",
+        "percentile_window_W",
+        "score_dimension",
+        "score_dimension_min",
+        "eligible_dimension",
+        "validity_status",
+        "reason_codes",
+        "component_count",
+        "score_engine_version",
+        "source_role",
+        "available_time"
+      ],
+      "check_constraints": [
+        "observation_sequence >= 0",
+        "percentile_window_W = 120",
+        "validity_status in (valid,unknown,diagnostic_required,blocked)",
+        "reason_codes nonempty",
+        "component_count = 2",
+        "source_role in (accepted_r0_w120,recomputed_a_raw)",
+        "eligible_dimension_score_consistency"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "security_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "trading_date",
+          "nullable": false,
+          "type": "DATE"
+        },
+        {
+          "name": "observation_sequence",
+          "nullable": false,
+          "type": "BIGINT"
+        },
+        {
+          "name": "dimension_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "percentile_window_W",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "score_dimension",
+          "nullable": true,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "score_dimension_min",
+          "nullable": true,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "eligible_dimension",
+          "nullable": false,
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "validity_status",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "reason_codes",
+          "nullable": false,
+          "type": "VARCHAR[]"
+        },
+        {
+          "name": "component_count",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "score_engine_version",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "source_role",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "available_time",
+          "nullable": false,
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "enum_domains": {
+        "source_role": [
+          "accepted_r0_w120",
+          "recomputed_a_raw"
+        ],
+        "validity_status": [
+          "valid",
+          "unknown",
+          "diagnostic_required",
+          "blocked"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "columns": [
+            "score_release_id",
+            "security_id",
+            "trading_date"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "security_id",
+            "trading_date"
+          ],
+          "referenced_table": "security_observation_spine"
+        },
+        {
+          "columns": [
+            "score_release_id",
+            "dimension_id"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "dimension_id"
+          ],
+          "referenced_table": "dimension_definitions"
+        }
+      ],
+      "primary_key": [
+        "score_release_id",
+        "security_id",
+        "trading_date",
+        "dimension_id"
+      ],
+      "unique_constraints": []
+    },
+    "dimension_components": {
+      "canonical_order": [
+        "score_release_id",
+        "dimension_id",
+        "component_id",
+        "component_order",
+        "weight",
+        "raw_metric_name",
+        "raw_value_direction",
+        "score_formula",
+        "tie_method",
+        "current_value_in_reference_set",
+        "source_role",
+        "definition_version"
+      ],
+      "check_constraints": [
+        "component_order in (1,2)",
+        "weight = 0.5",
+        "tie_method = midrank",
+        "current_value_in_reference_set = false",
+        "source_role in (accepted_r0_w120,recomputed_a_raw)"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "dimension_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "component_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "component_order",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "weight",
+          "nullable": false,
+          "type": "DOUBLE"
+        },
+        {
+          "name": "raw_metric_name",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "raw_value_direction",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "score_formula",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "tie_method",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "current_value_in_reference_set",
+          "nullable": false,
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "source_role",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "definition_version",
+          "nullable": false,
+          "type": "VARCHAR"
+        }
+      ],
+      "enum_domains": {
+        "source_role": [
+          "accepted_r0_w120",
+          "recomputed_a_raw"
+        ],
+        "tie_method": [
+          "midrank"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "columns": [
+            "score_release_id",
+            "dimension_id"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "dimension_id"
+          ],
+          "referenced_table": "dimension_definitions"
+        }
+      ],
+      "primary_key": [
+        "score_release_id",
+        "dimension_id",
+        "component_id"
+      ],
+      "unique_constraints": [
+        [
+          "score_release_id",
+          "component_id"
+        ],
+        [
+          "score_release_id",
+          "dimension_id",
+          "component_order"
+        ]
+      ]
+    },
+    "dimension_definitions": {
+      "canonical_order": [
+        "score_release_id",
+        "dimension_id",
+        "canonical_order",
+        "dimension_name",
+        "component_count",
+        "aggregation_method",
+        "score_direction",
+        "percentile_window_W",
+        "definition_version"
+      ],
+      "check_constraints": [
+        "canonical_order between 1 and 5",
+        "component_count = 2",
+        "dimension_id in (P,C,A,V,T)",
+        "aggregation_method = equal_weight_mean_and_min",
+        "score_direction = higher_is_more_convergent",
+        "percentile_window_W = 120"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "dimension_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "canonical_order",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "dimension_name",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "component_count",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "aggregation_method",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "score_direction",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "percentile_window_W",
+          "nullable": false,
+          "type": "INTEGER"
+        },
+        {
+          "name": "definition_version",
+          "nullable": false,
+          "type": "VARCHAR"
+        }
+      ],
+      "enum_domains": {
+        "aggregation_method": [
+          "equal_weight_mean_and_min"
+        ],
+        "dimension_id": [
+          "P",
+          "C",
+          "A",
+          "V",
+          "T"
+        ],
+        "score_direction": [
+          "higher_is_more_convergent"
+        ]
+      },
+      "foreign_keys": [],
+      "primary_key": [
+        "score_release_id",
+        "dimension_id"
+      ],
+      "unique_constraints": [
+        [
+          "score_release_id",
+          "canonical_order"
+        ]
+      ]
+    },
+    "securities": {
+      "canonical_order": [
+        "score_release_id",
+        "security_id",
+        "universe_id",
+        "first_expected_date",
+        "last_expected_date",
+        "expected_observation_count"
+      ],
+      "check_constraints": [
+        "expected_observation_count >= 0",
+        "first_expected_date <= last_expected_date"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "security_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "universe_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "first_expected_date",
+          "nullable": false,
+          "type": "DATE"
+        },
+        {
+          "name": "last_expected_date",
+          "nullable": false,
+          "type": "DATE"
+        },
+        {
+          "name": "expected_observation_count",
+          "nullable": false,
+          "type": "BIGINT"
+        }
+      ],
+      "enum_domains": {},
+      "foreign_keys": [],
+      "primary_key": [
+        "score_release_id",
+        "security_id"
+      ],
+      "unique_constraints": []
+    },
+    "security_observation_spine": {
+      "canonical_order": [
+        "score_release_id",
+        "security_id",
+        "trading_date",
+        "observation_sequence",
+        "expected_observation_status",
+        "source_contract",
+        "source_ref",
+        "observation_available_time"
+      ],
+      "check_constraints": [
+        "observation_sequence >= 0",
+        "expected_observation_status in (present,missing,listing_pause)"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "security_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "trading_date",
+          "nullable": false,
+          "type": "DATE"
+        },
+        {
+          "name": "observation_sequence",
+          "nullable": false,
+          "type": "BIGINT"
+        },
+        {
+          "name": "expected_observation_status",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "source_contract",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "source_ref",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "observation_available_time",
+          "nullable": false,
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "enum_domains": {
+        "expected_observation_status": [
+          "present",
+          "missing",
+          "listing_pause"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "columns": [
+            "score_release_id",
+            "security_id"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "security_id"
+          ],
+          "referenced_table": "securities"
+        },
+        {
+          "columns": [
+            "score_release_id",
+            "trading_date"
+          ],
+          "referenced_columns": [
+            "score_release_id",
+            "trading_date"
+          ],
+          "referenced_table": "trading_sessions"
+        }
+      ],
+      "primary_key": [
+        "score_release_id",
+        "security_id",
+        "trading_date"
+      ],
+      "unique_constraints": [
+        [
+          "score_release_id",
+          "security_id",
+          "observation_sequence"
+        ]
+      ]
+    },
+    "trading_sessions": {
+      "canonical_order": [
+        "score_release_id",
+        "trading_date",
+        "session_sequence",
+        "expected_security_count",
+        "present_security_count",
+        "available_time"
+      ],
+      "check_constraints": [
+        "session_sequence >= 0",
+        "expected_security_count >= 0",
+        "present_security_count >= 0",
+        "present_security_count <= expected_security_count"
+      ],
+      "columns": [
+        {
+          "name": "score_release_id",
+          "nullable": false,
+          "type": "VARCHAR"
+        },
+        {
+          "name": "trading_date",
+          "nullable": false,
+          "type": "DATE"
+        },
+        {
+          "name": "session_sequence",
+          "nullable": false,
+          "type": "BIGINT"
+        },
+        {
+          "name": "expected_security_count",
+          "nullable": false,
+          "type": "BIGINT"
+        },
+        {
+          "name": "present_security_count",
+          "nullable": false,
+          "type": "BIGINT"
+        },
+        {
+          "name": "available_time",
+          "nullable": false,
+          "type": "TIMESTAMP WITH TIME ZONE"
+        }
+      ],
+      "enum_domains": {},
+      "foreign_keys": [],
+      "primary_key": [
+        "score_release_id",
+        "trading_date"
+      ],
+      "unique_constraints": [
+        [
+          "score_release_id",
+          "session_sequence"
+        ]
+      ]
+    }
+  }
+}

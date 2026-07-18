@@ -16,7 +16,10 @@ R2A PR: #109
 PR state: Draft
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
+reviewed_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
 formal_execution_quality: 29640937790 / success
+owner_execution_amendment_approved: true
+successor_formal_run_required: false
 implementation_review_status: passed
 R2A stage doctrine: merged via PR #108
 R2A-T01 protocol / implementation planning: completed
@@ -28,6 +31,7 @@ formal_run_status: completed_pending_formal_result_review
 formal_run_attempts: 1 / 1
 additional_formal_run_allowed: false
 result_review_status: pending
+review_evidence_bundle_status: prepared
 readme_advanced: false
 R2A-T02_allowed_to_start: false
 next gate: PR #109 formal-result review
@@ -40,7 +44,9 @@ PCAVT_created: false
 批准的 implementation SHA 为 `3f36357be9d469d7a9751eef79f368676d7ec97a`。唯一一次
 formal run 已由 execution commit `7c3fe76c575eb350a8e94d2f7534d123e865a64c`
 完成，validator 与 result analysis 均通过，结果只进入 formal-result review；不授权接受
-T01、创建 `DONE`、注册 A-layer、合并 PR #109 或启动 R2A-T02。
+T01、创建 `DONE`、注册 A-layer、合并 PR #109 或启动 R2A-T02。Owner 已明确批准
+execution amendment，审阅绑定的 execution commit 仍为上述 SHA，不要求 successor formal
+run。Formal review evidence bundle 已准备，但 `result_review_status` 仍为 `pending`。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -294,7 +300,10 @@ R2A PR: #109
 PR state: Draft
 reviewed implementation SHA: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
+reviewed execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
 formal execution Quality: 29640937790 / success
+owner execution amendment approved: true
+successor formal run required: false
 implementation review status: passed
 R2A stage doctrine: merged via PR #108
 R2A-T01 protocol / implementation planning: completed
@@ -306,6 +315,7 @@ formal_run_status: completed_pending_formal_result_review
 formal_run_attempts: 1 / 1
 additional_formal_run_allowed: false
 result_review_status: pending
+review_evidence_bundle_status: prepared
 readme_advanced: false
 R2A-T02_allowed_to_start: false
 next gate: PR #109 formal-result review
@@ -319,6 +329,10 @@ Formal run ID 为 `R2A-T01-20260718T103110891Z`，Score release ID 为
 `pcavt-score-w120-v1-c7e04f11a2cd09aa`。唯一一次运行已消费，不得重跑。正式 package
 的 validator status 与 analysis status 均为 `passed`，release recommendation 为
 `publish_candidate`，但这不等于正式接受或发布；当前只能停在 **R2A-T01 formal-result review**。
+审阅证据位于
+`data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/formal-review/`：四个紧凑
+formal 文件保持原始字节，另含 summary、30-table review extract 及两份 review manifest。
+该目录是派生审阅证据，不是新的 formal release，也不改变原 package、run attempt 或 gate。
 
 ---
 
@@ -896,6 +910,7 @@ R2A 是 PCAVT 的独立完整重研，不继承 R2-T08 结果。
 R2A-T01 Draft PR #109 的 implementation review 已通过；reviewed implementation SHA 为 3f36357be9d469d7a9751eef79f368676d7ec97a。
 R2A-T01 当前为 formal_result_review；formal_run_status=completed_pending_formal_result_review，result_review_status=pending。
 唯一 formal execution commit 为 7c3fe76c575eb350a8e94d2f7534d123e865a64c；Quality 29640937790 success；不得再次运行。
+Owner 已批准 execution amendment；successor_formal_run_required=false；review_evidence_bundle_status=prepared。
 长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
 当前只进入 formal-result review；不要创建 DONE、推进 README gate、注册 A-layer、接受 T01 或启动 R2A-T02。
 ```
