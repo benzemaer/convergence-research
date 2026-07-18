@@ -17,8 +17,6 @@ from src.r2a.r2a_t01_input_manifest import sha256_file
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t01_authorized_input_manifest.schema.json"
 FORMAL_INPUT_ORDER = (
-    "securities",
-    "trading_sessions",
     "security_observation_spine",
     "pcvt_component_scores",
     "pcvt_dimension_scores",
@@ -56,6 +54,7 @@ class FormalInputAdapter:
         """ATTACH READ_ONLY, validate declared metadata, and return exact relations."""
 
         relations: dict[str, str] = {}
+        attached: dict[Path, str] = {}
         for index, input_name in enumerate(FORMAL_INPUT_ORDER):
             entry = self.inputs[input_name]
             expected_role = (
@@ -75,9 +74,12 @@ class FormalInputAdapter:
             table = str(entry["logical_table_name"])
             if not _IDENTIFIER.fullmatch(table):
                 raise FormalInputError(f"unsafe_logical_table_name:{input_name}")
-            alias = f"r2a_input_{index}"
-            quoted_path = str(path).replace("'", "''")
-            connection.execute(f"ATTACH '{quoted_path}' AS {alias} (READ_ONLY)")
+            alias = attached.get(path)
+            if alias is None:
+                alias = f"r2a_input_{index}"
+                quoted_path = str(path).replace("'", "''")
+                connection.execute(f"ATTACH '{quoted_path}' AS {alias} (READ_ONLY)")
+                attached[path] = alias
             exists = connection.execute(
                 "SELECT count(*) FROM information_schema.tables "
                 "WHERE table_catalog=? AND table_schema='main' AND table_name=?",
@@ -114,6 +116,8 @@ class FormalInputAdapter:
             "source_artifact_id",
             "source_manifest_sha256",
             "source_acceptance_status",
+            "source_run_id",
+            "source_contract_id",
             "input_role",
         )
         return {

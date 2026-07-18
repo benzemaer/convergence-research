@@ -125,15 +125,15 @@ def synthetic_inputs(
     components: list[dict[str, Any]] = []
     scores_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
     for (security_id, component_id), rows in sorted(raw_by_group.items()):
-        history: list[tuple[int, float]] = []
+        history: list[tuple[int, str, float]] = []
         dimension_id = str(rows[0]["dimension_id"])
         for row in rows:
             reference = history[-120:]
             raw_value = float(row["raw_value"])
             eligible = len(reference) == 120
             if eligible:
-                less = sum(value < raw_value for _, value in reference)
-                equal = sum(value == raw_value for _, value in reference)
+                less = sum(value < raw_value for _, _, value in reference)
+                equal = sum(value == raw_value for _, _, value in reference)
                 percentile = (less + 0.5 * equal) / 120
                 score = 1 - percentile
                 reasons = ["valid_no_blocker"]
@@ -155,8 +155,9 @@ def synthetic_inputs(
                 "validity_status": "valid",
                 "reason_codes": reasons,
                 "reference_observation_count": len(reference),
-                "reference_window_start": reference[0][0] if reference else None,
-                "reference_window_end": reference[-1][0] if reference else None,
+                "reference_window_start": reference[0][1] if reference else None,
+                "reference_window_end": reference[-1][1] if reference else None,
+                "current_value_in_reference_set": False,
                 "score_engine_version": "accepted_r0_t05_score_engine.v1",
                 "source_run_id": "synthetic_r0_t05_w120",
             }
@@ -164,64 +165,13 @@ def synthetic_inputs(
             scores_by_key[(security_id, str(row["trading_date"]), component_id)] = (
                 output
             )
-            history.append((int(row["observation_sequence"]), raw_value))
-
-    for row in spine:
-        if row["expected_observation_status"] == "present":
-            continue
-        reason = (
-            "market_observation_missing"
-            if row["expected_observation_status"] == "missing"
-            else "security_listing_pause"
-        )
-        for dimension_id in ("P", "C", "V", "T"):
-            for component_id in COMPONENTS_BY_DIMENSION[dimension_id]:
-                components.append(
-                    {
-                        "security_id": row["security_id"],
-                        "trading_date": row["trading_date"],
-                        "observation_sequence": row["observation_sequence"],
-                        "dimension_id": dimension_id,
-                        "component_id": component_id,
-                        "percentile_window_W": 120,
-                        "raw_value": None,
-                        "percentile": None,
-                        "score": None,
-                        "eligible": False,
-                        "validity_status": "blocked",
-                        "reason_codes": [reason],
-                        "reference_observation_count": 0,
-                        "reference_window_start": None,
-                        "reference_window_end": None,
-                        "score_engine_version": "accepted_r0_t05_score_engine.v1",
-                        "source_run_id": "synthetic_r0_t05_w120",
-                    }
-                )
+            history.append(
+                (int(row["observation_sequence"]), str(row["trading_date"]), raw_value)
+            )
 
     dimensions: list[dict[str, Any]] = []
     for row in spine:
         if row["expected_observation_status"] != "present":
-            reason = (
-                "market_observation_missing"
-                if row["expected_observation_status"] == "missing"
-                else "security_listing_pause"
-            )
-            for dimension_id in ("P", "C", "V", "T"):
-                dimensions.append(
-                    {
-                        "security_id": row["security_id"],
-                        "trading_date": row["trading_date"],
-                        "observation_sequence": row["observation_sequence"],
-                        "dimension_id": dimension_id,
-                        "percentile_window_W": 120,
-                        "score_dimension": None,
-                        "score_dimension_min": None,
-                        "eligible_dimension": False,
-                        "validity_status": "blocked",
-                        "reason_codes": [reason, "component_score_missing"],
-                        "score_engine_version": "accepted_r0_t05_score_engine.v1",
-                    }
-                )
             continue
         for dimension_id in ("P", "C", "V", "T"):
             component_rows = [

@@ -12,6 +12,7 @@
     "created_at": {"type": "string", "format": "date-time"},
     "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "formal_authorization_id": {"type": "string", "minLength": 1},
+    "universe_id": {"type": "string", "minLength": 1},
     "inputs": {"type": "object"}
   },
   "oneOf": [
@@ -23,7 +24,7 @@
       }
     },
     {
-      "required": ["source_commit", "formal_authorization_id"],
+      "required": ["source_commit", "formal_authorization_id", "universe_id"],
       "properties": {
         "synthetic_only": {"const": false},
         "manifest_type": {"const": "r2a_t01_formal_authorized_input"},
@@ -49,10 +50,8 @@
     "formal_inputs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["securities", "trading_sessions", "security_observation_spine", "pcvt_component_scores", "pcvt_dimension_scores", "a_raw_observations", "pcvt_validation_raw"],
+      "required": ["security_observation_spine", "pcvt_component_scores", "pcvt_dimension_scores", "a_raw_observations", "pcvt_validation_raw"],
       "properties": {
-        "securities": {"$ref": "#/$defs/formal_materialization_input"},
-        "trading_sessions": {"$ref": "#/$defs/formal_materialization_input"},
         "security_observation_spine": {"$ref": "#/$defs/formal_materialization_input"},
         "pcvt_component_scores": {"$ref": "#/$defs/formal_materialization_input"},
         "pcvt_dimension_scores": {"$ref": "#/$defs/formal_materialization_input"},
@@ -85,7 +84,7 @@
     "formal_input": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["actual_path", "sha256", "byte_size", "logical_table_name", "row_count", "security_count", "date_min", "date_max", "schema_identity", "source_artifact_id", "source_manifest_sha256", "source_acceptance_status", "input_role"],
+      "required": ["actual_path", "sha256", "byte_size", "logical_table_name", "row_count", "security_count", "date_min", "date_max", "schema_identity", "source_artifact_id", "source_manifest_sha256", "source_acceptance_status", "source_run_id", "source_contract_id", "input_role"],
       "properties": {
         "actual_path": {"type": "string", "minLength": 1},
         "sha256": {"$ref": "#/$defs/hash"},
@@ -99,6 +98,8 @@
         "source_artifact_id": {"type": "string", "minLength": 1},
         "source_manifest_sha256": {"$ref": "#/$defs/hash"},
         "source_acceptance_status": {"const": "accepted"},
+        "source_run_id": {"type": "string", "minLength": 1},
+        "source_contract_id": {"type": "string", "minLength": 1},
         "input_role": {"enum": ["materialization", "validation_only"]}
       }
     },

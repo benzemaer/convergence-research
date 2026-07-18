@@ -125,7 +125,7 @@ def test_score_release_id_is_canonical_and_input_sensitive(tmp_path: Path) -> No
     )
     assert first == second
     changed_input = deepcopy(manifest)
-    changed_input["inputs"]["securities"]["sha256"] = "f" * 64
+    changed_input["inputs"]["security_observation_spine"]["sha256"] = "f" * 64
     assert (
         compute_score_release_id(
             config=config,
@@ -133,6 +133,16 @@ def test_score_release_id_is_canonical_and_input_sensitive(tmp_path: Path) -> No
             input_manifest=changed_input,
         )[0]
         != first[0]
+    )
+    changed_derived_fixture = deepcopy(manifest)
+    changed_derived_fixture["inputs"]["securities"]["sha256"] = "e" * 64
+    assert (
+        compute_score_release_id(
+            config=config,
+            availability_policy_path=DEFAULT_POLICY_PATH,
+            input_manifest=changed_derived_fixture,
+        )[0]
+        == first[0]
     )
     changed_protocol = deepcopy(config)
     changed_protocol["dimension_definition_version"] = "changed-definition"

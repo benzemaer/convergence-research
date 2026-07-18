@@ -37,11 +37,76 @@ def _formal_fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
     del synthetic_manifest
     database_paths: dict[str, Path] = {}
     entries: dict[str, dict[str, Any]] = {}
+    database = tmp_path / "formal-inputs" / "accepted_sources.duckdb"
+    database.parent.mkdir(parents=True, exist_ok=True)
     for name in FORMAL_INPUT_ORDER:
         rows = json.loads(json_paths[name].read_text(encoding="utf-8"))
-        database = tmp_path / "formal-inputs" / f"{name}.duckdb"
-        database.parent.mkdir(parents=True, exist_ok=True)
         logical_table = f"bound_{name}"
+        if name == "pcvt_component_scores":
+            real_rows = []
+            for row in rows:
+                base = {
+                    key: value
+                    for key, value in row.items()
+                    if key
+                    not in {
+                        "observation_sequence",
+                        "dimension_id",
+                        "component_id",
+                        "source_run_id",
+                    }
+                }
+                base["indicator_id"] = row["component_id"]
+                for window in (120, 250, 500):
+                    real_rows.append(dict(base, percentile_window_W=window))
+            rows = real_rows
+        elif name == "pcvt_dimension_scores":
+            real_rows = []
+            for row in rows:
+                base = {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"observation_sequence", "dimension_id"}
+                }
+                base["dimension"] = row["dimension_id"]
+                for window in (120, 250, 500):
+                    real_rows.append(dict(base, percentile_window_W=window))
+            rows = real_rows
+        elif name == "a_raw_observations":
+            real_rows = []
+            for row in rows:
+                base = {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"component_id", "reason_codes", "source_run_id"}
+                }
+                base.update(
+                    indicator_id=row["component_id"],
+                    reason_codes_json=json.dumps(row["reason_codes"]),
+                    run_id=row["source_run_id"],
+                )
+                real_rows.append(base)
+                if row["component_id"].startswith("A2_"):
+                    real_rows.append(
+                        dict(base, indicator_id="A2b_BodyToMACloudGapMean20_5_60")
+                    )
+            rows = real_rows
+        elif name == "pcvt_validation_raw":
+            real_rows = []
+            for row in rows:
+                indicator = (
+                    "V2_LogAmount20_base"
+                    if row["component_id"] == "V2_AmountLevel20Pct"
+                    else row["component_id"]
+                )
+                base = {
+                    key: value
+                    for key, value in row.items()
+                    if key
+                    not in {"observation_sequence", "dimension_id", "component_id"}
+                }
+                real_rows.append(dict(base, indicator_id=indicator))
+            rows = real_rows
         with duckdb.connect(str(database)) as connection:
             connection.register("fixture_rows", pa.Table.from_pylist(rows))
             connection.execute(
@@ -50,7 +115,8 @@ def _formal_fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
             connection.unregister("fixture_rows")
             connection.execute("CHECKPOINT")
         database_paths[name] = database
-        entries[name] = _entry_for(name, database, logical_table)
+    for name in FORMAL_INPUT_ORDER:
+        entries[name] = _entry_for(name, database, f"bound_{name}")
     manifest = tmp_path / "formal-inputs" / "authorized_input_manifest.local.json"
     write_json_atomic(
         manifest,
@@ -62,6 +128,7 @@ def _formal_fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
             "created_at": "2026-07-18T00:00:00Z",
             "source_commit": "0" * 40,
             "formal_authorization_id": "FORMAL-LIKE-LOCAL-TEST-ONLY",
+            "universe_id": "CSI800_FROZEN_TEST",
             "inputs": entries,
         },
     )
@@ -82,6 +149,8 @@ def _entry_for(name: str, database: Path, logical_table: str) -> dict[str, Any]:
         "source_artifact_id": f"accepted-test-artifact:{name}",
         "source_manifest_sha256": "a" * 64,
         "source_acceptance_status": "accepted",
+        "source_run_id": f"accepted-run:{name}",
+        "source_contract_id": f"accepted-contract:{name}",
         "input_role": "validation_only"
         if name == "pcvt_validation_raw"
         else "materialization",
@@ -90,11 +159,14 @@ def _entry_for(name: str, database: Path, logical_table: str) -> dict[str, Any]:
 
 def _refresh_entry(manifest_path: Path, name: str) -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    previous = payload["inputs"][name]
-    refreshed = _entry_for(
-        name, Path(previous["actual_path"]), previous["logical_table_name"]
-    )
-    payload["inputs"][name] = refreshed
+    changed_path = Path(payload["inputs"][name]["actual_path"]).resolve()
+    for input_name, previous in list(payload["inputs"].items()):
+        if Path(previous["actual_path"]).resolve() != changed_path:
+            continue
+        refreshed = _entry_for(input_name, changed_path, previous["logical_table_name"])
+        refreshed["source_run_id"] = previous["source_run_id"]
+        refreshed["source_contract_id"] = previous["source_contract_id"]
+        payload["inputs"][input_name] = refreshed
     write_json_atomic(manifest_path, payload)
 
 
@@ -165,6 +237,73 @@ def test_formal_adapter_attaches_exact_tables_and_depathizes_summary(
     summary = adapter.depathized_summary()
     assert all("actual_path" not in entry for entry in summary.values())
     assert summary["pcvt_validation_raw"]["input_role"] == "validation_only"
+
+
+def test_formal_projection_matches_real_contract_shapes(tmp_path: Path) -> None:
+    manifest, databases = _formal_fixture(tmp_path)
+    assert len({path.resolve() for path in databases.values()}) == 1
+    source = next(iter(databases.values()))
+    with duckdb.connect(str(source), read_only=True) as connection:
+        component_columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info('bound_pcvt_component_scores')"
+            ).fetchall()
+        }
+        dimension_columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info('bound_pcvt_dimension_scores')"
+            ).fetchall()
+        }
+        a_columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info('bound_a_raw_observations')"
+            ).fetchall()
+        }
+        assert {"indicator_id", "percentile_window_W"} <= component_columns
+        assert (
+            not {"component_id", "dimension_id", "observation_sequence"}
+            & component_columns
+        )
+        assert (
+            "dimension" in dimension_columns
+            and "observation_sequence" not in dimension_columns
+        )
+        assert {"indicator_id", "reason_codes_json", "run_id"} <= a_columns
+    staging = tmp_path / "projection.duckdb"
+    _stage_formal_inputs(FormalInputAdapter(manifest), staging)
+    with duckdb.connect(str(staging), read_only=True) as connection:
+        assert connection.execute(
+            "SELECT list(DISTINCT percentile_window_W) FROM stage_pcvt_component_scores"
+        ).fetchone()[0] == [120]
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM stage_a_raw_observations "
+                "WHERE component_id LIKE 'A2b%'"
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM stage_pcvt_validation_raw "
+                "WHERE component_id='V2_AmountLevel20Pct'"
+            ).fetchone()[0]
+            > 0
+        )
+        assert connection.execute(
+            "SELECT min(observation_sequence),max(observation_sequence) "
+            "FROM stage_security_observation_spine"
+        ).fetchone() == (0, 122)
+        reference_types = dict(
+            connection.execute(
+                "SELECT column_name,data_type FROM information_schema.columns "
+                "WHERE table_name='stage_pcvt_component_scores'"
+            ).fetchall()
+        )
+        assert reference_types["reference_window_start"] == "DATE"
+        assert reference_types["reference_window_end"] == "DATE"
 
 
 def test_formal_like_path_is_bounded_and_never_uses_json_array_loader(
@@ -252,8 +391,8 @@ def test_formal_source_extra_or_missing_key_fails_closed(
         connection.execute("CHECKPOINT")
     _refresh_entry(manifest, "pcvt_component_scores")
     staging = tmp_path / "staging.duckdb"
-    _stage_formal_inputs(FormalInputAdapter(manifest), staging)
     with pytest.raises(ScoreReleaseError, match=expected):
+        _stage_formal_inputs(FormalInputAdapter(manifest), staging)
         _validate_staging(staging)
 
 
@@ -265,8 +404,5 @@ def test_swapped_source_table_fails_closed(tmp_path: Path) -> None:
     )
     write_json_atomic(manifest, payload)
     staging = tmp_path / "swapped.duckdb"
-    _stage_formal_inputs(FormalInputAdapter(manifest), staging)
-    with pytest.raises(
-        ScoreReleaseError, match="staging_schema_missing:pcvt_component_scores"
-    ):
-        _validate_staging(staging)
+    with pytest.raises(Exception, match="percentile_window_W"):
+        _stage_formal_inputs(FormalInputAdapter(manifest), staging)

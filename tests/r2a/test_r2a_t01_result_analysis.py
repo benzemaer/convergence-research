@@ -54,11 +54,41 @@ def test_failed_receipt_still_generates_blocked_analysis(tmp_path: Path) -> None
     ("name", "sql", "anomaly"),
     [
         (
+            "component_all_null",
+            "UPDATE daily_component_scores SET eligible=false,validity_status='unknown',"
+            "score=NULL,percentile=NULL WHERE component_id='P1_NATR14'",
+            "component_all_null:P1_NATR14",
+        ),
+        (
+            "component_all_zero",
+            "UPDATE daily_component_scores SET score=0,percentile=1 "
+            "WHERE component_id='P1_NATR14' AND score IS NOT NULL",
+            "component_all_zero:P1_NATR14",
+        ),
+        (
+            "component_all_one",
+            "UPDATE daily_component_scores SET score=1,percentile=0 "
+            "WHERE component_id='P1_NATR14' AND score IS NOT NULL",
+            "component_all_one:P1_NATR14",
+        ),
+        (
             "dimension_all_null",
             "UPDATE daily_dimension_scores SET eligible_dimension=false,"
             "validity_status='unknown',score_dimension=NULL,score_dimension_min=NULL "
             "WHERE dimension_id='A'",
             "dimension_all_null:A",
+        ),
+        (
+            "dimension_all_zero",
+            "UPDATE daily_dimension_scores SET score_dimension=0,score_dimension_min=0 "
+            "WHERE dimension_id='A' AND score_dimension IS NOT NULL",
+            "dimension_all_zero:A",
+        ),
+        (
+            "dimension_all_one",
+            "UPDATE daily_dimension_scores SET score_dimension=1,score_dimension_min=1 "
+            "WHERE dimension_id='A' AND score_dimension IS NOT NULL",
+            "dimension_all_one:A",
         ),
         (
             "a_mean_mismatch",

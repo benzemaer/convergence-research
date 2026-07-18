@@ -58,7 +58,12 @@ EXPECTED_INPUTS = (
     "a_raw_observations",
     "pcvt_validation_raw",
 )
-MATERIALIZATION_INPUTS = EXPECTED_INPUTS[:-1]
+RELEASE_ID_INPUTS = (
+    "security_observation_spine",
+    "pcvt_component_scores",
+    "pcvt_dimension_scores",
+    "a_raw_observations",
+)
 
 
 class ScoreReleaseError(RuntimeError):
@@ -193,10 +198,12 @@ def compute_score_release_id(
     """Return the canonical release ID and its full canonical-preimage hash."""
 
     inputs = input_manifest.get("inputs")
-    if not isinstance(inputs, Mapping) or tuple(inputs) != EXPECTED_INPUTS:
-        if not isinstance(inputs, Mapping) or set(inputs) != set(EXPECTED_INPUTS):
-            raise ScoreReleaseError("input_set_mismatch")
-    ordered_hashes = [str(inputs[name]["sha256"]) for name in MATERIALIZATION_INPUTS]
+    expected = set(
+        EXPECTED_INPUTS if input_manifest.get("synthetic_only") else FORMAL_INPUT_ORDER
+    )
+    if not isinstance(inputs, Mapping) or set(inputs) != expected:
+        raise ScoreReleaseError("input_set_mismatch")
+    ordered_hashes = [str(inputs[name]["sha256"]) for name in RELEASE_ID_INPUTS]
     preimage = {
         "release_contract_id": config["release_contract_id"],
         "dimension_definition_version": config["dimension_definition_version"],
@@ -249,12 +256,99 @@ def _stage_formal_inputs(
 
     with duckdb.connect(str(staging_path)) as connection:
         relations = adapter.attach_and_validate(connection)
-        for name in FORMAL_INPUT_ORDER:
-            connection.execute(
-                f'CREATE TABLE "stage_{name}" AS SELECT * FROM {relations[name]}'
+        spine = relations["security_observation_spine"]
+        component = relations["pcvt_component_scores"]
+        dimension = relations["pcvt_dimension_scores"]
+        a_raw = relations["a_raw_observations"]
+        validation = relations["pcvt_validation_raw"]
+        universe = _sql_literal(adapter.manifest["universe_id"])
+        component_run = _sql_literal(
+            adapter.inputs["pcvt_component_scores"]["source_run_id"]
+        )
+        component_ids = ",".join(_sql_literal(item) for item in PCVT_COMPONENTS)
+        raw_component_ids = ",".join(
+            _sql_literal(
+                "V2_LogAmount20_base" if item == "V2_AmountLevel20Pct" else item
             )
+            for item in PCVT_COMPONENTS
+        )
+        if connection.execute(
+            f"SELECT count(*) FROM {component} x LEFT JOIN {spine} s "
+            "USING(security_id,trading_date) WHERE x.percentile_window_W=120 AND "
+            f"(s.security_id IS NULL OR x.indicator_id NOT IN ({component_ids}))"
+        ).fetchone()[0]:
+            raise ScoreReleaseError("extra_or_invalid_source_key:pcvt_component_scores")
+        if connection.execute(
+            f"SELECT count(*) FROM {dimension} x LEFT JOIN {spine} s "
+            "USING(security_id,trading_date) WHERE x.percentile_window_W=120 AND "
+            "(s.security_id IS NULL OR x.dimension NOT IN ('P','C','V','T'))"
+        ).fetchone()[0]:
+            raise ScoreReleaseError("extra_or_invalid_source_key:pcvt_dimension_scores")
+        if connection.execute(
+            f"SELECT count(*) FROM {validation} x LEFT JOIN {spine} s "
+            f"USING(security_id,trading_date) WHERE s.security_id IS NULL OR x.indicator_id NOT IN ({raw_component_ids})"
+        ).fetchone()[0]:
+            raise ScoreReleaseError("extra_or_invalid_source_key:pcvt_validation_raw")
+        connection.execute(f"""
+            CREATE TABLE stage_security_observation_spine AS
+            SELECT security_id,CAST(trading_date AS DATE) trading_date,
+              CAST(observation_sequence AS BIGINT) observation_sequence,
+              expected_observation_status,source_contract,source_ref,
+              CAST(trading_date AS DATE)::TIMESTAMP AT TIME ZONE 'Asia/Shanghai'
+                + INTERVAL 15 HOUR observation_available_time
+            FROM {spine};
+            CREATE TABLE stage_securities AS
+            SELECT security_id,{universe} universe_id,min(CAST(trading_date AS DATE)) first_expected_date,
+              max(CAST(trading_date AS DATE)) last_expected_date,count(*) expected_observation_count
+            FROM {spine} GROUP BY security_id;
+            CREATE TABLE stage_trading_sessions AS
+            SELECT CAST(trading_date AS DATE) trading_date,
+              min(CAST(observation_sequence AS BIGINT)) session_sequence,
+              count(DISTINCT security_id) expected_security_count,
+              count(DISTINCT security_id) FILTER(WHERE expected_observation_status='present') present_security_count,
+              CAST(trading_date AS DATE)::TIMESTAMP AT TIME ZONE 'Asia/Shanghai'
+                + INTERVAL 15 HOUR available_time
+            FROM {spine} GROUP BY trading_date;
+            CREATE TABLE stage_pcvt_component_scores AS
+            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+              CASE WHEN x.indicator_id LIKE 'P%' THEN 'P' WHEN x.indicator_id LIKE 'C%' THEN 'C'
+                   WHEN x.indicator_id LIKE 'V%' THEN 'V' WHEN x.indicator_id LIKE 'T%' THEN 'T' END dimension_id,
+              x.indicator_id component_id,CAST(x.percentile_window_W AS INTEGER) percentile_window_W,
+              x.raw_value,x.percentile,x.score,x.eligible,x.validity_status,x.reason_codes,
+              CAST(x.reference_observation_count AS INTEGER) reference_observation_count,
+              CAST(x.reference_window_start AS DATE) reference_window_start,
+              CAST(x.reference_window_end AS DATE) reference_window_end,
+              x.current_value_in_reference_set,x.score_engine_version,{component_run} source_run_id
+            FROM {component} x JOIN stage_security_observation_spine s USING(security_id,trading_date)
+            WHERE x.percentile_window_W=120 AND x.current_value_in_reference_set=false;
+            CREATE TABLE stage_pcvt_dimension_scores AS
+            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+              x.dimension dimension_id,CAST(x.percentile_window_W AS INTEGER) percentile_window_W,
+              x.score_dimension,x.score_dimension_min,x.eligible_dimension,x.validity_status,
+              x.reason_codes,x.score_engine_version
+            FROM {dimension} x JOIN stage_security_observation_spine s USING(security_id,trading_date)
+            WHERE x.percentile_window_W=120;
+            CREATE TABLE stage_a_raw_observations AS
+            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+              x.indicator_id component_id,x.raw_value,x.validity_status,
+              json_extract_string(x.reason_codes_json,'$[*]') reason_codes,x.run_id source_run_id
+            FROM {a_raw} x JOIN stage_security_observation_spine s USING(security_id,trading_date)
+            WHERE x.indicator_id IN ('A1_LogBodyCenterToMACloudCenter_5_60',
+              'A2_BodyCenterOutsideMACloudRate20_5_60');
+            CREATE TABLE stage_pcvt_validation_raw AS
+            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+              CASE WHEN x.indicator_id LIKE 'P%' THEN 'P' WHEN x.indicator_id LIKE 'C%' THEN 'C'
+                   WHEN x.indicator_id LIKE 'V%' THEN 'V' WHEN x.indicator_id LIKE 'T%' THEN 'T' END dimension_id,
+              CASE WHEN x.indicator_id='V2_LogAmount20_base' THEN 'V2_AmountLevel20Pct'
+                   ELSE x.indicator_id END component_id,x.raw_value,x.validity_status,x.reason_codes
+            FROM {validation} x JOIN stage_security_observation_spine s USING(security_id,trading_date);
+        """)
         connection.execute("CHECKPOINT")
     return adapter.depathized_summary()
+
+
+def _sql_literal(value: object) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
 
 
 def _validate_staging(staging_path: Path) -> None:
@@ -351,6 +445,7 @@ def _validate_staging_columns(connection: duckdb.DuckDBPyConnection) -> None:
             "reference_observation_count",
             "reference_window_start",
             "reference_window_end",
+            "current_value_in_reference_set",
             "score_engine_version",
             "source_run_id",
         },
@@ -555,8 +650,8 @@ def _create_tables(connection: duckdb.DuckDBPyConnection) -> None:
           validity_status VARCHAR NOT NULL CHECK(validity_status IN ('valid','unknown','diagnostic_required','blocked')),
           reason_codes VARCHAR[] NOT NULL CHECK(len(reason_codes)>=1),
           reference_observation_count INTEGER NOT NULL CHECK(reference_observation_count BETWEEN 0 AND 120),
-          reference_window_start BIGINT,
-          reference_window_end BIGINT,
+          reference_window_start DATE,
+          reference_window_end DATE,
           current_value_in_reference_set BOOLEAN NOT NULL CHECK(current_value_in_reference_set=false),
           tie_method VARCHAR NOT NULL CHECK(tie_method='midrank'),
           score_engine_version VARCHAR NOT NULL,
@@ -762,9 +857,11 @@ def _score_security_shard(
         ).fetchall()
     raw_rows: list[dict[str, Any]] = []
     metadata: dict[tuple[str, str], tuple[Any, str]] = {}
+    date_by_sequence: dict[int, str] = {}
     for row in rows:
         trading_date = str(row[0])
         sequence = int(row[1])
+        date_by_sequence[sequence] = trading_date
         observation_status = str(row[2])
         component_id = str(row[4])
         if observation_status == "missing":
@@ -814,8 +911,12 @@ def _score_security_shard(
                 "validity_status": item.validity_status,
                 "reason_codes": list(item.reason_codes),
                 "reference_observation_count": item.reference_observation_count,
-                "reference_window_start": item.reference_sequence_start,
-                "reference_window_end": item.reference_sequence_end,
+                "reference_window_start": date_by_sequence.get(
+                    item.reference_sequence_start
+                ),
+                "reference_window_end": date_by_sequence.get(
+                    item.reference_sequence_end
+                ),
                 "current_value_in_reference_set": False,
                 "tie_method": TIE_METHOD,
                 "score_engine_version": ENGINE_VERSION,

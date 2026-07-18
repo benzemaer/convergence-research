@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -306,7 +306,7 @@ def _score_and_dimension_checks(
         ).fetchone()[0],
         "reference_window_current_excluded": connection.execute(
             "SELECT count(*)=0 FROM daily_component_scores WHERE eligible AND "
-            "(reference_observation_count<>120 OR reference_window_end>=observation_sequence "
+            "(reference_observation_count<>120 OR reference_window_end>=trading_date "
             "OR reference_window_start>reference_window_end)"
         ).fetchone()[0],
         "component_domain": connection.execute(
@@ -390,13 +390,17 @@ def _validate_sources(
     checks["pcvt_component_source_keyset_reconciled"] = _bidirectional_keyset(
         connection,
         "source.main.stage_pcvt_component_scores",
-        "(SELECT o.* FROM daily_component_scores o WHERE o.dimension_id<>'A')",
+        "(SELECT o.* FROM daily_component_scores o JOIN security_observation_spine s "
+        "USING(score_release_id,security_id,trading_date) WHERE o.dimension_id<>'A' "
+        "AND s.expected_observation_status='present')",
         component_key,
     )
     checks["pcvt_dimension_source_keyset_reconciled"] = _bidirectional_keyset(
         connection,
         "source.main.stage_pcvt_dimension_scores",
-        "(SELECT o.* FROM daily_dimension_scores o WHERE o.dimension_id<>'A')",
+        "(SELECT o.* FROM daily_dimension_scores o JOIN security_observation_spine s "
+        "USING(score_release_id,security_id,trading_date) WHERE o.dimension_id<>'A' "
+        "AND s.expected_observation_status='present')",
         dimension_key,
     )
     component_mismatches = int(
@@ -410,7 +414,10 @@ def _validate_sources(
             "x.reference_window_start IS DISTINCT FROM o.reference_window_start OR "
             "x.reference_window_end IS DISTINCT FROM o.reference_window_end OR "
             "x.raw_value IS DISTINCT FROM o.raw_value OR x.percentile IS DISTINCT FROM o.percentile "
-            "OR x.score IS DISTINCT FROM o.score)"
+            "OR x.score IS DISTINCT FROM o.score OR x.observation_sequence<>o.observation_sequence "
+            "OR x.percentile_window_W<>o.percentile_window_W OR x.reason_codes<>o.reason_codes "
+            "OR x.current_value_in_reference_set<>o.current_value_in_reference_set "
+            "OR x.score_engine_version<>o.score_engine_version OR x.source_run_id<>o.source_run_id)"
         ).fetchone()[0]
     )
     dimension_mismatches = int(
@@ -422,7 +429,10 @@ def _validate_sources(
             "(x.eligible_dimension<>o.eligible_dimension OR "
             "x.validity_status<>o.validity_status OR "
             "x.score_dimension IS DISTINCT FROM o.score_dimension OR "
-            "x.score_dimension_min IS DISTINCT FROM o.score_dimension_min)"
+            "x.score_dimension_min IS DISTINCT FROM o.score_dimension_min OR "
+            "x.observation_sequence<>o.observation_sequence OR "
+            "x.percentile_window_W<>o.percentile_window_W OR x.reason_codes<>o.reason_codes OR "
+            "x.score_engine_version<>o.score_engine_version)"
         ).fetchone()[0]
     )
     checks["pcvt_component_source_values_reconciled"] = component_mismatches == 0
@@ -434,7 +444,9 @@ def _validate_sources(
     )
     output_valid = int(
         connection.execute(
-            "SELECT count(*) FROM daily_component_scores WHERE dimension_id<>'A' AND eligible"
+            "SELECT count(*) FROM daily_component_scores o JOIN security_observation_spine s "
+            "USING(score_release_id,security_id,trading_date) WHERE o.dimension_id<>'A' "
+            "AND s.expected_observation_status='present' AND o.eligible"
         ).fetchone()[0]
     )
     checks["source_valid_output_coverage"] = source_valid == output_valid
@@ -521,7 +533,7 @@ def _compare_raw_recomputation(
     compared = 0
     mismatches = 0
     for (security_id, component_id), group in groups.items():
-        history: list[tuple[int, float]] = []
+        history: list[tuple[int, str, float]] = []
         for row in sorted(group, key=lambda item: int(item[2])):
             trading_date = str(row[1])
             sequence = int(row[2])
@@ -531,8 +543,8 @@ def _compare_raw_recomputation(
             expected_count = len(reference)
             eligible = valid and expected_count == 120
             if eligible:
-                less = sum(value < raw_value for _, value in reference)
-                equal = sum(value == raw_value for _, value in reference)
+                less = sum(value < raw_value for _, _, value in reference)
+                equal = sum(value == raw_value for _, _, value in reference)
                 percentile = (less + 0.5 * equal) / 120
                 score = 1 - percentile
             else:
@@ -549,13 +561,13 @@ def _compare_raw_recomputation(
                 percentile,
                 score,
                 expected_count,
-                reference[0][0] if reference else None,
-                reference[-1][0] if reference else None,
+                date.fromisoformat(reference[0][1]) if reference else None,
+                date.fromisoformat(reference[-1][1]) if reference else None,
             )
             if actual is None or not _row_equivalent(actual, expected):
                 mismatches += 1
             if valid:
-                history.append((sequence, raw_value))
+                history.append((sequence, trading_date, raw_value))
     return compared, mismatches
 
 

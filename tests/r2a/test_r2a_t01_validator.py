@@ -89,6 +89,36 @@ def test_validator_detects_availability_mismatch(tmp_path: Path) -> None:
             "pcvt_component_source_values_reconciled",
         ),
         (
+            "pcvt_component_sequence_mismatch",
+            "UPDATE daily_component_scores SET observation_sequence=observation_sequence+1000 "
+            "WHERE component_id='P1_NATR14' AND trading_date=(SELECT min(trading_date) FROM daily_component_scores)",
+            "pcvt_component_source_values_reconciled",
+        ),
+        (
+            "pcvt_component_reason_mismatch",
+            "UPDATE daily_component_scores SET reason_codes=['mutated_reason'] "
+            "WHERE component_id='P1_NATR14' AND eligible",
+            "pcvt_component_source_values_reconciled",
+        ),
+        (
+            "pcvt_component_engine_mismatch",
+            "UPDATE daily_component_scores SET score_engine_version='mutated_engine' "
+            "WHERE component_id='P1_NATR14'",
+            "pcvt_component_source_values_reconciled",
+        ),
+        (
+            "pcvt_component_run_mismatch",
+            "UPDATE daily_component_scores SET source_run_id='mutated_run' "
+            "WHERE component_id='P1_NATR14'",
+            "pcvt_component_source_values_reconciled",
+        ),
+        (
+            "pcvt_component_reference_mismatch",
+            "UPDATE daily_component_scores SET reference_window_start=reference_window_start+INTERVAL '1 day' "
+            "WHERE component_id='P1_NATR14' AND eligible",
+            "pcvt_component_source_values_reconciled",
+        ),
+        (
             "pcvt_component_to_dimension_mismatch",
             "UPDATE daily_dimension_scores SET score_dimension=score_dimension+0.001 "
             "WHERE dimension_id='P' AND eligible_dimension",
@@ -107,6 +137,38 @@ def test_validator_negative_output_mutations(
     receipt = validate_score_release(package, authorized_input_manifest=input_manifest)
     assert receipt["status"] == "failed"
     assert expected_reason in receipt["reason_codes"]
+
+
+def test_expected_empty_rows_are_omitted_upstream_but_blocked_downstream(
+    tmp_path: Path,
+) -> None:
+    package, input_manifest, paths = build_package(tmp_path)
+    component_rows = json.loads(
+        paths["pcvt_component_scores"].read_text(encoding="utf-8")
+    )
+    assert all(
+        row["trading_date"] not in {"2020-02-19", "2020-02-29"}
+        for row in component_rows
+    )
+    receipt = validate_score_release(package, authorized_input_manifest=input_manifest)
+    assert receipt["checks"]["pcvt_component_source_keyset_reconciled"] is True
+    assert receipt["checks"]["expected_empty_component_blocked"] is True
+    assert receipt["checks"]["expected_empty_dimension_blocked"] is True
+
+
+def test_expected_empty_blocked_cardinality_fails_independently(tmp_path: Path) -> None:
+    package, input_manifest, _ = build_package(tmp_path)
+    with duckdb.connect(str(package / "score_data.duckdb")) as connection:
+        connection.execute(
+            "DELETE FROM daily_component_scores WHERE trading_date='2020-02-19' "
+            "AND component_id='P1_NATR14'"
+        )
+        connection.execute("CHECKPOINT")
+    _refresh_database_identity(package)
+    receipt = validate_score_release(package, authorized_input_manifest=input_manifest)
+    assert receipt["checks"]["pcvt_component_source_keyset_reconciled"] is True
+    assert receipt["checks"]["expected_empty_component_blocked"] is False
+    assert "expected_empty_component_blocked" in receipt["reason_codes"]
 
 
 def test_pcvt_raw_to_score_mismatch_fails_closed(tmp_path: Path) -> None:

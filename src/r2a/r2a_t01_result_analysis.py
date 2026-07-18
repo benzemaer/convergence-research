@@ -59,13 +59,26 @@ def analyze_score_release(package_dir: str | Path) -> Path:
         ).fetchall()
         component_stats = connection.execute(
             "SELECT dimension_id,component_id,count(*),count(*) FILTER(WHERE eligible),"
-            "count(*) FILTER(WHERE score IS NULL),min(score),max(score),avg(score) "
+            "count(*) FILTER(WHERE score IS NULL),"
+            "min(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
+            "max(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
+            "avg(score) FILTER(WHERE validity_status='valid' AND score IS NOT NULL),"
+            "count(*) FILTER(WHERE validity_status='valid'),"
+            "count(*) FILTER(WHERE validity_status='unknown'),"
+            "count(*) FILTER(WHERE validity_status='diagnostic_required'),"
+            "count(*) FILTER(WHERE validity_status='blocked') "
             "FROM daily_component_scores GROUP BY 1,2 ORDER BY 1,2"
         ).fetchall()
         dimension_stats = connection.execute(
             "SELECT dimension_id,count(*),count(*) FILTER(WHERE eligible_dimension),"
-            "count(*) FILTER(WHERE score_dimension IS NULL),min(score_dimension),"
-            "max(score_dimension),avg(score_dimension) FROM daily_dimension_scores "
+            "count(*) FILTER(WHERE score_dimension IS NULL),"
+            "min(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
+            "max(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
+            "avg(score_dimension) FILTER(WHERE validity_status='valid' AND score_dimension IS NOT NULL),"
+            "count(*) FILTER(WHERE validity_status='valid'),"
+            "count(*) FILTER(WHERE validity_status='unknown'),"
+            "count(*) FILTER(WHERE validity_status='diagnostic_required'),"
+            "count(*) FILTER(WHERE validity_status='blocked') FROM daily_dimension_scores "
             "GROUP BY 1 ORDER BY 1"
         ).fetchall()
         yearly_coverage = connection.execute(
@@ -118,8 +131,16 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                 "Validation receipt failed; publication is prohibited until every failed check is explained and resolved.",
             )
         )
+        for reason in receipt.get("reason_codes", []):
+            anomalies.append(
+                (
+                    f"validator_failed:{reason}",
+                    "blocking",
+                    "This exact validator failure must be explained and resolved.",
+                )
+            )
     for row in component_stats:
-        if row[3] == row[2]:
+        if row[4] == row[2]:
             anomalies.append(
                 (
                     f"component_all_null:{row[1]}",
@@ -139,6 +160,22 @@ def analyze_score_release(package_dir: str | Path) -> Path:
             anomalies.append(
                 (f"component_all_one:{row[1]}", "blocking", "All valid scores are one.")
             )
+        if row[3] == 0:
+            anomalies.append(
+                (
+                    f"component_eligible_zero:{row[1]}",
+                    "blocking",
+                    "The component has no eligible rows.",
+                )
+            )
+        if row[8] == 0:
+            anomalies.append(
+                (
+                    f"component_validity_no_valid:{row[1]}",
+                    "blocking",
+                    "The component validity distribution contains no valid rows.",
+                )
+            )
     for row in dimension_stats:
         if row[3] == row[1]:
             anomalies.append(
@@ -146,6 +183,38 @@ def analyze_score_release(package_dir: str | Path) -> Path:
                     f"dimension_all_null:{row[0]}",
                     "blocking",
                     "The dimension has no non-NULL Score in the actual release.",
+                )
+            )
+        if row[4] is not None and row[4] == row[5] == 0:
+            anomalies.append(
+                (
+                    f"dimension_all_zero:{row[0]}",
+                    "blocking",
+                    "All valid dimension scores are zero.",
+                )
+            )
+        if row[4] is not None and row[4] == row[5] == 1:
+            anomalies.append(
+                (
+                    f"dimension_all_one:{row[0]}",
+                    "blocking",
+                    "All valid dimension scores are one.",
+                )
+            )
+        if row[2] == 0:
+            anomalies.append(
+                (
+                    f"dimension_eligible_zero:{row[0]}",
+                    "blocking",
+                    "The dimension has no eligible rows.",
+                )
+            )
+        if row[7] == 0:
+            anomalies.append(
+                (
+                    f"dimension_validity_no_valid:{row[0]}",
+                    "blocking",
+                    "The dimension validity distribution contains no valid rows.",
                 )
             )
     if mean_min_mismatches:
@@ -226,7 +295,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
             "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
-    lines.extend(_render_stat_row(row) for row in component_stats)
+    lines.extend(_render_stat_row(row[:8]) for row in component_stats)
     lines.extend(
         [
             "",
@@ -236,7 +305,7 @@ def analyze_score_release(package_dir: str | Path) -> Path:
             "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
-    lines.extend(_render_stat_row(row) for row in dimension_stats)
+    lines.extend(_render_stat_row(row[:7]) for row in dimension_stats)
     lines.extend(
         [
             "",
