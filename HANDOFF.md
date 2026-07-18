@@ -13,7 +13,7 @@ current_branch: codex/r2a-t01-score-release-implementation
 remote_branch: origin/codex/r2a-t01-score-release-implementation
 base_main_sha: 2e623d0e207be2568f235f659c83a794f3b56ffb
 R2A PR: #109
-PR state: Draft
+PR state: acceptance closure pending Quality and merge
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
 reviewed_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
@@ -24,35 +24,40 @@ implementation_review_status: passed
 R2A stage doctrine: merged via PR #108
 R2A-T01 protocol / implementation planning: completed
 R2A-T01 implementation: completed and reviewed
-R2A-T01_status: formal_result_review
+R2A-T01_status: completed_accepted
 formal_run_allowed: true
 real_input_read_allowed: true
-formal_run_status: completed_pending_formal_result_review
+formal_run_status: completed_accepted
 formal_run_attempts: 1 / 1
+formal_authorization_consumed: true
 additional_formal_run_allowed: false
-result_review_status: pending
-review_evidence_bundle_status: prepared
+formal_result_review_status: accepted
+result_review_status: accepted
+accepted_run_id: R2A-T01-20260718T103110891Z
+accepted_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
+review_evidence_bundle_status: accepted
 independent_review_execution_status: completed
 independent_review_result: passed
-readme_advanced: false
-R2A-T02_allowed_to_start: false
-DONE: absent
-next gate: PR #109 formal-result review
-A_layer_score_contract_defined: true
-A_layer_registered: false
-PCAVT_created: false
+independent_review_mismatch_count: 0
+readme_advanced: true
+next_task: R2A-T02
+R2A-T02_allowed_to_start: true_after_PR_109_merge
+R2A-T02_started: false
+DONE: present
+next gate: PR #109 closure Quality and merge
+A_layer_W120_score_contract_registered: true
+canonical_PCAVT_score_release_registered: true
+PCAVT_dynamic_state_created: false
 ```
 
 阶段纲领已通过 PR #108 合并。R2A-T01 implementation 已在 Draft PR #109 完成审阅，
 批准的 implementation SHA 为 `3f36357be9d469d7a9751eef79f368676d7ec97a`。唯一一次
 formal run 已由 execution commit `7c3fe76c575eb350a8e94d2f7534d123e865a64c`
-完成，validator 与 result analysis 均通过，结果只进入 formal-result review；不授权接受
-T01、创建 `DONE`、注册 A-layer、合并 PR #109 或启动 R2A-T02。Owner 已明确批准
-execution amendment，审阅绑定的 execution commit 仍为上述 SHA，不要求 successor formal
-run。Formal review evidence bundle 已准备，但 `result_review_status` 仍为 `pending`。
-Review-only 程序对已提交 extract 完成独立只读复算，结果为 `passed`，recommendation 为
-`accept_candidate`；该 recommendation 不构成 T01 acceptance，停止点仍是 independent
-formal-result review。
+完成，validator、result analysis 与独立 review 均通过，正式和独立 mismatch 均为 0。
+Owner 已接受 run `R2A-T01-20260718T103110891Z` 及 Score release
+`pcavt-score-w120-v1-c7e04f11a2cd09aa`；accepted handoff 与 canonical `DONE` 已建立。
+该验收只注册 canonical PCAVT W120 Score release 与 A-layer W120 Score contract，未创建
+动态 PCAVT 状态。R2A-T02 只有在 PR #109 合并后才允许开始，当前仍为未启动。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -303,7 +308,7 @@ branch: codex/r2a-t01-score-release-implementation
 remote branch: established
 branch base: 2e623d0e207be2568f235f659c83a794f3b56ffb
 R2A PR: #109
-PR state: Draft
+PR state: acceptance closure pending Quality and merge
 reviewed implementation SHA: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
 reviewed execution commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
@@ -314,30 +319,36 @@ implementation review status: passed
 R2A stage doctrine: merged via PR #108
 R2A-T01 protocol / implementation planning: completed
 R2A-T01 implementation: completed and reviewed
-R2A-T01 status: formal_result_review
+R2A-T01 status: completed_accepted
 formal_run_allowed: true
 real_input_read_allowed: true
-formal_run_status: completed_pending_formal_result_review
+formal_run_status: completed_accepted
 formal_run_attempts: 1 / 1
+formal_authorization_consumed: true
 additional_formal_run_allowed: false
-result_review_status: pending
-review_evidence_bundle_status: prepared
+formal_result_review_status: accepted
+result_review_status: accepted
+accepted_run_id: R2A-T01-20260718T103110891Z
+accepted_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
+review_evidence_bundle_status: accepted
 independent_review_execution_status: completed
 independent_review_result: passed
-readme_advanced: false
-R2A-T02_allowed_to_start: false
-DONE: absent
-next gate: PR #109 formal-result review
-A-layer Score contract: defined in reviewed implementation
-canonical PCAVT Score artifact: materialized as publish_candidate; pending formal-result review
-A-layer: not registered
-PCAVT: not created
+independent_review_mismatch_count: 0
+readme_advanced: true
+next_task: R2A-T02
+R2A-T02_allowed_to_start: true_after_PR_109_merge
+R2A-T02_started: false
+DONE: present
+next gate: PR #109 closure Quality and merge
+A_layer_W120_score_contract_registered: true
+canonical_PCAVT_score_release_registered: true
+PCAVT_dynamic_state_created: false
 ```
 
 Formal run ID 为 `R2A-T01-20260718T103110891Z`，Score release ID 为
 `pcavt-score-w120-v1-c7e04f11a2cd09aa`。唯一一次运行已消费，不得重跑。正式 package
 的 validator status 与 analysis status 均为 `passed`，release recommendation 为
-`publish_candidate`，但这不等于正式接受或发布；当前只能停在 **R2A-T01 formal-result review**。
+`publish_candidate`；独立审阅也已通过，Owner 随后正式接受该唯一 run 与 release。
 审阅证据位于
 `data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/formal-review/`：四个紧凑
 formal 文件保持原始字节，另含 summary、30-table review extract 及两份 review manifest。
@@ -917,10 +928,11 @@ A2b 已按研究范围排除。
 A-layer W120 Score contract 已在 reviewed implementation 中定义。
 R2A 是 PCAVT 的独立完整重研，不继承 R2-T08 结果。
 R2A-T01 Draft PR #109 的 implementation review 已通过；reviewed implementation SHA 为 3f36357be9d469d7a9751eef79f368676d7ec97a。
-R2A-T01 当前为 formal_result_review；formal_run_status=completed_pending_formal_result_review，result_review_status=pending。
+R2A-T01 当前为 completed_accepted；formal_run_status=completed_accepted，formal_result_review_status=accepted，result_review_status=accepted。
 唯一 formal execution commit 为 7c3fe76c575eb350a8e94d2f7534d123e865a64c；Quality 29640937790 success；不得再次运行。
-Owner 已批准 execution amendment；successor_formal_run_required=false；review_evidence_bundle_status=prepared。
-independent_review_execution_status=completed；independent_review_result=passed；result_review_status=pending。
+Owner 已接受 run R2A-T01-20260718T103110891Z 与 release pcavt-score-w120-v1-c7e04f11a2cd09aa；review_evidence_bundle_status=accepted；DONE=present。
+independent_review_execution_status=completed；independent_review_result=passed；independent_review_mismatch_count=0。
+A_layer_W120_score_contract_registered=true；canonical_PCAVT_score_release_registered=true；PCAVT_dynamic_state_created=false。
 长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
-当前只进入 formal-result review；不要创建 DONE、推进 README gate、注册 A-layer、接受 T01 或启动 R2A-T02。
+next_task=R2A-T02；R2A-T02_allowed_to_start=true_after_PR_109_merge；R2A-T02_started=false。
 ```

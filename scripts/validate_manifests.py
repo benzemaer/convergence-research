@@ -33,6 +33,14 @@ SIDECAR_PAIRS = (
         ROOT / "data/generated/sidecar/exp_a/exp_a_final_research_handoff.json",
     ),
 )
+R2A_PAIRS = (
+    (
+        ROOT / "schemas/r2a/r2a_t01_accepted_result_handoff.schema.json",
+        ROOT
+        / "data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z"
+        / "r2a_t01_accepted_result_handoff.json",
+    ),
+)
 SCHEMA_ONLY = (
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
     ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
@@ -61,7 +69,7 @@ def main() -> int:
             load_json(example_path)
         )
         print(f"validated {example_path.relative_to(ROOT)}")
-    for schema_path, example_path in SIDECAR_PAIRS:
+    for schema_path, example_path in (*SIDECAR_PAIRS, *R2A_PAIRS):
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)
         Draft202012Validator(schema, format_checker=FormatChecker()).validate(

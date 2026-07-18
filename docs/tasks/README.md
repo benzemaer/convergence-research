@@ -127,7 +127,7 @@ R2-T08_formal_task_completed: false
 R2_evidence_chain_status: passed_pending_T08_scientific_review_and_merge
 R3_handoff_eligible: true
 R3_allowed_to_start: false
-R2A-T01_status: formal_result_review
+R2A-T01_status: completed_accepted
 implementation_review_status: passed
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
@@ -137,16 +137,26 @@ owner_execution_amendment_approved: true
 successor_formal_run_required: false
 formal_run_allowed: true
 real_input_read_allowed: true
-formal_run_status: completed_pending_formal_result_review
+formal_run_status: completed_accepted
 formal_run_attempts: 1 / 1
+formal_authorization_consumed: true
 additional_formal_run_allowed: false
-result_review_status: pending
-review_evidence_bundle_status: prepared
+formal_result_review_status: accepted
+result_review_status: accepted
+accepted_run_id: R2A-T01-20260718T103110891Z
+accepted_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
+review_evidence_bundle_status: accepted
 independent_review_execution_status: completed
 independent_review_result: passed
-readme_advanced: false
-R2A-T02_allowed_to_start: false
-DONE: absent
+independent_review_mismatch_count: 0
+readme_advanced: true
+A_layer_W120_score_contract_registered: true
+canonical_PCAVT_score_release_registered: true
+PCAVT_dynamic_state_created: false
+next_task: R2A-T02
+R2A-T02_allowed_to_start: true_after_PR_109_merge
+R2A-T02_started: false
+DONE: present
 ```
 
 ## 命名与路径规则
