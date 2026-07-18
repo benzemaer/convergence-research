@@ -19,6 +19,7 @@ INPUT_NAMES = (
     "pcvt_component_scores",
     "pcvt_dimension_scores",
     "a_raw_observations",
+    "pcvt_validation_raw",
 )
 MANIFEST_VERSION = "r2a_t01_authorized_input_manifest.v1"
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,10 +72,8 @@ def build_synthetic_input_manifest(
     return payload
 
 
-def load_bound_inputs(
-    manifest_path: str | Path, *, formal_authorized: bool = False
-) -> dict[str, list[dict[str, Any]]]:
-    """Verify every hash before returning any rows."""
+def load_bound_inputs(manifest_path: str | Path) -> dict[str, list[dict[str, Any]]]:
+    """Verify and load only small synthetic JSON-array fixtures."""
 
     path = Path(manifest_path)
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -82,8 +81,8 @@ def load_bound_inputs(
     if payload.get("manifest_version") != MANIFEST_VERSION:
         raise InputManifestError("manifest_version_mismatch")
     synthetic = payload.get("synthetic_only") is True
-    if not synthetic and not formal_authorized:
-        raise InputManifestError("formal_input_manifest_not_authorized")
+    if not synthetic:
+        raise InputManifestError("json_array_loader_is_synthetic_only")
     entries = payload.get("inputs")
     if not isinstance(entries, dict) or set(entries) != set(INPUT_NAMES):
         raise InputManifestError("input_set_mismatch")

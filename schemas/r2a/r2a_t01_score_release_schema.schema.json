@@ -23,13 +23,38 @@
     }
   },
   "$defs": {
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "nullable"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "minLength": 1},
+        "nullable": {"type": "boolean"}
+      }
+    },
+    "foreign_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["columns", "referenced_table", "referenced_columns"],
+      "properties": {
+        "columns": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "referenced_table": {"type": "string", "minLength": 1},
+        "referenced_columns": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    },
     "table": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["primary_key", "columns"],
+      "required": ["columns", "primary_key", "foreign_keys", "unique_constraints", "check_constraints", "enum_domains", "canonical_order"],
       "properties": {
+        "columns": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/column"}},
         "primary_key": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
-        "columns": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+        "foreign_keys": {"type": "array", "items": {"$ref": "#/$defs/foreign_key"}},
+        "unique_constraints": {"type": "array", "items": {"type": "array", "minItems": 1, "items": {"type": "string"}}},
+        "check_constraints": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "enum_domains": {"type": "object", "additionalProperties": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}},
+        "canonical_order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
       }
     }
   }

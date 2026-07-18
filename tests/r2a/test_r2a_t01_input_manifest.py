@@ -35,6 +35,7 @@ def test_builder_rejects_input_outside_synthetic_root(tmp_path: Path) -> None:
             "pcvt_component_scores",
             "pcvt_dimension_scores",
             "a_raw_observations",
+            "pcvt_validation_raw",
         )
     }
     for path in paths.values():

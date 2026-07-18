@@ -22,7 +22,6 @@ def test_single_and_multi_worker_outputs_are_relationally_identical(
         authorized_input_manifest=manifest,
         output_dir=package_many,
         run_id="R2A-T01-SYNTHETIC",
-        score_release_id="R2A-T01-SYNTHETIC-RELEASE",
         worker_count=4,
     )
     with (

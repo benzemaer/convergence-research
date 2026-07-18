@@ -4,7 +4,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "$schema", "config_version", "task_id", "release_contract_id",
+    "$schema", "config_version", "task_id", "release_contract_id", "dimension_definition_version",
     "implementation_status", "formal_run_allowed", "real_input_read_allowed",
     "synthetic_execution_allowed", "percentile_window", "tie_method",
     "current_observation_excluded", "history_filter", "dimension_order",
@@ -17,6 +17,7 @@
     "config_version": {"const": "1.0.0"},
     "task_id": {"const": "R2A-T01"},
     "release_contract_id": {"const": "r2a_t01_pcavt_score_release.v1"},
+    "dimension_definition_version": {"const": "pcavt-dimension-definition.v1"},
     "implementation_status": {"const": "implementation_complete_pending_review"},
     "formal_run_allowed": {"type": "boolean"},
     "real_input_read_allowed": {"type": "boolean"},

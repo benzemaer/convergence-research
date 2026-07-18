@@ -272,8 +272,8 @@ def _normalise_raw_row(source: Mapping[str, Any]) -> dict[str, Any]:
     if status not in VALIDITY_ORDER:
         raise ScoreContractError("invalid_validity_status")
     sequence = int(source["observation_sequence"])
-    if sequence < 1:
-        raise ScoreContractError("observation_sequence_must_be_positive")
+    if sequence < 0:
+        raise ScoreContractError("observation_sequence_must_be_non_negative")
     value = source.get("raw_value")
     numeric: float | None
     if value is None:

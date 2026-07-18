@@ -3,7 +3,7 @@
   "$id": "https://benzemaer.local/schemas/r2a/r2a_t01_validation_receipt.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["receipt_version", "run_id", "score_release_id", "validated_at", "status", "checks", "reason_codes"],
+  "required": ["receipt_version", "run_id", "score_release_id", "validated_at", "status", "checks", "metrics", "reason_codes"],
   "properties": {
     "receipt_version": {"const": "r2a_t01_validation_receipt.v1"},
     "run_id": {"type": "string", "minLength": 1},
@@ -11,6 +11,7 @@
     "validated_at": {"type": "string", "format": "date-time"},
     "status": {"enum": ["passed", "failed"]},
     "checks": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "boolean"}},
+    "metrics": {"type": "object"},
     "reason_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
   }
 }

@@ -2,11 +2,23 @@ from __future__ import annotations
 
 import json
 import re
+from copy import deepcopy
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from src.r2a.r2a_t01_artifact_manifest import TABLE_COLUMNS, TABLE_ORDER
+from src.r2a.r2a_t01_artifact_manifest import (
+    PRIMARY_KEYS,
+    TABLE_COLUMNS,
+    TABLE_ORDER,
+    schema_descriptor,
+)
+from src.r2a.r2a_t01_score_release import (
+    DEFAULT_CONFIG_PATH,
+    DEFAULT_POLICY_PATH,
+    compute_score_release_id,
+)
+from tests.r2a._fixtures import synthetic_inputs
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -53,6 +65,24 @@ def test_release_contract_has_only_score_fields_and_seven_tables() -> None:
     assert config["formal_run_allowed"] is False
     assert config["dimension_order"] == ["P", "C", "A", "V", "T"]
     assert "A2b" not in json.dumps(config)
+    assert all(columns[0] == "score_release_id" for columns in TABLE_COLUMNS.values())
+    assert all(key[0] == "score_release_id" for key in PRIMARY_KEYS.values())
+    descriptor = schema_descriptor()
+    for table in TABLE_ORDER:
+        contract = descriptor["tables"][table]
+        assert all(
+            set(column) == {"name", "type", "nullable"}
+            for column in contract["columns"]
+        )
+        assert set(contract) == {
+            "columns",
+            "primary_key",
+            "foreign_keys",
+            "unique_constraints",
+            "check_constraints",
+            "enum_domains",
+            "canonical_order",
+        }
 
 
 def test_availability_manifest_contract_is_frozen() -> None:
@@ -77,3 +107,40 @@ def test_availability_manifest_contract_is_frozen() -> None:
             "ingestion time and not an assumption of execution at the same timestamp."
         ),
     }
+
+
+def test_score_release_id_is_canonical_and_input_sensitive(tmp_path: Path) -> None:
+    manifest_path, _ = synthetic_inputs(tmp_path / "inputs")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    config = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+    first = compute_score_release_id(
+        config=config,
+        availability_policy_path=DEFAULT_POLICY_PATH,
+        input_manifest=manifest,
+    )
+    second = compute_score_release_id(
+        config=deepcopy(config),
+        availability_policy_path=DEFAULT_POLICY_PATH,
+        input_manifest=deepcopy(manifest),
+    )
+    assert first == second
+    changed_input = deepcopy(manifest)
+    changed_input["inputs"]["securities"]["sha256"] = "f" * 64
+    assert (
+        compute_score_release_id(
+            config=config,
+            availability_policy_path=DEFAULT_POLICY_PATH,
+            input_manifest=changed_input,
+        )[0]
+        != first[0]
+    )
+    changed_protocol = deepcopy(config)
+    changed_protocol["dimension_definition_version"] = "changed-definition"
+    assert (
+        compute_score_release_id(
+            config=changed_protocol,
+            availability_policy_path=DEFAULT_POLICY_PATH,
+            input_manifest=manifest,
+        )[0]
+        != first[0]
+    )

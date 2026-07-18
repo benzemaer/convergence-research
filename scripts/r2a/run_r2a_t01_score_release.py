@@ -12,7 +12,7 @@ def main() -> int:
     parser.add_argument("--authorized-input-manifest", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--score-release-id", required=True)
+    parser.add_argument("--expected-score-release-id")
     parser.add_argument("--worker-count", type=int, default=1)
     parser.add_argument("--execution-commit")
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -23,7 +23,7 @@ def main() -> int:
         authorized_input_manifest=args.authorized_input_manifest,
         output_dir=args.output_dir,
         run_id=args.run_id,
-        score_release_id=args.score_release_id,
+        expected_score_release_id=args.expected_score_release_id,
         worker_count=args.worker_count,
         synthetic_only=args.synthetic,
         execution_commit=args.execution_commit,

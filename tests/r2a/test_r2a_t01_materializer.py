@@ -44,23 +44,23 @@ def test_complete_spine_left_expansion_and_release_tables(tmp_path: Path) -> Non
             == spine_count * 5
         )
         assert connection.execute(
-            "SELECT list(dimension_id ORDER BY dimension_order) "
+            "SELECT list(dimension_id ORDER BY canonical_order) "
             "FROM dimension_definitions"
         ).fetchone()[0] == list(DIMENSION_ORDER)
         assert connection.execute(
-            "SELECT list(indicator_id ORDER BY dimension_id,component_order) "
+            "SELECT list(component_id ORDER BY dimension_id,component_order) "
             "FROM dimension_components"
         ).fetchone()[0]
         assert (
             connection.execute(
-                "SELECT count(*) FROM dimension_components WHERE indicator_id ILIKE '%A2b%'"
+                "SELECT count(*) FROM dimension_components WHERE component_id ILIKE '%A2b%'"
             ).fetchone()[0]
             == 0
         )
         assert set(
             row[0]
             for row in connection.execute(
-                "SELECT indicator_id FROM dimension_components"
+                "SELECT component_id FROM dimension_components"
             ).fetchall()
         ) == set(ALL_COMPONENTS)
 
@@ -73,14 +73,14 @@ def test_missing_and_listing_pause_rows_are_explicit_nulls(tmp_path: Path) -> No
         statuses = {
             row[0]
             for row in connection.execute(
-                "SELECT DISTINCT observation_status FROM security_observation_spine"
+                "SELECT DISTINCT expected_observation_status FROM security_observation_spine"
             ).fetchall()
         }
         assert statuses == {"present", "missing", "listing_pause"}
         for status in ("missing", "listing_pause"):
             row = connection.execute(
                 "SELECT trading_date FROM security_observation_spine "
-                "WHERE observation_status=?",
+                "WHERE expected_observation_status=?",
                 [status],
             ).fetchone()
             assert row is not None
@@ -97,6 +97,11 @@ def test_missing_and_listing_pause_rows_are_explicit_nulls(tmp_path: Path) -> No
             ).fetchone()
             assert component == (10, 0, True)
             assert dimension == (5, 0, True)
+            assert connection.execute(
+                "SELECT bool_and(validity_status='blocked') FROM daily_component_scores "
+                "WHERE trading_date=?",
+                row,
+            ).fetchone()[0]
 
 
 def test_availability_policy_is_exact_non_null_timestamptz(tmp_path: Path) -> None:
@@ -147,12 +152,11 @@ def test_atomic_failure_leaves_no_candidate_package(tmp_path: Path) -> None:
         inputs=paths,
     )
     package = tmp_path / "candidate"
-    with pytest.raises(ScoreReleaseError, match="invalid_or_duplicate_spine_key"):
+    with pytest.raises(ScoreReleaseError, match="duplicate_spine_key"):
         materialize_score_release(
             authorized_input_manifest=manifest,
             output_dir=package,
             run_id="invalid",
-            score_release_id="invalid",
         )
     assert not package.exists()
     assert not list(tmp_path.glob(".candidate.tmp-*"))
@@ -165,6 +169,16 @@ def test_formal_path_and_non_synthetic_execution_fail_closed(tmp_path: Path) -> 
             authorized_input_manifest=manifest,
             output_dir=tmp_path / "package",
             run_id="formal",
-            score_release_id="formal",
             synthetic_only=False,
+        )
+
+
+def test_expected_release_id_is_assertion_not_override(tmp_path: Path) -> None:
+    manifest, _ = synthetic_inputs(tmp_path / "inputs")
+    with pytest.raises(ScoreReleaseError, match="expected_score_release_id_mismatch"):
+        materialize_score_release(
+            authorized_input_manifest=manifest,
+            output_dir=tmp_path / "package",
+            run_id="expected-id-mismatch",
+            expected_score_release_id="pcavt-score-w120-v1-0000000000000000",
         )

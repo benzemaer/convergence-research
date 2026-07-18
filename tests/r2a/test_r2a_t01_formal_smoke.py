@@ -11,14 +11,16 @@ from tests.r2a._fixtures import build_package
 def test_synthetic_formal_shape_smoke_without_formal_authorization(
     tmp_path: Path,
 ) -> None:
-    package, _, _ = build_package(tmp_path, security_ids=("000001.SZ", "000002.SZ"))
+    package, input_manifest, _ = build_package(
+        tmp_path, security_ids=("000001.SZ", "000002.SZ")
+    )
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["execution_commit"] is None
     assert manifest["formal_source_bindings"] == {}
     assert len(manifest["environment_lock_sha256"]) == 64
     assert not (package / "validation_receipt.json").exists()
     assert not (package / "result_analysis.md").exists()
-    receipt = validate_score_release(package)
+    receipt = validate_score_release(package, authorized_input_manifest=input_manifest)
     assert receipt["status"] == "passed"
     analysis = analyze_score_release(package)
     assert analysis.is_file()

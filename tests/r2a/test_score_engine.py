@@ -23,7 +23,7 @@ def _rows(count: int, indicator_id: str = A_COMPONENTS[0]) -> list[dict[str, obj
             "validity_status": "valid",
             "reason_codes": ["valid_no_blocker"],
         }
-        for sequence in range(1, count + 1)
+        for sequence in range(count)
     ]
 
 
@@ -33,7 +33,9 @@ def test_119_120_boundary_and_current_excluded() -> None:
     assert results[119].eligible is False
     assert results[120].reference_observation_count == 120
     assert results[120].eligible is True
-    assert results[120].reference_sequence_end == 120
+    assert results[120].reference_sequence_start == 0
+    assert results[120].reference_sequence_end == 119
+    assert results[120].observation_sequence == 120
     assert results[120].current_observation_excluded is True
 
 
@@ -77,12 +79,20 @@ def test_valid_nan_infinity_duplicate_and_sequence_gap_rejected() -> None:
         compute_component_scores(rows)
 
 
+def test_zero_based_sequence_accepted_and_negative_rejected() -> None:
+    assert compute_component_scores(_rows(1))[0].observation_sequence == 0
+    rows = _rows(1)
+    rows[0]["observation_sequence"] = -1
+    with pytest.raises(ScoreContractError, match="must_be_non_negative"):
+        compute_component_scores(rows)
+
+
 def test_a_mean_min_and_no_single_component_fallback() -> None:
     rows = _rows(121, A_COMPONENTS[0]) + _rows(121, A_COMPONENTS[1])
     scores = compute_component_scores(rows)
     dimension = compute_a_dimension_scores(scores)
     final = dimension[-1]
-    component_final = [row.score for row in scores if row.observation_sequence == 121]
+    component_final = [row.score for row in scores if row.observation_sequence == 120]
     assert final.eligible_dimension is True
     assert final.score_dimension == sum(component_final) / 2
     assert final.score_dimension_min == min(component_final)
