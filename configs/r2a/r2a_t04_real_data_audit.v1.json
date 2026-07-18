@@ -1,11 +1,13 @@
 {
   "$schema": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json",
   "task_id": "R2A-T04",
-  "status": "implementation_candidate_preflight_repair_pending_review",
+  "status": "formal_authorization_committed",
   "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
-  "reviewed_harness_head": null,
-  "formal_run_authorized": false,
+  "reviewed_harness_head": "01bf7e12f0cb19a31c71689ada32f7a78f8aec75",
+  "formal_run_authorized": true,
+  "formal_run_started": false,
   "formal_run_consumed": false,
+  "authorization_effective_only_after_exact_head_quality_success": true,
   "score_release": {
     "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
     "filename": "score_data.duckdb",
@@ -38,9 +40,49 @@
     "canonical_chunk_row_count": 65536,
     "failure_receipt_required": true,
     "pairwise_logical_comparison_required": true,
-    "duckdb_thread_count": null,
-    "thread_benchmark_fingerprint": null,
-    "thread_benchmark_status": "blocked_previous_evidence_incomplete"
+    "benchmark_execution_head": "01bf7e12f0cb19a31c71689ada32f7a78f8aec75",
+    "benchmark_execution_quality": "29658749232 / success",
+    "thread_benchmark_status": "passed",
+    "duckdb_thread_count": 4,
+    "thread_benchmark_fingerprint": "049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231",
+    "thread_benchmark_receipt_sha256": "c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369",
+    "thread_benchmark_receipt_byte_size": 97485,
+    "benchmark_security_ids": [
+      "603345.SH",
+      "603233.SH",
+      "688220.SH",
+      "300316.SZ"
+    ],
+    "thread_runs": [
+      {
+        "duckdb_thread_count": 4,
+        "wall_seconds": 26.759476899867877,
+        "peak_rss_bytes": 432111616,
+        "temporary_output_bytes": 6041600,
+        "validator_status": "passed"
+      },
+      {
+        "duckdb_thread_count": 8,
+        "wall_seconds": 28.828859000001103,
+        "peak_rss_bytes": 498368512,
+        "temporary_output_bytes": 6041600,
+        "validator_status": "passed"
+      },
+      {
+        "duckdb_thread_count": 16,
+        "wall_seconds": 30.66283469996415,
+        "peak_rss_bytes": 524804096,
+        "temporary_output_bytes": 6041600,
+        "validator_status": "passed"
+      }
+    ],
+    "pairwise_comparison_count": 3,
+    "pairwise_logical_status": "passed",
+    "pairwise_schema_mismatch_count": 0,
+    "pairwise_left_only_key_count": 0,
+    "pairwise_right_only_key_count": 0,
+    "pairwise_value_mismatch_row_count": 0,
+    "pairwise_column_mismatch_count": 0
   },
   "synthetic_smoke": {
     "request_count": 2,

@@ -4,15 +4,17 @@
   "title": "R2A-T04 real-data response audit configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema","task_id","status","formal_authorization_id","reviewed_harness_head","formal_run_authorized","formal_run_consumed","score_release","accepted_evaluator","panel_id","request_panel_count","full_security_scope_required","full_observation_history_required","full_universe_request_concurrency","chart_worker_count","thread_preflight","synthetic_smoke","real_input_smoke","chart_request_names","chart_samples_per_request","future_horizons","formal_run_attempt_limit","minimum_free_disk_score_db_multiple","request_panel"],
+  "required": ["$schema","task_id","status","formal_authorization_id","reviewed_harness_head","formal_run_authorized","formal_run_started","formal_run_consumed","authorization_effective_only_after_exact_head_quality_success","score_release","accepted_evaluator","panel_id","request_panel_count","full_security_scope_required","full_observation_history_required","full_universe_request_concurrency","chart_worker_count","thread_preflight","synthetic_smoke","real_input_smoke","chart_request_names","chart_samples_per_request","future_horizons","formal_run_attempt_limit","minimum_free_disk_score_db_multiple","request_panel"],
   "properties": {
     "$schema": {"const": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json"},
     "task_id": {"const": "R2A-T04"},
-    "status": {"enum": ["implementation_candidate","implementation_candidate_preflight_repair_pending_review","authorized_not_started","real_data_run_completed_pending_result_review","formal_run_blocked"]},
+    "status": {"const": "formal_authorization_committed"},
     "formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
-    "reviewed_harness_head": {"type": ["string","null"], "pattern": "^[0-9a-f]{40}$"},
-    "formal_run_authorized": {"type": "boolean"},
-    "formal_run_consumed": {"type": "boolean"},
+    "reviewed_harness_head": {"const": "01bf7e12f0cb19a31c71689ada32f7a78f8aec75"},
+    "formal_run_authorized": {"const": true},
+    "formal_run_started": {"const": false},
+    "formal_run_consumed": {"const": false},
+    "authorization_effective_only_after_exact_head_quality_success": {"const": true},
     "score_release": {"type":"object","additionalProperties":false,"required":["score_release_id","filename","sha256","byte_size","security_count","date_min","date_max","accepted_t01_handoff_sha256"],"properties":{"score_release_id":{"const":"pcavt-score-w120-v1-c7e04f11a2cd09aa"},"filename":{"const":"score_data.duckdb"},"sha256":{"const":"d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"},"byte_size":{"const":4255395840},"security_count":{"const":800},"date_min":{"const":"2016-01-04"},"date_max":{"const":"2026-06-30"},"accepted_t01_handoff_sha256":{"const":"142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"}}},
     "accepted_evaluator": {"const":{"evaluator_version":"r2a_t03_dynamic_evaluator.v1","output_schema_version":"r2a_t03_dynamic_evaluation_output.v1","dynamic_protocol_version":"pcavt_dynamic_state_protocol.v1","accepted_t03_handoff_sha256":"474a6721f0f8219b7ddb16cbddec2294d6b61c75db57f63e5f45ebfeb025b9b1","accepted_t03_config_sha256":"b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"}},
     "panel_id": {"const":"r2a_t04_representative_panel.v1"},
@@ -20,8 +22,8 @@
     "full_security_scope_required": {"const":true},
     "full_observation_history_required": {"const":true},
     "full_universe_request_concurrency": {"const":1},
-    "chart_worker_count": {"type":"integer","minimum":1,"maximum":4},
-    "thread_preflight": {"type":"object","additionalProperties":false,"required":["candidate_threads","request_name","security_count","selection_method","fingerprint_algorithm","canonical_chunk_row_count","failure_receipt_required","pairwise_logical_comparison_required","duckdb_thread_count","thread_benchmark_fingerprint","thread_benchmark_status"],"properties":{"candidate_threads":{"const":[4,8,16]},"request_name":{"const":"D05_PCAVT_q15_k3"},"security_count":{"const":4},"selection_method":{"const":"sha256(score_release_id + ':' + security_id)_ascending"},"fingerprint_algorithm":{"const":"arrow_ipc_fixed_logical_row_chunks.v1"},"canonical_chunk_row_count":{"const":65536},"failure_receipt_required":{"const":true},"pairwise_logical_comparison_required":{"const":true},"duckdb_thread_count":{"type":["integer","null"],"enum":[null,4,8,16]},"thread_benchmark_fingerprint":{"type":["string","null"],"pattern":"^[0-9a-f]{64}$"},"thread_benchmark_status":{"enum":["pending","blocked_previous_evidence_incomplete","passed","failed"]}}},
+    "chart_worker_count": {"const":1},
+    "thread_preflight": {"type":"object","additionalProperties":false,"required":["candidate_threads","request_name","security_count","selection_method","fingerprint_algorithm","canonical_chunk_row_count","failure_receipt_required","pairwise_logical_comparison_required","benchmark_execution_head","benchmark_execution_quality","thread_benchmark_status","duckdb_thread_count","thread_benchmark_fingerprint","thread_benchmark_receipt_sha256","thread_benchmark_receipt_byte_size","benchmark_security_ids","thread_runs","pairwise_comparison_count","pairwise_logical_status","pairwise_schema_mismatch_count","pairwise_left_only_key_count","pairwise_right_only_key_count","pairwise_value_mismatch_row_count","pairwise_column_mismatch_count"],"properties":{"candidate_threads":{"const":[4,8,16]},"request_name":{"const":"D05_PCAVT_q15_k3"},"security_count":{"const":4},"selection_method":{"const":"sha256(score_release_id + ':' + security_id)_ascending"},"fingerprint_algorithm":{"const":"arrow_ipc_fixed_logical_row_chunks.v1"},"canonical_chunk_row_count":{"const":65536},"failure_receipt_required":{"const":true},"pairwise_logical_comparison_required":{"const":true},"benchmark_execution_head":{"const":"01bf7e12f0cb19a31c71689ada32f7a78f8aec75"},"benchmark_execution_quality":{"const":"29658749232 / success"},"thread_benchmark_status":{"const":"passed"},"duckdb_thread_count":{"const":4},"thread_benchmark_fingerprint":{"const":"049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231"},"thread_benchmark_receipt_sha256":{"const":"c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369"},"thread_benchmark_receipt_byte_size":{"const":97485},"benchmark_security_ids":{"const":["603345.SH","603233.SH","688220.SH","300316.SZ"]},"thread_runs":{"const":[{"duckdb_thread_count":4,"wall_seconds":26.759476899867877,"peak_rss_bytes":432111616,"temporary_output_bytes":6041600,"validator_status":"passed"},{"duckdb_thread_count":8,"wall_seconds":28.828859000001103,"peak_rss_bytes":498368512,"temporary_output_bytes":6041600,"validator_status":"passed"},{"duckdb_thread_count":16,"wall_seconds":30.66283469996415,"peak_rss_bytes":524804096,"temporary_output_bytes":6041600,"validator_status":"passed"}]},"pairwise_comparison_count":{"const":3},"pairwise_logical_status":{"const":"passed"},"pairwise_schema_mismatch_count":{"const":0},"pairwise_left_only_key_count":{"const":0},"pairwise_right_only_key_count":{"const":0},"pairwise_value_mismatch_row_count":{"const":0},"pairwise_column_mismatch_count":{"const":0}}},
     "synthetic_smoke": {"const":{"request_count":2,"minimum_security_count":3,"confirmed_interval_required":true,"zero_event_request_required":true}},
     "real_input_smoke": {"const":{"request_name":"D05_PCAVT_q15_k3","security_scope":"thread_benchmark_same_four","full_history_required":true,"formal_run_attempt_consumed":false}},
     "chart_request_names": {"const":["D03_PCA_q15_k3","D04_PCAV_q15_k3","D05_PCAVT_q15_k3","Q02_PCAVT_q20_k3"]},
@@ -30,9 +32,5 @@
     "formal_run_attempt_limit": {"const":1},
     "minimum_free_disk_score_db_multiple": {"const":3},
     "request_panel": {"type":"array","minItems":16,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["logical_request_name","selected_dimensions","q_by_dimension","confirmation_k"],"properties":{"logical_request_name":{"type":"string","minLength":1},"selected_dimensions":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["P","C","A","V","T"]}},"q_by_dimension":{"type":"object","minProperties":1,"additionalProperties":{"enum":[1000,1500,2000,2500]}},"confirmation_k":{"enum":[2,3,4,5,6,7]}}}}
-  },
-  "allOf": [
-    {"if":{"properties":{"formal_run_authorized":{"const":false}}},"then":{"properties":{"formal_run_consumed":{"const":false}}}},
-    {"if":{"properties":{"status":{"const":"authorized_not_started"}}},"then":{"properties":{"formal_run_authorized":{"const":true},"formal_run_consumed":{"const":false},"reviewed_harness_head":{"type":"string"},"thread_preflight":{"properties":{"duckdb_thread_count":{"type":"integer"},"thread_benchmark_fingerprint":{"type":"string"},"thread_benchmark_status":{"const":"passed"}}}}}}
-  ]
+  }
 }

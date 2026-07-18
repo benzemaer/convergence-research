@@ -190,10 +190,13 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: implementation_candidate_preflight_repair_pending_review
+R2A-T04_status: formal_authorization_committed_pending_quality
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
+reviewed_harness_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
+reviewed_harness_Quality: 29658749232 / success
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-formal_run_authorized: false
+formal_run_authorized: true_pending_exact_authorization_head_quality
+authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_attempt_consumed: false
 synthetic_end_to_end_smoke: passed_in_tests
@@ -202,11 +205,14 @@ previous_thread_benchmark_error: thread_fingerprint_mismatch
 previous_thread_benchmark_evidence_status: incomplete_no_receipt
 previous_thread_benchmark_logical_output_difference_confirmed: false
 previous_thread_benchmark_fingerprint_algorithm_suspect: arrow_record_batch_boundary_sensitive
-thread_benchmark_status: blocked_previous_evidence_incomplete
+thread_benchmark_status: passed
+thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
+thread_benchmark_receipt_byte_size: 97485
+thread_benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
 real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
 full_universe_request_count: 0
-duckdb_thread_count: not_selected
+duckdb_thread_count: 4
 R2A-T04_preflight_score_data_read: true
 R2A-T04_preflight_score_scope: four_security_full_history_thread_benchmark
 R2A-T04_preflight_dynamic_evaluation_executed: true
@@ -231,11 +237,13 @@ R2A-T03 的任务契约见
 运行真实 dynamic evaluation、选择最佳 q/K、完成价格图审核或产生真实状态产物。PR #112 合并后
 R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
 启动。Harness implementation candidate 和 pytest temporary-directory synthetic end-to-end smoke 已完成；
-随后 4/8/16 threads preflight 实际读取了 accepted Score 的四证券完整历史，但旧 fingerprint 疑似受
-Arrow 物理 batch 边界影响，且 cleanup 前未生成 receipt，因此只能记为 blocked、evidence incomplete，
-不能确认 evaluator/DuckDB 线程非确定性。本轮只修复固定逻辑 chunk fingerprint、pairwise logical
-comparison 与 receipt/evidence retention，未重跑真实 benchmark、未读取 market context。Authorization、
-real-input smoke 和唯一 full-universe formal run 均未开始；16 个 full-universe requests 必须严格串行。
+首次 4/8/16 threads preflight 读取 accepted Score 的四证券完整历史后，旧 fingerprint 疑似受 Arrow
+物理 batch 边界影响，且 cleanup 前未生成 receipt；该历史结果仍只记为 blocked、evidence incomplete。
+Reviewed repair head `01bf7e12...` 通过 Quality 后执行的唯一 repaired benchmark 已通过：4/8/16 的
+validator、固定逻辑 chunk profiles 与三组五表 pairwise comparison 全部一致，选择并冻结 threads=4。
+当前 metadata-only formal authorization commit 已建立但尚待其精确 HEAD Quality；Quality 成功前不得
+读取 market context 或执行 real-input smoke。唯一 full-universe formal run 尚未开始，16 个 requests
+必须严格串行。
 任务契约见
 [`R2A-T04_真实数据参数响应与结果合理性审核.md`](R2A-T04_真实数据参数响应与结果合理性审核.md)。
 
