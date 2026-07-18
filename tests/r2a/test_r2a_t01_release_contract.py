@@ -62,7 +62,7 @@ def test_release_contract_has_only_score_fields_and_seven_tables() -> None:
         )
     )
     assert config["percentile_window"] == 120
-    assert config["formal_run_allowed"] is False
+    assert config["formal_run_allowed"] is True
     assert config["dimension_order"] == ["P", "C", "A", "V", "T"]
     assert "A2b" not in json.dumps(config)
     assert all(columns[0] == "score_release_id" for columns in TABLE_COLUMNS.values())

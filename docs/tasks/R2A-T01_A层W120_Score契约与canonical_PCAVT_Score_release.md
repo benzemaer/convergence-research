@@ -6,8 +6,11 @@
 Score 契约，并建立统一的 canonical PCAVT Score release materializer、输入绑定、
 独立 validator、后置 result analysis 与 synthetic/integration tests。
 
-本任务停在 implementation review。它不授权真实输入读取、formal run、正式
-authorized input manifest、正式 artifact、`DONE`、T01 acceptance 或 R2A-T02。
+本任务的 implementation review 已通过，正式批准的 implementation SHA 为
+`3f36357be9d469d7a9751eef79f368676d7ec97a`。当前状态是
+`formal_authorized_not_started`：允许按独立授权读取精确绑定的真实 accepted inputs、
+构建 local-only authorized input manifest 并执行一次 formal run；仍不授权 `DONE`、
+T01 acceptance、README gate advancement 或 R2A-T02。
 
 ## 2. 非目标
 
@@ -147,9 +150,10 @@ security_count = 800
 calendar years = 2016..2026
 ```
 
-当前 config 固定 `formal_run_allowed=false`、`real_input_read_allowed=false`。本 PR
-不得执行正式 archive builder、正式 materialization 或 formal result analysis。
-未来 formal 授权还必须提供精确 `execution_commit`，并从 Git blobs 绑定 config、
+当前 config 固定 `formal_run_allowed=true`、`real_input_read_allowed=true`。本次 formal
+授权的 reviewed implementation SHA 为
+`3f36357be9d469d7a9751eef79f368676d7ec97a`；授权状态提交通过 Quality 后，其精确
+commit 是唯一 execution commit。Formal run 必须从 Git blobs 绑定 config、
 availability policy、六个 schema、R2A 执行源码/脚本与 environment lock；dirty、staged
 或工作树内容不一致均 fail closed。Local-only authorized input manifest 不要求存在于
 execution commit；正式数据 artifact 由 accepted source manifest、精确 logical table、
@@ -157,16 +161,22 @@ execution commit；正式数据 artifact 由 accepted source manifest、精确 l
 
 ## 9. 验收与停止点
 
-Implementation review 前至少通过 config/schema 校验、canonical text、format/lint、
-`pytest tests/r2a -q`、合订本检查和 PR Quality。README 只记录：
+Implementation review 已通过；formal authorization commit 仍须通过 config/schema 校验、
+canonical text、format/lint、`pytest tests/r2a -q`、合订本检查和精确 HEAD 的 PR Quality。
+当前状态记录为：
 
 ```text
-R2A-T01_status: implementation_complete_pending_review
-formal_run_allowed: false
-formal_run_status: not_started
+R2A-T01_status: formal_authorized_not_started
+implementation_review_status: passed
+reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
+formal_run_allowed: true
+real_input_read_allowed: true
+formal_run_status: authorized_not_started
 result_review_status: not_started
 readme_advanced: false
 R2A-T02_allowed_to_start: false
 ```
 
-任务停止在 R2A-T01 implementation review，不接受 T01，不推进 R2A-T02。
+授权提交完成后，任务进入一次 formal execution；无论结果如何都不接受 T01、不创建
+`DONE`、不推进 README gate 或 R2A-T02。成功运行后的停止点只能是
+R2A-T01 formal-result review。
