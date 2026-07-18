@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t01_pcavt_score_release_config.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "config_version", "task_id", "release_contract_id",
+    "implementation_status", "formal_run_allowed", "real_input_read_allowed",
+    "synthetic_execution_allowed", "percentile_window", "tie_method",
+    "current_observation_excluded", "history_filter", "dimension_order",
+    "dimension_components", "a_dimension_formula", "a_dimension_min_formula",
+    "pcvt_source_policy", "a_source_policy", "spine_policy",
+    "availability_policy_path", "release_tables", "formal_cardinality"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t01_pcavt_score_release_config.schema.json"},
+    "config_version": {"const": "1.0.0"},
+    "task_id": {"const": "R2A-T01"},
+    "release_contract_id": {"const": "r2a_t01_pcavt_score_release.v1"},
+    "implementation_status": {"const": "implementation_complete_pending_review"},
+    "formal_run_allowed": {"type": "boolean"},
+    "real_input_read_allowed": {"type": "boolean"},
+    "synthetic_execution_allowed": {"const": true},
+    "percentile_window": {"const": 120},
+    "tie_method": {"const": "midrank"},
+    "current_observation_excluded": {"const": true},
+    "history_filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["same_security", "same_indicator", "strictly_prior_sequence", "validity_required", "finite_raw_value_required"],
+      "properties": {
+        "same_security": {"const": true},
+        "same_indicator": {"const": true},
+        "strictly_prior_sequence": {"const": true},
+        "validity_required": {"const": "valid"},
+        "finite_raw_value_required": {"const": true}
+      }
+    },
+    "dimension_order": {"const": ["P", "C", "A", "V", "T"]},
+    "dimension_components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P", "C", "A", "V", "T"],
+      "properties": {
+        "P": {"const": ["P1_NATR14", "P2_LogRange20"]},
+        "C": {"const": ["C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60"]},
+        "A": {"const": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60"]},
+        "V": {"const": ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"]},
+        "T": {"const": ["T1_ER20", "T2_AbsTrendT20"]}
+      }
+    },
+    "a_dimension_formula": {"const": "0.5 * A1_Score_W120 + 0.5 * A2_Score_W120"},
+    "a_dimension_min_formula": {"const": "min(A1_Score_W120, A2_Score_W120)"},
+    "pcvt_source_policy": {"const": "reuse_accepted_r0_t05_w120_rows_only"},
+    "a_source_policy": {"const": "recompute_from_accepted_a1_a2_raw_observations"},
+    "spine_policy": {"const": "complete_security_observation_spine_left_expansion"},
+    "availability_policy_path": {"const": "configs/r2a/r2a_t01_eod_availability_policy.v1.json"},
+    "release_tables": {"const": ["securities", "trading_sessions", "security_observation_spine", "dimension_definitions", "dimension_components", "daily_component_scores", "daily_dimension_scores"]},
+    "formal_cardinality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["security_count", "calendar_year_start", "calendar_year_end"],
+      "properties": {
+        "security_count": {"const": 800},
+        "calendar_year_start": {"const": 2016},
+        "calendar_year_end": {"const": 2026}
+      }
+    }
+  }
+}

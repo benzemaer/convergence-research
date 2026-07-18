@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t01_score_release_manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version", "run_id", "score_release_id", "synthetic_only",
+    "created_at", "authorized_input_manifest", "authorized_input_manifest_sha256",
+    "score_data_sha256", "schema_sha256", "config_sha256",
+    "availability_policy_id", "availability_policy_version",
+    "availability_policy_sha256", "timezone", "market_information_cutoff",
+    "execution_commit", "environment_lock_sha256", "formal_source_bindings",
+    "worker_count", "row_counts"
+  ],
+  "properties": {
+    "manifest_version": {"const": "r2a_t01_score_release_manifest.v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "score_release_id": {"type": "string", "minLength": 1},
+    "synthetic_only": {"type": "boolean"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "authorized_input_manifest": {"type": "string", "minLength": 1},
+    "authorized_input_manifest_sha256": {"$ref": "#/$defs/hash"},
+    "score_data_sha256": {"$ref": "#/$defs/hash"},
+    "schema_sha256": {"$ref": "#/$defs/hash"},
+    "config_sha256": {"$ref": "#/$defs/hash"},
+    "availability_policy_id": {"const": "r2a_t01_eod_close_1500_asia_shanghai.v1"},
+    "availability_policy_version": {"const": "1.0.0"},
+    "availability_policy_sha256": {"$ref": "#/$defs/hash"},
+    "timezone": {"const": "Asia/Shanghai"},
+    "market_information_cutoff": {"const": "15:00:00"},
+    "execution_commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "environment_lock_sha256": {"$ref": "#/$defs/hash"},
+    "formal_source_bindings": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/binding"}
+    },
+    "worker_count": {"type": "integer", "minimum": 1},
+    "row_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["securities", "trading_sessions", "security_observation_spine", "dimension_definitions", "dimension_components", "daily_component_scores", "daily_dimension_scores"],
+      "properties": {
+        "securities": {"type": "integer", "minimum": 1},
+        "trading_sessions": {"type": "integer", "minimum": 1},
+        "security_observation_spine": {"type": "integer", "minimum": 1},
+        "dimension_definitions": {"const": 5},
+        "dimension_components": {"const": 10},
+        "daily_component_scores": {"type": "integer", "minimum": 10},
+        "daily_dimension_scores": {"type": "integer", "minimum": 5}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"synthetic_only": {"const": true}}},
+      "then": {
+        "properties": {
+          "execution_commit": {"const": null},
+          "formal_source_bindings": {"maxProperties": 0}
+        }
+      },
+      "else": {
+        "properties": {
+          "execution_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "formal_source_bindings": {"minProperties": 20}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "binding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path", "source_commit", "git_blob_sha", "committed_byte_sha256", "normalized_text_sha256", "encoding", "line_ending", "bom", "terminal_lf_count"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "committed_byte_sha256": {"$ref": "#/$defs/hash"},
+        "normalized_text_sha256": {"$ref": "#/$defs/hash"},
+        "encoding": {"const": "utf-8"},
+        "line_ending": {"const": "lf"},
+        "bom": {"const": false},
+        "terminal_lf_count": {"const": 1}
+      }
+    }
+  }
+}

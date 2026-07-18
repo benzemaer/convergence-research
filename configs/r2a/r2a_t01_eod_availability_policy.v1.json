@@ -1,0 +1,13 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t01_eod_availability_policy.schema.json",
+  "policy_id": "r2a_t01_eod_close_1500_asia_shanghai.v1",
+  "policy_version": "1.0.0",
+  "timezone": "Asia/Shanghai",
+  "utc_offset": "+08:00",
+  "market_information_cutoff": "15:00:00",
+  "policy_class": "research_logical_availability_time",
+  "physical_ingestion_timestamp_required": false,
+  "same_timestamp_execution_assumed": false,
+  "row_available_time": "trading_date + 15:00:00 Asia/Shanghai",
+  "semantic_note": "Logical research information availability at market close; not physical ingestion time and not an assumption of execution at the same timestamp."
+}

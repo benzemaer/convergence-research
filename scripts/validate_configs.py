@@ -314,6 +314,14 @@ CONFIGS = (
         ROOT / "configs/r2/r2_t08_r2_gate_r3_handoff.v1.json",
     ),
     (
+        ROOT / "schemas/r2a/r2a_t01_pcavt_score_release_config.schema.json",
+        ROOT / "configs/r2a/r2a_t01_pcavt_score_release.v1.json",
+    ),
+    (
+        ROOT / "schemas/r2a/r2a_t01_eod_availability_policy.schema.json",
+        ROOT / "configs/r2a/r2a_t01_eod_availability_policy.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
@@ -392,13 +400,24 @@ def standalone_sidecar_schemas() -> tuple[Path, ...]:
     )
 
 
+def standalone_r2a_schemas() -> tuple[Path, ...]:
+    """Return R2A schemas for generated manifests and receipts."""
+
+    return (
+        ROOT / "schemas/r2a/r2a_t01_authorized_input_manifest.schema.json",
+        ROOT / "schemas/r2a/r2a_t01_score_release_schema.schema.json",
+        ROOT / "schemas/r2a/r2a_t01_score_release_manifest.schema.json",
+        ROOT / "schemas/r2a/r2a_t01_validation_receipt.schema.json",
+    )
+
+
 def load_json(path: Path) -> object:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def main() -> int:
-    for schema_path in standalone_sidecar_schemas():
+    for schema_path in (*standalone_sidecar_schemas(), *standalone_r2a_schemas()):
         Draft202012Validator.check_schema(load_json(schema_path))
         print(f"validated schema {schema_path.relative_to(ROOT)}")
     for schema_path, config_path in (*CONFIGS, *sidecar_config_pairs()):

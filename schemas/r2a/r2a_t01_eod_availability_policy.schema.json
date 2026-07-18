@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t01_eod_availability_policy.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "policy_id",
+    "policy_version",
+    "timezone",
+    "utc_offset",
+    "market_information_cutoff",
+    "policy_class",
+    "physical_ingestion_timestamp_required",
+    "same_timestamp_execution_assumed",
+    "row_available_time",
+    "semantic_note"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t01_eod_availability_policy.schema.json"},
+    "policy_id": {"const": "r2a_t01_eod_close_1500_asia_shanghai.v1"},
+    "policy_version": {"const": "1.0.0"},
+    "timezone": {"const": "Asia/Shanghai"},
+    "utc_offset": {"const": "+08:00"},
+    "market_information_cutoff": {"const": "15:00:00"},
+    "policy_class": {"const": "research_logical_availability_time"},
+    "physical_ingestion_timestamp_required": {"const": false},
+    "same_timestamp_execution_assumed": {"const": false},
+    "row_available_time": {"const": "trading_date + 15:00:00 Asia/Shanghai"},
+    "semantic_note": {"type": "string", "minLength": 40}
+  }
+}
