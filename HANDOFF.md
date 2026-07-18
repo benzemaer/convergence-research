@@ -10,7 +10,8 @@
 repository: benzemaer/convergence-research
 local_repository: D:\Code\convergence-research
 current_branch: codex/r2a-t02-dynamic-state-protocol
-remote_branch: pending first push
+remote_branch: origin/codex/r2a-t02-dynamic-state-protocol
+R2A-T02 PR: #110 / Draft
 base_main_sha: 34eee561218141d64a2e347e532d88c0fb09c33c
 R2A-T01 PR: #109 / merged
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
@@ -48,8 +49,8 @@ protocol_package_status: complete_pending_review
 real_score_data_read: false
 dynamic_evaluator_implemented: false
 dynamic_state_materialized: false
+R2A-T02_DONE: absent
 R2A-T03_allowed_to_start: false
-DONE: absent
 next gate: R2A-T02 Draft PR protocol review
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
@@ -314,7 +315,8 @@ protocol review。没有读取真实 Score DuckDB，也没有生产 evaluator �
 
 ```text
 branch: codex/r2a-t02-dynamic-state-protocol
-remote branch: pending first push
+remote branch: origin/codex/r2a-t02-dynamic-state-protocol
+R2A-T02 PR: #110 / Draft
 branch base: 34eee561218141d64a2e347e532d88c0fb09c33c
 R2A-T01 PR: #109 / merged
 reviewed implementation SHA: 3f36357be9d469d7a9751eef79f368676d7ec97a
@@ -352,8 +354,8 @@ protocol_package_status: complete_pending_review
 real_score_data_read: false
 dynamic_evaluator_implemented: false
 dynamic_state_materialized: false
+R2A-T02_DONE: absent
 R2A-T03_allowed_to_start: false
-DONE: absent
 next gate: R2A-T02 Draft PR protocol review
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
@@ -951,6 +953,6 @@ A_layer_W120_score_contract_registered=true；canonical_PCAVT_score_release_regi
 长期目标是 immutable canonical PCAVT Score release → parameterized dynamic state evaluator → request-scoped daily states and intervals。
 R2A-T02_status=protocol_freeze_candidate_pending_review；dynamic_protocol_version_candidate=pcavt_dynamic_state_protocol.v1。
 R2A-T02_started=true；protocol_package_status=complete_pending_review；real_score_data_read=false。
-dynamic_evaluator_implemented=false；dynamic_state_materialized=false；DONE=absent；R2A-T03_allowed_to_start=false。
+dynamic_evaluator_implemented=false；dynamic_state_materialized=false；R2A-T02_DONE=absent；R2A-T03_allowed_to_start=false。
 当前停止点是 R2A-T02 protocol review。
 ```

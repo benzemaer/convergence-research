@@ -14,6 +14,8 @@ from src.r2a.r2a_t02_request_identity import (
     canonical_spec_bytes,
     canonicalize_request_spec,
     ensure_no_request_id_collision,
+    load_canonical_request,
+    load_request_spec,
     request_hash_for_spec,
     request_id_for_hash,
     validate_canonical_request,
@@ -50,6 +52,60 @@ def test_golden_identity_vector_is_byte_exact() -> None:
     envelope = build_canonical_request(golden_spec())
     assert envelope["request_hash"] == GOLDEN_HASH
     assert envelope["request_id"] == GOLDEN_ID
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"confirmation_k":2,"confirmation_k":7}',
+        '{"selected_dimensions":["P"],"selected_dimensions":["A"]}',
+        '{"q_by_dimension":{"P":1000,"P":2500}}',
+    ],
+)
+def test_request_loader_rejects_duplicate_keys_at_every_depth(
+    tmp_path: Path, payload: str
+) -> None:
+    path = tmp_path / "duplicate.json"
+    path.write_text(payload, encoding="utf-8")
+    with pytest.raises(DynamicRequestError, match="duplicate_json_object_key"):
+        load_request_spec(path)
+
+
+def test_canonical_loader_rejects_duplicate_envelope_key(tmp_path: Path) -> None:
+    envelope = build_canonical_request(golden_spec())
+    payload = json.dumps(envelope, separators=(",", ":"))
+    payload = payload.replace(
+        f'"request_hash":"{GOLDEN_HASH}"',
+        f'"request_hash":"{GOLDEN_HASH}","request_hash":"{GOLDEN_HASH}"',
+    )
+    path = tmp_path / "duplicate-envelope.json"
+    path.write_text(payload, encoding="utf-8")
+    with pytest.raises(DynamicRequestError, match="duplicate_json_object_key"):
+        load_canonical_request(path)
+
+
+def test_unique_key_request_and_canonical_envelope_load_normally(
+    tmp_path: Path,
+) -> None:
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text(json.dumps(golden_spec()), encoding="utf-8")
+    loaded_spec = load_request_spec(spec_path)
+    assert loaded_spec == golden_spec()
+
+    envelope = build_canonical_request(loaded_spec)
+    envelope_path = tmp_path / "envelope.json"
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+    assert load_canonical_request(envelope_path) == envelope
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_external_json_loader_rejects_non_finite_constants(
+    tmp_path: Path, constant: str
+) -> None:
+    path = tmp_path / "non-finite.json"
+    path.write_text(f'{{"confirmation_k":{constant}}}', encoding="utf-8")
+    with pytest.raises(DynamicRequestError, match="non_finite_json_number"):
+        load_request_spec(path)
 
 
 def test_order_is_normalized_but_scientific_changes_change_identity() -> None:

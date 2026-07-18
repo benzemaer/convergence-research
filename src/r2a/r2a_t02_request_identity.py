@@ -10,6 +10,7 @@ import json
 import os
 import tempfile
 from collections.abc import Mapping
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,7 @@ class DynamicRequestError(ValueError):
         super().__init__(message)
 
 
+@lru_cache(maxsize=2)
 def _load_schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -50,10 +52,12 @@ def _load_schema(path: Path) -> dict[str, Any]:
     return value
 
 
+@lru_cache(maxsize=1)
 def _spec_validator() -> Draft202012Validator:
     return Draft202012Validator(_load_schema(SPEC_SCHEMA_PATH))
 
 
+@lru_cache(maxsize=1)
 def _request_validator() -> Draft202012Validator:
     spec_schema = _load_schema(SPEC_SCHEMA_PATH)
     request_schema = _load_schema(REQUEST_SCHEMA_PATH)
@@ -192,16 +196,46 @@ def ensure_no_request_id_collision(
         raise DynamicRequestError("request_id_collision")
 
 
-def load_request_spec(path: str | Path) -> object:
+def strict_json_loads(payload: str) -> object:
+    """Parse external JSON while rejecting duplicate keys at every object depth."""
+
     def reject_constant(value: str) -> None:
         raise DynamicRequestError("non_finite_json_number", value)
 
+    def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        parsed: dict[str, object] = {}
+        for key, value in pairs:
+            if key in parsed:
+                raise DynamicRequestError("duplicate_json_object_key", key)
+            parsed[key] = value
+        return parsed
+
     try:
         return json.loads(
-            Path(path).read_text(encoding="utf-8"), parse_constant=reject_constant
+            payload,
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_constant,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise DynamicRequestError("request_spec_json_invalid", str(error)) from error
+    except json.JSONDecodeError as error:
+        raise DynamicRequestError("request_json_invalid", str(error)) from error
+
+
+def _load_external_json(path: str | Path) -> object:
+    try:
+        payload = Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise DynamicRequestError("request_json_read_failed", str(error)) from error
+    return strict_json_loads(payload)
+
+
+def load_request_spec(path: str | Path) -> object:
+    return _load_external_json(path)
+
+
+def load_canonical_request(path: str | Path) -> dict[str, Any]:
+    """Strictly parse and fully validate a canonical request envelope."""
+
+    return validate_canonical_request(_load_external_json(path))
 
 
 def write_canonical_request(path: str | Path, envelope: object) -> Path:

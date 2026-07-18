@@ -162,8 +162,8 @@ protocol_package_status: complete_pending_review
 real_score_data_read: false
 dynamic_evaluator_implemented: false
 dynamic_state_materialized: false
+R2A-T02_DONE: absent
 R2A-T03_allowed_to_start: false
-DONE: absent
 ```
 
 ## 命名与路径规则

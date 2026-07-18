@@ -4,6 +4,14 @@
   "protocol_config_version": "r2a_t02_dynamic_state_protocol.v1",
   "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
   "status": "protocol_freeze_candidate_pending_review",
+  "json_input_policy": {
+    "scope": "all_external_request_json_objects_at_every_nesting_level",
+    "duplicate_object_member_behavior": "reject",
+    "duplicate_object_member_reason_code": "duplicate_json_object_key",
+    "non_finite_constants": ["NaN", "Infinity", "-Infinity"],
+    "non_finite_constant_behavior": "reject",
+    "applies_to": ["request_spec", "canonical_request_envelope"]
+  },
   "bound_score_release": {
     "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
     "accepted_run_id": "R2A-T01-20260718T103110891Z",
@@ -121,6 +129,52 @@
     "reason_code_within_dimension_order": "deduplicated_lexicographic",
     "reason_code_format": "<dimension>:<reason>"
   },
+  "joint_non_ready_reason_derivation": {
+    "selected_dimension_checks": "all_readiness_conditions_without_short_circuit",
+    "null_safe_score_check": true,
+    "score_non_finite_definition": [
+      "score_dimension_is_null",
+      "score_dimension_min_is_null",
+      "score_dimension_is_nan_or_positive_or_negative_infinity",
+      "score_dimension_min_is_nan_or_positive_or_negative_infinity"
+    ],
+    "derived_reason_vocabulary": [
+      "validity_blocked",
+      "validity_diagnostic_required",
+      "validity_unknown",
+      "dimension_not_eligible",
+      "score_non_finite"
+    ],
+    "derived_reason_rules": {
+      "validity_status_blocked": "D:validity_blocked",
+      "validity_status_diagnostic_required": "D:validity_diagnostic_required",
+      "validity_status_unknown": "D:validity_unknown",
+      "eligible_dimension_is_not_true": "D:dimension_not_eligible",
+      "either_score_is_null_nan_or_infinite": "D:score_non_finite"
+    },
+    "multiple_violations": "retain_all",
+    "upstream_reason_codes": {
+      "selected_dimensions_only": true,
+      "dimension_prefix_required": true,
+      "retain_all": true,
+      "merge_with_derived_before_ordering": true
+    },
+    "dimension_reason_order": "deduplicated_lexicographic",
+    "dimension_order": ["P", "C", "A", "V", "T"],
+    "joint_level_reasons_before_dimension_reasons": true,
+    "expected_observation_reason_rules": {
+      "missing": "expected_observation_missing",
+      "listing_pause": "expected_observation_listing_pause"
+    },
+    "joint_validity_source": "selected_dimension_validity_status_only",
+    "joint_validity_priority": ["blocked", "diagnostic_required", "unknown", "valid"],
+    "joint_validity_and_joint_ready_are_distinct": true,
+    "all_valid_but_ineligible_or_non_finite": {
+      "joint_validity_status": "valid",
+      "joint_ready": false,
+      "raw_state": null
+    }
+  },
   "streak_confirmation": {
     "continuity_key": "security_id+observation_sequence",
     "skip_nonpresent_observation_forbidden": true,
@@ -186,8 +240,41 @@
       "selected_dimension_score_non_finite",
       "raw_false"
     ],
+    "primary_reason_derivation": [
+      {
+        "condition": "expected_observation_status_missing",
+        "primary": "expected_observation_missing"
+      },
+      {
+        "condition": "expected_observation_status_listing_pause",
+        "primary": "expected_observation_listing_pause"
+      },
+      {
+        "condition": "any_selected_dimension_validity_blocked",
+        "primary": "selected_dimension_blocked"
+      },
+      {
+        "condition": "otherwise_any_selected_dimension_validity_diagnostic_required",
+        "primary": "selected_dimension_diagnostic_required"
+      },
+      {
+        "condition": "otherwise_any_selected_dimension_validity_unknown",
+        "primary": "selected_dimension_unknown"
+      },
+      {
+        "condition": "otherwise_any_selected_dimension_not_eligible",
+        "primary": "selected_dimension_not_eligible"
+      },
+      {
+        "condition": "otherwise_any_selected_dimension_score_null_nan_or_infinite",
+        "primary": "selected_dimension_score_non_finite"
+      },
+      {"condition": "otherwise_raw_state_false", "primary": "raw_false"}
+    ],
+    "input_end_open_interval_primary": "input_end_open_right_censored",
+    "input_end_derivation_is_separate_from_priority": true,
     "input_end_reason_scope": "only_when_confirmed_at_input_end",
-    "all_dimension_reason_codes_retained": true
+    "all_joint_and_dimension_reason_codes_retained": true
   },
   "zero_event": {
     "request_status": "completed",
@@ -219,7 +306,14 @@
     "termination_reasons",
     "request_hash_preimage",
     "canonical_json_rule",
-    "request_id_format"
+    "request_id_format",
+    "json_duplicate_key_policy",
+    "joint_non_ready_reason_derivation",
+    "reason_code_vocabulary_or_order",
+    "upstream_reason_code_propagation",
+    "score_non_finite_definition",
+    "primary_termination_reason_derivation",
+    "expected_observation_reason_semantics"
   ],
   "non_goals": [
     "select_best_q",
