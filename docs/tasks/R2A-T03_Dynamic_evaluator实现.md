@@ -3,20 +3,30 @@
 ## 1. 定位与状态
 
 本任务把已接受协议 `pcavt_dynamic_state_protocol.v1` 实现为一次只处理一个 canonical
-request 的参数化 evaluator。当前产物是 implementation candidate，等待代码与协议一致性
-审阅；它不是正式 dynamic evaluation package，不注册 evaluator version，也不接受任何动态
-状态研究结论。
+request 的参数化 evaluator。Implementation review 已接受 reviewed implementation
+`73b9b54ef76191fdbb44ffd7e4ae335601016466`；该接受不等于正式 dynamic evaluation package，
+不注册 evaluator/output schema version，也不接受任何动态状态研究结论。
 
 ```text
 task_id: R2A-T03
-status: implementation_candidate_pending_review
+status: completed_accepted
 base_main_sha: 83750e7d09188a2f69456bb4f3d7c966adc0ab0a
+implementation_review_status: accepted
+reviewed_implementation_head: 73b9b54ef76191fdbb44ffd7e4ae335601016466
+reviewed_implementation_Quality: 29653640376 / success
 evaluator_version: r2a_t03_dynamic_evaluator.v1
 output_schema_version: r2a_t03_dynamic_evaluation_output.v1
+dynamic_evaluator_accepted: true
+evaluator_registered: false
+output_schema_registered: false
 real_score_data_read: false
 formal_dynamic_evaluation_executed: false
-DONE: absent
-R2A-T04_allowed_to_start: false
+dynamic_state_artifact_committed: false
+PCAVT_dynamic_state_created: false
+DONE: present
+next_task: R2A-T04
+R2A-T04_allowed_to_start: true_after_PR_112_merge
+R2A-T04_started: false
 ```
 
 ## 2. 不可变绑定
@@ -35,7 +45,7 @@ bd57b1c90a340fe19e52450676b48f3d9f8cba20b93e344da429b5f378540d99
 ```
 
 上述 accepted 文件在每次 evaluation 前重新计算 SHA-256 并核对状态、协议和 Score release
-绑定。这里的 evaluator/output 版本仅是 T03 候选，不替代 R2A-T07 的统一版本注册。
+绑定。这里接受 evaluator implementation 与 output contract，但不替代 R2A-T07 的统一版本注册。
 
 ## 3. 输入与执行边界
 
@@ -142,9 +152,14 @@ active true set 与 joint raw true set不收缩且非退化；同时验证增加
 改变时 schema、row count 与 canonical row content 一致。Input/algorithm/output contract 分别由 Python
 immutable export、config 和 JSON Schema 三方对账；schema 以 `const` 拒绝任意 input column 或算法文本变化。
 
-## 8. 非目标与停止点
+## 8. 接受边界与停止点
 
-本 PR 不读取真实 4.25 GB Score DuckDB，不运行 800 证券，不选择 q/K 或 dimensions，不创建
-cache、manifest、validation receipt、result analysis、formal package、accepted handoff 或 DONE，
-也不注册 evaluator、物化 canonical dynamic state 或启动 R2A-T04。审阅通过后的下一步仍需由
-用户单独授权；当前停止点为 `R2A-T03 implementation review`。
+R2A-T03 implementation review 已接受，accepted handoff 与唯一 canonical `DONE` 已建立。
+该接受只确认 evaluator、独立 output validator、输出 contract 与 synthetic/property evidence；
+它没有读取真实 4.25 GB Score DuckDB，没有运行 800 证券，没有选择最佳 q/K 或 dimensions，也没有
+创建真实 dynamic result、canonical state version 或动态图形审核结论。Evaluator/output schema 的
+统一注册仍属于 R2A-T07。
+
+PR #112 合并后，R2A-T04 获得启动资格但保持未启动；当前停止点为
+`R2A-T03 accepted / R2A-T04 authorized_not_started`。T04 才负责真实市场结构、参数响应、价格图形与
+后续路径审核。

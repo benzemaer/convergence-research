@@ -46,6 +46,12 @@ R2A_PAIRS = (
         / "data/generated/r2a/r2a_t02/pcavt_dynamic_state_protocol.v1"
         / "r2a_t02_accepted_protocol_handoff.json",
     ),
+    (
+        ROOT / "schemas/r2a/r2a_t03_accepted_implementation_handoff.schema.json",
+        ROOT
+        / "data/generated/r2a/r2a_t03/r2a_t03_dynamic_evaluator.v1"
+        / "r2a_t03_accepted_implementation_handoff.json",
+    ),
 )
 SCHEMA_ONLY = (
     ROOT / "schemas/r2a/r2a_t02_dynamic_request_spec.schema.json",

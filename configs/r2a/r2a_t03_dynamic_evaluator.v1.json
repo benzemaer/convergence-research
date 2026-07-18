@@ -1,7 +1,7 @@
 {
   "$schema": "../../schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
   "task_id": "R2A-T03",
-  "status": "implementation_candidate",
+  "status": "accepted",
   "evaluator_version": "r2a_t03_dynamic_evaluator.v1",
   "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1",
   "bindings": {

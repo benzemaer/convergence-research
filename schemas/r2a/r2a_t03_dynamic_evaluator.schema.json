@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://benzemaer.local/schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
-  "title": "R2A-T03 dynamic evaluator implementation candidate",
+  "title": "R2A-T03 accepted dynamic evaluator implementation",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "task_id", "status", "evaluator_version", "output_schema_version", "bindings", "input_contract", "security_scope_contract", "algorithms", "termination_priority", "output_contract", "zero_event_behavior", "non_goals"],
   "properties": {
     "$schema": {"const": "../../schemas/r2a/r2a_t03_dynamic_evaluator.schema.json"},
     "task_id": {"const": "R2A-T03"},
-    "status": {"const": "implementation_candidate"},
+    "status": {"const": "accepted"},
     "evaluator_version": {"const": "r2a_t03_dynamic_evaluator.v1"},
     "output_schema_version": {"const": "r2a_t03_dynamic_evaluation_output.v1"},
     "bindings": {
