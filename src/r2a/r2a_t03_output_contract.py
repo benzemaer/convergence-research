@@ -173,9 +173,12 @@ def contract_as_json() -> dict[str, Any]:
 
 
 def _fail_if_nonzero(
-    connection: duckdb.DuckDBPyConnection, query: str, reason_code: str
+    connection: duckdb.DuckDBPyConnection,
+    query: str,
+    reason_code: str,
+    parameters: tuple[object, ...] = (),
 ) -> None:
-    count = int(connection.execute(query).fetchone()[0])
+    count = int(connection.execute(query, list(parameters)).fetchone()[0])
     if count:
         raise DynamicOutputValidationError(reason_code, str(count))
 
@@ -232,6 +235,31 @@ def _request_from_output(connection: duckdb.DuckDBPyConnection) -> dict[str, Any
         row["floating_comparison_epsilon"], 1e-12, rel_tol=0, abs_tol=0
     ):
         raise DynamicOutputValidationError("protocol_constant_mismatch")
+    q_text = str(row["q_by_dimension"])
+
+    def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        parsed: dict[str, object] = {}
+        for key, value in pairs:
+            if key in parsed:
+                raise ValueError(key)
+            parsed[key] = value
+        return parsed
+
+    try:
+        parsed_q = json.loads(q_text, object_pairs_hook=reject_duplicate_keys)
+        canonical_q = json.dumps(
+            parsed_q,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as error:
+        raise DynamicOutputValidationError(
+            "q_by_dimension_not_canonical", str(error)
+        ) from error
+    if not isinstance(parsed_q, dict) or q_text != canonical_q:
+        raise DynamicOutputValidationError("q_by_dimension_not_canonical")
     envelope = {
         "request_schema_version": row["request_schema_version"],
         "request_id": row["request_id"],
@@ -241,11 +269,397 @@ def _request_from_output(connection: duckdb.DuckDBPyConnection) -> dict[str, Any
             "dynamic_protocol_version": row["dynamic_protocol_version"],
             "score_release_id": row["score_release_id"],
             "selected_dimensions": row["selected_dimensions"],
-            "q_by_dimension": json.loads(row["q_by_dimension"]),
+            "q_by_dimension": parsed_q,
             "confirmation_k": row["confirmation_k"],
         },
     }
     return validate_canonical_request(envelope)
+
+
+def _validate_scope(
+    connection: duckdb.DuckDBPyConnection,
+    request_id: str,
+    selected_dimension_count: int,
+) -> dict[str, Any]:
+    rows = connection.execute("SELECT * FROM evaluation_scope").fetchall()
+    if len(rows) != 1:
+        raise DynamicOutputValidationError("evaluation_scope_row_count", str(len(rows)))
+    columns = [item[0] for item in connection.description]
+    scope = dict(zip(columns, rows[0], strict=True))
+    if scope["request_id"] != request_id:
+        raise DynamicOutputValidationError("scope_request_id_mismatch")
+    if scope["security_scope"] not in {"all", "explicit"}:
+        raise DynamicOutputValidationError("security_scope_invalid")
+    actual_ids = [
+        str(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT security_id FROM daily_joint_states ORDER BY security_id"
+        ).fetchall()
+    ]
+    requested_ids = list(scope["requested_security_ids"])
+    if scope["security_scope"] == "all":
+        if requested_ids:
+            raise DynamicOutputValidationError("scope_security_set_mismatch")
+    elif (
+        not requested_ids
+        or requested_ids != sorted(requested_ids)
+        or len(requested_ids) != len(set(requested_ids))
+        or requested_ids != actual_ids
+    ):
+        raise DynamicOutputValidationError("scope_security_set_mismatch")
+    actual_count, date_min, date_max, row_count = connection.execute(
+        "SELECT count(DISTINCT security_id), min(trading_date), max(trading_date), "
+        "count(*) FROM daily_joint_states"
+    ).fetchone()
+    if int(actual_count) != int(scope["evaluated_security_count"]):
+        raise DynamicOutputValidationError("scope_security_set_mismatch")
+    if date_min != scope["date_min"] or date_max != scope["date_max"]:
+        raise DynamicOutputValidationError("scope_date_coverage_mismatch")
+    if int(row_count) != int(scope["spine_row_count"]):
+        raise DynamicOutputValidationError("joint_cardinality_mismatch")
+    if int(scope["selected_dimension_count"]) != selected_dimension_count:
+        raise DynamicOutputValidationError("selected_dimension_count_mismatch")
+    _fail_if_nonzero(
+        connection,
+        "WITH domains AS (SELECT security_id, min(observation_sequence) lo, "
+        "max(observation_sequence) hi, count(*) n, "
+        "count(DISTINCT observation_sequence) dn FROM daily_joint_states "
+        "GROUP BY security_id) SELECT count(*) FROM domains "
+        "WHERE lo<>0 OR hi<>n-1 OR dn<>n",
+        "joint_sequence_domain_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "WITH ordered AS (SELECT security_id, trading_date, observation_sequence, "
+        "lag(trading_date) OVER (PARTITION BY security_id "
+        "ORDER BY observation_sequence) previous_date FROM daily_joint_states) "
+        "SELECT count(*) FROM ordered WHERE previous_date IS NOT NULL "
+        "AND trading_date<=previous_date",
+        "joint_sequence_domain_mismatch",
+    )
+    return scope
+
+
+def _dimension_reason_expression() -> str:
+    upstream = (
+        "list_transform(coalesce(d.source_reason_codes, []::VARCHAR[]), "
+        "x -> d.dimension_id || ':' || x)"
+    )
+    derived = (
+        "list_concat("
+        "CASE d.validity_status WHEN 'blocked' THEN "
+        "[d.dimension_id || ':validity_blocked'] "
+        "WHEN 'diagnostic_required' THEN "
+        "[d.dimension_id || ':validity_diagnostic_required'] "
+        "WHEN 'unknown' THEN [d.dimension_id || ':validity_unknown'] "
+        "ELSE []::VARCHAR[] END, "
+        "CASE WHEN d.eligible_dimension IS NOT TRUE THEN "
+        "[d.dimension_id || ':dimension_not_eligible'] "
+        "ELSE []::VARCHAR[] END, "
+        "CASE WHEN d.score_dimension IS NULL OR d.score_dimension_min IS NULL OR "
+        "NOT isfinite(d.score_dimension) OR NOT isfinite(d.score_dimension_min) "
+        "THEN [d.dimension_id || ':score_non_finite'] "
+        "ELSE []::VARCHAR[] END)"
+    )
+    return f"list_sort(list_distinct(list_concat({upstream}, {derived})))"
+
+
+def _validate_dimension_derivation(
+    connection: duckdb.DuckDBPyConnection,
+) -> None:
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM daily_dimension_states WHERE "
+        "(dimension_ready AND dimension_active IS NULL) OR "
+        "(NOT dimension_ready AND dimension_active IS NOT NULL)",
+        "dimension_active_readiness_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM daily_dimension_states d "
+        "LEFT JOIN _validator_request_dimensions r USING (dimension_id) "
+        "WHERE r.dimension_id IS NULL OR d.q_bp<>r.q_bp",
+        "dimension_q_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM daily_dimension_states d JOIN "
+        "_validator_request_dimensions r USING (dimension_id) WHERE "
+        "NOT isfinite(d.main_threshold) OR NOT isfinite(d.weak_threshold) OR "
+        "abs(d.main_threshold-(1.0-r.q_bp/10000.0))>1e-15 OR "
+        "abs(d.weak_threshold-(1.0-r.q_bp/10000.0-0.10))>1e-15",
+        "dimension_threshold_mismatch",
+    )
+    ready = (
+        "d.expected_observation_status='present' "
+        "AND d.eligible_dimension IS TRUE AND d.validity_status='valid' "
+        "AND d.score_dimension IS NOT NULL AND isfinite(d.score_dimension) "
+        "AND d.score_dimension_min IS NOT NULL "
+        "AND isfinite(d.score_dimension_min)"
+    )
+    _fail_if_nonzero(
+        connection,
+        f"SELECT count(*) FROM daily_dimension_states d WHERE "
+        f"d.dimension_ready IS DISTINCT FROM ({ready})",
+        "dimension_ready_semantics_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        f"SELECT count(*) FROM daily_dimension_states d WHERE "
+        "d.dimension_active IS DISTINCT FROM CASE WHEN "
+        f"{ready} THEN d.score_dimension>=d.main_threshold-1e-12 "
+        "AND d.score_dimension_min>=d.weak_threshold-1e-12 ELSE NULL END",
+        "dimension_active_semantics_mismatch",
+    )
+    reasons = _dimension_reason_expression()
+    _fail_if_nonzero(
+        connection,
+        f"SELECT count(*) FROM daily_dimension_states d WHERE "
+        f"d.dimension_reason_codes IS DISTINCT FROM {reasons}",
+        "dimension_reason_codes_mismatch",
+    )
+
+
+def _create_expected_joint(connection: duckdb.DuckDBPyConnection) -> None:
+    _fail_if_nonzero(
+        connection,
+        "WITH groups AS (SELECT d.request_id, d.security_id, d.trading_date, "
+        "d.observation_sequence, count(*) n, count(DISTINCT d.dimension_id) dn, "
+        "count(DISTINCT d.expected_observation_status) statuses, "
+        "count(DISTINCT d.observation_available_time) spine_times, "
+        "count(DISTINCT d.available_time) available_times, "
+        "bool_and(d.observation_available_time=d.available_time) aligned "
+        "FROM daily_dimension_states d GROUP BY d.request_id, d.security_id, "
+        "d.trading_date, d.observation_sequence) SELECT count(*) FROM groups g "
+        "CROSS JOIN dynamic_request r WHERE g.n<>len(r.selected_dimensions) OR "
+        "g.dn<>len(r.selected_dimensions) OR statuses<>1 OR spine_times<>1 OR "
+        "available_times<>1 OR NOT aligned",
+        "joint_dimension_alignment_mismatch",
+    )
+    connection.execute(
+        "CREATE TEMP TABLE _validator_expected_joint AS WITH aggregated AS ("
+        "SELECT d.request_id, d.security_id, d.trading_date, "
+        "d.observation_sequence, min(d.expected_observation_status) "
+        "AS expected_observation_status, min(d.observation_available_time) "
+        "AS available_time, max(CASE d.validity_status "
+        "WHEN 'blocked' THEN 4 WHEN 'diagnostic_required' THEN 3 "
+        "WHEN 'unknown' THEN 2 ELSE 1 END) validity_rank, "
+        "bool_and(d.dimension_ready) dimensions_ready, "
+        "bool_and(d.dimension_active) dimensions_active, "
+        "flatten(list(d.dimension_reason_codes ORDER BY r.dimension_rank)) "
+        "AS dimension_reasons FROM daily_dimension_states d JOIN "
+        "_validator_request_dimensions r USING (dimension_id) "
+        "GROUP BY d.request_id, d.security_id, d.trading_date, "
+        "d.observation_sequence) SELECT *, CASE validity_rank "
+        "WHEN 4 THEN 'blocked' WHEN 3 THEN 'diagnostic_required' "
+        "WHEN 2 THEN 'unknown' ELSE 'valid' END AS joint_validity_status, "
+        "expected_observation_status='present' AND dimensions_ready "
+        "AS joint_ready, list_concat(CASE expected_observation_status "
+        "WHEN 'missing' THEN ['expected_observation_missing'] "
+        "WHEN 'listing_pause' THEN ['expected_observation_listing_pause'] "
+        "ELSE []::VARCHAR[] END, dimension_reasons) AS joint_reason_codes, "
+        "CASE WHEN expected_observation_status='present' AND dimensions_ready "
+        "THEN dimensions_active ELSE NULL END AS raw_state FROM aggregated"
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM _validator_expected_joint e FULL OUTER JOIN "
+        "daily_joint_states j USING (request_id, security_id, trading_date, "
+        "observation_sequence) WHERE e.security_id IS NULL OR j.security_id IS NULL",
+        "dimension_joint_key_reconciliation_mismatch",
+    )
+    comparisons = (
+        ("expected_observation_status", "joint_dimension_alignment_mismatch"),
+        ("available_time", "joint_dimension_alignment_mismatch"),
+        ("joint_validity_status", "joint_validity_mismatch"),
+        ("joint_ready", "joint_ready_semantics_mismatch"),
+        ("joint_reason_codes", "joint_reason_codes_mismatch"),
+        ("raw_state", "raw_state_semantics_mismatch"),
+    )
+    for field, reason in comparisons:
+        _fail_if_nonzero(
+            connection,
+            "SELECT count(*) FROM _validator_expected_joint e JOIN "
+            "daily_joint_states j USING (request_id, security_id, trading_date, "
+            f"observation_sequence) WHERE j.{field} IS DISTINCT FROM e.{field}",
+            reason,
+        )
+
+
+def _create_expected_daily(
+    connection: duckdb.DuckDBPyConnection, confirmation_k: int
+) -> None:
+    connection.execute(
+        "CREATE TEMP TABLE _validator_expected_daily AS WITH runs AS ("
+        "SELECT *, sum(CASE WHEN raw_state IS TRUE THEN 0 ELSE 1 END) OVER ("
+        "PARTITION BY security_id ORDER BY observation_sequence ROWS BETWEEN "
+        "UNBOUNDED PRECEDING AND CURRENT ROW) run_id "
+        "FROM _validator_expected_joint), streaks AS (SELECT *, CASE "
+        "WHEN raw_state IS TRUE THEN count(*) FILTER (WHERE raw_state IS TRUE) "
+        "OVER (PARTITION BY security_id, run_id ORDER BY observation_sequence "
+        "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::INTEGER "
+        "WHEN raw_state IS FALSE THEN 0 ELSE NULL END raw_streak, CASE "
+        "WHEN raw_state IS TRUE THEN min(trading_date) FILTER "
+        "(WHERE raw_state IS TRUE) OVER (PARTITION BY security_id, run_id) "
+        "ELSE NULL END raw_streak_start_date FROM runs), confirmed AS ("
+        "SELECT *, coalesce(raw_streak=?, false) confirmation_event, CASE "
+        "WHEN raw_state IS NULL THEN NULL WHEN raw_state IS FALSE THEN false "
+        "ELSE raw_streak>=? END confirmed_state FROM streaks) SELECT *, CASE "
+        "WHEN confirmed_state IS TRUE THEN sum(CASE WHEN confirmation_event "
+        "THEN 1 ELSE 0 END) OVER (PARTITION BY security_id "
+        "ORDER BY observation_sequence ROWS BETWEEN UNBOUNDED PRECEDING "
+        "AND CURRENT ROW)-1 ELSE NULL END::BIGINT confirmed_interval_ordinal "
+        "FROM confirmed",
+        [confirmation_k, confirmation_k],
+    )
+    comparisons = (
+        ("raw_streak", "raw_streak_mismatch"),
+        ("raw_streak_start_date", "raw_streak_start_mismatch"),
+        ("confirmation_event", "confirmation_event_mismatch"),
+        ("confirmed_state", "confirmed_state_mismatch"),
+        ("confirmed_interval_ordinal", "confirmed_interval_ordinal_mismatch"),
+    )
+    for field, reason in comparisons:
+        _fail_if_nonzero(
+            connection,
+            "SELECT count(*) FROM _validator_expected_daily e JOIN "
+            "daily_joint_states j USING (request_id, security_id, trading_date, "
+            f"observation_sequence) WHERE j.{field} IS DISTINCT FROM e.{field}",
+            reason,
+        )
+
+
+def _termination_reason_sql(alias: str) -> str:
+    return (
+        f"CASE WHEN {alias}.termination_sequence IS NULL "
+        "THEN 'input_end_open_right_censored' "
+        f"WHEN {alias}.termination_expected_status='missing' "
+        "THEN 'expected_observation_missing' "
+        f"WHEN {alias}.termination_expected_status='listing_pause' "
+        "THEN 'expected_observation_listing_pause' "
+        f"WHEN {alias}.termination_validity='blocked' "
+        "THEN 'selected_dimension_blocked' "
+        f"WHEN {alias}.termination_validity='diagnostic_required' "
+        "THEN 'selected_dimension_diagnostic_required' "
+        f"WHEN {alias}.termination_validity='unknown' "
+        "THEN 'selected_dimension_unknown' "
+        f"WHEN list_count(list_filter({alias}.termination_codes, "
+        "x -> ends_with(x, ':dimension_not_eligible'))) > 0 "
+        "THEN 'selected_dimension_not_eligible' "
+        f"WHEN list_count(list_filter({alias}.termination_codes, "
+        "x -> ends_with(x, ':score_non_finite'))) > 0 "
+        "THEN 'selected_dimension_score_non_finite' ELSE 'raw_false' END"
+    )
+
+
+def _validate_intervals(connection: duckdb.DuckDBPyConnection) -> None:
+    reason = _termination_reason_sql("terminated")
+    connection.execute(
+        "CREATE TEMP TABLE _validator_expected_intervals AS WITH confirmed AS ("
+        "SELECT request_id, security_id, confirmed_interval_ordinal interval_ordinal, "
+        "min(trading_date) confirmation_date, min(observation_sequence) "
+        "confirmation_sequence, max(trading_date) end_date, "
+        "max(observation_sequence) end_sequence, count(*) confirmed_count "
+        "FROM _validator_expected_daily WHERE confirmed_state IS TRUE "
+        "GROUP BY request_id, security_id, confirmed_interval_ordinal), starts AS ("
+        "SELECT c.*, d.raw_streak_start_date raw_start_date, "
+        "d.observation_sequence-d.raw_streak+1 raw_start_sequence "
+        "FROM confirmed c JOIN _validator_expected_daily d ON "
+        "c.request_id=d.request_id AND c.security_id=d.security_id AND "
+        "c.confirmation_sequence=d.observation_sequence), terminated AS ("
+        "SELECT s.*, t.trading_date termination_date, "
+        "t.observation_sequence termination_sequence, "
+        "t.expected_observation_status termination_expected_status, "
+        "t.joint_validity_status termination_validity, "
+        "t.joint_reason_codes termination_codes FROM starts s LEFT JOIN "
+        "_validator_expected_daily t ON s.request_id=t.request_id AND "
+        "s.security_id=t.security_id AND t.observation_sequence=s.end_sequence+1) "
+        "SELECT terminated.request_id, terminated.security_id, interval_ordinal, "
+        "raw_start_date, raw_start_sequence, confirmation_date, "
+        "confirmation_sequence, end_date, end_sequence, termination_date, "
+        f"termination_sequence, {reason} termination_reason, "
+        "coalesce(termination_codes, []::VARCHAR[]) termination_reason_codes, "
+        "termination_sequence IS NULL right_censored, r.selected_dimensions, "
+        "r.q_by_dimension, r.confirmation_k, confirmed_count "
+        "FROM terminated CROSS JOIN dynamic_request r"
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM _validator_expected_intervals e FULL OUTER JOIN "
+        "confirmed_intervals i USING (request_id, security_id, interval_ordinal) "
+        "WHERE e.security_id IS NULL OR i.security_id IS NULL",
+        "interval_daily_reconciliation_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM _validator_expected_intervals e JOIN "
+        "confirmed_intervals i USING (request_id, security_id, interval_ordinal) "
+        "WHERE i.raw_start_date IS DISTINCT FROM e.raw_start_date OR "
+        "i.raw_start_observation_sequence IS DISTINCT FROM e.raw_start_sequence",
+        "interval_raw_start_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM _validator_expected_intervals e JOIN "
+        "confirmed_intervals i USING (request_id, security_id, interval_ordinal) "
+        "WHERE i.selected_dimensions IS DISTINCT FROM e.selected_dimensions OR "
+        "i.q_by_dimension IS DISTINCT FROM e.q_by_dimension OR "
+        "i.confirmation_k IS DISTINCT FROM e.confirmation_k",
+        "interval_request_parameters_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM confirmed_intervals i JOIN "
+        "(SELECT security_id, max(observation_sequence) max_sequence "
+        "FROM daily_joint_states GROUP BY security_id) m USING (security_id) "
+        "WHERE i.right_censored AND "
+        "i.last_confirmed_end_observation_sequence<>m.max_sequence",
+        "right_censored_not_at_input_end",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM confirmed_intervals WHERE "
+        "raw_start_date>confirmation_date OR "
+        "confirmation_date>last_confirmed_end_date OR "
+        "confirmed_observation_count<1 OR (right_censored AND "
+        "(termination_date IS NOT NULL OR "
+        "termination_observation_sequence IS NOT NULL OR "
+        "termination_reason<>'input_end_open_right_censored')) OR "
+        "(NOT right_censored AND (termination_date IS NULL OR "
+        "termination_observation_sequence IS NULL OR "
+        "last_confirmed_end_observation_sequence>="
+        "termination_observation_sequence))",
+        "interval_boundary_mismatch",
+    )
+    fields = (
+        ("confirmation_date", "confirmation_date"),
+        ("confirmation_observation_sequence", "confirmation_sequence"),
+        ("last_confirmed_end_date", "end_date"),
+        ("last_confirmed_end_observation_sequence", "end_sequence"),
+        ("termination_date", "termination_date"),
+        ("termination_observation_sequence", "termination_sequence"),
+        ("termination_reason", "termination_reason"),
+        ("termination_reason_codes", "termination_reason_codes"),
+        ("right_censored", "right_censored"),
+        ("confirmed_observation_count", "confirmed_count"),
+    )
+    predicate = " OR ".join(
+        f"i.{actual} IS DISTINCT FROM e.{expected}" for actual, expected in fields
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM _validator_expected_intervals e JOIN "
+        "confirmed_intervals i USING (request_id, security_id, interval_ordinal) "
+        f"WHERE {predicate}",
+        "interval_recalculation_mismatch",
+    )
+    _fail_if_nonzero(
+        connection,
+        "SELECT count(*) FROM confirmed_intervals WHERE NOT right_censored AND "
+        "termination_observation_sequence<>"
+        "last_confirmed_end_observation_sequence+1",
+        "interval_termination_reconciliation_mismatch",
+    )
 
 
 def validate_dynamic_evaluation_output(
@@ -257,206 +671,61 @@ def validate_dynamic_evaluation_output(
     envelope = _request_from_output(connection)
     request_id = str(envelope["request_id"])
     spec = envelope["spec"]
-    k = int(spec["confirmation_k"])
-    scope_rows = connection.execute("SELECT * FROM evaluation_scope").fetchall()
-    if len(scope_rows) != 1:
-        raise DynamicOutputValidationError(
-            "evaluation_scope_row_count", str(len(scope_rows))
-        )
-    scope_columns = [item[0] for item in connection.description]
-    scope = dict(zip(scope_columns, scope_rows[0], strict=True))
-    if scope["request_id"] != request_id:
-        raise DynamicOutputValidationError("scope_request_id_mismatch")
-    if scope["security_scope"] not in {"all", "explicit"}:
-        raise DynamicOutputValidationError("security_scope_invalid")
-    requested_ids = list(scope["requested_security_ids"])
-    if scope["security_scope"] == "all" and requested_ids:
-        raise DynamicOutputValidationError("all_scope_requested_ids_not_empty")
-    if scope["security_scope"] == "explicit" and (
-        not requested_ids
-        or requested_ids != sorted(requested_ids)
-        or len(requested_ids) != len(set(requested_ids))
-    ):
-        raise DynamicOutputValidationError("explicit_scope_requested_ids_invalid")
-    if scope["selected_dimension_count"] != len(spec["selected_dimensions"]):
-        raise DynamicOutputValidationError("selected_dimension_count_mismatch")
-
-    dimension_count = int(
-        connection.execute("SELECT count(*) FROM daily_dimension_states").fetchone()[0]
-    )
-    joint_count = int(
-        connection.execute("SELECT count(*) FROM daily_joint_states").fetchone()[0]
-    )
-    interval_count = int(
-        connection.execute("SELECT count(*) FROM confirmed_intervals").fetchone()[0]
-    )
-    if dimension_count != scope["spine_row_count"] * scope["selected_dimension_count"]:
-        raise DynamicOutputValidationError("dimension_cardinality_mismatch")
-    if joint_count != scope["spine_row_count"]:
-        raise DynamicOutputValidationError("joint_cardinality_mismatch")
-    actual_security_count = int(
-        connection.execute(
-            "SELECT count(DISTINCT security_id) FROM daily_joint_states"
-        ).fetchone()[0]
-    )
-    if actual_security_count != scope["evaluated_security_count"]:
-        raise DynamicOutputValidationError("security_count_mismatch")
     selected = list(spec["selected_dimensions"])
-    actual_dimensions = [
-        row[0]
-        for row in connection.execute(
-            "SELECT DISTINCT dimension_id FROM daily_dimension_states "
-            "ORDER BY dimension_id"
-        ).fetchall()
-    ]
-    if set(actual_dimensions) != set(selected):
-        raise DynamicOutputValidationError("unselected_dimension_in_output")
-    _fail_if_nonzero(
-        connection,
-        f"SELECT count(*) FROM (SELECT request_id FROM evaluation_scope UNION ALL "
-        f"SELECT request_id FROM daily_dimension_states UNION ALL "
-        f"SELECT request_id FROM daily_joint_states UNION ALL "
-        f"SELECT request_id FROM confirmed_intervals) "
-        f"WHERE request_id <> '{request_id}'",
-        "output_request_id_mismatch",
+    q_by_dimension = spec["q_by_dimension"]
+    temporary_tables = (
+        "_validator_expected_intervals",
+        "_validator_expected_daily",
+        "_validator_expected_joint",
+        "_validator_request_dimensions",
     )
-    _fail_if_nonzero(
-        connection,
-        "WITH expected AS (SELECT j.request_id, j.security_id, j.trading_date, "
-        "j.observation_sequence, unnest(r.selected_dimensions) AS dimension_id "
-        "FROM daily_joint_states j CROSS JOIN dynamic_request r) "
-        "SELECT count(*) FROM expected e FULL OUTER JOIN daily_dimension_states d "
-        "USING (request_id, security_id, trading_date, "
-        "observation_sequence, dimension_id) "
-        "WHERE e.security_id IS NULL OR d.security_id IS NULL",
-        "dimension_joint_key_reconciliation_mismatch",
-    )
-
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM daily_dimension_states WHERE "
-        "(dimension_ready AND dimension_active IS NULL) OR "
-        "(NOT dimension_ready AND dimension_active IS NOT NULL)",
-        "dimension_active_readiness_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM daily_joint_states WHERE "
-        "(joint_ready AND raw_state IS NULL) OR "
-        "(NOT joint_ready AND raw_state IS NOT NULL)",
-        "raw_state_readiness_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "WITH runs AS (SELECT *, sum(CASE WHEN raw_state IS TRUE THEN 0 ELSE 1 END) "
-        "OVER (PARTITION BY security_id ORDER BY observation_sequence) AS run_id "
-        "FROM daily_joint_states), expected AS (SELECT *, CASE "
-        "WHEN raw_state IS TRUE THEN count(*) FILTER (WHERE raw_state IS TRUE) OVER "
-        "(PARTITION BY security_id, run_id ORDER BY observation_sequence ROWS BETWEEN "
-        "UNBOUNDED PRECEDING AND CURRENT ROW)::INTEGER "
-        "WHEN raw_state IS FALSE THEN 0 ELSE NULL END AS expected_streak FROM runs) "
-        "SELECT count(*) FROM expected WHERE "
-        "raw_streak IS DISTINCT FROM expected_streak",
-        "raw_streak_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        f"SELECT count(*) FROM daily_joint_states WHERE confirmation_event IS DISTINCT "
-        f"FROM coalesce(raw_streak = {k}, false)",
-        "confirmation_event_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM daily_joint_states WHERE "
-        "confirmed_state IS DISTINCT FROM "
-        f"CASE WHEN raw_state IS NULL THEN NULL WHEN raw_state IS FALSE THEN false "
-        f"ELSE raw_streak >= {k} END",
-        "confirmed_state_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM (SELECT security_id, min(interval_ordinal) AS lo, "
-        "max(interval_ordinal) AS hi, count(DISTINCT interval_ordinal) AS n "
-        "FROM confirmed_intervals GROUP BY security_id HAVING lo <> 0 OR hi <> n - 1)",
-        "interval_ordinal_not_contiguous",
-    )
-    _fail_if_nonzero(
-        connection,
-        "WITH daily AS (SELECT request_id, security_id, confirmed_interval_ordinal, "
-        "min(trading_date) AS start_date, max(trading_date) AS end_date, "
-        "min(observation_sequence) AS start_seq, max(observation_sequence) AS end_seq, "
-        "count(*) AS n FROM daily_joint_states WHERE confirmed_state IS TRUE "
-        "GROUP BY request_id, security_id, confirmed_interval_ordinal) "
-        "SELECT count(*) FROM confirmed_intervals i FULL OUTER JOIN daily d ON "
-        "i.request_id=d.request_id AND i.security_id=d.security_id AND "
-        "i.interval_ordinal=d.confirmed_interval_ordinal "
-        "WHERE d.security_id IS NULL OR "
-        "i.security_id IS NULL OR i.confirmation_date<>d.start_date OR "
-        "i.last_confirmed_end_date<>d.end_date OR "
-        "i.confirmation_observation_sequence<>d.start_seq OR "
-        "i.last_confirmed_end_observation_sequence<>d.end_seq OR "
-        "i.confirmed_observation_count<>d.n",
-        "interval_daily_reconciliation_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM confirmed_intervals WHERE "
-        "raw_start_date > confirmation_date OR "
-        "confirmation_date > last_confirmed_end_date "
-        "OR confirmed_observation_count < 1 OR "
-        "(right_censored AND (termination_date IS NOT NULL OR "
-        "termination_observation_sequence IS NOT NULL OR "
-        "termination_reason <> 'input_end_open_right_censored')) OR "
-        "(NOT right_censored AND (termination_date IS NULL OR "
-        "termination_observation_sequence IS NULL OR "
-        "last_confirmed_end_observation_sequence >= termination_observation_sequence))",
-        "interval_boundary_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM confirmed_intervals i JOIN daily_joint_states t ON "
-        "i.request_id=t.request_id AND i.security_id=t.security_id AND "
-        "i.termination_observation_sequence=t.observation_sequence WHERE "
-        "i.right_censored OR i.termination_date<>t.trading_date OR "
-        "t.confirmed_state IS TRUE OR i.termination_reason_codes<>t.joint_reason_codes",
-        "interval_termination_reconciliation_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "SELECT count(*) FROM confirmed_intervals i JOIN daily_joint_states t ON "
-        "i.request_id=t.request_id AND i.security_id=t.security_id AND "
-        "i.termination_observation_sequence=t.observation_sequence WHERE "
-        "i.termination_reason IS DISTINCT FROM CASE "
-        "WHEN t.expected_observation_status='missing' "
-        "THEN 'expected_observation_missing' "
-        "WHEN t.expected_observation_status='listing_pause' "
-        "THEN 'expected_observation_listing_pause' "
-        "WHEN t.joint_validity_status='blocked' THEN 'selected_dimension_blocked' "
-        "WHEN t.joint_validity_status='diagnostic_required' "
-        "THEN 'selected_dimension_diagnostic_required' "
-        "WHEN t.joint_validity_status='unknown' THEN 'selected_dimension_unknown' "
-        "WHEN list_count(list_filter(t.joint_reason_codes, "
-        "x -> ends_with(x, ':dimension_not_eligible'))) > 0 "
-        "THEN 'selected_dimension_not_eligible' "
-        "WHEN list_count(list_filter(t.joint_reason_codes, "
-        "x -> ends_with(x, ':score_non_finite'))) > 0 "
-        "THEN 'selected_dimension_score_non_finite' ELSE 'raw_false' END",
-        "interval_termination_reason_mismatch",
-    )
-    _fail_if_nonzero(
-        connection,
-        "WITH ordered AS (SELECT *, lag(last_confirmed_end_observation_sequence) OVER "
-        "(PARTITION BY security_id ORDER BY interval_ordinal) AS previous_end "
-        "FROM confirmed_intervals) SELECT count(*) FROM ordered "
-        "WHERE previous_end IS NOT NULL AND "
-        "raw_start_observation_sequence <= previous_end",
-        "interval_overlap",
-    )
-    return DynamicEvaluationSummary(
-        request_id=request_id,
-        request_hash=str(envelope["request_hash"]),
-        evaluated_security_count=int(scope["evaluated_security_count"]),
-        daily_dimension_state_count=dimension_count,
-        daily_joint_state_count=joint_count,
-        confirmed_interval_count=interval_count,
-    )
+    try:
+        connection.execute(
+            "CREATE TEMP TABLE _validator_request_dimensions ("
+            "dimension_id VARCHAR, q_bp INTEGER, dimension_rank INTEGER)"
+        )
+        connection.executemany(
+            "INSERT INTO _validator_request_dimensions VALUES (?, ?, ?)",
+            [
+                (dimension, int(q_by_dimension[dimension]), rank)
+                for rank, dimension in enumerate(selected)
+            ],
+        )
+        scope = _validate_scope(connection, request_id, len(selected))
+        dimension_count = int(
+            connection.execute(
+                "SELECT count(*) FROM daily_dimension_states"
+            ).fetchone()[0]
+        )
+        joint_count = int(
+            connection.execute("SELECT count(*) FROM daily_joint_states").fetchone()[0]
+        )
+        interval_count = int(
+            connection.execute("SELECT count(*) FROM confirmed_intervals").fetchone()[0]
+        )
+        if dimension_count != joint_count * len(selected):
+            raise DynamicOutputValidationError("dimension_cardinality_mismatch")
+        _fail_if_nonzero(
+            connection,
+            "SELECT count(*) FROM (SELECT request_id FROM evaluation_scope UNION ALL "
+            "SELECT request_id FROM daily_dimension_states UNION ALL "
+            "SELECT request_id FROM daily_joint_states UNION ALL "
+            "SELECT request_id FROM confirmed_intervals) WHERE request_id<>?",
+            "output_request_id_mismatch",
+            (request_id,),
+        )
+        _validate_dimension_derivation(connection)
+        _create_expected_joint(connection)
+        _create_expected_daily(connection, int(spec["confirmation_k"]))
+        _validate_intervals(connection)
+        return DynamicEvaluationSummary(
+            request_id=request_id,
+            request_hash=str(envelope["request_hash"]),
+            evaluated_security_count=int(scope["evaluated_security_count"]),
+            daily_dimension_state_count=dimension_count,
+            daily_joint_state_count=joint_count,
+            confirmed_interval_count=interval_count,
+        )
+    finally:
+        for table in temporary_tables:
+            connection.execute(f"DROP TABLE IF EXISTS {table}")

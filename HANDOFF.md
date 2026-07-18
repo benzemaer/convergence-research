@@ -74,6 +74,9 @@ real_dynamic_evaluation_executed: false
 dynamic_state_artifact_committed: false
 R2A-T03_DONE: absent
 R2A-T04_allowed_to_start: false
+independent_output_validator: full_persisted_table_recomputation_candidate
+implementation_review_blockers: addressed_pending_new_head_quality
+per_dimension_q_properties: P_and_A_independent_pending_review
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
@@ -404,6 +407,9 @@ real_dynamic_evaluation_executed: false
 dynamic_state_artifact_committed: false
 R2A-T03_DONE: absent
 R2A-T04_allowed_to_start: false
+independent_output_validator: full_persisted_table_recomputation_candidate
+implementation_review_blockers: addressed_pending_new_head_quality
+per_dimension_q_properties: P_and_A_independent_pending_review
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false

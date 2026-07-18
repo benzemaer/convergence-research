@@ -37,28 +37,103 @@ VALIDITY_STATUSES = ("valid", "unknown", "diagnostic_required", "blocked")
 EXPECTED_STATUSES = ("present", "missing", "listing_pause")
 STREAM_BATCH_SIZE = 10_000
 
+SOURCE_TABLE_COLUMNS = {
+    "security_observation_spine": (
+        "score_release_id:VARCHAR",
+        "security_id:VARCHAR",
+        "trading_date:DATE",
+        "observation_sequence:BIGINT",
+        "expected_observation_status:VARCHAR",
+        "observation_available_time:TIMESTAMP WITH TIME ZONE",
+    ),
+    "daily_dimension_scores": (
+        "score_release_id:VARCHAR",
+        "security_id:VARCHAR",
+        "trading_date:DATE",
+        "observation_sequence:BIGINT",
+        "dimension_id:VARCHAR",
+        "score_dimension:DOUBLE?",
+        "score_dimension_min:DOUBLE?",
+        "eligible_dimension:BOOLEAN",
+        "validity_status:VARCHAR",
+        "reason_codes:VARCHAR[]",
+        "available_time:TIMESTAMP WITH TIME ZONE",
+    ),
+}
+SECURITY_SCOPE_CONTRACT = {
+    "allowed": ["all", "explicit"],
+    "date_slicing_allowed": False,
+    "duplicate_unknown_or_empty_explicit_scope": "reject",
+    "included_in_request_identity": False,
+}
+ALGORITHM_CONTRACT = {
+    "dimension_formula": ("ready ? mean>=1-q-epsilon AND min>=1-q-weak_delta : NULL"),
+    "joint_formula": "complete_case_AND_selected_dimensions",
+    "streak_formula": "true:previous_true+1;false:0;NULL:NULL_and_interrupt",
+    "confirmation_formula": (
+        "event=streak==K;confirmed=true only from Kth true without backfill"
+    ),
+    "interval_formula": (
+        "start_confirmation_date;end_last_confirmed_before_false_or_NULL;"
+        "input_end_right_censored"
+    ),
+    "weak_delta_bp": 1000,
+    "floating_comparison_epsilon": 1e-12,
+    "confirmation_k_domain": [2, 3, 4, 5, 6, 7],
+}
+TERMINATION_PRIORITY = [
+    "expected_observation_missing",
+    "expected_observation_listing_pause",
+    "selected_dimension_blocked",
+    "selected_dimension_diagnostic_required",
+    "selected_dimension_unknown",
+    "selected_dimension_not_eligible",
+    "selected_dimension_score_non_finite",
+    "raw_false",
+]
+ZERO_EVENT_BEHAVIOR = "completed_with_empty_confirmed_intervals_table"
+NON_GOALS = [
+    "real_score_data",
+    "parameter_selection",
+    "formal_dynamic_package",
+    "cache",
+    "date_slicing",
+    "d",
+    "g",
+    "exit_delay",
+    "gap_tolerance",
+    "interval_merge",
+    "DONE",
+    "accepted_handoff",
+    "R2A-T04",
+]
+
+
+def source_contract_as_json() -> dict[str, object]:
+    """Return the immutable development source contract in JSON form."""
+
+    return {
+        "tables": {
+            table: list(columns) for table, columns in SOURCE_TABLE_COLUMNS.items()
+        },
+        "read_only": True,
+        "selected_dimensions_only": True,
+        "full_observation_history_required": True,
+    }
+
+
+def algorithm_contract_as_json() -> dict[str, object]:
+    """Return the immutable development algorithm contract in JSON form."""
+
+    return dict(ALGORITHM_CONTRACT)
+
+
 SOURCE_CONTRACT = {
-    "security_observation_spine": {
-        "score_release_id": {"VARCHAR"},
-        "security_id": {"VARCHAR"},
-        "trading_date": {"DATE"},
-        "observation_sequence": {"BIGINT"},
-        "expected_observation_status": {"VARCHAR"},
-        "observation_available_time": {"TIMESTAMP WITH TIME ZONE"},
-    },
-    "daily_dimension_scores": {
-        "score_release_id": {"VARCHAR"},
-        "security_id": {"VARCHAR"},
-        "trading_date": {"DATE"},
-        "observation_sequence": {"BIGINT"},
-        "dimension_id": {"VARCHAR"},
-        "score_dimension": {"DOUBLE"},
-        "score_dimension_min": {"DOUBLE"},
-        "eligible_dimension": {"BOOLEAN"},
-        "validity_status": {"VARCHAR"},
-        "reason_codes": {"VARCHAR[]"},
-        "available_time": {"TIMESTAMP WITH TIME ZONE"},
-    },
+    table: {
+        item.split(":", 1)[0]: {item.split(":", 1)[1].removesuffix("?")}
+        for item in columns
+    }
+    for table, columns in SOURCE_TABLE_COLUMNS.items()
 }
 
 

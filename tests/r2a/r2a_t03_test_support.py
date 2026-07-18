@@ -87,6 +87,18 @@ def _profile(
     elif security_id == "S3":
         mean = 0.4
         minimum = 0.3
+        if sequence == 0 and dimension == "P":
+            mean = 0.82
+            minimum = 0.72
+        elif sequence == 0 and dimension == "A":
+            mean = 0.9
+            minimum = 0.8
+        elif sequence == 1 and dimension == "A":
+            mean = 0.82
+            minimum = 0.72
+        elif sequence == 1 and dimension == "P":
+            mean = 0.9
+            minimum = 0.8
     return status, mean, minimum, eligible, validity, reasons
 
 
@@ -107,7 +119,7 @@ def create_source(
         "eligible_dimension BOOLEAN, validity_status VARCHAR, reason_codes VARCHAR[], "
         "available_time TIMESTAMP WITH TIME ZONE)"
     )
-    lengths = {"S1": 14, "S2": 11, "S3": 6}
+    lengths = {"S1": 15, "S2": 11, "S3": 6}
     spine_rows: list[tuple[object, ...]] = []
     dimension_rows: list[tuple[object, ...]] = []
     timezone = ZoneInfo("Asia/Shanghai")

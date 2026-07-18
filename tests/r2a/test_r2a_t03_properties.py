@@ -22,23 +22,69 @@ def _true_keys(
     )
 
 
-def test_q_relaxation_monotonicity_with_independent_set_oracle() -> None:
+def _dimension_profile(
+    output: duckdb.DuckDBPyConnection, dimension: str
+) -> list[tuple[object, ...]]:
+    return output.execute(
+        "SELECT security_id, trading_date, q_bp, main_threshold, weak_threshold, "
+        "dimension_active FROM daily_dimension_states WHERE dimension_id=? "
+        "ORDER BY security_id, observation_sequence",
+        [dimension],
+    ).fetchall()
+
+
+def _assert_independent_q_monotonicity(*, target: str, fixed: str) -> None:
     source = create_source()
     previous_dimension: set[tuple[str, object]] = set()
     previous_joint: set[tuple[str, object]] = set()
+    fixed_profile: list[tuple[object, ...]] | None = None
+    observed_target_sets: set[frozenset[tuple[str, object]]] = set()
     for q_bp in (1000, 1500, 2000, 2500):
-        output = evaluate(source, canonical_request(q_bp=q_bp))
+        request_q = {target: q_bp, fixed: 1500}
+        output = evaluate(source, canonical_request(q_bp=request_q))
         current_dimension = set(
             output.execute(
                 "SELECT security_id, trading_date FROM daily_dimension_states "
-                "WHERE dimension_id='P' AND dimension_active"
+                "WHERE dimension_id=? AND dimension_active",
+                [target],
             ).fetchall()
         )
         current_joint = _true_keys(output, "raw_state")
         assert previous_dimension <= current_dimension
         assert previous_joint <= current_joint
+        assert (
+            output.execute(
+                "SELECT count(*) FROM daily_dimension_states "
+                "WHERE dimension_id=? AND q_bp<>?",
+                [target, q_bp],
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            output.execute(
+                "SELECT count(*) FROM daily_dimension_states "
+                "WHERE dimension_id=? AND q_bp<>1500",
+                [fixed],
+            ).fetchone()[0]
+            == 0
+        )
+        current_fixed_profile = _dimension_profile(output, fixed)
+        if fixed_profile is None:
+            fixed_profile = current_fixed_profile
+        else:
+            assert current_fixed_profile == fixed_profile
+        observed_target_sets.add(frozenset(current_dimension))
         previous_dimension = current_dimension
         previous_joint = current_joint
+    assert len(observed_target_sets) >= 2
+
+
+def test_only_p_q_relaxes_while_a_is_fixed() -> None:
+    _assert_independent_q_monotonicity(target="P", fixed="A")
+
+
+def test_only_a_q_relaxes_while_p_is_fixed() -> None:
+    _assert_independent_q_monotonicity(target="A", fixed="P")
 
 
 def test_selected_dimension_true_set_only_contracts() -> None:

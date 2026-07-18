@@ -110,23 +110,37 @@ Expected-observation reason 位于所有维度 reason 之前。上游 reason 只
 `TABLE_CONTRACTS`，测试要求三者一致。`q_by_dimension` 使用 compact、sorted-key JSON 字符串，
 不使用 dict repr。合法 request 可以产生零 interval；其余四张表仍完整，interval 表存在且为零行。
 
-独立 output validator 不信任 evaluator summary。它重新检查五表 inventory、schema/nullability、
-primary key、request hash/ID、scope、request ID、joint/dimension key 和 cardinality、未选维度隔离、
-ready/NULL 关系、streak、K confirmation、confirmed state、interval ordinal、daily/interval 对账、
-termination observation/reason、closed/right-censored 边界及不重叠约束。
+独立 output validator 不信任 evaluator summary，也不 import production evaluator 的计算函数。
+它只从五张持久化表和 accepted T02 request validator 重建 request envelope，并严格检查 compact
+q JSON、scope 的实际证券集合/日期/行数、逐证券 sequence domain，以及每个 dimension 的 q、阈值、
+finite gate、ready/active 和完整 reason arrays。随后从全部 selected dimension rows 独立聚合 joint
+validity、ready、reasons 和 raw state，再复算 streak、streak start、confirmation、confirmed state
+及 daily interval ordinal。
+
+每个 confirmation event 的 raw start、confirmation、confirmed end、紧邻 termination observation、
+primary/detailed reasons、right-censoring、计数及 request parameters 也从 daily rows 完整重建并逐字段
+对账。Closed interval 的 termination 必须为 end+1；right-censored end 必须是证券输入末行。Validator
+使用临时 review tables 承载 SQL oracle，成功或失败后均删除；五张持久化 output table 结构不变。
 
 ## 7. Synthetic 与 property 验证范围
 
 测试数据只写入 pytest 临时或内存 DuckDB，至少三只证券和 P/A 两个 selected dimensions，另含
 未选择 T。样本覆盖 present、missing、listing pause、active true/false、valid-but-ineligible、
 unknown、diagnostic、blocked、NULL/NaN/±Inf、确认前中断、raw-false/blocked 终止、多 interval、
-right-censored 和 zero-event。
+multi-day confirmed interval、right-censored 和 zero-event。Fixture 另含 P 与 A 各自位于 q 阈值间的
+边界行，确保只改变单个维度 q 时该维 active 集确实变化，另一维的 q、threshold 与 active 完全不变。
 
 Failure tests 覆盖错误 release、缺表/列、spine duplicate、非 0-based/gap、非递增日期、selected
 dimension 缺失/重复、sequence/availability 不一致、非法 explicit scope、output 冲突、raw spec、
-篡改 hash 和非法 K。Property tests 使用测试侧集合 oracle 验证 q 放宽不收缩 true set、增加维度
-只收缩 raw true set、增加 K 不提前确认且不扩大 confirmed true set，以及 insertion order、scope
-order 和 DuckDB thread count 改变时 schema、row count 与 canonical row content 一致。
+篡改 hash 和非法 K。Coupled mutation tests 同步篡改 dimension/joint 或 interval 的表面一致性，
+验证 validator 仍能从原始持久化字段拒绝 q/threshold/formula/reason、joint derivation、streak start、
+daily ordinal、raw start、scope metadata、request parameters 和伪 right-censoring。
+
+Property tests 使用测试侧集合 oracle，分别固定 A 只改变 P q、固定 P 只改变 A q，验证目标维度
+active true set 与 joint raw true set不收缩且非退化；同时验证增加维度只收缩 raw true set、增加 K
+不提前确认且不扩大 confirmed true set，以及 insertion order、scope order 和 DuckDB thread count
+改变时 schema、row count 与 canonical row content 一致。Input/algorithm/output contract 分别由 Python
+immutable export、config 和 JSON Schema 三方对账；schema 以 `const` 拒绝任意 input column 或算法文本变化。
 
 ## 8. 非目标与停止点
 

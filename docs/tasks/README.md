@@ -185,12 +185,17 @@ real_dynamic_evaluation_executed: false
 dynamic_state_artifact_committed: false
 R2A-T03_DONE: absent
 R2A-T04_allowed_to_start: false
+independent_output_validator: full_persisted_table_recomputation_candidate
+implementation_review_blockers: addressed_pending_new_head_quality
+per_dimension_q_properties: P_and_A_independent_pending_review
 ```
 
 R2A-T03 的任务契约见
 [`R2A-T03_Dynamic_evaluator实现.md`](R2A-T03_Dynamic_evaluator实现.md)。当前只提交 accepted
-protocol 的实现候选、开发期输出契约与 synthetic/property tests，等待 implementation review；
-尚未读取真实 Score release、运行正式 dynamic evaluation 或产生正式状态产物。
+protocol 的实现候选、开发期输出契约与 synthetic/property tests，等待 implementation review。
+Review-blocker 修复已补齐五表驱动的独立 derivation/interval 复算、coupled mutation rejection、P/A
+单维独立 q properties，以及 Python/config/schema 三方冻结；尚未读取真实 Score release、运行正式
+dynamic evaluation 或产生正式状态产物。
 
 ## 命名与路径规则
 

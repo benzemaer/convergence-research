@@ -42,7 +42,7 @@ def test_streak_confirmation_intervals_and_no_backfill() -> None:
     assert intervals == [
         (0, 0, 2, 2, 3, "raw_false", False),
         (1, 7, 9, 9, 10, "selected_dimension_blocked", False),
-        (2, 11, 13, 13, None, "input_end_open_right_censored", True),
+        (2, 11, 13, 14, None, "input_end_open_right_censored", True),
     ]
 
 
