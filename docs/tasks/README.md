@@ -167,8 +167,11 @@ dynamic_state_materialized: false
 dynamic_protocol_accepted: true
 dynamic_protocol_registered: false
 R2A-T02_DONE: present
+post_merge_test_contract_issue: stale_candidate_only_DONE_assertion
+post_merge_test_contract_status: corrected_pending_merge
+accepted_protocol_artifacts_modified: false
 next_task: R2A-T03
-R2A-T03_allowed_to_start: true_after_PR_110_merge
+R2A-T03_allowed_to_start: true_after_post_merge_test_contract_PR_merge
 R2A-T03_started: false
 ```
 
