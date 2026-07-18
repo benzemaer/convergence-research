@@ -6,13 +6,18 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
-from src.r2a.r2a_t04_real_data_audit import (
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.r2a.r2a_t04_real_data_audit import (  # noqa: E402
     load_market_source_spec,
     run_formal_audit,
 )
-from src.r2a.r2a_t04_request_panel import (
+from src.r2a.r2a_t04_request_panel import (  # noqa: E402
     build_request_panel,
     load_audit_config,
 )
