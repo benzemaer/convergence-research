@@ -10,8 +10,9 @@
 repository: benzemaer/convergence-research
 local_repository: D:\Code\convergence-research
 current_branch: codex/r2a-t03-dynamic-evaluator
-remote_branch: pending first push
-R2A-T03 PR: pending Draft creation
+remote_branch: origin/codex/r2a-t03-dynamic-evaluator
+R2A-T03 PR: #112 / Draft
+R2A-T03 PR head at creation: 3927b6e3b7791d01dc6f94f537cf572f3624b45b
 R2A-T03 base_main_sha: 83750e7d09188a2f69456bb4f3d7c966adc0ab0a
 R2A-T02 PR: #110 / merged
 base_main_sha: 83750e7d09188a2f69456bb4f3d7c966adc0ab0a
