@@ -1,0 +1,81 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json",
+  "task_id": "R2A-T04",
+  "status": "implementation_candidate",
+  "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
+  "reviewed_harness_head": null,
+  "formal_run_authorized": false,
+  "formal_run_consumed": false,
+  "score_release": {
+    "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+    "filename": "score_data.duckdb",
+    "sha256": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+    "byte_size": 4255395840,
+    "security_count": 800,
+    "date_min": "2016-01-04",
+    "date_max": "2026-06-30",
+    "accepted_t01_handoff_sha256": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"
+  },
+  "accepted_evaluator": {
+    "evaluator_version": "r2a_t03_dynamic_evaluator.v1",
+    "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1",
+    "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
+    "accepted_t03_handoff_sha256": "474a6721f0f8219b7ddb16cbddec2294d6b61c75db57f63e5f45ebfeb025b9b1",
+    "accepted_t03_config_sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"
+  },
+  "panel_id": "r2a_t04_representative_panel.v1",
+  "request_panel_count": 16,
+  "full_security_scope_required": true,
+  "full_observation_history_required": true,
+  "full_universe_request_concurrency": 1,
+  "chart_worker_count": 1,
+  "thread_preflight": {
+    "candidate_threads": [4, 8, 16],
+    "request_name": "D05_PCAVT_q15_k3",
+    "security_count": 4,
+    "selection_method": "sha256(score_release_id + ':' + security_id)_ascending",
+    "duckdb_thread_count": null,
+    "thread_benchmark_fingerprint": null,
+    "thread_benchmark_status": "pending"
+  },
+  "synthetic_smoke": {
+    "request_count": 2,
+    "minimum_security_count": 3,
+    "confirmed_interval_required": true,
+    "zero_event_request_required": true
+  },
+  "real_input_smoke": {
+    "request_name": "D05_PCAVT_q15_k3",
+    "security_scope": "thread_benchmark_same_four",
+    "full_history_required": true,
+    "formal_run_attempt_consumed": false
+  },
+  "chart_request_names": [
+    "D03_PCA_q15_k3",
+    "D04_PCAV_q15_k3",
+    "D05_PCAVT_q15_k3",
+    "Q02_PCAVT_q20_k3"
+  ],
+  "chart_samples_per_request": 12,
+  "future_horizons": [5, 10, 20],
+  "formal_run_attempt_limit": 1,
+  "minimum_free_disk_score_db_multiple": 3,
+  "request_panel": [
+    {"logical_request_name":"D01_P_q15_k3","selected_dimensions":["P"],"q_by_dimension":{"P":1500},"confirmation_k":3},
+    {"logical_request_name":"D02_PA_q15_k3","selected_dimensions":["P","A"],"q_by_dimension":{"P":1500,"A":1500},"confirmation_k":3},
+    {"logical_request_name":"D03_PCA_q15_k3","selected_dimensions":["P","C","A"],"q_by_dimension":{"P":1500,"C":1500,"A":1500},"confirmation_k":3},
+    {"logical_request_name":"D04_PCAV_q15_k3","selected_dimensions":["P","C","A","V"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":1500},"confirmation_k":3},
+    {"logical_request_name":"D05_PCAVT_q15_k3","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":1500,"T":1500},"confirmation_k":3},
+    {"logical_request_name":"Q01_PCAVT_q10_k3","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1000,"C":1000,"A":1000,"V":1000,"T":1000},"confirmation_k":3},
+    {"logical_request_name":"Q02_PCAVT_q20_k3","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":2000,"C":2000,"A":2000,"V":2000,"T":2000},"confirmation_k":3},
+    {"logical_request_name":"Q03_PCAVT_q25_k3","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":2500,"C":2500,"A":2500,"V":2500,"T":2500},"confirmation_k":3},
+    {"logical_request_name":"K01_PCAVT_q15_k2","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":1500,"T":1500},"confirmation_k":2},
+    {"logical_request_name":"K02_PCAVT_q15_k5","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":1500,"T":1500},"confirmation_k":5},
+    {"logical_request_name":"K03_PCAVT_q15_k7","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":1500,"T":1500},"confirmation_k":7},
+    {"logical_request_name":"M01_P25","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":2500,"C":1500,"A":1500,"V":1500,"T":1500},"confirmation_k":3},
+    {"logical_request_name":"M02_C25","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":2500,"A":1500,"V":1500,"T":1500},"confirmation_k":3},
+    {"logical_request_name":"M03_A25","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":2500,"V":1500,"T":1500},"confirmation_k":3},
+    {"logical_request_name":"M04_V25","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":2500,"T":1500},"confirmation_k":3},
+    {"logical_request_name":"M05_T25","selected_dimensions":["P","C","A","V","T"],"q_by_dimension":{"P":1500,"C":1500,"A":1500,"V":1500,"T":2500},"confirmation_k":3}
+  ]
+}

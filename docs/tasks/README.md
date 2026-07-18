@@ -188,8 +188,23 @@ real_score_data_read: false
 real_dynamic_evaluation_executed: false
 dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
-R2A-T04_allowed_to_start: true_after_PR_112_merge
-R2A-T04_started: false
+R2A-T04_allowed_to_start: true
+R2A-T04_started: true
+R2A-T04_status: implementation_candidate
+R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
+formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
+formal_run_authorized: false
+formal_run_consumed: false
+synthetic_end_to_end_smoke: passed_in_tests
+thread_benchmark_status: pending
+real_input_smoke_status: pending
+full_universe_request_concurrency: 1
+duckdb_thread_count: pending_preflight
+real_score_data_read: false
+market_context_data_read: false
+owner_visual_review: not_started
+R2A-T04_DONE: absent
+R2A-T05_allowed_to_start: false
 independent_output_validator: full_persisted_table_recomputation_accepted
 implementation_review_blockers: 0
 per_dimension_q_properties: P_and_A_independent_verified
@@ -200,7 +215,12 @@ R2A-T03 的任务契约见
 `73b9b54ef76191fdbb44ffd7e4ae335601016466` 已接受，accepted handoff 与唯一 `DONE` 已建立。
 接受范围仅覆盖 evaluator、开发期输出契约与 synthetic/property evidence；尚未读取真实 Score release、
 运行真实 dynamic evaluation、选择最佳 q/K、完成价格图审核或产生真实状态产物。PR #112 合并后
-R2A-T04 获得启动资格，但仍保持未启动。
+R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
+启动，当前只完成 harness implementation candidate 与 pytest temporary-directory synthetic
+end-to-end smoke。尚未读取真实 Score/market data；4/8/16 threads benchmark、authorization、
+real-input smoke 和唯一 formal run 均未开始。16 个 full-universe requests 必须严格串行。
+任务契约见
+[`R2A-T04_真实数据参数响应与结果合理性审核.md`](R2A-T04_真实数据参数响应与结果合理性审核.md)。
 
 ## 命名与路径规则
 

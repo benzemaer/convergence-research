@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_review_bundle.schema.json",
+  "title": "R2A-T04 compact formal-review bundle summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id","bundle_mode","status","formal_run_id","formal_authorization_id","panel_id","request_count","score_source","market_source","execution","validation","review_boundary","files"],
+  "properties": {
+    "task_id": {"const":"R2A-T04"},
+    "bundle_mode": {"enum":["synthetic_smoke","real_input_smoke","formal_review"]},
+    "status": {"enum":["real_data_run_completed_pending_result_review","formal_run_blocked"]},
+    "formal_run_id": {"type":"string","pattern":"^R2A-T04-[0-9]{8}T[0-9]{9}Z$"},
+    "formal_authorization_id": {"const":"R2A-T04-REAL-AUDIT-AUTH-20260719"},
+    "panel_id": {"const":"r2a_t04_representative_panel.v1"},
+    "request_count": {"type":"integer","minimum":1,"maximum":16},
+    "score_source": {"type":"object","additionalProperties":false,"required":["score_release_id","sha256","byte_size"],"properties":{"score_release_id":{"const":"pcavt-score-w120-v1-c7e04f11a2cd09aa"},"sha256":{"const":"d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"},"byte_size":{"const":4255395840}}},
+    "market_source": {"type":"object","additionalProperties":false,"required":["source_id","sha256","byte_size"],"properties":{"source_id":{"type":"string","minLength":1},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"byte_size":{"type":"integer","minimum":1}}},
+    "execution": {"type":"object","additionalProperties":false,"required":["full_universe_request_concurrency","duckdb_thread_count","chart_worker_count","formal_run_consumed"],"properties":{"full_universe_request_concurrency":{"const":1},"duckdb_thread_count":{"enum":[4,8,16]},"chart_worker_count":{"type":"integer","minimum":0,"maximum":4},"formal_run_consumed":{"type":"boolean"}}},
+    "validation": {"type":"object","additionalProperties":false,"required":["request_validator_failure_count","response_violation_count","blocking_anomaly_count","status"],"properties":{"request_validator_failure_count":{"const":0},"response_violation_count":{"const":0},"blocking_anomaly_count":{"type":"integer","minimum":0},"status":{"enum":["passed","failed"]}}},
+    "review_boundary": {"type":"object","additionalProperties":false,"required":["automated_recommendation","owner_visual_review","R2A_T04_DONE","R2A_T05_allowed_to_start"],"properties":{"automated_recommendation":{"enum":["continue_to_owner_visual_review","smoke_passed","blocked_evaluator_or_response_degeneracy","blocked_market_context_quality"]},"owner_visual_review":{"enum":["pending","not_applicable_smoke"]},"R2A_T04_DONE":{"const":"absent"},"R2A_T05_allowed_to_start":{"const":false}}},
+    "files": {"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["relative_path","sha256","byte_size"],"properties":{"relative_path":{"type":"string","minLength":1,"not":{"pattern":"^[A-Za-z]:[\\\\/]"}},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"byte_size":{"type":"integer","minimum":0}}}}
+  },
+  "allOf": [
+    {"if":{"properties":{"bundle_mode":{"const":"formal_review"}}},"then":{"properties":{"request_count":{"const":16},"execution":{"properties":{"formal_run_consumed":{"const":true}}},"review_boundary":{"properties":{"automated_recommendation":{"enum":["continue_to_owner_visual_review","blocked_evaluator_or_response_degeneracy","blocked_market_context_quality"]},"owner_visual_review":{"const":"pending"}}}}}},
+    {"if":{"properties":{"bundle_mode":{"enum":["synthetic_smoke","real_input_smoke"]}}},"then":{"properties":{"execution":{"properties":{"formal_run_consumed":{"const":false}}},"review_boundary":{"properties":{"automated_recommendation":{"const":"smoke_passed"},"owner_visual_review":{"const":"not_applicable_smoke"}}}}}}
+  ]
+}
