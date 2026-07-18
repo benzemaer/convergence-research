@@ -162,18 +162,45 @@ dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
 bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
 protocol_package_status: accepted
 real_score_data_read: false
-dynamic_evaluator_implemented: false
+dynamic_evaluator_implemented: accepted
 dynamic_state_materialized: false
 dynamic_protocol_accepted: true
 dynamic_protocol_registered: false
 R2A-T02_DONE: present
 post_merge_test_contract_issue: stale_candidate_only_DONE_assertion
-post_merge_test_contract_status: corrected_pending_merge
+post_merge_test_contract_status: corrected_merged_via_PR_111
 accepted_protocol_artifacts_modified: false
-next_task: R2A-T03
-R2A-T03_allowed_to_start: true_after_post_merge_test_contract_PR_merge
-R2A-T03_started: false
+next_task: R2A-T04
+R2A-T03_allowed_to_start: true
+R2A-T03_started: true
+R2A-T03_status: completed_accepted
+R2A-T03_base_main_sha: 83750e7d09188a2f69456bb4f3d7c966adc0ab0a
+implementation_review_status: accepted
+reviewed_implementation_head: 73b9b54ef76191fdbb44ffd7e4ae335601016466
+reviewed_implementation_Quality: 29653640376 / success
+evaluator_version: r2a_t03_dynamic_evaluator.v1
+output_schema_version: r2a_t03_dynamic_evaluation_output.v1
+bound_dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
+dynamic_evaluator_accepted: true
+evaluator_registered: false
+output_schema_registered: false
+real_score_data_read: false
+real_dynamic_evaluation_executed: false
+dynamic_state_artifact_committed: false
+R2A-T03_DONE: present
+R2A-T04_allowed_to_start: true_after_PR_112_merge
+R2A-T04_started: false
+independent_output_validator: full_persisted_table_recomputation_accepted
+implementation_review_blockers: 0
+per_dimension_q_properties: P_and_A_independent_verified
 ```
+
+R2A-T03 的任务契约见
+[`R2A-T03_Dynamic_evaluator实现.md`](R2A-T03_Dynamic_evaluator实现.md)。Reviewed implementation
+`73b9b54ef76191fdbb44ffd7e4ae335601016466` 已接受，accepted handoff 与唯一 `DONE` 已建立。
+接受范围仅覆盖 evaluator、开发期输出契约与 synthetic/property evidence；尚未读取真实 Score release、
+运行真实 dynamic evaluation、选择最佳 q/K、完成价格图审核或产生真实状态产物。PR #112 合并后
+R2A-T04 获得启动资格，但仍保持未启动。
 
 ## 命名与路径规则
 

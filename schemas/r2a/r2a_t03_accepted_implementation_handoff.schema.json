@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t03_accepted_implementation_handoff.schema.json",
+  "title": "R2A-T03 accepted dynamic evaluator implementation handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "task_id",
+    "stage_id",
+    "status",
+    "implementation_review_status",
+    "reviewed_implementation_head",
+    "reviewed_implementation_Quality",
+    "evaluator_version",
+    "output_schema_version",
+    "dynamic_protocol_version",
+    "dynamic_protocol_registered",
+    "evaluator_registered",
+    "output_schema_registered",
+    "score_release_id",
+    "accepted_T02_handoff_sha256",
+    "accepted_T02_protocol_config_sha256",
+    "file_identities",
+    "data_flow_contract",
+    "state_semantics",
+    "review_outcome",
+    "research_execution_boundary",
+    "downstream_authorization"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../../../../schemas/r2a/r2a_t03_accepted_implementation_handoff.schema.json"
+    },
+    "task_id": {"const": "R2A-T03"},
+    "stage_id": {"const": "R2A"},
+    "status": {"const": "completed_accepted"},
+    "implementation_review_status": {"const": "accepted"},
+    "reviewed_implementation_head": {
+      "const": "73b9b54ef76191fdbb44ffd7e4ae335601016466"
+    },
+    "reviewed_implementation_Quality": {"const": "29653640376 / success"},
+    "evaluator_version": {"const": "r2a_t03_dynamic_evaluator.v1"},
+    "output_schema_version": {
+      "const": "r2a_t03_dynamic_evaluation_output.v1"
+    },
+    "dynamic_protocol_version": {
+      "const": "pcavt_dynamic_state_protocol.v1"
+    },
+    "dynamic_protocol_registered": {"const": false},
+    "evaluator_registered": {"const": false},
+    "output_schema_registered": {"const": false},
+    "score_release_id": {
+      "const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"
+    },
+    "accepted_T02_handoff_sha256": {
+      "const": "f8ff97543b95ba3676acd36ea3d48adb06dfb1f9ab51a7ee7b8413003e1b5082"
+    },
+    "accepted_T02_protocol_config_sha256": {
+      "const": "bd57b1c90a340fe19e52450676b48f3d9f8cba20b93e344da429b5f378540d99"
+    },
+    "file_identities": {
+      "const": {
+        "accepted_evaluator_config": {
+          "relative_path": "configs/r2a/r2a_t03_dynamic_evaluator.v1.json",
+          "filename": "r2a_t03_dynamic_evaluator.v1.json",
+          "sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"
+        },
+        "accepted_evaluator_config_schema": {
+          "relative_path": "schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
+          "filename": "r2a_t03_dynamic_evaluator.schema.json",
+          "sha256": "9c456190980a52d6a0a008191b710dea1a123d87a29ead21eedff577dc8def85"
+        },
+        "dynamic_evaluator_source": {
+          "relative_path": "src/r2a/r2a_t03_dynamic_evaluator.py",
+          "filename": "r2a_t03_dynamic_evaluator.py",
+          "sha256": "57e156e9f57d84668b2c47a993b989e159a253f3ba632891d3dcbd0efc432aaf"
+        },
+        "independent_output_validator_source": {
+          "relative_path": "src/r2a/r2a_t03_output_contract.py",
+          "filename": "r2a_t03_output_contract.py",
+          "sha256": "1d42f08236c6a038cd06c702a7b19a06e69505ef5973ca8d2abfe861fa566dab"
+        },
+        "evaluator_cli": {
+          "relative_path": "scripts/r2a/run_r2a_t03_dynamic_evaluator.py",
+          "filename": "run_r2a_t03_dynamic_evaluator.py",
+          "sha256": "3726f637bc59d158aef37131111befa00b30a19df326d20f14f5533909ef0ab7"
+        },
+        "task_document": {
+          "relative_path": "docs/tasks/R2A-T03_Dynamic_evaluator实现.md",
+          "filename": "R2A-T03_Dynamic_evaluator实现.md",
+          "sha256": "c3dbf763c6f6e323e292a1f448f5346dd8b8424be7e6a2251572be4aaf2fd909"
+        },
+        "test_support": {
+          "relative_path": "tests/r2a/r2a_t03_test_support.py",
+          "filename": "r2a_t03_test_support.py",
+          "sha256": "ca8ca2eb6596fd828c8b4d6ee1dff2cb562ab8dc1f7c6a28ec286745aeef6d58"
+        },
+        "dynamic_evaluator_tests": {
+          "relative_path": "tests/r2a/test_r2a_t03_dynamic_evaluator.py",
+          "filename": "test_r2a_t03_dynamic_evaluator.py",
+          "sha256": "77578b3e014dc5a75a5155f2537bdbf2537e4ce53f79fbc1ae2183b6a3e2c5df"
+        },
+        "output_contract_tests": {
+          "relative_path": "tests/r2a/test_r2a_t03_output_contract.py",
+          "filename": "test_r2a_t03_output_contract.py",
+          "sha256": "caa04c0cf950e3ddfdecc871efe0dddcc2745440fa670ab67c1560b01491b5b7"
+        },
+        "property_tests": {
+          "relative_path": "tests/r2a/test_r2a_t03_properties.py",
+          "filename": "test_r2a_t03_properties.py",
+          "sha256": "1fe96958dd5f87ba57b3fa4011a459b6a70141a623b195c3344ba28a52233b71"
+        }
+      }
+    },
+    "data_flow_contract": {
+      "const": {
+        "input_tables": [
+          "security_observation_spine",
+          "daily_dimension_scores"
+        ],
+        "output_tables": [
+          "dynamic_request",
+          "evaluation_scope",
+          "daily_dimension_states",
+          "daily_joint_states",
+          "confirmed_intervals"
+        ]
+      }
+    },
+    "state_semantics": {
+      "const": {
+        "tri_state_raw_state": true,
+        "complete_case_required": true,
+        "false_does_not_mask_non_ready": true,
+        "null_interrupts_streak": true,
+        "confirmation_no_backfill": true,
+        "interval_starts_at_confirmation": true,
+        "raw_start_retained_separately": true,
+        "right_censoring_supported": true,
+        "d_or_g_present": false,
+        "gap_tolerance_present": false,
+        "automatic_interval_merge_present": false
+      }
+    },
+    "review_outcome": {
+      "const": {
+        "implementation_review_blocking_issue_count": 0,
+        "independent_dimension_derivation_verified": true,
+        "independent_joint_derivation_verified": true,
+        "coupled_mutation_rejection_verified": true,
+        "raw_streak_start_verified": true,
+        "daily_interval_ordinal_verified": true,
+        "interval_full_recalculation_verified": true,
+        "scope_reconciliation_verified": true,
+        "per_dimension_P_q_property_verified": true,
+        "per_dimension_A_q_property_verified": true,
+        "config_schema_python_contract_verified": true,
+        "determinism_verified": true,
+        "zero_event_verified": true,
+        "all_termination_categories_verified": true,
+        "T03_test_count": 75,
+        "tests_r2a_count": 217,
+        "test_status": "passed"
+      }
+    },
+    "research_execution_boundary": {
+      "const": {
+        "real_score_data_read": false,
+        "real_dynamic_evaluation_executed": false,
+        "dynamic_state_artifact_committed": false,
+        "real_market_structure_validated": false,
+        "parameter_response_validated": false,
+        "price_chart_review_completed": false,
+        "future_path_analysis_completed": false
+      }
+    },
+    "downstream_authorization": {
+      "const": {
+        "R2A_T04_input_eligible": true,
+        "R2A_T04_started": false,
+        "dynamic_evaluator_accepted": true,
+        "PCAVT_dynamic_state_created": false
+      }
+    }
+  }
+}

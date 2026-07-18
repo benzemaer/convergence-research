@@ -9,10 +9,15 @@
 ```text
 repository: benzemaer/convergence-research
 local_repository: D:\Code\convergence-research
-current_branch: codex/r2a-t02-post-merge-test-contract-fix
-remote_branch: pending first push
+current_branch: codex/r2a-t03-dynamic-evaluator
+remote_branch: origin/codex/r2a-t03-dynamic-evaluator
+R2A-T03 PR: #112 / Draft
+R2A-T03 PR head at creation: 3927b6e3b7791d01dc6f94f537cf572f3624b45b
+R2A-T03 reviewed implementation head: 73b9b54ef76191fdbb44ffd7e4ae335601016466
+R2A-T03 reviewed implementation Quality: 29653640376 / success
+R2A-T03 base_main_sha: 83750e7d09188a2f69456bb4f3d7c966adc0ab0a
 R2A-T02 PR: #110 / merged
-base_main_sha: 34eee561218141d64a2e347e532d88c0fb09c33c
+base_main_sha: 83750e7d09188a2f69456bb4f3d7c966adc0ab0a
 R2A-T01 PR: #109 / merged
 reviewed_implementation_sha: 3f36357be9d469d7a9751eef79f368676d7ec97a
 formal_execution_commit: 7c3fe76c575eb350a8e94d2f7534d123e865a64c
@@ -49,17 +54,35 @@ dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
 bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
 protocol_package_status: accepted
 real_score_data_read: false
-dynamic_evaluator_implemented: false
+dynamic_evaluator_implemented: accepted
 dynamic_state_materialized: false
 dynamic_protocol_accepted: true
 dynamic_protocol_registered: false
 R2A-T02_DONE: present
 post_merge_test_contract_issue: stale_candidate_only_DONE_assertion
-post_merge_test_contract_status: corrected_pending_merge
+post_merge_test_contract_status: corrected_merged_via_PR_111
 accepted_protocol_artifacts_modified: false
-next_task: R2A-T03
-R2A-T03_allowed_to_start: true_after_post_merge_test_contract_PR_merge
-R2A-T03_started: false
+next_task: R2A-T04
+R2A-T03_allowed_to_start: true
+R2A-T03_started: true
+R2A-T03_status: completed_accepted
+implementation_review_status: accepted
+reviewed_implementation_head: 73b9b54ef76191fdbb44ffd7e4ae335601016466
+evaluator_version: r2a_t03_dynamic_evaluator.v1
+output_schema_version: r2a_t03_dynamic_evaluation_output.v1
+bound_dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
+dynamic_evaluator_accepted: true
+evaluator_registered: false
+output_schema_registered: false
+R2A-T03_real_score_data_read: false
+real_dynamic_evaluation_executed: false
+dynamic_state_artifact_committed: false
+R2A-T03_DONE: present
+R2A-T04_allowed_to_start: true_after_PR_112_merge
+R2A-T04_started: false
+independent_output_validator: full_persisted_table_recomputation_accepted
+implementation_review_blockers: 0
+per_dimension_q_properties: P_and_A_independent_verified
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
@@ -74,19 +97,24 @@ Owner 已接受 run `R2A-T01-20260718T103110891Z` 及 Score release
 该验收只注册 canonical PCAVT W120 Score release 与 A-layer W120 Score contract，未创建
 动态 PCAVT 状态。PR #109 已合并；R2A-T02 的 reviewed protocol head
 `6c3198a6fd270b81fbeb13649eda51f4222f89d6` 已通过 Quality `29649468929` 和正式审阅，协议
-closure 已建立 accepted handoff 与 canonical `DONE`。T02 未读取真实 Score data、未实现
-evaluator、未物化动态状态；统一 protocol registration 仍留给 R2A-T07。PR #110 合并后发现
-候选期测试仍永久断言 T02 `DONE` 不存在；该问题只涉及测试对 candidate/accepted 生命周期的
-表达，不是科学协议失败，协议 acceptance 与 handoff/DONE 哈希链均未失效。当前 cleanup PR
-修复该测试契约并把 `tests/r2a` 纳入 Quality；R2A-T03 在 cleanup PR 合并前仍未启动。
+closure 已建立 accepted handoff 与 canonical `DONE`。T02 未读取真实 Score data、未物化动态
+状态；统一 protocol registration 仍留给 R2A-T07。PR #110 合并后发现的 stale candidate-only
+DONE assertion 已由 PR #111 修正并合并，协议 acceptance 与 handoff/DONE 哈希链未失效。
+R2A-T03 已从 PR #111 merge commit `83750e7d09188a2f69456bb4f3d7c966adc0ab0a`
+启动；reviewed implementation `73b9b54ef76191fdbb44ffd7e4ae335601016466` 已通过 Quality
+`29653640376` 与 implementation review，accepted handoff 和唯一 canonical `DONE` 已建立。
+该接受不注册 evaluator/output schema version，也未读取真实 Score release、执行真实 dynamic
+evaluation、选择最佳 q/K、完成价格图审核或创建动态状态产物。PR #112 合并后 R2A-T04 获得启动
+资格，但仍保持未启动。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
 ```text
-34eee561218141d64a2e347e532d88c0fb09c33c
+83750e7d09188a2f69456bb4f3d7c966adc0ab0a
 ```
 
-该提交是 R2A-T01 PR #109 的 merge commit，也是 R2A-T02 的唯一允许基线。
+该提交是 R2A-T02 post-merge test-contract cleanup PR #111 的 merge commit，也是
+R2A-T03 的唯一允许基线。
 
 ---
 
@@ -366,17 +394,35 @@ dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
 bound_score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
 protocol_package_status: accepted
 real_score_data_read: false
-dynamic_evaluator_implemented: false
+dynamic_evaluator_implemented: accepted
 dynamic_state_materialized: false
 dynamic_protocol_accepted: true
 dynamic_protocol_registered: false
 R2A-T02_DONE: present
 post_merge_test_contract_issue: stale_candidate_only_DONE_assertion
-post_merge_test_contract_status: corrected_pending_merge
+post_merge_test_contract_status: corrected_merged_via_PR_111
 accepted_protocol_artifacts_modified: false
-next_task: R2A-T03
-R2A-T03_allowed_to_start: true_after_post_merge_test_contract_PR_merge
-R2A-T03_started: false
+next_task: R2A-T04
+R2A-T03_allowed_to_start: true
+R2A-T03_started: true
+R2A-T03_status: completed_accepted
+implementation_review_status: accepted
+reviewed_implementation_head: 73b9b54ef76191fdbb44ffd7e4ae335601016466
+evaluator_version: r2a_t03_dynamic_evaluator.v1
+output_schema_version: r2a_t03_dynamic_evaluation_output.v1
+bound_dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
+dynamic_evaluator_accepted: true
+evaluator_registered: false
+output_schema_registered: false
+R2A-T03_real_score_data_read: false
+real_dynamic_evaluation_executed: false
+dynamic_state_artifact_committed: false
+R2A-T03_DONE: present
+R2A-T04_allowed_to_start: true_after_PR_112_merge
+R2A-T04_started: false
+independent_output_validator: full_persisted_table_recomputation_accepted
+implementation_review_blockers: 0
+per_dimension_q_properties: P_and_A_independent_verified
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
 PCAVT_dynamic_state_created: false
@@ -974,9 +1020,15 @@ A_layer_W120_score_contract_registered=true；canonical_PCAVT_score_release_regi
 R2A-T02_status=completed_accepted；protocol_review_status=accepted；dynamic_protocol_version=pcavt_dynamic_state_protocol.v1。
 reviewed_protocol_head=6c3198a6fd270b81fbeb13649eda51f4222f89d6；protocol_package_status=accepted；real_score_data_read=false。
 dynamic_protocol_accepted=true；dynamic_protocol_registered=false；PCAVT_dynamic_state_created=false。
-dynamic_evaluator_implemented=false；dynamic_state_materialized=false；R2A-T02_DONE=present。
-post_merge_test_contract_issue=stale_candidate_only_DONE_assertion；post_merge_test_contract_status=corrected_pending_merge。
-accepted_protocol_artifacts_modified=false；R2A-T03_allowed_to_start=true_after_post_merge_test_contract_PR_merge。
-R2A-T03_started=false；next_task=R2A-T03。该 cleanup 不是科学协议失败，acceptance 与哈希链未失效。
-当前停止点是 R2A-T02 accepted closure reproducible / R2A-T03 authorized_not_started（cleanup PR 合并后生效）。
+dynamic_evaluator_implemented=accepted；dynamic_state_materialized=false；R2A-T02_DONE=present。
+post_merge_test_contract_issue=stale_candidate_only_DONE_assertion；post_merge_test_contract_status=corrected_merged_via_PR_111。
+accepted_protocol_artifacts_modified=false；R2A-T03_allowed_to_start=true；R2A-T03_started=true。
+R2A-T03_status=completed_accepted；implementation_review_status=accepted；
+reviewed_implementation_head=73b9b54ef76191fdbb44ffd7e4ae335601016466；evaluator_version=r2a_t03_dynamic_evaluator.v1；
+output_schema_version=r2a_t03_dynamic_evaluation_output.v1；dynamic_evaluator_accepted=true；
+evaluator_registered=false；output_schema_registered=false；real_score_data_read=false；
+real_dynamic_evaluation_executed=false；dynamic_state_artifact_committed=false；PCAVT_dynamic_state_created=false；
+R2A-T03_DONE=present；next_task=R2A-T04；R2A-T04_allowed_to_start=true_after_PR_112_merge；R2A-T04_started=false。
+当前停止点是 R2A-T03 accepted / R2A-T04 authorized_not_started；尚未读取真实 Score、执行真实 dynamic
+evaluation、选择最佳 q/K、完成价格图审核或创建动态状态产物。
 ```

@@ -1,0 +1,12 @@
+{
+  "task_id": "R2A-T03",
+  "evaluator_version": "r2a_t03_dynamic_evaluator.v1",
+  "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1",
+  "reviewed_implementation_head": "73b9b54ef76191fdbb44ffd7e4ae335601016466",
+  "accepted_implementation_handoff_filename": "r2a_t03_accepted_implementation_handoff.json",
+  "accepted_implementation_handoff_sha256": "474a6721f0f8219b7ddb16cbddec2294d6b61c75db57f63e5f45ebfeb025b9b1",
+  "accepted_evaluator_config_sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02",
+  "dynamic_evaluator_source_sha256": "57e156e9f57d84668b2c47a993b989e159a253f3ba632891d3dcbd0efc432aaf",
+  "independent_output_validator_source_sha256": "1d42f08236c6a038cd06c702a7b19a06e69505ef5973ca8d2abfe861fa566dab",
+  "acceptance_status": "completed_accepted"
+}
