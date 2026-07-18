@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t01_authorized_input_manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "manifest_type", "run_id", "synthetic_only", "created_at", "inputs"],
+  "properties": {
+    "manifest_version": {"const": "r2a_t01_authorized_input_manifest.v1"},
+    "manifest_type": {"enum": ["r2a_t01_synthetic_authorized_input", "r2a_t01_formal_authorized_input"]},
+    "run_id": {"type": "string", "minLength": 1},
+    "synthetic_only": {"type": "boolean"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "formal_authorization_id": {"type": "string", "minLength": 1},
+    "universe_id": {"type": "string", "minLength": 1},
+    "inputs": {"type": "object"}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "synthetic_only": {"const": true},
+        "manifest_type": {"const": "r2a_t01_synthetic_authorized_input"},
+        "inputs": {"$ref": "#/$defs/synthetic_inputs"}
+      }
+    },
+    {
+      "required": ["source_commit", "formal_authorization_id", "universe_id"],
+      "properties": {
+        "synthetic_only": {"const": false},
+        "manifest_type": {"const": "r2a_t01_formal_authorized_input"},
+        "inputs": {"$ref": "#/$defs/formal_inputs"}
+      }
+    }
+  ],
+  "$defs": {
+    "synthetic_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["securities", "trading_sessions", "security_observation_spine", "pcvt_component_scores", "pcvt_dimension_scores", "a_raw_observations", "pcvt_validation_raw"],
+      "properties": {
+        "securities": {"$ref": "#/$defs/synthetic_input"},
+        "trading_sessions": {"$ref": "#/$defs/synthetic_input"},
+        "security_observation_spine": {"$ref": "#/$defs/synthetic_input"},
+        "pcvt_component_scores": {"$ref": "#/$defs/synthetic_input"},
+        "pcvt_dimension_scores": {"$ref": "#/$defs/synthetic_input"},
+        "a_raw_observations": {"$ref": "#/$defs/synthetic_input"},
+        "pcvt_validation_raw": {"$ref": "#/$defs/synthetic_input"}
+      }
+    },
+    "formal_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["security_observation_spine", "pcvt_component_scores", "pcvt_dimension_scores", "a_raw_observations", "pcvt_validation_raw"],
+      "properties": {
+        "security_observation_spine": {"$ref": "#/$defs/formal_materialization_input"},
+        "pcvt_component_scores": {"$ref": "#/$defs/formal_materialization_input"},
+        "pcvt_dimension_scores": {"$ref": "#/$defs/formal_materialization_input"},
+        "a_raw_observations": {"$ref": "#/$defs/formal_materialization_input"},
+        "pcvt_validation_raw": {"$ref": "#/$defs/formal_validation_input"}
+      }
+    },
+    "synthetic_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byte_size"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "byte_size": {"type": "integer", "minimum": 2}
+      }
+    },
+    "formal_materialization_input": {
+      "allOf": [
+        {"$ref": "#/$defs/formal_input"},
+        {"properties": {"input_role": {"const": "materialization"}}}
+      ]
+    },
+    "formal_validation_input": {
+      "allOf": [
+        {"$ref": "#/$defs/formal_input"},
+        {"properties": {"input_role": {"const": "validation_only"}}}
+      ]
+    },
+    "formal_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actual_path", "sha256", "byte_size", "logical_table_name", "row_count", "security_count", "date_min", "date_max", "schema_identity", "source_artifact_id", "source_manifest_sha256", "source_acceptance_status", "source_run_id", "source_contract_id", "input_role"],
+      "properties": {
+        "actual_path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "byte_size": {"type": "integer", "minimum": 1},
+        "logical_table_name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+        "row_count": {"type": "integer", "minimum": 0},
+        "security_count": {"type": "integer", "minimum": 0},
+        "date_min": {"type": ["string", "null"], "format": "date"},
+        "date_max": {"type": ["string", "null"], "format": "date"},
+        "schema_identity": {"$ref": "#/$defs/hash"},
+        "source_artifact_id": {"type": "string", "minLength": 1},
+        "source_manifest_sha256": {"$ref": "#/$defs/hash"},
+        "source_acceptance_status": {"const": "accepted"},
+        "source_run_id": {"type": "string", "minLength": 1},
+        "source_contract_id": {"type": "string", "minLength": 1},
+        "input_role": {"enum": ["materialization", "validation_only"]}
+      }
+    },
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

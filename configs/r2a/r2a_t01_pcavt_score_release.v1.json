@@ -1,0 +1,49 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t01_pcavt_score_release_config.schema.json",
+  "config_version": "1.0.0",
+  "task_id": "R2A-T01",
+  "release_contract_id": "r2a_t01_pcavt_score_release.v1",
+  "dimension_definition_version": "pcavt-dimension-definition.v1",
+  "implementation_status": "implementation_review_passed_formal_authorized",
+  "formal_run_allowed": true,
+  "real_input_read_allowed": true,
+  "synthetic_execution_allowed": true,
+  "percentile_window": 120,
+  "tie_method": "midrank",
+  "current_observation_excluded": true,
+  "history_filter": {
+    "same_security": true,
+    "same_indicator": true,
+    "strictly_prior_sequence": true,
+    "validity_required": "valid",
+    "finite_raw_value_required": true
+  },
+  "dimension_order": ["P", "C", "A", "V", "T"],
+  "dimension_components": {
+    "P": ["P1_NATR14", "P2_LogRange20"],
+    "C": ["C1_LogMASpread_5_60", "C2_AdjVWAPSpread_5_60"],
+    "A": ["A1_LogBodyCenterToMACloudCenter_5_60", "A2_BodyCenterOutsideMACloudRate20_5_60"],
+    "V": ["V1_TurnoverShrink20_60", "V2_AmountLevel20Pct"],
+    "T": ["T1_ER20", "T2_AbsTrendT20"]
+  },
+  "a_dimension_formula": "0.5 * A1_Score_W120 + 0.5 * A2_Score_W120",
+  "a_dimension_min_formula": "min(A1_Score_W120, A2_Score_W120)",
+  "pcvt_source_policy": "reuse_accepted_r0_t05_w120_rows_only",
+  "a_source_policy": "recompute_from_accepted_a1_a2_raw_observations",
+  "spine_policy": "complete_security_observation_spine_left_expansion",
+  "availability_policy_path": "configs/r2a/r2a_t01_eod_availability_policy.v1.json",
+  "release_tables": [
+    "securities",
+    "trading_sessions",
+    "security_observation_spine",
+    "dimension_definitions",
+    "dimension_components",
+    "daily_component_scores",
+    "daily_dimension_scores"
+  ],
+  "formal_cardinality": {
+    "security_count": 800,
+    "calendar_year_start": 2016,
+    "calendar_year_end": 2026
+  }
+}

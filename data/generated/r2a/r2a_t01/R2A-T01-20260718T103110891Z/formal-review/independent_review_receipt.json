@@ -1,0 +1,3363 @@
+{
+  "DONE": "absent",
+  "R2A-T02_allowed_to_start": false,
+  "aggregate_arithmetic_checks": {
+    "components": [
+      {
+        "component_id": "A1_LogBodyCenterToMACloudCenter_5_60",
+        "eligible_rows": 1536246,
+        "null_score_rows": 214820,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "A2_BodyCenterOutsideMACloudRate20_5_60",
+        "eligible_rows": 1507205,
+        "null_score_rows": 243861,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "C1_LogMASpread_5_60",
+        "eligible_rows": 1587742,
+        "null_score_rows": 163324,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "C2_AdjVWAPSpread_5_60",
+        "eligible_rows": 1563558,
+        "null_score_rows": 187508,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "P1_NATR14",
+        "eligible_rows": 1623605,
+        "null_score_rows": 127461,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "P2_LogRange20",
+        "eligible_rows": 1619612,
+        "null_score_rows": 131454,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "T1_ER20",
+        "eligible_rows": 1618814,
+        "null_score_rows": 132252,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "T2_AbsTrendT20",
+        "eligible_rows": 1619612,
+        "null_score_rows": 131454,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "V1_TurnoverShrink20_60",
+        "eligible_rows": 1567078,
+        "null_score_rows": 183988,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "component_id": "V2_AmountLevel20Pct",
+        "eligible_rows": 1619612,
+        "null_score_rows": 131454,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      }
+    ],
+    "dimensions": [
+      {
+        "dimension_id": "A",
+        "eligible_rows": 1507205,
+        "null_score_rows": 243861,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "dimension_id": "C",
+        "eligible_rows": 1563558,
+        "null_score_rows": 187508,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "dimension_id": "P",
+        "eligible_rows": 1619612,
+        "null_score_rows": 131454,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "dimension_id": "T",
+        "eligible_rows": 1618814,
+        "null_score_rows": 132252,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      },
+      {
+        "dimension_id": "V",
+        "eligible_rows": 1567078,
+        "null_score_rows": 183988,
+        "passed": true,
+        "status_total": 1751066,
+        "total_rows": 1751066
+      }
+    ],
+    "failures": []
+  },
+  "aggregate_review": {
+    "aggregate_arithmetic_failure_count": 0,
+    "analysis_blocking_anomaly_count": 0,
+    "expected_empty": {
+      "affected_securities": 424,
+      "blocked_component_rows": 202970,
+      "blocked_dimension_rows": 101485,
+      "expected_empty_observations": 20297
+    },
+    "formal_coverage": {
+      "daily_component_scores": {
+        "date_max": "2026-06-30",
+        "date_min": "2016-01-04",
+        "security_count": 800,
+        "table_name": "daily_component_scores"
+      },
+      "daily_dimension_scores": {
+        "date_max": "2026-06-30",
+        "date_min": "2016-01-04",
+        "security_count": 800,
+        "table_name": "daily_dimension_scores"
+      },
+      "dimension_components": {
+        "date_max": null,
+        "date_min": null,
+        "security_count": 0,
+        "table_name": "dimension_components"
+      },
+      "dimension_definitions": {
+        "date_max": null,
+        "date_min": null,
+        "security_count": 0,
+        "table_name": "dimension_definitions"
+      },
+      "securities": {
+        "date_max": "2026-06-30",
+        "date_min": "2016-01-04",
+        "security_count": 800,
+        "table_name": "securities"
+      },
+      "security_observation_spine": {
+        "date_max": "2026-06-30",
+        "date_min": "2016-01-04",
+        "security_count": 800,
+        "table_name": "security_observation_spine"
+      },
+      "trading_sessions": {
+        "date_max": "2026-06-30",
+        "date_min": "2016-01-04",
+        "security_count": 0,
+        "table_name": "trading_sessions"
+      }
+    },
+    "formal_table_counts": {
+      "daily_component_scores": 17510660,
+      "daily_dimension_scores": 8755330,
+      "dimension_components": 10,
+      "dimension_definitions": 5,
+      "securities": 800,
+      "security_observation_spine": 1751066,
+      "trading_sessions": 2546
+    },
+    "observation_status": {
+      "listing_pause": 1014,
+      "missing": 19283,
+      "present": 1730769
+    },
+    "queried_aggregate_tables": [
+      "formal_table_counts",
+      "formal_coverage",
+      "formal_semantic_fingerprints",
+      "registry_fingerprints",
+      "component_validity_profile",
+      "dimension_validity_profile",
+      "component_score_profile",
+      "dimension_score_profile",
+      "yearly_component_profile",
+      "yearly_dimension_profile",
+      "observation_status_profile",
+      "sequence_domain_profile",
+      "expected_empty_profile",
+      "availability_profile",
+      "reference_window_profile",
+      "source_reconciliation_profile",
+      "cardinality_profile",
+      "validator_checks",
+      "validator_metrics",
+      "analysis_anomalies"
+    ],
+    "sequence_domain": {
+      "max_value": 0,
+      "min_value": -2448,
+      "mismatch_count": 416962,
+      "profile_name": "observation_vs_global_session_mismatch",
+      "row_count": 416962,
+      "security_count": 276
+    },
+    "source_reconciliation": {
+      "a_independent_mismatch_count": 0,
+      "a_independent_sample_count": 25460,
+      "availability_mismatch_count": 0,
+      "component_to_dimension_mean_min_mismatch_count": 0,
+      "pcvt_component_source_mismatches": 0,
+      "pcvt_dimension_source_mismatches": 0,
+      "pcvt_independent_mismatch_count": 0,
+      "pcvt_independent_sample_count": 100824,
+      "pcvt_output_valid_rows": 12819633,
+      "pcvt_source_valid_rows": 12819633
+    },
+    "validator_check_count": 53,
+    "validator_failed_check_count": 0
+  },
+  "annual_anomalies": [],
+  "check_statuses": {
+    "a2b_rows_zero": {
+      "details": {
+        "a2b_rows": 0
+      },
+      "status": "passed"
+    },
+    "a_raw_keyset": {
+      "details": {
+        "actual_key_count": 42450,
+        "expected_key_count": 42450,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "a_recompute_keyset": {
+      "details": {
+        "actual_key_count": 42450,
+        "expected_key_count": 42450,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "a_strict_past_recomputation": {
+      "details": {
+        "compared_rows": 42450,
+        "maximum_absolute_difference": 0.0,
+        "mismatch_fields": 0,
+        "mismatch_rows": 0
+      },
+      "status": "passed"
+    },
+    "aggregate_availability_zero_mismatches": {
+      "details": [
+        {
+          "available_time_max": "2026-06-30T15:00:00+08:00",
+          "available_time_min": "2016-01-04T15:00:00+08:00",
+          "cutoff_mismatch_rows": 0,
+          "null_rows": 0,
+          "table_name": "daily_component_scores",
+          "total_rows": 17510660
+        },
+        {
+          "available_time_max": "2026-06-30T15:00:00+08:00",
+          "available_time_min": "2016-01-04T15:00:00+08:00",
+          "cutoff_mismatch_rows": 0,
+          "null_rows": 0,
+          "table_name": "daily_dimension_scores",
+          "total_rows": 8755330
+        },
+        {
+          "available_time_max": "2026-06-30T15:00:00+08:00",
+          "available_time_min": "2016-01-04T15:00:00+08:00",
+          "cutoff_mismatch_rows": 0,
+          "null_rows": 0,
+          "table_name": "security_observation_spine",
+          "total_rows": 1751066
+        },
+        {
+          "available_time_max": "2026-06-30T15:00:00+08:00",
+          "available_time_min": "2016-01-04T15:00:00+08:00",
+          "cutoff_mismatch_rows": 0,
+          "null_rows": 0,
+          "table_name": "trading_sessions",
+          "total_rows": 2546
+        }
+      ],
+      "status": "passed"
+    },
+    "aggregate_cardinality_zero_mismatches": {
+      "details": [
+        {
+          "group_count": 0,
+          "max_cardinality": 0,
+          "min_cardinality": 0,
+          "mismatch_count": 0,
+          "profile_name": "a2b_excluded"
+        },
+        {
+          "group_count": 10,
+          "max_cardinality": 10,
+          "min_cardinality": 10,
+          "mismatch_count": 0,
+          "profile_name": "component_registry"
+        },
+        {
+          "group_count": 1751066,
+          "max_cardinality": 10,
+          "min_cardinality": 10,
+          "mismatch_count": 0,
+          "profile_name": "components_per_observation"
+        },
+        {
+          "group_count": 5,
+          "max_cardinality": 5,
+          "min_cardinality": 5,
+          "mismatch_count": 0,
+          "profile_name": "dimension_registry"
+        },
+        {
+          "group_count": 1751066,
+          "max_cardinality": 5,
+          "min_cardinality": 5,
+          "mismatch_count": 0,
+          "profile_name": "dimensions_per_observation"
+        },
+        {
+          "group_count": 17510660,
+          "max_cardinality": 120,
+          "min_cardinality": 120,
+          "mismatch_count": 0,
+          "profile_name": "w120_only"
+        }
+      ],
+      "status": "passed"
+    },
+    "aggregate_reference_window_contract": {
+      "details": [
+        {
+          "component_id": "A1_LogBodyCenterToMACloudCenter_5_60",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "A",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1536246,
+          "ineligible_retained_history_rows": 158352,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-04-01",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "A2_BodyCenterOutsideMACloudRate20_5_60",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "A",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1507205,
+          "ineligible_retained_history_rows": 168145,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-04-29",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "C1_LogMASpread_5_60",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "C",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1587742,
+          "ineligible_retained_history_rows": 95027,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-04-01",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "C2_AdjVWAPSpread_5_60",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "C",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1563558,
+          "ineligible_retained_history_rows": 95027,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-04-01",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "P1_NATR14",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "P",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1623605,
+          "ineligible_retained_history_rows": 95164,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-01-22",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "P2_LogRange20",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "P",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1619612,
+          "ineligible_retained_history_rows": 95157,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-01-29",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "T1_ER20",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "T",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1618814,
+          "ineligible_retained_history_rows": 95155,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-02-01",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "T2_AbsTrendT20",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "T",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1619612,
+          "ineligible_retained_history_rows": 95157,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-01-29",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "V1_TurnoverShrink20_60",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "V",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1567078,
+          "ineligible_retained_history_rows": 94927,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-05-03",
+          "total_rows": 1751066
+        },
+        {
+          "component_id": "V2_AmountLevel20Pct",
+          "current_in_reference_true_rows": 0,
+          "dimension_id": "V",
+          "eligible_null_window_rows": 0,
+          "eligible_reference_count_max": 120,
+          "eligible_reference_count_mean": 120.0,
+          "eligible_reference_count_min": 120,
+          "eligible_rows": 1619612,
+          "ineligible_retained_history_rows": 95157,
+          "reference_date_max": "2026-06-29",
+          "reference_date_min": "2016-01-29",
+          "total_rows": 1751066
+        }
+      ],
+      "status": "passed"
+    },
+    "aggregate_score_profile_arithmetic": {
+      "details": {
+        "components": [
+          {
+            "component_id": "A1_LogBodyCenterToMACloudCenter_5_60",
+            "eligible_rows": 1536246,
+            "null_score_rows": 214820,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "A2_BodyCenterOutsideMACloudRate20_5_60",
+            "eligible_rows": 1507205,
+            "null_score_rows": 243861,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "C1_LogMASpread_5_60",
+            "eligible_rows": 1587742,
+            "null_score_rows": 163324,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "C2_AdjVWAPSpread_5_60",
+            "eligible_rows": 1563558,
+            "null_score_rows": 187508,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "P1_NATR14",
+            "eligible_rows": 1623605,
+            "null_score_rows": 127461,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "P2_LogRange20",
+            "eligible_rows": 1619612,
+            "null_score_rows": 131454,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "T1_ER20",
+            "eligible_rows": 1618814,
+            "null_score_rows": 132252,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "T2_AbsTrendT20",
+            "eligible_rows": 1619612,
+            "null_score_rows": 131454,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "V1_TurnoverShrink20_60",
+            "eligible_rows": 1567078,
+            "null_score_rows": 183988,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "component_id": "V2_AmountLevel20Pct",
+            "eligible_rows": 1619612,
+            "null_score_rows": 131454,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          }
+        ],
+        "dimensions": [
+          {
+            "dimension_id": "A",
+            "eligible_rows": 1507205,
+            "null_score_rows": 243861,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "dimension_id": "C",
+            "eligible_rows": 1563558,
+            "null_score_rows": 187508,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "dimension_id": "P",
+            "eligible_rows": 1619612,
+            "null_score_rows": 131454,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "dimension_id": "T",
+            "eligible_rows": 1618814,
+            "null_score_rows": 132252,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          },
+          {
+            "dimension_id": "V",
+            "eligible_rows": 1567078,
+            "null_score_rows": 183988,
+            "passed": true,
+            "status_total": 1751066,
+            "total_rows": 1751066
+          }
+        ],
+        "failures": []
+      },
+      "status": "passed"
+    },
+    "aggregate_table_set_queried": {
+      "details": {
+        "tables": [
+          "formal_table_counts",
+          "formal_coverage",
+          "formal_semantic_fingerprints",
+          "registry_fingerprints",
+          "component_validity_profile",
+          "dimension_validity_profile",
+          "component_score_profile",
+          "dimension_score_profile",
+          "yearly_component_profile",
+          "yearly_dimension_profile",
+          "observation_status_profile",
+          "sequence_domain_profile",
+          "expected_empty_profile",
+          "availability_profile",
+          "reference_window_profile",
+          "source_reconciliation_profile",
+          "cardinality_profile",
+          "validator_checks",
+          "validator_metrics",
+          "analysis_anomalies"
+        ]
+      },
+      "status": "passed"
+    },
+    "aggregate_validity_status_domain": {
+      "details": {
+        "actual": [
+          "blocked",
+          "unknown",
+          "valid"
+        ]
+      },
+      "status": "passed"
+    },
+    "analysis_blocking_anomaly_count_zero": {
+      "details": {
+        "blocking_anomaly_count": 0
+      },
+      "status": "passed"
+    },
+    "annual_coverage_reasonableness": {
+      "details": {
+        "anomalies": [],
+        "yearly": [
+          {
+            "component_eligible_rate": 0.27299788420850163,
+            "component_eligible_rows": 354829,
+            "component_total_rows": 1299750,
+            "date_max": "2016-12-30",
+            "date_min": "2016-01-04",
+            "dimension_eligible_rate": 0.24220811694556646,
+            "dimension_eligible_rows": 157405,
+            "dimension_total_rows": 649875,
+            "security_count": 552,
+            "year": 2016
+          },
+          {
+            "component_eligible_rate": 0.8643170482113082,
+            "component_eligible_rows": 1207788,
+            "component_total_rows": 1397390,
+            "date_max": "2017-12-29",
+            "date_min": "2017-01-03",
+            "dimension_eligible_rate": 0.8520255619404747,
+            "dimension_eligible_rows": 595306,
+            "dimension_total_rows": 698695,
+            "security_count": 591,
+            "year": 2017
+          },
+          {
+            "component_eligible_rate": 0.9238534679435512,
+            "component_eligible_rows": 1352503,
+            "component_total_rows": 1463980,
+            "date_max": "2018-12-28",
+            "date_min": "2018-01-02",
+            "dimension_eligible_rate": 0.9180740174046094,
+            "dimension_eligible_rows": 672021,
+            "dimension_total_rows": 731990,
+            "security_count": 614,
+            "year": 2018
+          },
+          {
+            "component_eligible_rate": 0.9547593068869664,
+            "component_eligible_rows": 1470062,
+            "component_total_rows": 1539720,
+            "date_max": "2019-12-31",
+            "date_min": "2019-01-02",
+            "dimension_eligible_rate": 0.9490816512093108,
+            "dimension_eligible_rows": 730660,
+            "dimension_total_rows": 769860,
+            "security_count": 649,
+            "year": 2019
+          },
+          {
+            "component_eligible_rate": 0.9469192163687503,
+            "component_eligible_rows": 1545268,
+            "component_total_rows": 1631890,
+            "date_max": "2020-12-31",
+            "date_min": "2020-01-02",
+            "dimension_eligible_rate": 0.9419286839186465,
+            "dimension_eligible_rows": 768562,
+            "dimension_total_rows": 815945,
+            "security_count": 696,
+            "year": 2020
+          },
+          {
+            "component_eligible_rate": 0.9531135889786092,
+            "component_eligible_rows": 1654853,
+            "component_total_rows": 1736260,
+            "date_max": "2021-12-31",
+            "date_min": "2021-01-04",
+            "dimension_eligible_rate": 0.9480792047274026,
+            "dimension_eligible_rows": 823056,
+            "dimension_total_rows": 868130,
+            "security_count": 731,
+            "year": 2021
+          },
+          {
+            "component_eligible_rate": 0.9646986347538302,
+            "component_eligible_rows": 1746037,
+            "component_total_rows": 1809930,
+            "date_max": "2022-12-30",
+            "date_min": "2022-01-04",
+            "dimension_eligible_rate": 0.9613101059156984,
+            "dimension_eligible_rows": 869952,
+            "dimension_total_rows": 904965,
+            "security_count": 764,
+            "year": 2022
+          },
+          {
+            "component_eligible_rate": 0.9763045022620809,
+            "component_eligible_rows": 1827808,
+            "component_total_rows": 1872170,
+            "date_max": "2023-12-29",
+            "date_min": "2023-01-03",
+            "dimension_eligible_rate": 0.9738827136424577,
+            "dimension_eligible_rows": 911637,
+            "dimension_total_rows": 936085,
+            "security_count": 781,
+            "year": 2023
+          },
+          {
+            "component_eligible_rate": 0.9874003743191807,
+            "component_eligible_rows": 1878154,
+            "component_total_rows": 1902120,
+            "date_max": "2024-12-31",
+            "date_min": "2024-01-02",
+            "dimension_eligible_rate": 0.9853815742434757,
+            "dimension_eligible_rows": 937157,
+            "dimension_total_rows": 951060,
+            "security_count": 791,
+            "year": 2024
+          },
+          {
+            "component_eligible_rate": 0.9891295222400149,
+            "component_eligible_rows": 1908654,
+            "component_total_rows": 1929630,
+            "date_max": "2025-12-31",
+            "date_min": "2025-01-02",
+            "dimension_eligible_rate": 0.98744422505869,
+            "dimension_eligible_rows": 952701,
+            "dimension_total_rows": 964815,
+            "security_count": 799,
+            "year": 2025
+          },
+          {
+            "component_eligible_rate": 0.9884762130585674,
+            "component_eligible_rows": 917128,
+            "component_total_rows": 927820,
+            "date_max": "2026-06-30",
+            "date_min": "2026-01-05",
+            "dimension_eligible_rate": 0.9868508978034533,
+            "dimension_eligible_rows": 457810,
+            "dimension_total_rows": 463910,
+            "security_count": 800,
+            "year": 2026
+          }
+        ]
+      },
+      "status": "passed"
+    },
+    "bundle_file_identity": {
+      "details": {
+        "checked_file_count": 7
+      },
+      "status": "passed"
+    },
+    "compact_formal_copy_identity": {
+      "details": {
+        "original_file_count": 4
+      },
+      "status": "passed"
+    },
+    "component_registry_sample_shape": {
+      "details": {
+        "a_components": [
+          "A1_LogBodyCenterToMACloudCenter_5_60",
+          "A2_BodyCenterOutsideMACloudRate20_5_60"
+        ],
+        "pcvt_components": [
+          "C1_LogMASpread_5_60",
+          "C2_AdjVWAPSpread_5_60",
+          "P1_NATR14",
+          "P2_LogRange20",
+          "T1_ER20",
+          "T2_AbsTrendT20",
+          "V1_TurnoverShrink20_60",
+          "V2_AmountLevel20Pct"
+        ]
+      },
+      "status": "passed"
+    },
+    "component_w120_and_current_excluded": {
+      "details": {
+        "row_count": 212250
+      },
+      "status": "passed"
+    },
+    "database_close_and_read_only_reopen": {
+      "details": {
+        "table_count_after_reopen": 30
+      },
+      "status": "passed"
+    },
+    "dimension_mean_min_recomputation": {
+      "details": {
+        "A": {
+          "compared_rows": 21225,
+          "eligible_rows": 17727,
+          "maximum_absolute_mean_difference": 0.0,
+          "maximum_absolute_min_difference": 0.0,
+          "mismatch_rows": 0
+        },
+        "C": {
+          "compared_rows": 21225,
+          "eligible_rows": 18410,
+          "maximum_absolute_mean_difference": 0.0,
+          "maximum_absolute_min_difference": 0.0,
+          "mismatch_rows": 0
+        },
+        "P": {
+          "compared_rows": 21225,
+          "eligible_rows": 19037,
+          "maximum_absolute_mean_difference": 0.0,
+          "maximum_absolute_min_difference": 0.0,
+          "mismatch_rows": 0
+        },
+        "T": {
+          "compared_rows": 21225,
+          "eligible_rows": 19027,
+          "maximum_absolute_mean_difference": 0.0,
+          "maximum_absolute_min_difference": 0.0,
+          "mismatch_rows": 0
+        },
+        "V": {
+          "compared_rows": 21225,
+          "eligible_rows": 17604,
+          "maximum_absolute_mean_difference": 0.0,
+          "maximum_absolute_min_difference": 0.0,
+          "mismatch_rows": 0
+        }
+      },
+      "status": "passed"
+    },
+    "dimension_recompute_keyset": {
+      "details": {
+        "actual_key_count": 106125,
+        "expected_key_count": 106125,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "exact_30_table_inventory": {
+      "details": {
+        "actual": [
+          "analysis_anomalies",
+          "availability_profile",
+          "cardinality_profile",
+          "component_score_profile",
+          "component_validity_profile",
+          "dimension_score_profile",
+          "dimension_validity_profile",
+          "expected_empty_profile",
+          "formal_coverage",
+          "formal_semantic_fingerprints",
+          "formal_table_counts",
+          "observation_status_profile",
+          "reference_window_profile",
+          "registry_fingerprints",
+          "review_metadata",
+          "sample_a_raw",
+          "sample_component_scores",
+          "sample_dimension_scores",
+          "sample_pcvt_source_component_scores",
+          "sample_pcvt_source_dimension_scores",
+          "sample_pcvt_validation_raw",
+          "sample_securities",
+          "sample_spine",
+          "sequence_domain_profile",
+          "source_bindings",
+          "source_reconciliation_profile",
+          "validator_checks",
+          "validator_metrics",
+          "yearly_component_profile",
+          "yearly_dimension_profile"
+        ],
+        "expected": [
+          "analysis_anomalies",
+          "availability_profile",
+          "cardinality_profile",
+          "component_score_profile",
+          "component_validity_profile",
+          "dimension_score_profile",
+          "dimension_validity_profile",
+          "expected_empty_profile",
+          "formal_coverage",
+          "formal_semantic_fingerprints",
+          "formal_table_counts",
+          "observation_status_profile",
+          "reference_window_profile",
+          "registry_fingerprints",
+          "review_metadata",
+          "sample_a_raw",
+          "sample_component_scores",
+          "sample_dimension_scores",
+          "sample_pcvt_source_component_scores",
+          "sample_pcvt_source_dimension_scores",
+          "sample_pcvt_validation_raw",
+          "sample_securities",
+          "sample_spine",
+          "sequence_domain_profile",
+          "source_bindings",
+          "source_reconciliation_profile",
+          "validator_checks",
+          "validator_metrics",
+          "yearly_component_profile",
+          "yearly_dimension_profile"
+        ]
+      },
+      "status": "passed"
+    },
+    "formal_coverage_expected": {
+      "details": {
+        "daily_component_scores": {
+          "date_max": "2026-06-30",
+          "date_min": "2016-01-04",
+          "security_count": 800,
+          "table_name": "daily_component_scores"
+        },
+        "daily_dimension_scores": {
+          "date_max": "2026-06-30",
+          "date_min": "2016-01-04",
+          "security_count": 800,
+          "table_name": "daily_dimension_scores"
+        },
+        "dimension_components": {
+          "date_max": null,
+          "date_min": null,
+          "security_count": 0,
+          "table_name": "dimension_components"
+        },
+        "dimension_definitions": {
+          "date_max": null,
+          "date_min": null,
+          "security_count": 0,
+          "table_name": "dimension_definitions"
+        },
+        "securities": {
+          "date_max": "2026-06-30",
+          "date_min": "2016-01-04",
+          "security_count": 800,
+          "table_name": "securities"
+        },
+        "security_observation_spine": {
+          "date_max": "2026-06-30",
+          "date_min": "2016-01-04",
+          "security_count": 800,
+          "table_name": "security_observation_spine"
+        },
+        "trading_sessions": {
+          "date_max": "2026-06-30",
+          "date_min": "2016-01-04",
+          "security_count": 0,
+          "table_name": "trading_sessions"
+        }
+      },
+      "status": "passed"
+    },
+    "formal_database_identity_reference_consistent": {
+      "details": {
+        "values": [
+          [
+            "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+            4255395840
+          ]
+        ]
+      },
+      "status": "passed"
+    },
+    "formal_outputs_unmodified_by_accessible_identity": {
+      "details": {
+        "method": "byte-identical compact copies plus consistent immutable database reference; full database not accessed"
+      },
+      "status": "passed"
+    },
+    "formal_run_id_consistent": {
+      "details": {
+        "values": [
+          "R2A-T01-20260718T103110891Z"
+        ]
+      },
+      "status": "passed"
+    },
+    "formal_semantic_fingerprints_complete": {
+      "details": {
+        "row_count": 7
+      },
+      "status": "passed"
+    },
+    "formal_table_counts_expected": {
+      "details": {
+        "daily_component_scores": 17510660,
+        "daily_dimension_scores": 8755330,
+        "dimension_components": 10,
+        "dimension_definitions": 5,
+        "securities": 800,
+        "security_observation_spine": 1751066,
+        "trading_sessions": 2546
+      },
+      "status": "passed"
+    },
+    "full_universe_expected_empty_expected": {
+      "details": {
+        "affected_securities": 424,
+        "blocked_component_rows": 202970,
+        "blocked_dimension_rows": 101485,
+        "expected_empty_observations": 20297
+      },
+      "status": "passed"
+    },
+    "full_universe_sequence_domain_expected": {
+      "details": {
+        "max_value": 0,
+        "min_value": -2448,
+        "mismatch_count": 416962,
+        "profile_name": "observation_vs_global_session_mismatch",
+        "row_count": 416962,
+        "security_count": 276
+      },
+      "status": "passed"
+    },
+    "full_universe_source_reconciliation_expected": {
+      "details": {
+        "a_independent_mismatch_count": 0,
+        "a_independent_sample_count": 25460,
+        "availability_mismatch_count": 0,
+        "component_to_dimension_mean_min_mismatch_count": 0,
+        "pcvt_component_source_mismatches": 0,
+        "pcvt_dimension_source_mismatches": 0,
+        "pcvt_independent_mismatch_count": 0,
+        "pcvt_independent_sample_count": 100824,
+        "pcvt_output_valid_rows": 12819633,
+        "pcvt_source_valid_rows": 12819633
+      },
+      "status": "passed"
+    },
+    "no_absolute_paths_in_review_database": {
+      "details": {
+        "hits": []
+      },
+      "status": "passed"
+    },
+    "no_absolute_paths_in_text_bundle_files": {
+      "details": {
+        "hits": []
+      },
+      "status": "passed"
+    },
+    "no_view_macro_or_temporary_relation": {
+      "details": {
+        "macros": [],
+        "temporary": [],
+        "views": []
+      },
+      "status": "passed"
+    },
+    "observation_status_expected": {
+      "details": {
+        "listing_pause": 1014,
+        "missing": 19283,
+        "present": 1730769
+      },
+      "status": "passed"
+    },
+    "pcvt_recompute_keyset": {
+      "details": {
+        "actual_key_count": 169800,
+        "expected_key_count": 169800,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "pcvt_source_component_keyset": {
+      "details": {
+        "actual_key_count": 165296,
+        "expected_key_count": 165296,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "pcvt_source_component_values": {
+      "details": {
+        "compared_rows": 165296,
+        "key_mismatches": 0,
+        "maximum_absolute_difference": 0.0,
+        "mismatch_fields": 0,
+        "mismatch_rows": 0
+      },
+      "status": "passed"
+    },
+    "pcvt_source_dimension_keyset": {
+      "details": {
+        "actual_key_count": 82648,
+        "expected_key_count": 82648,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "pcvt_source_dimension_values": {
+      "details": {
+        "compared_rows": 82648,
+        "key_mismatches": 0,
+        "maximum_absolute_difference": 0.0,
+        "mismatch_fields": 0,
+        "mismatch_rows": 0
+      },
+      "status": "passed"
+    },
+    "pcvt_strict_past_recomputation": {
+      "details": {
+        "compared_rows": 169800,
+        "maximum_absolute_difference": 0.0,
+        "mismatch_fields": 0,
+        "mismatch_rows": 0
+      },
+      "status": "passed"
+    },
+    "pcvt_validation_raw_keyset": {
+      "details": {
+        "actual_key_count": 165296,
+        "expected_key_count": 165296,
+        "missing_key_count": 0,
+        "unexpected_key_count": 0
+      },
+      "status": "passed"
+    },
+    "registry_fingerprints_match_formal_manifest": {
+      "details": {
+        "dimension_components": "1432dd24e1df346df742bb35ecaa6309eed7849665c04d60190b3f5f332e8cbd",
+        "dimension_definitions": "93061cb4b7d334f5c994b2ed17955621d667d2edc1e033a3b418eac536e650c0"
+      },
+      "status": "passed"
+    },
+    "required_review_inputs_present": {
+      "details": {
+        "missing": []
+      },
+      "status": "passed"
+    },
+    "result_analysis_candidate_status": {
+      "details": {
+        "analysis_status": "passed",
+        "release_recommendation": "publish_candidate"
+      },
+      "status": "passed"
+    },
+    "review_extract_expected_byte_size": {
+      "details": {
+        "actual": 30420992
+      },
+      "status": "passed"
+    },
+    "review_extract_expected_sha256": {
+      "details": {
+        "actual": "e42ff63c8f5416d1c2372daf2d2033f417ee80d951966d2a89acde9d5da4fb79"
+      },
+      "status": "passed"
+    },
+    "review_extract_manifest_identity": {
+      "details": {
+        "manifest_byte_size": 30420992,
+        "manifest_sha256": "e42ff63c8f5416d1c2372daf2d2033f417ee80d951966d2a89acde9d5da4fb79"
+      },
+      "status": "passed"
+    },
+    "review_scope_flags_false": {
+      "details": {
+        "bundle_contains_absolute_paths": false,
+        "bundle_formal_outputs_modified": false,
+        "extract_contains_absolute_paths": false,
+        "extract_formal_outputs_modified": false,
+        "materializer_validator_analyzer_rerun": false
+      },
+      "status": "passed"
+    },
+    "review_script_has_no_formal_execution_calls": {
+      "details": {
+        "formal_call_hits": []
+      },
+      "status": "passed"
+    },
+    "review_script_import_independence": {
+      "details": {
+        "forbidden_import_hits": [],
+        "imports": [
+          "argparse",
+          "ast",
+          "collections",
+          "datetime",
+          "duckdb",
+          "hashlib",
+          "json",
+          "math",
+          "pathlib",
+          "re",
+          "sys",
+          "zoneinfo"
+        ],
+        "unexpected_imports": []
+      },
+      "status": "passed"
+    },
+    "review_table_row_counts": {
+      "details": {
+        "checked_table_count": 30
+      },
+      "status": "passed"
+    },
+    "reviewed_execution_commit_consistent": {
+      "details": {
+        "values": [
+          "7c3fe76c575eb350a8e94d2f7534d123e865a64c"
+        ]
+      },
+      "status": "passed"
+    },
+    "sample_availability": {
+      "details": {
+        "component_availability_mismatch": 0,
+        "dimension_availability_mismatch": 0,
+        "spine_availability_mismatch": 0
+      },
+      "status": "passed"
+    },
+    "sample_expected_empty": {
+      "details": {
+        "blocked_component_count": 5630,
+        "blocked_dimension_count": 2815,
+        "expected_empty_observation_count": 563,
+        "mismatch_count": 0
+      },
+      "status": "passed"
+    },
+    "sample_spine_sequence": {
+      "details": {
+        "mismatch_count": 0,
+        "observation_count": 21225,
+        "security_count": 12
+      },
+      "status": "passed"
+    },
+    "schema_descriptor_seven_tables": {
+      "details": {
+        "table_order": [
+          "securities",
+          "trading_sessions",
+          "security_observation_spine",
+          "dimension_definitions",
+          "dimension_components",
+          "daily_component_scores",
+          "daily_dimension_scores"
+        ]
+      },
+      "status": "passed"
+    },
+    "score_release_id_consistent": {
+      "details": {
+        "values": [
+          "pcavt-score-w120-v1-c7e04f11a2cd09aa"
+        ]
+      },
+      "status": "passed"
+    },
+    "validator_checks_all_true": {
+      "details": {
+        "check_count": 53,
+        "failed_count": 0
+      },
+      "status": "passed"
+    },
+    "validator_failed_reason_count_zero": {
+      "details": {
+        "reason_codes": []
+      },
+      "status": "passed"
+    },
+    "validator_metrics_expected": {
+      "details": {
+        "a_independent_mismatch_count": 0,
+        "a_independent_sample_count": 25460,
+        "pcvt_component_source_mismatches": 0,
+        "pcvt_dimension_source_mismatches": 0,
+        "pcvt_independent_mismatch_count": 0,
+        "pcvt_independent_sample_count": 100824,
+        "pcvt_output_valid_rows": 12819633,
+        "pcvt_source_valid_rows": 12819633,
+        "validated_row_counts.daily_component_scores": 17510660,
+        "validated_row_counts.daily_dimension_scores": 8755330,
+        "validated_row_counts.dimension_components": 10,
+        "validated_row_counts.dimension_definitions": 5,
+        "validated_row_counts.securities": 800,
+        "validated_row_counts.security_observation_spine": 1751066,
+        "validated_row_counts.trading_sessions": 2546
+      },
+      "status": "passed"
+    }
+  },
+  "comparison_counts": {
+    "a_component_rows": 42450,
+    "dimension_rows": 106125,
+    "pcvt_component_rows": 169800,
+    "source_component_rows": 165296,
+    "source_dimension_rows": 82648
+  },
+  "component_recomputation": {
+    "a": {
+      "compared_rows": 42450,
+      "maximum_absolute_difference": 0.0,
+      "mismatch_fields": 0,
+      "mismatch_rows": 0
+    },
+    "a_components": [
+      "A1_LogBodyCenterToMACloudCenter_5_60",
+      "A2_BodyCenterOutsideMACloudRate20_5_60"
+    ],
+    "pcvt": {
+      "compared_rows": 169800,
+      "maximum_absolute_difference": 0.0,
+      "mismatch_fields": 0,
+      "mismatch_rows": 0
+    },
+    "pcvt_components": [
+      "C1_LogMASpread_5_60",
+      "C2_AdjVWAPSpread_5_60",
+      "P1_NATR14",
+      "P2_LogRange20",
+      "T1_ER20",
+      "T2_AbsTrendT20",
+      "V1_TurnoverShrink20_60",
+      "V2_AmountLevel20Pct"
+    ]
+  },
+  "dimension_recomputation": {
+    "A": {
+      "compared_rows": 21225,
+      "eligible_rows": 17727,
+      "maximum_absolute_mean_difference": 0.0,
+      "maximum_absolute_min_difference": 0.0,
+      "mismatch_rows": 0
+    },
+    "C": {
+      "compared_rows": 21225,
+      "eligible_rows": 18410,
+      "maximum_absolute_mean_difference": 0.0,
+      "maximum_absolute_min_difference": 0.0,
+      "mismatch_rows": 0
+    },
+    "P": {
+      "compared_rows": 21225,
+      "eligible_rows": 19037,
+      "maximum_absolute_mean_difference": 0.0,
+      "maximum_absolute_min_difference": 0.0,
+      "mismatch_rows": 0
+    },
+    "T": {
+      "compared_rows": 21225,
+      "eligible_rows": 19027,
+      "maximum_absolute_mean_difference": 0.0,
+      "maximum_absolute_min_difference": 0.0,
+      "mismatch_rows": 0
+    },
+    "V": {
+      "compared_rows": 21225,
+      "eligible_rows": 17604,
+      "maximum_absolute_mean_difference": 0.0,
+      "maximum_absolute_min_difference": 0.0,
+      "mismatch_rows": 0
+    }
+  },
+  "file_identity": {
+    "bundle_files": [
+      {
+        "byte_size": 19388,
+        "relative_path": "manifest.json",
+        "sha256": "c3b3ff5daedc050fdd7dce5ada586d206d8996cd0a418c9f211d9a382ea365fc"
+      },
+      {
+        "byte_size": 19473,
+        "relative_path": "schema.json",
+        "sha256": "ef5031b50be0cc1e3fbbac34d24d06c34290913cd536ec0c9461b2deab7a0844"
+      },
+      {
+        "byte_size": 3118,
+        "relative_path": "validation_receipt.json",
+        "sha256": "fe5a8cc147404ea9f77f19157dbe1c2ca68dce1c226656066d60d54763248c73"
+      },
+      {
+        "byte_size": 4239,
+        "relative_path": "result_analysis.md",
+        "sha256": "b39ed98177c78da4b37e3138419fd3fcdc0b9627ad25afdc46152b972a7125b0"
+      },
+      {
+        "byte_size": 2005,
+        "relative_path": "formal_run_summary.json",
+        "sha256": "c0536f75539373726c37fcb0f3ef33a2a6d1d2555a83f39cfbb2d1dc2ad0e66b"
+      },
+      {
+        "byte_size": 30420992,
+        "relative_path": "r2a_t01_formal_review_extract.duckdb",
+        "sha256": "e42ff63c8f5416d1c2372daf2d2033f417ee80d951966d2a89acde9d5da4fb79"
+      },
+      {
+        "byte_size": 2562,
+        "relative_path": "review_extract_manifest.json",
+        "sha256": "e226cd513ef5eccc7a207acdff6842190d68539c4fae43e803065081ebc621fb"
+      }
+    ],
+    "review_bundle_manifest_sha256": "d123383b11bb5d64f773bf329151fa94b38c4d8a7499ab65f4178837962a73f3",
+    "review_extract_byte_size": 30420992,
+    "review_extract_sha256": "e42ff63c8f5416d1c2372daf2d2033f417ee80d951966d2a89acde9d5da4fb79",
+    "review_script_imports": [
+      "argparse",
+      "ast",
+      "collections",
+      "datetime",
+      "duckdb",
+      "hashlib",
+      "json",
+      "math",
+      "pathlib",
+      "re",
+      "sys",
+      "zoneinfo"
+    ]
+  },
+  "forbidden_imports_absent": [
+    "src.r2a.score_engine",
+    "src.r2a.r2a_t01_validator",
+    "src.r2a.r2a_t01_score_release",
+    "src.r2a.r2a_t01_result_analysis"
+  ],
+  "formal_run_status": "completed_pending_formal_result_review",
+  "maximum_floating_differences": {
+    "a_component": 0.0,
+    "dimensions": {
+      "A": {
+        "mean": 0.0,
+        "min": 0.0
+      },
+      "C": {
+        "mean": 0.0,
+        "min": 0.0
+      },
+      "P": {
+        "mean": 0.0,
+        "min": 0.0
+      },
+      "T": {
+        "mean": 0.0,
+        "min": 0.0
+      },
+      "V": {
+        "mean": 0.0,
+        "min": 0.0
+      }
+    },
+    "pcvt_component": 0.0,
+    "source_component": 0.0,
+    "source_dimension": 0.0
+  },
+  "mismatch_count": 0,
+  "mismatch_counts": {
+    "a_component_rows": 0,
+    "aggregate_arithmetic": 0,
+    "availability": 0,
+    "dimension_rows": 0,
+    "expected_empty": 0,
+    "pcvt_component_rows": 0,
+    "sequence": 0,
+    "source_component_rows": 0,
+    "source_dimension_rows": 0,
+    "total": 0
+  },
+  "overall_status": "passed",
+  "readme_advanced": false,
+  "reason_codes": [],
+  "receipt_version": "r2a_t01_independent_review_receipt.v1",
+  "recommendation": "accept_candidate",
+  "result_review_status": "pending",
+  "review_extract_byte_size": 30420992,
+  "review_extract_sha256": "e42ff63c8f5416d1c2372daf2d2033f417ee80d951966d2a89acde9d5da4fb79",
+  "review_script": "scripts/review/review_r2a_t01_formal_extract.py",
+  "review_script_imports": [
+    "argparse",
+    "ast",
+    "collections",
+    "datetime",
+    "duckdb",
+    "hashlib",
+    "json",
+    "math",
+    "pathlib",
+    "re",
+    "sys",
+    "zoneinfo"
+  ],
+  "review_script_sha256": "3bc7f7eec01b0a2e114651eee32ec150e5a4b414d15a0fbb281690a57b0f1655",
+  "reviewed_at": "2026-07-18T13:07:52.293222Z",
+  "reviewed_execution_commit": "7c3fe76c575eb350a8e94d2f7534d123e865a64c",
+  "run_id": "R2A-T01-20260718T103110891Z",
+  "sample_review": {
+    "availability": {
+      "component_availability_mismatch": 0,
+      "dimension_availability_mismatch": 0,
+      "spine_availability_mismatch": 0
+    },
+    "expected_empty": {
+      "blocked_component_count": 5630,
+      "blocked_dimension_count": 2815,
+      "expected_empty_observation_count": 563,
+      "mismatch_count": 0
+    },
+    "sample_security_ids": [
+      "000001.SZ",
+      "000002.SZ",
+      "000009.SZ",
+      "688819.SH",
+      "688981.SH",
+      "689009.SH",
+      "601077.SH",
+      "000155.SZ",
+      "601112.SH",
+      "001280.SZ",
+      "300502.SZ",
+      "000021.SZ"
+    ],
+    "sample_selection": [
+      {
+        "security_id": "000001.SZ",
+        "selection_reasons": [
+          "first_3_sorted_security_ids"
+        ]
+      },
+      {
+        "security_id": "000002.SZ",
+        "selection_reasons": [
+          "first_3_sorted_security_ids"
+        ]
+      },
+      {
+        "security_id": "000009.SZ",
+        "selection_reasons": [
+          "first_3_sorted_security_ids"
+        ]
+      },
+      {
+        "security_id": "688819.SH",
+        "selection_reasons": [
+          "last_3_sorted_security_ids"
+        ]
+      },
+      {
+        "security_id": "688981.SH",
+        "selection_reasons": [
+          "last_3_sorted_security_ids"
+        ]
+      },
+      {
+        "security_id": "689009.SH",
+        "selection_reasons": [
+          "last_3_sorted_security_ids"
+        ]
+      },
+      {
+        "security_id": "601077.SH",
+        "selection_reasons": [
+          "required_security_601077_SH"
+        ]
+      },
+      {
+        "security_id": "000155.SZ",
+        "selection_reasons": [
+          "maximum_expected_empty_count"
+        ]
+      },
+      {
+        "security_id": "601112.SH",
+        "selection_reasons": [
+          "latest_first_expected_date",
+          "lowest_positive_a_valid_count"
+        ]
+      },
+      {
+        "security_id": "001280.SZ",
+        "selection_reasons": [
+          "lowest_positive_pcvt_eligible_rate"
+        ]
+      },
+      {
+        "security_id": "300502.SZ",
+        "selection_reasons": [
+          "maximum_sequence_session_mismatch_count"
+        ]
+      },
+      {
+        "security_id": "000021.SZ",
+        "selection_reasons": [
+          "deterministic_sorted_fill_to_12"
+        ]
+      }
+    ],
+    "sequence": {
+      "mismatch_count": 0,
+      "observation_count": 21225,
+      "security_count": 12
+    }
+  },
+  "sample_security_ids": [
+    "000001.SZ",
+    "000002.SZ",
+    "000009.SZ",
+    "688819.SH",
+    "688981.SH",
+    "689009.SH",
+    "601077.SH",
+    "000155.SZ",
+    "601112.SH",
+    "001280.SZ",
+    "300502.SZ",
+    "000021.SZ"
+  ],
+  "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+  "source_reconciliation": {
+    "component": {
+      "compared_rows": 165296,
+      "key_mismatches": 0,
+      "maximum_absolute_difference": 0.0,
+      "mismatch_fields": 0,
+      "mismatch_rows": 0
+    },
+    "dimension": {
+      "compared_rows": 82648,
+      "key_mismatches": 0,
+      "maximum_absolute_difference": 0.0,
+      "mismatch_fields": 0,
+      "mismatch_rows": 0
+    }
+  },
+  "table_count": 30,
+  "table_inventory": [
+    {
+      "columns": [
+        {
+          "column_name": "anomaly_id",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "blocking",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "explanation",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "analysis_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "release_recommendation",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 1,
+      "table_name": "analysis_anomalies"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "table_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "total_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "cutoff_mismatch_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "available_time_min",
+          "column_type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        },
+        {
+          "column_name": "available_time_max",
+          "column_type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        }
+      ],
+      "row_count": 4,
+      "table_name": "availability_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "profile_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "group_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "min_cardinality",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "max_cardinality",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "mismatch_count",
+          "column_type": "HUGEINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 6,
+      "table_name": "cardinality_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "total_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "zero_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "one_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "score_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_max",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_mean",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 10,
+      "table_name": "component_score_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "row_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 30,
+      "table_name": "component_validity_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "total_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "zero_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "one_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "score_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_max",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_mean",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_min_component_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_min_component_max",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 5,
+      "table_name": "dimension_score_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "row_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 15,
+      "table_name": "dimension_validity_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "expected_empty_observations",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "affected_securities",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "blocked_component_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "blocked_dimension_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 1,
+      "table_name": "expected_empty_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "table_name",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 7,
+      "table_name": "formal_coverage"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "table_name",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "row_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "sum_hash",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "xor_hash",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 7,
+      "table_name": "formal_semantic_fingerprints"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "table_name",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "row_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 7,
+      "table_name": "formal_table_counts"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "expected_observation_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "row_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 3,
+      "table_name": "observation_status_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "total_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_reference_count_min",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_reference_count_max",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_reference_count_mean",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_date_max",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "current_in_reference_true_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_null_window_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "ineligible_retained_history_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 10,
+      "table_name": "reference_window_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "table_name",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "sha256",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 2,
+      "table_name": "registry_fingerprints"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "key",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "value",
+          "column_type": "VARCHAR",
+          "nullable": false
+        }
+      ],
+      "row_count": 17,
+      "table_name": "review_metadata"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "source_run_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "observation_sequence",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "expected_observation_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_metric_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_value",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "reason_codes_json",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "input_window_start",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "input_window_end",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "required_observation_count",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "actual_valid_observation_count",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "metric_engine_version",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 42450,
+      "table_name": "sample_a_raw"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "score_release_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "observation_sequence",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "percentile_window_W",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_value",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "percentile",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "reason_codes",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_observation_count",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_window_start",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_window_end",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "current_value_in_reference_set",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "tie_method",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "score_engine_version",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_role",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_run_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "available_time",
+          "column_type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        }
+      ],
+      "row_count": 212250,
+      "table_name": "sample_component_scores"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "score_release_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "observation_sequence",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "percentile_window_W",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "score_dimension",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_dimension_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_dimension",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "reason_codes",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "component_count",
+          "column_type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "column_name": "score_engine_version",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_role",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "available_time",
+          "column_type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        }
+      ],
+      "row_count": 106125,
+      "table_name": "sample_dimension_scores"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "source_trading_date",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "mapped_component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "percentile_window_W",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_metric_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_value",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "percentile",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "reason_codes",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_observation_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_window_start",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "reference_window_end",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "current_value_in_reference_set",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "tie_method",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "score_engine_version",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 165296,
+      "table_name": "sample_pcvt_source_component_scores"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "source_trading_date",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_indicator_ids",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "percentile_window_W",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "score_dimension",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_dimension_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_dimension",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "reason_codes",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "score_engine_version",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 82648,
+      "table_name": "sample_pcvt_source_dimension_scores"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "source_trading_date",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_indicator_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "mapped_component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_metric_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "raw_value",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "validity_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "reason_codes",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "input_window_start",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "input_window_end",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "required_observation_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "actual_valid_observation_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "source_field_names",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "metric_engine_version",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 165296,
+      "table_name": "sample_pcvt_validation_raw"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "selected_order",
+          "column_type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "selection_reasons",
+          "column_type": "VARCHAR[]",
+          "nullable": true
+        },
+        {
+          "column_name": "universe_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "first_expected_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "last_expected_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "expected_observation_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "expected_empty_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "a_valid_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "pcvt_eligible_rate",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "sequence_session_mismatch_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 12,
+      "table_name": "sample_securities"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "score_release_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "security_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "trading_date",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "observation_sequence",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "session_sequence",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "expected_observation_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_contract",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "observation_available_time",
+          "column_type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        }
+      ],
+      "row_count": 21225,
+      "table_name": "sample_spine"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "profile_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "row_count",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "min_value",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "max_value",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "mismatch_count",
+          "column_type": "HUGEINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 3,
+      "table_name": "sequence_domain_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "source_role",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "input_role",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "logical_table_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_artifact_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_run_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_contract_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_acceptance_status",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_file_sha256",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_manifest_sha256",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_schema_identity",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "source_byte_size",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "source_row_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "source_security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "source_date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "source_date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 5,
+      "table_name": "source_bindings"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "metric_name",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "metric_value",
+          "column_type": "BIGINT",
+          "nullable": true
+        }
+      ],
+      "row_count": 10,
+      "table_name": "source_reconciliation_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "check_name",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "passed",
+          "column_type": "BOOLEAN",
+          "nullable": true
+        }
+      ],
+      "row_count": 53,
+      "table_name": "validator_checks"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "metric_name",
+          "column_type": "VARCHAR",
+          "nullable": false
+        },
+        {
+          "column_name": "metric_value_json",
+          "column_type": "VARCHAR",
+          "nullable": true
+        }
+      ],
+      "row_count": 15,
+      "table_name": "validator_metrics"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "calendar_year",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "component_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "total_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "zero_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "one_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "score_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_max",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_mean",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 110,
+      "table_name": "yearly_component_profile"
+    },
+    {
+      "columns": [
+        {
+          "column_name": "calendar_year",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "dimension_id",
+          "column_type": "VARCHAR",
+          "nullable": true
+        },
+        {
+          "column_name": "total_rows",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "eligible_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "null_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "zero_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "one_score_rows",
+          "column_type": "HUGEINT",
+          "nullable": true
+        },
+        {
+          "column_name": "score_min",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_max",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "score_mean",
+          "column_type": "DOUBLE",
+          "nullable": true
+        },
+        {
+          "column_name": "security_count",
+          "column_type": "BIGINT",
+          "nullable": true
+        },
+        {
+          "column_name": "date_min",
+          "column_type": "DATE",
+          "nullable": true
+        },
+        {
+          "column_name": "date_max",
+          "column_type": "DATE",
+          "nullable": true
+        }
+      ],
+      "row_count": 55,
+      "table_name": "yearly_dimension_profile"
+    }
+  ],
+  "yearly_review": [
+    {
+      "component_eligible_rate": 0.27299788420850163,
+      "component_eligible_rows": 354829,
+      "component_total_rows": 1299750,
+      "date_max": "2016-12-30",
+      "date_min": "2016-01-04",
+      "dimension_eligible_rate": 0.24220811694556646,
+      "dimension_eligible_rows": 157405,
+      "dimension_total_rows": 649875,
+      "security_count": 552,
+      "year": 2016
+    },
+    {
+      "component_eligible_rate": 0.8643170482113082,
+      "component_eligible_rows": 1207788,
+      "component_total_rows": 1397390,
+      "date_max": "2017-12-29",
+      "date_min": "2017-01-03",
+      "dimension_eligible_rate": 0.8520255619404747,
+      "dimension_eligible_rows": 595306,
+      "dimension_total_rows": 698695,
+      "security_count": 591,
+      "year": 2017
+    },
+    {
+      "component_eligible_rate": 0.9238534679435512,
+      "component_eligible_rows": 1352503,
+      "component_total_rows": 1463980,
+      "date_max": "2018-12-28",
+      "date_min": "2018-01-02",
+      "dimension_eligible_rate": 0.9180740174046094,
+      "dimension_eligible_rows": 672021,
+      "dimension_total_rows": 731990,
+      "security_count": 614,
+      "year": 2018
+    },
+    {
+      "component_eligible_rate": 0.9547593068869664,
+      "component_eligible_rows": 1470062,
+      "component_total_rows": 1539720,
+      "date_max": "2019-12-31",
+      "date_min": "2019-01-02",
+      "dimension_eligible_rate": 0.9490816512093108,
+      "dimension_eligible_rows": 730660,
+      "dimension_total_rows": 769860,
+      "security_count": 649,
+      "year": 2019
+    },
+    {
+      "component_eligible_rate": 0.9469192163687503,
+      "component_eligible_rows": 1545268,
+      "component_total_rows": 1631890,
+      "date_max": "2020-12-31",
+      "date_min": "2020-01-02",
+      "dimension_eligible_rate": 0.9419286839186465,
+      "dimension_eligible_rows": 768562,
+      "dimension_total_rows": 815945,
+      "security_count": 696,
+      "year": 2020
+    },
+    {
+      "component_eligible_rate": 0.9531135889786092,
+      "component_eligible_rows": 1654853,
+      "component_total_rows": 1736260,
+      "date_max": "2021-12-31",
+      "date_min": "2021-01-04",
+      "dimension_eligible_rate": 0.9480792047274026,
+      "dimension_eligible_rows": 823056,
+      "dimension_total_rows": 868130,
+      "security_count": 731,
+      "year": 2021
+    },
+    {
+      "component_eligible_rate": 0.9646986347538302,
+      "component_eligible_rows": 1746037,
+      "component_total_rows": 1809930,
+      "date_max": "2022-12-30",
+      "date_min": "2022-01-04",
+      "dimension_eligible_rate": 0.9613101059156984,
+      "dimension_eligible_rows": 869952,
+      "dimension_total_rows": 904965,
+      "security_count": 764,
+      "year": 2022
+    },
+    {
+      "component_eligible_rate": 0.9763045022620809,
+      "component_eligible_rows": 1827808,
+      "component_total_rows": 1872170,
+      "date_max": "2023-12-29",
+      "date_min": "2023-01-03",
+      "dimension_eligible_rate": 0.9738827136424577,
+      "dimension_eligible_rows": 911637,
+      "dimension_total_rows": 936085,
+      "security_count": 781,
+      "year": 2023
+    },
+    {
+      "component_eligible_rate": 0.9874003743191807,
+      "component_eligible_rows": 1878154,
+      "component_total_rows": 1902120,
+      "date_max": "2024-12-31",
+      "date_min": "2024-01-02",
+      "dimension_eligible_rate": 0.9853815742434757,
+      "dimension_eligible_rows": 937157,
+      "dimension_total_rows": 951060,
+      "security_count": 791,
+      "year": 2024
+    },
+    {
+      "component_eligible_rate": 0.9891295222400149,
+      "component_eligible_rows": 1908654,
+      "component_total_rows": 1929630,
+      "date_max": "2025-12-31",
+      "date_min": "2025-01-02",
+      "dimension_eligible_rate": 0.98744422505869,
+      "dimension_eligible_rows": 952701,
+      "dimension_total_rows": 964815,
+      "security_count": 799,
+      "year": 2025
+    },
+    {
+      "component_eligible_rate": 0.9884762130585674,
+      "component_eligible_rows": 917128,
+      "component_total_rows": 927820,
+      "date_max": "2026-06-30",
+      "date_min": "2026-01-05",
+      "dimension_eligible_rate": 0.9868508978034533,
+      "dimension_eligible_rows": 457810,
+      "dimension_total_rows": 463910,
+      "security_count": 800,
+      "year": 2026
+    }
+  ]
+}

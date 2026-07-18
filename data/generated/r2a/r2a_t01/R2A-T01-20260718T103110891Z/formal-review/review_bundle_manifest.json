@@ -1,0 +1,74 @@
+{
+  "bundle_files": [
+    {
+      "byte_size": 19388,
+      "contains_absolute_paths": false,
+      "origin": "original",
+      "relative_path": "manifest.json",
+      "role": "byte_identical_formal_package_evidence",
+      "sha256": "c3b3ff5daedc050fdd7dce5ada586d206d8996cd0a418c9f211d9a382ea365fc",
+      "source_file_sha256": "c3b3ff5daedc050fdd7dce5ada586d206d8996cd0a418c9f211d9a382ea365fc"
+    },
+    {
+      "byte_size": 19473,
+      "contains_absolute_paths": false,
+      "origin": "original",
+      "relative_path": "schema.json",
+      "role": "byte_identical_formal_package_evidence",
+      "sha256": "ef5031b50be0cc1e3fbbac34d24d06c34290913cd536ec0c9461b2deab7a0844",
+      "source_file_sha256": "ef5031b50be0cc1e3fbbac34d24d06c34290913cd536ec0c9461b2deab7a0844"
+    },
+    {
+      "byte_size": 3118,
+      "contains_absolute_paths": false,
+      "origin": "original",
+      "relative_path": "validation_receipt.json",
+      "role": "byte_identical_formal_package_evidence",
+      "sha256": "fe5a8cc147404ea9f77f19157dbe1c2ca68dce1c226656066d60d54763248c73",
+      "source_file_sha256": "fe5a8cc147404ea9f77f19157dbe1c2ca68dce1c226656066d60d54763248c73"
+    },
+    {
+      "byte_size": 4239,
+      "contains_absolute_paths": false,
+      "origin": "original",
+      "relative_path": "result_analysis.md",
+      "role": "byte_identical_formal_package_evidence",
+      "sha256": "b39ed98177c78da4b37e3138419fd3fcdc0b9627ad25afdc46152b972a7125b0",
+      "source_file_sha256": "b39ed98177c78da4b37e3138419fd3fcdc0b9627ad25afdc46152b972a7125b0"
+    },
+    {
+      "byte_size": 2005,
+      "contains_absolute_paths": false,
+      "origin": "derived",
+      "relative_path": "formal_run_summary.json",
+      "role": "derived_formal_review_evidence",
+      "sha256": "c0536f75539373726c37fcb0f3ef33a2a6d1d2555a83f39cfbb2d1dc2ad0e66b",
+      "source_file_sha256": null
+    },
+    {
+      "byte_size": 30420992,
+      "contains_absolute_paths": false,
+      "origin": "derived",
+      "relative_path": "r2a_t01_formal_review_extract.duckdb",
+      "role": "derived_formal_review_evidence",
+      "sha256": "e42ff63c8f5416d1c2372daf2d2033f417ee80d951966d2a89acde9d5da4fb79",
+      "source_file_sha256": null
+    },
+    {
+      "byte_size": 2562,
+      "contains_absolute_paths": false,
+      "origin": "derived",
+      "relative_path": "review_extract_manifest.json",
+      "role": "derived_formal_review_evidence",
+      "sha256": "e226cd513ef5eccc7a207acdff6842190d68539c4fae43e803065081ebc621fb",
+      "source_file_sha256": null
+    }
+  ],
+  "contains_absolute_paths": false,
+  "formal_database_sha256": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+  "formal_outputs_modified": false,
+  "manifest_scope_note": "The manifest enumerates every payload file. It excludes its own digest to avoid a recursive self-hash; the review_bundle_manifest.json digest is verified and reported separately.",
+  "manifest_version": "r2a_t01_review_bundle_manifest.v1",
+  "reviewed_execution_commit": "7c3fe76c575eb350a8e94d2f7534d123e865a64c",
+  "run_id": "R2A-T01-20260718T103110891Z"
+}
