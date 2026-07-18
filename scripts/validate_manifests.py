@@ -58,6 +58,7 @@ SCHEMA_ONLY = (
     ROOT / "schemas/r2a/r2a_t02_dynamic_request.schema.json",
     ROOT / "schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
     ROOT / "schemas/r2a/r2a_t04_local_source_manifest.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_real_input_smoke_receipt.schema.json",
     ROOT / "schemas/r2a/r2a_t04_review_bundle.schema.json",
     ROOT / "schemas/r2a/r2a_t04_thread_benchmark_receipt.schema.json",
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",

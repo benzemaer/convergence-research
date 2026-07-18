@@ -87,13 +87,19 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: formal_authorization_committed_pending_quality
+R2A-T04_status: execution_gate_repair_pending_review
 reviewed_harness_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-formal_run_authorized: true_pending_exact_authorization_head_quality
-authorization_effective_only_after_exact_head_quality_success: true
+formal_run_authorized: false
+authorization_effective_only_after_exact_head_quality_success: false
 formal_run_started: false
 formal_run_attempt_consumed: false
+superseded_authorization_head: 17f6ec68d24f50e49c389afb439a413d7a7edb85
+authorization_head_17f6ec68_status: superseded_before_real_input_smoke
+superseded_reason: real_input_smoke_and_formal_execution_binding_incomplete
+formal_run_started_under_superseded_authorization: false
+formal_run_attempt_consumed_under_superseded_authorization: false
+market_context_read_under_superseded_authorization: false
 synthetic_end_to_end_smoke: passed_in_tests
 previous_thread_benchmark_status: blocked
 previous_thread_benchmark_error: thread_fingerprint_mismatch
@@ -104,6 +110,9 @@ thread_benchmark_status: passed
 thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
 thread_benchmark_receipt_byte_size: 97485
 thread_benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
+thread_benchmark_evidence_reused: true
+reuse_basis: benchmark_core_evaluator_request_and_fingerprint_code_byte_identical
+thread_benchmark_rerun_required: false
 real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
 full_universe_request_count: 0
@@ -148,9 +157,10 @@ evaluation、选择最佳 q/K、完成价格图审核或创建动态状态产物
 merge commit 上启动，implementation candidate 与 synthetic end-to-end smoke 已完成。此前 threads
 preflight 已读取 accepted Score 的固定四证券完整历史并运行 evaluator；首次证据因旧 fingerprint 与缺失
 receipt 只能记为 blocked、evidence incomplete。Reviewed repair head `01bf7e12...` 通过 Quality 后执行的
-唯一 repaired benchmark 已通过，4/8/16 输出逻辑完全一致，并冻结 DuckDB threads=4。Metadata-only
-formal authorization commit 已建立，只有其精确 HEAD Quality 成功后才生效；market context 尚未读取，
-real-input smoke 和唯一 full-universe formal run 尚未开始。
+唯一 repaired benchmark 已通过，4/8/16 输出逻辑完全一致，并冻结 DuckDB threads=4。Authorization
+HEAD `17f6ec68...` 因 real-input smoke 与 formal execution 绑定不完整，已在读取 market context 或消费
+formal attempt 前废弃；当前只修复 execution gate，formal authorization 为 false。Market context 尚未读取，
+real-input smoke 和唯一 full-universe formal run 均未开始。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -464,14 +474,20 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: formal_authorization_committed_pending_quality
+R2A-T04_status: execution_gate_repair_pending_review
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 reviewed_harness_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-formal_run_authorized: true_pending_exact_authorization_head_quality
-authorization_effective_only_after_exact_head_quality_success: true
+formal_run_authorized: false
+authorization_effective_only_after_exact_head_quality_success: false
 formal_run_started: false
 formal_run_attempt_consumed: false
+superseded_authorization_head: 17f6ec68d24f50e49c389afb439a413d7a7edb85
+authorization_head_17f6ec68_status: superseded_before_real_input_smoke
+superseded_reason: real_input_smoke_and_formal_execution_binding_incomplete
+formal_run_started_under_superseded_authorization: false
+formal_run_attempt_consumed_under_superseded_authorization: false
+market_context_read_under_superseded_authorization: false
 synthetic_end_to_end_smoke: passed_in_tests
 previous_thread_benchmark_status: blocked
 previous_thread_benchmark_error: thread_fingerprint_mismatch
@@ -482,6 +498,9 @@ thread_benchmark_status: passed
 thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
 thread_benchmark_receipt_byte_size: 97485
 thread_benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
+thread_benchmark_evidence_reused: true
+reuse_basis: benchmark_core_evaluator_request_and_fingerprint_code_byte_identical
+thread_benchmark_rerun_required: false
 real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
 full_universe_request_count: 0
@@ -1107,12 +1126,18 @@ output_schema_version=r2a_t03_dynamic_evaluation_output.v1；dynamic_evaluator_a
 evaluator_registered=false；output_schema_registered=false；real_score_data_read=false；
 real_dynamic_evaluation_executed=false；dynamic_state_artifact_committed=false；PCAVT_dynamic_state_created=false；
 R2A-T03_DONE=present；next_task=R2A-T04；R2A-T04_allowed_to_start=true；R2A-T04_started=true。
-R2A-T04_status=formal_authorization_committed_pending_quality；
+R2A-T04_status=execution_gate_repair_pending_review；
 reviewed_harness_head=01bf7e12f0cb19a31c71689ada32f7a78f8aec75；
 formal_authorization_id=R2A-T04-REAL-AUDIT-AUTH-20260719；
-formal_run_authorized=true_pending_exact_authorization_head_quality；
-authorization_effective_only_after_exact_head_quality_success=true；formal_run_started=false；
+formal_run_authorized=false；
+authorization_effective_only_after_exact_head_quality_success=false；formal_run_started=false；
 formal_run_attempt_consumed=false；synthetic_end_to_end_smoke=passed_in_tests；
+superseded_authorization_head=17f6ec68d24f50e49c389afb439a413d7a7edb85；
+authorization_head_17f6ec68_status=superseded_before_real_input_smoke；
+superseded_reason=real_input_smoke_and_formal_execution_binding_incomplete；
+formal_run_started_under_superseded_authorization=false；
+formal_run_attempt_consumed_under_superseded_authorization=false；
+market_context_read_under_superseded_authorization=false；
 previous_thread_benchmark_status=blocked；previous_thread_benchmark_error=thread_fingerprint_mismatch；
 previous_thread_benchmark_evidence_status=incomplete_no_receipt；
 previous_thread_benchmark_logical_output_difference_confirmed=false；
@@ -1121,6 +1146,9 @@ thread_benchmark_status=passed；
 thread_benchmark_receipt_sha256=c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369；
 thread_benchmark_receipt_byte_size=97485；
 thread_benchmark_fingerprint=049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231；
+thread_benchmark_evidence_reused=true；
+reuse_basis=benchmark_core_evaluator_request_and_fingerprint_code_byte_identical；
+thread_benchmark_rerun_required=false；
 real_input_smoke_status=not_started；full_universe_request_concurrency=1；full_universe_request_count=0；
 duckdb_thread_count=4；
 R2A-T04_preflight_score_data_read=true；
@@ -1130,8 +1158,8 @@ R2A-T04_formal_full_universe_score_data_read=false；R2A-T04_formal_dynamic_eval
 real_score_data_read=true；real_score_data_read_scope=four_security_full_history_thread_benchmark；
 market_context_data_read=false；
 owner_visual_review=not_started；R2A-T04_DONE=absent；R2A-T05_allowed_to_start=false。
-当前停止点是 R2A-T04 formal authorization review。首次 benchmark 的 blocked evidence 不足以确认逻辑
-差异；唯一 repaired benchmark 已证明 4/8/16 输出逻辑一致并选择 threads=4。Metadata-only authorization
-commit 已建立但须等待其精确 HEAD Quality；尚未读取 market context、执行 real-input smoke 或任何
-full-universe request。
+当前停止点是 R2A-T04 execution-gate repair review。首次 benchmark 的 blocked evidence 不足以确认逻辑
+差异；唯一 repaired benchmark 已证明 4/8/16 输出逻辑一致并选择 threads=4。Authorization HEAD
+17f6ec68... 因执行绑定不完整已在 real-input smoke 前废弃；尚未读取 market context、执行 real-input smoke、
+消费 formal attempt 或执行任何 full-universe request。
 ```

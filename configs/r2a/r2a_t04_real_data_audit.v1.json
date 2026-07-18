@@ -1,13 +1,19 @@
 {
   "$schema": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json",
   "task_id": "R2A-T04",
-  "status": "formal_authorization_committed",
+  "status": "execution_gate_repair_pending_review",
   "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
   "reviewed_harness_head": "01bf7e12f0cb19a31c71689ada32f7a78f8aec75",
-  "formal_run_authorized": true,
+  "formal_run_authorized": false,
   "formal_run_started": false,
   "formal_run_consumed": false,
-  "authorization_effective_only_after_exact_head_quality_success": true,
+  "authorization_effective_only_after_exact_head_quality_success": false,
+  "superseded_authorization_head": "17f6ec68d24f50e49c389afb439a413d7a7edb85",
+  "authorization_head_17f6ec68_status": "superseded_before_real_input_smoke",
+  "superseded_reason": "real_input_smoke_and_formal_execution_binding_incomplete",
+  "formal_run_started_under_superseded_authorization": false,
+  "formal_run_attempt_consumed_under_superseded_authorization": false,
+  "market_context_read_under_superseded_authorization": false,
   "score_release": {
     "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
     "filename": "score_data.duckdb",
@@ -42,6 +48,8 @@
     "pairwise_logical_comparison_required": true,
     "benchmark_execution_head": "01bf7e12f0cb19a31c71689ada32f7a78f8aec75",
     "benchmark_execution_quality": "29658749232 / success",
+    "benchmark_request_id": "pcavt-dynreq-v1-2937df4f84219640",
+    "benchmark_request_hash": "2937df4f8421964007b5d479a6b1f959564096bbe5df18ffe35b91b325192722",
     "thread_benchmark_status": "passed",
     "duckdb_thread_count": 4,
     "thread_benchmark_fingerprint": "049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231",
@@ -82,7 +90,10 @@
     "pairwise_left_only_key_count": 0,
     "pairwise_right_only_key_count": 0,
     "pairwise_value_mismatch_row_count": 0,
-    "pairwise_column_mismatch_count": 0
+    "pairwise_column_mismatch_count": 0,
+    "thread_benchmark_evidence_reused": true,
+    "reuse_basis": "benchmark_core_evaluator_request_and_fingerprint_code_byte_identical",
+    "thread_benchmark_rerun_required": false
   },
   "synthetic_smoke": {
     "request_count": 2,

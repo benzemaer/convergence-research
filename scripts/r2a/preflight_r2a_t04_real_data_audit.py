@@ -13,9 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.r2a.r2a_t04_execution_gate import (  # noqa: E402
+    execute_bound_real_input_smoke,
+    market_source_spec_identity,
+)
 from src.r2a.r2a_t04_real_data_audit import (  # noqa: E402
-    load_market_source_spec,
-    run_real_input_smoke,
     run_thread_benchmark,
     verify_file_identity,
 )
@@ -33,6 +35,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--score-db", type=Path, required=True)
     parser.add_argument("--preflight-root", type=Path, required=True)
     parser.add_argument("--market-source-spec", type=Path)
+    parser.add_argument("--thread-benchmark-receipt", type=Path)
+    parser.add_argument("--authorization-quality")
     return parser.parse_args()
 
 
@@ -42,15 +46,6 @@ def _git_status() -> str:
 
 def _git_head() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-
-
-def _write(path: Path, value: object) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
 
 
 def _market_database(spec_path: Path, basename: str) -> Path:
@@ -78,12 +73,12 @@ def main() -> int:
     config = load_audit_config()
     panel = build_request_panel(config)
     request = canonical_envelope(request_by_name("D05_PCAVT_q15_k3", panel))
-    verify_file_identity(
-        args.score_db,
-        expected_sha256=config["score_release"]["sha256"],
-        expected_byte_size=config["score_release"]["byte_size"],
-    )
     if args.mode == "thread-benchmark":
+        verify_file_identity(
+            args.score_db,
+            expected_sha256=config["score_release"]["sha256"],
+            expected_byte_size=config["score_release"]["byte_size"],
+        )
         destination = args.preflight_root / "thread_benchmark_receipt.json"
         result = run_thread_benchmark(
             score_database=args.score_db,
@@ -97,28 +92,31 @@ def main() -> int:
             implementation_head=_git_head(),
         )
     else:
-        if args.market_source_spec is None:
+        if (
+            args.market_source_spec is None
+            or args.thread_benchmark_receipt is None
+            or args.authorization_quality is None
+        ):
             raise RuntimeError("market_source_spec_required")
-        benchmark = json.loads(
-            (args.preflight_root / "thread_benchmark_receipt.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        spec = load_market_source_spec(args.market_source_spec)
+        spec_identity = market_source_spec_identity(args.market_source_spec)
         destination = args.preflight_root / "real_input_smoke_receipt.json"
-        result = run_real_input_smoke(
+        result = execute_bound_real_input_smoke(
             config=config,
+            authorization_head=_git_head(),
+            authorization_parent=subprocess.check_output(
+                ["git", "rev-parse", "HEAD^"], text=True
+            ).strip(),
+            authorization_quality=args.authorization_quality,
             score_database=args.score_db,
+            thread_benchmark_receipt_path=args.thread_benchmark_receipt,
+            market_source_spec_path=args.market_source_spec,
             market_database=_market_database(
-                args.market_source_spec, str(spec["database_basename"])
+                args.market_source_spec, str(spec_identity["database_basename"])
             ),
-            market_source_spec=spec,
             canonical_request=request,
-            benchmark_receipt=benchmark,
             scratch_directory=args.preflight_root / ".real-smoke-scratch",
             receipt_path=destination,
         )
-        _write(destination, result)
     if _git_status() != before_status:
         raise RuntimeError("preflight_modified_git_worktree")
     print(json.dumps(result, sort_keys=True))

@@ -13,13 +13,18 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.r2a.r2a_t04_execution_gate import (  # noqa: E402
+    market_source_spec_identity,
+    validate_formal_execution_gate,
+)
 from src.r2a.r2a_t04_real_data_audit import (  # noqa: E402
-    load_market_source_spec,
     run_formal_audit,
 )
 from src.r2a.r2a_t04_request_panel import (  # noqa: E402
     build_request_panel,
+    canonical_envelope,
     load_audit_config,
+    request_by_name,
 )
 
 
@@ -30,6 +35,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--review-output", type=Path, required=True)
     parser.add_argument("--formal-authorization-id", required=True)
+    parser.add_argument("--thread-benchmark-receipt", type=Path, required=True)
+    parser.add_argument("--real-input-smoke-receipt", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -67,19 +74,29 @@ def main() -> int:
     parent = _git_output("rev-parse", "HEAD^")
     if parent != config["reviewed_harness_head"]:
         raise RuntimeError("authorization_parent_not_reviewed_harness")
-    spec = load_market_source_spec(args.market_source_spec)
-    receipt_path = (
-        args.market_source_spec.parent / "preflight/real_input_smoke_receipt.json"
+    panel = build_request_panel(config)
+    canonical_request = canonical_envelope(request_by_name("D05_PCAVT_q15_k3", panel))
+    spec_identity = market_source_spec_identity(args.market_source_spec)
+    market_database = _market_database(
+        args.market_source_spec, str(spec_identity["database_basename"])
     )
-    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt = validate_formal_execution_gate(
+        config=config,
+        authorization_head=head,
+        authorization_parent=parent,
+        score_database=args.score_db,
+        thread_benchmark_receipt_path=args.thread_benchmark_receipt,
+        real_input_smoke_receipt_path=args.real_input_smoke_receipt,
+        market_source_spec_path=args.market_source_spec,
+        market_database=market_database,
+        canonical_request=canonical_request,
+    )
     result = run_formal_audit(
         config=config,
-        panel=build_request_panel(config),
+        panel=panel,
         score_database=args.score_db,
-        market_database=_market_database(
-            args.market_source_spec, str(spec["database_basename"])
-        ),
-        market_source_spec=spec,
+        market_database=market_database,
+        market_source_spec=spec_identity["spec"],
         output_root=args.output_root,
         review_output=args.review_output,
         preflight_receipt=receipt,

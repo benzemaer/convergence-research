@@ -190,15 +190,21 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: formal_authorization_committed_pending_quality
+R2A-T04_status: execution_gate_repair_pending_review
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 reviewed_harness_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 reviewed_harness_Quality: 29658749232 / success
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-formal_run_authorized: true_pending_exact_authorization_head_quality
-authorization_effective_only_after_exact_head_quality_success: true
+formal_run_authorized: false
+authorization_effective_only_after_exact_head_quality_success: false
 formal_run_started: false
 formal_run_attempt_consumed: false
+superseded_authorization_head: 17f6ec68d24f50e49c389afb439a413d7a7edb85
+authorization_head_17f6ec68_status: superseded_before_real_input_smoke
+superseded_reason: real_input_smoke_and_formal_execution_binding_incomplete
+formal_run_started_under_superseded_authorization: false
+formal_run_attempt_consumed_under_superseded_authorization: false
+market_context_read_under_superseded_authorization: false
 synthetic_end_to_end_smoke: passed_in_tests
 previous_thread_benchmark_status: blocked
 previous_thread_benchmark_error: thread_fingerprint_mismatch
@@ -209,6 +215,9 @@ thread_benchmark_status: passed
 thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
 thread_benchmark_receipt_byte_size: 97485
 thread_benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
+thread_benchmark_evidence_reused: true
+reuse_basis: benchmark_core_evaluator_request_and_fingerprint_code_byte_identical
+thread_benchmark_rerun_required: false
 real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
 full_universe_request_count: 0
@@ -241,9 +250,9 @@ R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
 物理 batch 边界影响，且 cleanup 前未生成 receipt；该历史结果仍只记为 blocked、evidence incomplete。
 Reviewed repair head `01bf7e12...` 通过 Quality 后执行的唯一 repaired benchmark 已通过：4/8/16 的
 validator、固定逻辑 chunk profiles 与三组五表 pairwise comparison 全部一致，选择并冻结 threads=4。
-当前 metadata-only formal authorization commit 已建立但尚待其精确 HEAD Quality；Quality 成功前不得
-读取 market context 或执行 real-input smoke。唯一 full-universe formal run 尚未开始，16 个 requests
-必须严格串行。
+Authorization HEAD `17f6ec68...` 已在读取 market context 或消费 formal attempt 前废弃，原因仅为
+real-input smoke 与 formal execution 绑定不完整。当前 execution-gate repair 尚待审阅，formal authorization
+为 false；唯一 full-universe formal run 尚未开始，未来获准后 16 个 requests 仍必须严格串行。
 任务契约见
 [`R2A-T04_真实数据参数响应与结果合理性审核.md`](R2A-T04_真实数据参数响应与结果合理性审核.md)。
 
