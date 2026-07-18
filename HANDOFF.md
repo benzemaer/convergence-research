@@ -9,8 +9,8 @@
 ```text
 repository: benzemaer/convergence-research
 local_repository: D:\Code\convergence-research
-current_branch: codex/r2a-t02-dynamic-state-protocol
-remote_branch: origin/codex/r2a-t02-dynamic-state-protocol
+current_branch: codex/r2a-t02-post-merge-test-contract-fix
+remote_branch: pending first push
 R2A-T02 PR: #110 / merged
 base_main_sha: 34eee561218141d64a2e347e532d88c0fb09c33c
 R2A-T01 PR: #109 / merged
@@ -54,8 +54,11 @@ dynamic_state_materialized: false
 dynamic_protocol_accepted: true
 dynamic_protocol_registered: false
 R2A-T02_DONE: present
+post_merge_test_contract_issue: stale_candidate_only_DONE_assertion
+post_merge_test_contract_status: corrected_pending_merge
+accepted_protocol_artifacts_modified: false
 next_task: R2A-T03
-R2A-T03_allowed_to_start: true_after_PR_110_merge
+R2A-T03_allowed_to_start: true_after_post_merge_test_contract_PR_merge
 R2A-T03_started: false
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
@@ -72,8 +75,10 @@ Owner 已接受 run `R2A-T01-20260718T103110891Z` 及 Score release
 动态 PCAVT 状态。PR #109 已合并；R2A-T02 的 reviewed protocol head
 `6c3198a6fd270b81fbeb13649eda51f4222f89d6` 已通过 Quality `29649468929` 和正式审阅，协议
 closure 已建立 accepted handoff 与 canonical `DONE`。T02 未读取真实 Score data、未实现
-evaluator、未物化动态状态；统一 protocol registration 仍留给 R2A-T07。R2A-T03 只在 PR #110
-合并后获得启动授权，当前尚未启动。
+evaluator、未物化动态状态；统一 protocol registration 仍留给 R2A-T07。PR #110 合并后发现
+候选期测试仍永久断言 T02 `DONE` 不存在；该问题只涉及测试对 candidate/accepted 生命周期的
+表达，不是科学协议失败，协议 acceptance 与 handoff/DONE 哈希链均未失效。当前 cleanup PR
+修复该测试契约并把 `tests/r2a` 纳入 Quality；R2A-T03 在 cleanup PR 合并前仍未启动。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -366,8 +371,11 @@ dynamic_state_materialized: false
 dynamic_protocol_accepted: true
 dynamic_protocol_registered: false
 R2A-T02_DONE: present
+post_merge_test_contract_issue: stale_candidate_only_DONE_assertion
+post_merge_test_contract_status: corrected_pending_merge
+accepted_protocol_artifacts_modified: false
 next_task: R2A-T03
-R2A-T03_allowed_to_start: true_after_PR_110_merge
+R2A-T03_allowed_to_start: true_after_post_merge_test_contract_PR_merge
 R2A-T03_started: false
 A_layer_W120_score_contract_registered: true
 canonical_PCAVT_score_release_registered: true
@@ -967,6 +975,8 @@ R2A-T02_status=completed_accepted；protocol_review_status=accepted；dynamic_pr
 reviewed_protocol_head=6c3198a6fd270b81fbeb13649eda51f4222f89d6；protocol_package_status=accepted；real_score_data_read=false。
 dynamic_protocol_accepted=true；dynamic_protocol_registered=false；PCAVT_dynamic_state_created=false。
 dynamic_evaluator_implemented=false；dynamic_state_materialized=false；R2A-T02_DONE=present。
-R2A-T03_allowed_to_start=true_after_PR_110_merge；R2A-T03_started=false；next_task=R2A-T03。
-当前停止点是 R2A-T02 accepted and merged / R2A-T03 authorized_not_started。
+post_merge_test_contract_issue=stale_candidate_only_DONE_assertion；post_merge_test_contract_status=corrected_pending_merge。
+accepted_protocol_artifacts_modified=false；R2A-T03_allowed_to_start=true_after_post_merge_test_contract_PR_merge。
+R2A-T03_started=false；next_task=R2A-T03。该 cleanup 不是科学协议失败，acceptance 与哈希链未失效。
+当前停止点是 R2A-T02 accepted closure reproducible / R2A-T03 authorized_not_started（cleanup PR 合并后生效）。
 ```

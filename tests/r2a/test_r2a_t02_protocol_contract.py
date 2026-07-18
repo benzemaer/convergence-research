@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import itertools
 import json
 import math
@@ -17,6 +18,11 @@ CONFIG_PATH = ROOT / "configs/r2a/r2a_t02_dynamic_state_protocol.v1.json"
 SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t02_dynamic_state_protocol.schema.json"
 IDENTITY_PATH = ROOT / "src/r2a/r2a_t02_request_identity.py"
 CLI_PATH = ROOT / "scripts/r2a/build_r2a_t02_dynamic_request.py"
+R2A_T02_ACCEPTED_ROOT = (
+    ROOT / "data/generated/r2a/r2a_t02" / "pcavt_dynamic_state_protocol.v1"
+)
+R2A_T02_HANDOFF_PATH = R2A_T02_ACCEPTED_ROOT / "r2a_t02_accepted_protocol_handoff.json"
+R2A_T02_DONE_PATH = R2A_T02_ACCEPTED_ROOT / "DONE"
 DIMENSIONS = ("P", "C", "A", "V", "T")
 Q_VALUES = (1000, 1500, 2000, 2500)
 
@@ -627,7 +633,7 @@ def test_termination_priority_and_zero_event_contract() -> None:
     assert config["zero_event"]["interval_table"] == "valid_zero_row_table"
 
 
-def test_production_surface_has_no_duckdb_or_evaluator_and_no_t02_done() -> None:
+def test_t02_production_surface_has_no_duckdb_or_evaluator() -> None:
     for path in (IDENTITY_PATH, CLI_PATH):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -651,4 +657,38 @@ def test_production_surface_has_no_duckdb_or_evaluator_and_no_t02_done() -> None
     assert not identity_functions.intersection(
         {"dimension_active", "evaluate", "evaluate_state", "build_intervals"}
     )
-    assert not list((ROOT / "data/generated/r2a/r2a_t02").glob("**/DONE"))
+
+
+def test_t02_done_matches_protocol_acceptance_state() -> None:
+    config = load_config()
+    status = config["status"]
+    if status == "protocol_freeze_candidate_pending_review":
+        assert not R2A_T02_HANDOFF_PATH.exists()
+        assert not R2A_T02_DONE_PATH.exists()
+        return
+    if status != "accepted":
+        pytest.fail(f"unknown R2A-T02 protocol status: {status!r}")
+
+    assert R2A_T02_HANDOFF_PATH.is_file()
+    assert R2A_T02_DONE_PATH.is_file()
+    accepted_root_done_files = list(R2A_T02_ACCEPTED_ROOT.rglob("DONE"))
+    assert accepted_root_done_files == [R2A_T02_DONE_PATH]
+    accepted_versions = list(
+        R2A_T02_ACCEPTED_ROOT.parent.glob("*/r2a_t02_accepted_protocol_handoff.json")
+    )
+    assert accepted_versions == [R2A_T02_HANDOFF_PATH]
+
+    handoff = json.loads(R2A_T02_HANDOFF_PATH.read_text(encoding="utf-8"))
+    done = json.loads(R2A_T02_DONE_PATH.read_text(encoding="utf-8"))
+    assert handoff["status"] == "completed_accepted"
+    assert handoff["protocol_review_status"] == "accepted"
+    assert handoff["dynamic_protocol_version"] == ("pcavt_dynamic_state_protocol.v1")
+    assert done["acceptance_status"] == "completed_accepted"
+
+    handoff_sha256 = hashlib.sha256(R2A_T02_HANDOFF_PATH.read_bytes()).hexdigest()
+    config_sha256 = hashlib.sha256(CONFIG_PATH.read_bytes()).hexdigest()
+    assert done["accepted_protocol_handoff_sha256"] == handoff_sha256
+    assert done["accepted_protocol_config_sha256"] == config_sha256
+    assert done["dynamic_protocol_version"] == handoff["dynamic_protocol_version"]
+    assert done["reviewed_protocol_head"] == handoff["reviewed_protocol_head"]
+    assert done["golden_request_hash"] == handoff["golden_identity"]["request_hash"]
