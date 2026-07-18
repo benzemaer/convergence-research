@@ -272,21 +272,32 @@ def _stage_formal_inputs(
             )
             for item in PCVT_COMPONENTS
         )
+        component_date = _source_date_sql("x.trading_date")
+        dimension_date = _source_date_sql("x.trading_date")
+        validation_date = _source_date_sql("x.trading_date")
+        component_reference_start = _source_date_sql("x.reference_window_start")
+        component_reference_end = _source_date_sql("x.reference_window_end")
         if connection.execute(
             f"SELECT count(*) FROM {component} x LEFT JOIN {spine} s "
-            "USING(security_id,trading_date) WHERE x.percentile_window_W=120 AND "
+            "ON x.security_id=s.security_id AND "
+            f"{component_date}=CAST(s.trading_date AS DATE) "
+            "WHERE x.percentile_window_W=120 AND "
             f"(s.security_id IS NULL OR x.indicator_id NOT IN ({component_ids}))"
         ).fetchone()[0]:
             raise ScoreReleaseError("extra_or_invalid_source_key:pcvt_component_scores")
         if connection.execute(
             f"SELECT count(*) FROM {dimension} x LEFT JOIN {spine} s "
-            "USING(security_id,trading_date) WHERE x.percentile_window_W=120 AND "
+            "ON x.security_id=s.security_id AND "
+            f"{dimension_date}=CAST(s.trading_date AS DATE) "
+            "WHERE x.percentile_window_W=120 AND "
             "(s.security_id IS NULL OR x.dimension NOT IN ('P','C','V','T'))"
         ).fetchone()[0]:
             raise ScoreReleaseError("extra_or_invalid_source_key:pcvt_dimension_scores")
         if connection.execute(
             f"SELECT count(*) FROM {validation} x LEFT JOIN {spine} s "
-            f"USING(security_id,trading_date) WHERE s.security_id IS NULL OR x.indicator_id NOT IN ({raw_component_ids})"
+            "ON x.security_id=s.security_id AND "
+            f"{validation_date}=CAST(s.trading_date AS DATE) "
+            f"WHERE s.security_id IS NULL OR x.indicator_id NOT IN ({raw_component_ids})"
         ).fetchone()[0]:
             raise ScoreReleaseError("extra_or_invalid_source_key:pcvt_validation_raw")
         connection.execute(f"""
@@ -315,23 +326,25 @@ def _stage_formal_inputs(
                 + INTERVAL 15 HOUR available_time
             FROM sessions;
             CREATE TABLE stage_pcvt_component_scores AS
-            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+            SELECT x.security_id,{component_date} trading_date,s.observation_sequence,
               CASE WHEN x.indicator_id LIKE 'P%' THEN 'P' WHEN x.indicator_id LIKE 'C%' THEN 'C'
                    WHEN x.indicator_id LIKE 'V%' THEN 'V' WHEN x.indicator_id LIKE 'T%' THEN 'T' END dimension_id,
               x.indicator_id component_id,CAST(x.percentile_window_W AS INTEGER) percentile_window_W,
               x.raw_value,x.percentile,x.score,x.eligible,x.validity_status,x.reason_codes,
               CAST(x.reference_observation_count AS INTEGER) reference_observation_count,
-              CAST(x.reference_window_start AS DATE) reference_window_start,
-              CAST(x.reference_window_end AS DATE) reference_window_end,
+              {component_reference_start} reference_window_start,
+              {component_reference_end} reference_window_end,
               x.current_value_in_reference_set,x.score_engine_version,{component_run} source_run_id
-            FROM {component} x JOIN stage_security_observation_spine s USING(security_id,trading_date)
+            FROM {component} x JOIN stage_security_observation_spine s
+              ON x.security_id=s.security_id AND {component_date}=s.trading_date
             WHERE x.percentile_window_W=120 AND x.current_value_in_reference_set=false;
             CREATE TABLE stage_pcvt_dimension_scores AS
-            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+            SELECT x.security_id,{dimension_date} trading_date,s.observation_sequence,
               x.dimension dimension_id,CAST(x.percentile_window_W AS INTEGER) percentile_window_W,
               x.score_dimension,x.score_dimension_min,x.eligible_dimension,x.validity_status,
               x.reason_codes,x.score_engine_version
-            FROM {dimension} x JOIN stage_security_observation_spine s USING(security_id,trading_date)
+            FROM {dimension} x JOIN stage_security_observation_spine s
+              ON x.security_id=s.security_id AND {dimension_date}=s.trading_date
             WHERE x.percentile_window_W=120;
             CREATE TABLE stage_a_raw_observations AS
             SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
@@ -341,12 +354,13 @@ def _stage_formal_inputs(
             WHERE x.indicator_id IN ('A1_LogBodyCenterToMACloudCenter_5_60',
               'A2_BodyCenterOutsideMACloudRate20_5_60');
             CREATE TABLE stage_pcvt_validation_raw AS
-            SELECT x.security_id,CAST(x.trading_date AS DATE) trading_date,s.observation_sequence,
+            SELECT x.security_id,{validation_date} trading_date,s.observation_sequence,
               CASE WHEN x.indicator_id LIKE 'P%' THEN 'P' WHEN x.indicator_id LIKE 'C%' THEN 'C'
                    WHEN x.indicator_id LIKE 'V%' THEN 'V' WHEN x.indicator_id LIKE 'T%' THEN 'T' END dimension_id,
               CASE WHEN x.indicator_id='V2_LogAmount20_base' THEN 'V2_AmountLevel20Pct'
                    ELSE x.indicator_id END component_id,x.raw_value,x.validity_status,x.reason_codes
-            FROM {validation} x JOIN stage_security_observation_spine s USING(security_id,trading_date);
+            FROM {validation} x JOIN stage_security_observation_spine s
+              ON x.security_id=s.security_id AND {validation_date}=s.trading_date;
         """)
         connection.execute("CHECKPOINT")
     return adapter.depathized_summary()
@@ -354,6 +368,14 @@ def _stage_formal_inputs(
 
 def _sql_literal(value: object) -> str:
     return "'" + str(value).replace("'", "''") + "'"
+
+
+def _source_date_sql(column: str) -> str:
+    text = f"CAST({column} AS VARCHAR)"
+    return (
+        f"CASE WHEN regexp_full_match({text}, '^[0-9]{{8}}$') "
+        f"THEN strptime({text}, '%Y%m%d')::DATE ELSE CAST({column} AS DATE) END"
+    )
 
 
 def _validate_staging(staging_path: Path) -> None:

@@ -262,6 +262,51 @@ def _build_formal_like_package(
     return package
 
 
+def test_formal_staging_accepts_compact_r0_dates(tmp_path: Path) -> None:
+    manifest, databases = _formal_fixture(tmp_path)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    database = databases["pcvt_component_scores"]
+    with duckdb.connect(str(database)) as connection:
+        for role in (
+            "pcvt_component_scores",
+            "pcvt_dimension_scores",
+            "pcvt_validation_raw",
+        ):
+            table = payload["inputs"][role]["logical_table_name"]
+            connection.execute(
+                f"UPDATE \"{table}\" SET trading_date=replace(trading_date,'-','')"
+            )
+        component_table = payload["inputs"]["pcvt_component_scores"][
+            "logical_table_name"
+        ]
+        connection.execute(
+            f'UPDATE "{component_table}" SET '
+            "reference_window_start=replace(reference_window_start,'-',''),"
+            "reference_window_end=replace(reference_window_end,'-','')"
+        )
+        connection.execute("CHECKPOINT")
+    _refresh_entry(manifest, "pcvt_component_scores")
+
+    staging = tmp_path / "compact-r0-date-staging.duckdb"
+    _stage_formal_inputs(FormalInputAdapter(manifest), staging)
+    _validate_staging(staging)
+    with duckdb.connect(str(staging), read_only=True) as connection:
+        assert connection.execute(
+            "SELECT typeof(trading_date),typeof(reference_window_start),"
+            "typeof(reference_window_end) FROM stage_pcvt_component_scores LIMIT 1"
+        ).fetchone() == ("DATE", "DATE", "DATE")
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM stage_pcvt_component_scores c "
+                "JOIN stage_security_observation_spine s "
+                "USING(security_id,trading_date)"
+            ).fetchone()[0]
+            == connection.execute(
+                "SELECT count(*) FROM stage_pcvt_component_scores"
+            ).fetchone()[0]
+        )
+
+
 def test_formal_adapter_attaches_exact_tables_and_depathizes_summary(
     tmp_path: Path,
 ) -> None:
