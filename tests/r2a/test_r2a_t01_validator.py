@@ -38,6 +38,105 @@ def test_validator_independently_recomputes_and_passes_valid_package(
     assert receipt["metrics"]["pcvt_independent_mismatch_count"] == 0
 
 
+def test_validator_accepts_role_specific_nonvalid_reference_semantics(
+    tmp_path: Path,
+) -> None:
+    input_manifest, paths = synthetic_inputs(tmp_path / "inputs")
+    component_id = "P1_NATR14"
+    target_date = max(
+        row["trading_date"]
+        for row in json.loads(paths["pcvt_validation_raw"].read_text(encoding="utf-8"))
+        if row["component_id"] == component_id
+    )
+
+    validation_rows = json.loads(
+        paths["pcvt_validation_raw"].read_text(encoding="utf-8")
+    )
+    validation_target = next(
+        row
+        for row in validation_rows
+        if row["component_id"] == component_id and row["trading_date"] == target_date
+    )
+    validation_target.update(
+        raw_value=None,
+        validity_status="blocked",
+        reason_codes=["daily_vwap_range_fail"],
+    )
+    write_json(paths["pcvt_validation_raw"], validation_rows)
+
+    component_rows = json.loads(
+        paths["pcvt_component_scores"].read_text(encoding="utf-8")
+    )
+    component_target = next(
+        row
+        for row in component_rows
+        if row["component_id"] == component_id and row["trading_date"] == target_date
+    )
+    component_target.update(
+        raw_value=None,
+        percentile=None,
+        score=None,
+        eligible=False,
+        validity_status="blocked",
+        reason_codes=["raw_metric_not_valid", "daily_vwap_range_fail"],
+        reference_observation_count=0,
+        reference_window_start=None,
+        reference_window_end=None,
+    )
+    write_json(paths["pcvt_component_scores"], component_rows)
+
+    dimension_rows = json.loads(
+        paths["pcvt_dimension_scores"].read_text(encoding="utf-8")
+    )
+    dimension_target = next(
+        row
+        for row in dimension_rows
+        if row["dimension_id"] == "P" and row["trading_date"] == target_date
+    )
+    dimension_target.update(
+        score_dimension=None,
+        score_dimension_min=None,
+        eligible_dimension=False,
+        validity_status="blocked",
+        reason_codes=["component_not_eligible"],
+    )
+    write_json(paths["pcvt_dimension_scores"], dimension_rows)
+
+    a_rows = json.loads(paths["a_raw_observations"].read_text(encoding="utf-8"))
+    a_target = next(
+        row
+        for row in a_rows
+        if row["component_id"] == "A1_LogBodyCenterToMACloudCenter_5_60"
+        and row["trading_date"] == target_date
+    )
+    a_target.update(
+        raw_value=None,
+        validity_status="blocked",
+        reason_codes=["current_observation_not_valid"],
+    )
+    write_json(paths["a_raw_observations"], a_rows)
+
+    build_synthetic_input_manifest(
+        output_path=input_manifest,
+        run_id="role-specific-nonvalid-reference",
+        synthetic_root=paths["pcvt_validation_raw"].parent,
+        inputs=paths,
+    )
+    package = tmp_path / "package"
+    materialize_score_release(
+        authorized_input_manifest=input_manifest,
+        output_dir=package,
+        run_id="role-specific-nonvalid-reference",
+    )
+
+    receipt = validate_score_release(package, authorized_input_manifest=input_manifest)
+    assert receipt["status"] == "passed"
+    assert receipt["checks"]["pcvt_raw_score_independent_recomputation"] is True
+    assert receipt["checks"]["a_raw_score_independent_recomputation"] is True
+    assert receipt["metrics"]["pcvt_independent_mismatch_count"] == 0
+    assert receipt["metrics"]["a_independent_mismatch_count"] == 0
+
+
 def test_validator_detects_availability_mismatch(tmp_path: Path) -> None:
     package, input_manifest, _ = build_package(tmp_path)
     with duckdb.connect(str(package / "score_data.duckdb")) as connection:

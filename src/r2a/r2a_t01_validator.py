@@ -509,10 +509,16 @@ def _independent_score_recomputation(
         securities,
     ).fetchall()
     pcvt_count, pcvt_mismatches = _compare_raw_recomputation(
-        connection, pcvt_raw, set(PCVT_COMPONENTS)
+        connection,
+        pcvt_raw,
+        set(PCVT_COMPONENTS),
+        include_reference_for_nonvalid_current=False,
     )
     a_count, a_mismatches = _compare_raw_recomputation(
-        connection, a_raw, set(A_COMPONENTS)
+        connection,
+        a_raw,
+        set(A_COMPONENTS),
+        include_reference_for_nonvalid_current=True,
     )
     return (
         {
@@ -532,6 +538,8 @@ def _compare_raw_recomputation(
     connection: duckdb.DuckDBPyConnection,
     rows: Sequence[Sequence[Any]],
     allowed_components: set[str],
+    *,
+    include_reference_for_nonvalid_current: bool,
 ) -> tuple[int, int]:
     groups: dict[tuple[str, str], list[Sequence[Any]]] = defaultdict(list)
     for row in rows:
@@ -548,8 +556,11 @@ def _compare_raw_recomputation(
             raw_value = _finite(row[4])
             valid = str(row[5]) == "valid" and raw_value is not None
             reference = history[-120:]
-            expected_count = len(reference)
-            eligible = valid and expected_count == 120
+            output_reference = (
+                reference if valid or include_reference_for_nonvalid_current else []
+            )
+            expected_count = len(output_reference)
+            eligible = valid and len(reference) == 120
             if eligible:
                 less = sum(value < raw_value for _, _, value in reference)
                 equal = sum(value == raw_value for _, _, value in reference)
@@ -569,8 +580,12 @@ def _compare_raw_recomputation(
                 percentile,
                 score,
                 expected_count,
-                date.fromisoformat(reference[0][1]) if reference else None,
-                date.fromisoformat(reference[-1][1]) if reference else None,
+                date.fromisoformat(output_reference[0][1])
+                if output_reference
+                else None,
+                date.fromisoformat(output_reference[-1][1])
+                if output_reference
+                else None,
             )
             if actual is None or not _row_equivalent(actual, expected):
                 mismatches += 1
