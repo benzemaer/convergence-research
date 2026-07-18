@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_thread_benchmark_receipt.schema.json",
+  "title": "R2A-T04 local-only thread benchmark receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id","status","reason_code","implementation_head","score_release_id","score_database_sha256","score_database_byte_size","request_id","request_hash","security_ids","candidate_threads","fingerprint_algorithm","canonical_chunk_row_count","runs","pairwise_comparisons","selected_duckdb_thread_count","thread_benchmark_fingerprint","failure_evidence_diagnostic_id","failure_evidence_files","formal_run_attempt_consumed","formal_run_authorized"],
+  "properties": {
+    "task_id": {"const": "R2A-T04"},
+    "status": {"enum": ["passed","blocked"]},
+    "reason_code": {"enum": ["passed","fingerprint_algorithm_mismatch_without_logical_difference","thread_dependent_logical_output_mismatch","thread_run_failed","score_source_mutated_during_benchmark"]},
+    "implementation_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"},
+    "score_database_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "score_database_byte_size": {"type": "integer", "minimum": 1},
+    "request_id": {"type": "string", "minLength": 1},
+    "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "security_ids": {"type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "candidate_threads": {"const": [4,8,16]},
+    "fingerprint_algorithm": {"const": "arrow_ipc_fixed_logical_row_chunks.v1"},
+    "canonical_chunk_row_count": {"const": 65536},
+    "runs": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/thread_run"}},
+    "pairwise_comparisons": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/pairwise"}},
+    "selected_duckdb_thread_count": {"type": ["integer","null"], "enum": [null,4,8,16]},
+    "thread_benchmark_fingerprint": {"type": ["string","null"], "pattern": "^[0-9a-f]{64}$"},
+    "failure_evidence_diagnostic_id": {"type": ["string","null"]},
+    "failure_evidence_files": {"type": "array", "items": {"$ref": "#/$defs/evidence_file"}},
+    "formal_run_attempt_consumed": {"const": false},
+    "formal_run_authorized": {"const": false}
+  },
+  "$defs": {
+    "column": {"type": "object", "additionalProperties": false, "required": ["column_name","column_type","nullable"], "properties": {"column_name": {"type": "string"}, "column_type": {"type": "string"}, "nullable": {"type": "boolean"}}},
+    "table_profile": {"type": "object", "additionalProperties": false, "required": ["row_count","schema_fingerprint","canonical_fingerprint","fingerprint_algorithm","canonical_chunk_row_count","canonical_chunk_count","canonical_chunk_fingerprints"], "properties": {"row_count": {"type": "integer", "minimum": 0}, "schema_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "canonical_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "fingerprint_algorithm": {"const": "arrow_ipc_fixed_logical_row_chunks.v1"}, "canonical_chunk_row_count": {"const": 65536}, "canonical_chunk_count": {"type": "integer", "minimum": 0}, "canonical_chunk_fingerprints": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}},
+    "output_tables": {"type": "object", "additionalProperties": false, "required": ["dynamic_request","evaluation_scope","daily_dimension_states","daily_joint_states","confirmed_intervals"], "properties": {"dynamic_request": {"$ref": "#/$defs/table_profile"}, "evaluation_scope": {"$ref": "#/$defs/table_profile"}, "daily_dimension_states": {"$ref": "#/$defs/table_profile"}, "daily_joint_states": {"$ref": "#/$defs/table_profile"}, "confirmed_intervals": {"$ref": "#/$defs/table_profile"}}},
+    "thread_run": {"type": "object", "additionalProperties": false, "required": ["duckdb_thread_count","wall_seconds","peak_rss_bytes","temporary_output_bytes","validator_status","output_tables"], "properties": {"duckdb_thread_count": {"enum": [4,8,16]}, "wall_seconds": {"type": "number", "minimum": 0}, "peak_rss_bytes": {"type": "integer", "minimum": 0}, "temporary_output_bytes": {"type": "integer", "minimum": 0}, "validator_status": {"const": "passed"}, "output_tables": {"$ref": "#/$defs/output_tables"}}},
+    "schema_comparison": {"type": "object", "additionalProperties": false, "required": ["equal","left","right"], "properties": {"equal": {"type": "boolean"}, "left": {"type": "array", "items": {"$ref": "#/$defs/column"}}, "right": {"type": "array", "items": {"$ref": "#/$defs/column"}}}},
+    "row_count_comparison": {"type": "object", "additionalProperties": false, "required": ["equal","left","right"], "properties": {"equal": {"type": "boolean"}, "left": {"type": "integer", "minimum": 0}, "right": {"type": "integer", "minimum": 0}}},
+    "primary_key_comparison": {"type": "object", "additionalProperties": false, "required": ["left_only_key_count","right_only_key_count","first_mismatch_keys"], "properties": {"left_only_key_count": {"type": ["integer","null"], "minimum": 0}, "right_only_key_count": {"type": ["integer","null"], "minimum": 0}, "first_mismatch_keys": {"type": "array", "maxItems": 20, "items": {"type": "object"}}}},
+    "value_comparison": {"type": "object", "additionalProperties": false, "required": ["value_mismatch_row_count","per_column_mismatch_count"], "properties": {"value_mismatch_row_count": {"type": ["integer","null"], "minimum": 0}, "per_column_mismatch_count": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}}},
+    "table_comparison": {"type": "object", "additionalProperties": false, "required": ["status","schema_comparison","row_count_comparison","primary_key_comparison","value_comparison"], "properties": {"status": {"enum": ["logically_equal","logical_value_mismatch","schema_mismatch","primary_key_mismatch"]}, "schema_comparison": {"$ref": "#/$defs/schema_comparison"}, "row_count_comparison": {"$ref": "#/$defs/row_count_comparison"}, "primary_key_comparison": {"$ref": "#/$defs/primary_key_comparison"}, "value_comparison": {"$ref": "#/$defs/value_comparison"}}},
+    "pairwise_tables": {"type": "object", "additionalProperties": false, "required": ["dynamic_request","evaluation_scope","daily_dimension_states","daily_joint_states","confirmed_intervals"], "properties": {"dynamic_request": {"$ref": "#/$defs/table_comparison"}, "evaluation_scope": {"$ref": "#/$defs/table_comparison"}, "daily_dimension_states": {"$ref": "#/$defs/table_comparison"}, "daily_joint_states": {"$ref": "#/$defs/table_comparison"}, "confirmed_intervals": {"$ref": "#/$defs/table_comparison"}}},
+    "pairwise": {"type": "object", "additionalProperties": false, "required": ["left_threads","right_threads","status","tables"], "properties": {"left_threads": {"enum": [4,8,16]}, "right_threads": {"enum": [4,8,16]}, "status": {"enum": ["logically_equal","logical_value_mismatch","schema_mismatch","primary_key_mismatch"]}, "tables": {"$ref": "#/$defs/pairwise_tables"}}},
+    "evidence_file": {"type": "object", "additionalProperties": false, "required": ["duckdb_thread_count","diagnostic_id","basename","sha256","byte_size"], "properties": {"duckdb_thread_count": {"enum": [4,8,16]}, "diagnostic_id": {"type": "string", "minLength": 1}, "basename": {"type": "string", "pattern": "^threads-(4|8|16)\\.duckdb$"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "byte_size": {"type": "integer", "minimum": 1}}}
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "passed"}}}, "then": {"properties": {"reason_code": {"const": "passed"}, "selected_duckdb_thread_count": {"type": "integer"}, "thread_benchmark_fingerprint": {"type": "string"}, "failure_evidence_diagnostic_id": {"type": "null"}, "failure_evidence_files": {"maxItems": 0}}}},
+    {"if": {"properties": {"status": {"const": "blocked"}}}, "then": {"properties": {"selected_duckdb_thread_count": {"type": "null"}, "thread_benchmark_fingerprint": {"type": "null"}}}}
+  ]
+}

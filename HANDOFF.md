@@ -10,8 +10,10 @@
 repository: benzemaer/convergence-research
 local_repository: D:\Code\convergence-research
 current_branch: codex/r2a-t04-real-data-response-audit
-remote_branch: origin/codex/r2a-t04-real-data-response-audit (pending first push)
-R2A-T04 PR: pending creation / Draft required
+remote_branch: origin/codex/r2a-t04-real-data-response-audit
+R2A-T04 PR: #113 / Open / Draft
+R2A-T04 implementation HEAD: 486bc9ca94ef4b93c8fff6c4e0a31775a17c8bc4
+R2A-T04 implementation Quality: 29657511712 / success
 R2A-T04 base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 R2A-T03 PR: #112 / merged
 R2A-T03 merge commit: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
@@ -83,16 +85,30 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: implementation_candidate
+R2A-T04_status: implementation_candidate_preflight_repair_pending_review
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
 formal_run_authorized: false
-formal_run_consumed: false
+formal_run_started: false
+formal_run_attempt_consumed: false
 synthetic_end_to_end_smoke: passed_in_tests
-thread_benchmark_status: pending
-real_input_smoke_status: pending
+previous_thread_benchmark_status: blocked
+previous_thread_benchmark_error: thread_fingerprint_mismatch
+previous_thread_benchmark_evidence_status: incomplete_no_receipt
+previous_thread_benchmark_logical_output_difference_confirmed: false
+previous_thread_benchmark_fingerprint_algorithm_suspect: arrow_record_batch_boundary_sensitive
+thread_benchmark_status: blocked_previous_evidence_incomplete
+real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
-duckdb_thread_count: pending_preflight
-real_score_data_read: false
+full_universe_request_count: 0
+duckdb_thread_count: not_selected
+R2A-T04_preflight_score_data_read: true
+R2A-T04_preflight_score_scope: four_security_full_history_thread_benchmark
+R2A-T04_preflight_dynamic_evaluation_executed: true
+R2A-T04_preflight_market_context_data_read: false
+R2A-T04_formal_full_universe_score_data_read: false
+R2A-T04_formal_dynamic_evaluation_executed: false
+real_score_data_read: true
+real_score_data_read_scope: four_security_full_history_thread_benchmark
 market_context_data_read: false
 owner_visual_review: not_started
 R2A-T04_DONE: absent
@@ -122,8 +138,11 @@ R2A-T03 已从 PR #111 merge commit `83750e7d09188a2f69456bb4f3d7c966adc0ab0a`
 `29653640376` 与 implementation review，accepted handoff 和唯一 canonical `DONE` 已建立。
 该接受不注册 evaluator/output schema version，也未读取真实 Score release、执行真实 dynamic
 evaluation、选择最佳 q/K、完成价格图审核或创建动态状态产物。PR #112 已合并；R2A-T04 已在该
-merge commit 上启动，目前只完成 implementation candidate 与 synthetic end-to-end smoke。真实
-threads benchmark、authorization、real-input smoke 和唯一 formal run 尚未开始。
+merge commit 上启动，implementation candidate 与 synthetic end-to-end smoke 已完成。此前 threads
+preflight 已读取 accepted Score 的固定四证券完整历史并运行 evaluator，但旧 fingerprint 疑似受物理
+Arrow batch 边界影响，且失败前没有落盘 receipt；因此只确认 benchmark blocked、evidence incomplete，
+尚未确认任何线程导致的逻辑输出差异。本轮修复不重跑真实 benchmark，也未读取 market context；
+authorization、real-input smoke 和唯一 full-universe formal run 尚未开始。
 
 主分支在建立 R2A 分支时的 HEAD 为：
 
@@ -437,17 +456,31 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: implementation_candidate
+R2A-T04_status: implementation_candidate_preflight_repair_pending_review
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
 formal_run_authorized: false
-formal_run_consumed: false
+formal_run_started: false
+formal_run_attempt_consumed: false
 synthetic_end_to_end_smoke: passed_in_tests
-thread_benchmark_status: pending
-real_input_smoke_status: pending
+previous_thread_benchmark_status: blocked
+previous_thread_benchmark_error: thread_fingerprint_mismatch
+previous_thread_benchmark_evidence_status: incomplete_no_receipt
+previous_thread_benchmark_logical_output_difference_confirmed: false
+previous_thread_benchmark_fingerprint_algorithm_suspect: arrow_record_batch_boundary_sensitive
+thread_benchmark_status: blocked_previous_evidence_incomplete
+real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
-duckdb_thread_count: pending_preflight
-real_score_data_read: false
+full_universe_request_count: 0
+duckdb_thread_count: not_selected
+R2A-T04_preflight_score_data_read: true
+R2A-T04_preflight_score_scope: four_security_full_history_thread_benchmark
+R2A-T04_preflight_dynamic_evaluation_executed: true
+R2A-T04_preflight_market_context_data_read: false
+R2A-T04_formal_full_universe_score_data_read: false
+R2A-T04_formal_dynamic_evaluation_executed: false
+real_score_data_read: true
+real_score_data_read_scope: four_security_full_history_thread_benchmark
 market_context_data_read: false
 owner_visual_review: not_started
 R2A-T04_DONE: absent
@@ -1061,11 +1094,23 @@ output_schema_version=r2a_t03_dynamic_evaluation_output.v1；dynamic_evaluator_a
 evaluator_registered=false；output_schema_registered=false；real_score_data_read=false；
 real_dynamic_evaluation_executed=false；dynamic_state_artifact_committed=false；PCAVT_dynamic_state_created=false；
 R2A-T03_DONE=present；next_task=R2A-T04；R2A-T04_allowed_to_start=true；R2A-T04_started=true。
-R2A-T04_status=implementation_candidate；formal_authorization_id=R2A-T04-REAL-AUDIT-AUTH-20260719；
-formal_run_authorized=false；formal_run_consumed=false；synthetic_end_to_end_smoke=passed_in_tests；
-thread_benchmark_status=pending；real_input_smoke_status=pending；full_universe_request_concurrency=1；
-duckdb_thread_count=pending_preflight；real_score_data_read=false；market_context_data_read=false；
+R2A-T04_status=implementation_candidate_preflight_repair_pending_review；
+formal_authorization_id=R2A-T04-REAL-AUDIT-AUTH-20260719；formal_run_started=false；
+formal_run_authorized=false；formal_run_attempt_consumed=false；synthetic_end_to_end_smoke=passed_in_tests；
+previous_thread_benchmark_status=blocked；previous_thread_benchmark_error=thread_fingerprint_mismatch；
+previous_thread_benchmark_evidence_status=incomplete_no_receipt；
+previous_thread_benchmark_logical_output_difference_confirmed=false；
+previous_thread_benchmark_fingerprint_algorithm_suspect=arrow_record_batch_boundary_sensitive；
+thread_benchmark_status=blocked_previous_evidence_incomplete；real_input_smoke_status=not_started；
+full_universe_request_concurrency=1；full_universe_request_count=0；duckdb_thread_count=not_selected；
+R2A-T04_preflight_score_data_read=true；
+R2A-T04_preflight_score_scope=four_security_full_history_thread_benchmark；
+R2A-T04_preflight_dynamic_evaluation_executed=true；R2A-T04_preflight_market_context_data_read=false；
+R2A-T04_formal_full_universe_score_data_read=false；R2A-T04_formal_dynamic_evaluation_executed=false；
+real_score_data_read=true；real_score_data_read_scope=four_security_full_history_thread_benchmark；
+market_context_data_read=false；
 owner_visual_review=not_started；R2A-T04_DONE=absent；R2A-T05_allowed_to_start=false。
-当前停止点是 R2A-T04 harness implementation；尚未读取真实 Score/market data，未运行 threads benchmark、
-未提交 formal authorization、未执行 real-input smoke 或 full-universe request。
+当前停止点是 R2A-T04 threads-preflight repair review。此前 benchmark 已读取四证券完整历史 Score，
+但 blocked evidence 不足以确认逻辑差异；本轮未重跑真实 benchmark、未读取 market context，且未提交
+formal authorization、未执行 real-input smoke 或任何 full-universe request。
 ```

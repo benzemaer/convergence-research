@@ -8,7 +8,7 @@
   "properties": {
     "$schema": {"const": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json"},
     "task_id": {"const": "R2A-T04"},
-    "status": {"enum": ["implementation_candidate","authorized_not_started","real_data_run_completed_pending_result_review","formal_run_blocked"]},
+    "status": {"enum": ["implementation_candidate","implementation_candidate_preflight_repair_pending_review","authorized_not_started","real_data_run_completed_pending_result_review","formal_run_blocked"]},
     "formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
     "reviewed_harness_head": {"type": ["string","null"], "pattern": "^[0-9a-f]{40}$"},
     "formal_run_authorized": {"type": "boolean"},
@@ -21,7 +21,7 @@
     "full_observation_history_required": {"const":true},
     "full_universe_request_concurrency": {"const":1},
     "chart_worker_count": {"type":"integer","minimum":1,"maximum":4},
-    "thread_preflight": {"type":"object","additionalProperties":false,"required":["candidate_threads","request_name","security_count","selection_method","duckdb_thread_count","thread_benchmark_fingerprint","thread_benchmark_status"],"properties":{"candidate_threads":{"const":[4,8,16]},"request_name":{"const":"D05_PCAVT_q15_k3"},"security_count":{"const":4},"selection_method":{"const":"sha256(score_release_id + ':' + security_id)_ascending"},"duckdb_thread_count":{"type":["integer","null"],"enum":[null,4,8,16]},"thread_benchmark_fingerprint":{"type":["string","null"],"pattern":"^[0-9a-f]{64}$"},"thread_benchmark_status":{"enum":["pending","passed","failed"]}}},
+    "thread_preflight": {"type":"object","additionalProperties":false,"required":["candidate_threads","request_name","security_count","selection_method","fingerprint_algorithm","canonical_chunk_row_count","failure_receipt_required","pairwise_logical_comparison_required","duckdb_thread_count","thread_benchmark_fingerprint","thread_benchmark_status"],"properties":{"candidate_threads":{"const":[4,8,16]},"request_name":{"const":"D05_PCAVT_q15_k3"},"security_count":{"const":4},"selection_method":{"const":"sha256(score_release_id + ':' + security_id)_ascending"},"fingerprint_algorithm":{"const":"arrow_ipc_fixed_logical_row_chunks.v1"},"canonical_chunk_row_count":{"const":65536},"failure_receipt_required":{"const":true},"pairwise_logical_comparison_required":{"const":true},"duckdb_thread_count":{"type":["integer","null"],"enum":[null,4,8,16]},"thread_benchmark_fingerprint":{"type":["string","null"],"pattern":"^[0-9a-f]{64}$"},"thread_benchmark_status":{"enum":["pending","blocked_previous_evidence_incomplete","passed","failed"]}}},
     "synthetic_smoke": {"const":{"request_count":2,"minimum_security_count":3,"confirmed_interval_required":true,"zero_event_request_required":true}},
     "real_input_smoke": {"const":{"request_name":"D05_PCAVT_q15_k3","security_scope":"thread_benchmark_same_four","full_history_required":true,"formal_run_attempt_consumed":false}},
     "chart_request_names": {"const":["D03_PCA_q15_k3","D04_PCAV_q15_k3","D05_PCAVT_q15_k3","Q02_PCAVT_q20_k3"]},

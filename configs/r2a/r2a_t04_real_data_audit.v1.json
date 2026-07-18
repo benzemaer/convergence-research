@@ -1,7 +1,7 @@
 {
   "$schema": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json",
   "task_id": "R2A-T04",
-  "status": "implementation_candidate",
+  "status": "implementation_candidate_preflight_repair_pending_review",
   "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
   "reviewed_harness_head": null,
   "formal_run_authorized": false,
@@ -34,9 +34,13 @@
     "request_name": "D05_PCAVT_q15_k3",
     "security_count": 4,
     "selection_method": "sha256(score_release_id + ':' + security_id)_ascending",
+    "fingerprint_algorithm": "arrow_ipc_fixed_logical_row_chunks.v1",
+    "canonical_chunk_row_count": 65536,
+    "failure_receipt_required": true,
+    "pairwise_logical_comparison_required": true,
     "duckdb_thread_count": null,
     "thread_benchmark_fingerprint": null,
-    "thread_benchmark_status": "pending"
+    "thread_benchmark_status": "blocked_previous_evidence_incomplete"
   },
   "synthetic_smoke": {
     "request_count": 2,

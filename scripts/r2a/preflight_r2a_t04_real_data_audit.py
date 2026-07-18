@@ -40,6 +40,10 @@ def _git_status() -> str:
     return subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
 
 
+def _git_head() -> str:
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+
+
 def _write(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -62,6 +66,10 @@ def _market_database(spec_path: Path, basename: str) -> Path:
     return unique.pop()
 
 
+def _result_exit_code(result: dict[str, object]) -> int:
+    return 0 if result["status"] == "passed" else 1
+
+
 def main() -> int:
     args = parse_args()
     before_status = _git_status()
@@ -76,13 +84,18 @@ def main() -> int:
         expected_byte_size=config["score_release"]["byte_size"],
     )
     if args.mode == "thread-benchmark":
+        destination = args.preflight_root / "thread_benchmark_receipt.json"
         result = run_thread_benchmark(
             score_database=args.score_db,
             score_release_id=config["score_release"]["score_release_id"],
             canonical_request=request,
             scratch_directory=args.preflight_root / ".thread-benchmark-scratch",
+            receipt_path=destination,
+            failure_evidence_root=(
+                args.preflight_root / "thread-benchmark-failure-evidence"
+            ),
+            implementation_head=_git_head(),
         )
-        destination = args.preflight_root / "thread_benchmark_receipt.json"
     else:
         if args.market_source_spec is None:
             raise RuntimeError("market_source_spec_required")
@@ -105,11 +118,11 @@ def main() -> int:
             scratch_directory=args.preflight_root / ".real-smoke-scratch",
             receipt_path=destination,
         )
-    _write(destination, result)
+        _write(destination, result)
     if _git_status() != before_status:
         raise RuntimeError("preflight_modified_git_worktree")
     print(json.dumps(result, sort_keys=True))
-    return 0
+    return _result_exit_code(result)
 
 
 if __name__ == "__main__":

@@ -11,8 +11,9 @@ import tempfile
 import threading
 import time
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,9 @@ STANDARD_MARKET_COLUMNS = (
     "is_suspended",
     "price_limit_status",
 )
+FINGERPRINT_ALGORITHM = "arrow_ipc_fixed_logical_row_chunks.v1"
+CANONICAL_CHUNK_ROW_COUNT = 65_536
+THREAD_CANDIDATES = (4, 8, 16)
 
 
 class R2AT04AuditError(ValueError):
@@ -187,25 +191,315 @@ def _canonical_batch_bytes(batch: pa.RecordBatch) -> bytes:
     return sink.getvalue().to_pybytes()
 
 
+def _canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _fixed_logical_record_batches(
+    batches: Iterable[pa.RecordBatch],
+    *,
+    chunk_row_count: int = CANONICAL_CHUNK_ROW_COUNT,
+) -> Iterator[pa.RecordBatch]:
+    """Rechunk physical Arrow batches into deterministic logical row chunks."""
+
+    if chunk_row_count <= 0:
+        raise R2AT04AuditError("canonical_chunk_row_count_invalid")
+    pending: list[pa.RecordBatch] = []
+    pending_rows = 0
+
+    def assemble() -> pa.RecordBatch:
+        table = pa.Table.from_batches(pending).combine_chunks()
+        logical = table.to_batches(max_chunksize=chunk_row_count)
+        if len(logical) != 1 or logical[0].num_rows != pending_rows:
+            raise R2AT04AuditError("canonical_chunk_assembly_failed")
+        return logical[0]
+
+    def compact_equal_segments() -> None:
+        while len(pending) >= 2 and pending[-1].num_rows == pending[-2].num_rows:
+            right = pending.pop()
+            left = pending.pop()
+            merged = pa.Table.from_batches([left, right]).combine_chunks().to_batches()
+            if len(merged) != 1:
+                raise R2AT04AuditError("canonical_chunk_segment_compaction_failed")
+            pending.append(merged[0])
+
+    for physical in batches:
+        offset = 0
+        while offset < physical.num_rows:
+            take = min(chunk_row_count - pending_rows, physical.num_rows - offset)
+            pending.append(physical.slice(offset, take))
+            compact_equal_segments()
+            pending_rows += take
+            offset += take
+            if pending_rows == chunk_row_count:
+                logical = assemble()
+                pending = []
+                pending_rows = 0
+                yield logical
+    if pending_rows:
+        logical = assemble()
+        pending = []
+        yield logical
+
+
+def _normalize_logical_record_batch(batch: pa.RecordBatch) -> pa.RecordBatch:
+    """Rebuild arrays from logical values to clear physical buffer artifacts."""
+
+    arrays = [
+        pa.array(column.to_pylist(), type=field.type)
+        for column, field in zip(batch.columns, batch.schema, strict=True)
+    ]
+    return pa.RecordBatch.from_arrays(arrays, schema=batch.schema)
+
+
+def canonical_profile_from_batches(
+    *,
+    table_name: str,
+    contract: Any,
+    batches: Iterable[pa.RecordBatch],
+) -> dict[str, Any]:
+    """Build a batch-boundary-invariant logical table profile."""
+
+    schema_contract = [
+        {"name": column.name, "type": column.type, "nullable": column.nullable}
+        for column in contract.columns
+    ]
+    schema_fingerprint = hashlib.sha256(
+        _canonical_json_bytes({"columns": schema_contract})
+    ).hexdigest()
+    digest = hashlib.sha256()
+    digest.update(
+        _canonical_json_bytes(
+            {
+                "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
+                "table_name": table_name,
+                "schema": schema_contract,
+                "canonical_chunk_row_count": CANONICAL_CHUNK_ROW_COUNT,
+            }
+        )
+        + b"\n"
+    )
+    row_count = 0
+    chunk_fingerprints: list[str] = []
+    chunk_count = 0
+    for ordinal, batch in enumerate(_fixed_logical_record_batches(batches)):
+        batch = _normalize_logical_record_batch(batch)
+        chunk_hash = hashlib.sha256(_canonical_batch_bytes(batch)).hexdigest()
+        chunk_fingerprints.append(chunk_hash)
+        chunk_count += 1
+        row_count += batch.num_rows
+        digest.update(
+            _canonical_json_bytes(
+                {
+                    "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
+                    "table_name": table_name,
+                    "schema": schema_contract,
+                    "canonical_chunk_ordinal": ordinal,
+                    "canonical_chunk_row_count": batch.num_rows,
+                    "canonical_chunk_bytes_sha256": chunk_hash,
+                }
+            )
+            + b"\n"
+        )
+    return {
+        "row_count": row_count,
+        "schema_fingerprint": schema_fingerprint,
+        "canonical_fingerprint": digest.hexdigest(),
+        "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
+        "canonical_chunk_row_count": CANONICAL_CHUNK_ROW_COUNT,
+        "canonical_chunk_count": chunk_count,
+        "canonical_chunk_fingerprints": chunk_fingerprints,
+    }
+
+
+def canonical_table_profile(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    table_name: str,
+    contract: Any,
+    physical_batch_row_count: int = CANONICAL_CHUNK_ROW_COUNT,
+) -> dict[str, Any]:
+    order = ", ".join(f'"{column}"' for column in contract.primary_key)
+    reader = connection.execute(
+        f'SELECT * FROM "{table_name}" ORDER BY {order}'
+    ).fetch_record_batch(physical_batch_row_count)
+    return canonical_profile_from_batches(
+        table_name=table_name,
+        contract=contract,
+        batches=reader,
+    )
+
+
 def canonical_table_profiles(
     connection: duckdb.DuckDBPyConnection,
 ) -> dict[str, dict[str, Any]]:
-    profiles: dict[str, dict[str, Any]] = {}
-    for table_name, contract in TABLE_CONTRACTS.items():
-        order = ", ".join(f'"{column}"' for column in contract.primary_key)
-        reader = connection.execute(
-            f'SELECT * FROM "{table_name}" ORDER BY {order}'
-        ).fetch_record_batch(65_536)
-        digest = hashlib.sha256()
-        row_count = 0
-        for batch in reader:
-            digest.update(_canonical_batch_bytes(batch))
-            row_count += batch.num_rows
-        profiles[table_name] = {
-            "row_count": row_count,
-            "canonical_fingerprint": digest.hexdigest(),
+    return {
+        table_name: canonical_table_profile(
+            connection,
+            table_name=table_name,
+            contract=contract,
+        )
+        for table_name, contract in TABLE_CONTRACTS.items()
+    }
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, date | datetime):
+        return value.isoformat()
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def _actual_table_schema(
+    connection: duckdb.DuckDBPyConnection, table_name: str
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "column_name": row[0],
+            "column_type": row[1],
+            "nullable": row[2] == "YES",
         }
-    return profiles
+        for row in connection.execute(f'DESCRIBE "{table_name}"').fetchall()
+    ]
+
+
+def compare_output_databases(
+    *,
+    left_database: Path,
+    right_database: Path,
+    left_threads: int,
+    right_threads: int,
+) -> dict[str, Any]:
+    """Independently compare all output tables by schema, key and value."""
+
+    tables: dict[str, Any] = {}
+    with (
+        duckdb.connect(str(left_database), read_only=True) as left,
+        duckdb.connect(str(right_database), read_only=True) as right,
+        duckdb.connect(":memory:") as comparison,
+    ):
+        left_path = str(left_database.resolve()).replace("'", "''")
+        right_path = str(right_database.resolve()).replace("'", "''")
+        comparison.execute(f"ATTACH '{left_path}' AS ldb (READ_ONLY)")
+        comparison.execute(f"ATTACH '{right_path}' AS rdb (READ_ONLY)")
+        for table_name, contract in TABLE_CONTRACTS.items():
+            left_schema = _actual_table_schema(left, table_name)
+            right_schema = _actual_table_schema(right, table_name)
+            left_count = int(
+                left.execute(f'SELECT count(*) FROM "{table_name}"').fetchone()[0]
+            )
+            right_count = int(
+                right.execute(f'SELECT count(*) FROM "{table_name}"').fetchone()[0]
+            )
+            schema_equal = left_schema == right_schema
+            table_result: dict[str, Any] = {
+                "status": "schema_mismatch" if not schema_equal else "logically_equal",
+                "schema_comparison": {
+                    "equal": schema_equal,
+                    "left": left_schema,
+                    "right": right_schema,
+                },
+                "row_count_comparison": {
+                    "equal": left_count == right_count,
+                    "left": left_count,
+                    "right": right_count,
+                },
+                "primary_key_comparison": {
+                    "left_only_key_count": None,
+                    "right_only_key_count": None,
+                    "first_mismatch_keys": [],
+                },
+                "value_comparison": {
+                    "value_mismatch_row_count": None,
+                    "per_column_mismatch_count": {},
+                },
+            }
+            if not schema_equal:
+                tables[table_name] = table_result
+                continue
+            keys = contract.primary_key
+            non_keys = tuple(
+                column.name for column in contract.columns if column.name not in keys
+            )
+            join = " AND ".join(f'l."{key}"=r."{key}"' for key in keys)
+            left_missing = f'l."{keys[0]}" IS NULL'
+            right_missing = f'r."{keys[0]}" IS NULL'
+            value_terms = [
+                f'l."{column}" IS DISTINCT FROM r."{column}"' for column in non_keys
+            ]
+            value_where = " OR ".join(value_terms) if value_terms else "false"
+            counts = comparison.execute(
+                f"SELECT count(*) FILTER(WHERE {right_missing}),"
+                f"count(*) FILTER(WHERE {left_missing}),"
+                f"count(*) FILTER(WHERE NOT ({left_missing}) AND NOT ({right_missing}) "
+                f'AND ({value_where})) FROM ldb."{table_name}" l FULL OUTER JOIN '
+                f'rdb."{table_name}" r ON {join}'
+            ).fetchone()
+            per_column = {
+                column: int(
+                    comparison.execute(
+                        f'SELECT count(*) FROM ldb."{table_name}" l JOIN '
+                        f'rdb."{table_name}" r ON {join} WHERE '
+                        f'l."{column}" IS DISTINCT FROM r."{column}"'
+                    ).fetchone()[0]
+                )
+                for column in non_keys
+            }
+            key_select = ",".join(
+                f'coalesce(l."{key}",r."{key}") AS "{key}"' for key in keys
+            )
+            key_order = ",".join(f'"{key}"' for key in keys)
+            mismatch_rows = comparison.execute(
+                f'SELECT {key_select} FROM ldb."{table_name}" l FULL OUTER JOIN '
+                f'rdb."{table_name}" r ON {join} WHERE {left_missing} OR '
+                f"{right_missing} OR ({value_where}) ORDER BY {key_order} LIMIT 20"
+            ).fetchall()
+            left_only, right_only, value_mismatch = map(int, counts)
+            table_result["primary_key_comparison"] = {
+                "left_only_key_count": left_only,
+                "right_only_key_count": right_only,
+                "first_mismatch_keys": [
+                    {
+                        key: _json_safe(value)
+                        for key, value in zip(keys, row, strict=True)
+                    }
+                    for row in mismatch_rows
+                ],
+            }
+            table_result["value_comparison"] = {
+                "value_mismatch_row_count": value_mismatch,
+                "per_column_mismatch_count": per_column,
+            }
+            if left_only or right_only:
+                table_result["status"] = "primary_key_mismatch"
+            elif value_mismatch:
+                table_result["status"] = "logical_value_mismatch"
+            tables[table_name] = table_result
+        comparison.execute("DETACH ldb")
+        comparison.execute("DETACH rdb")
+    statuses = {table["status"] for table in tables.values()}
+    overall = (
+        "schema_mismatch"
+        if "schema_mismatch" in statuses
+        else "primary_key_mismatch"
+        if "primary_key_mismatch" in statuses
+        else "logical_value_mismatch"
+        if "logical_value_mismatch" in statuses
+        else "logically_equal"
+    )
+    return {
+        "left_threads": left_threads,
+        "right_threads": right_threads,
+        "status": overall,
+        "tables": tables,
+    }
 
 
 @dataclass(frozen=True)
@@ -219,7 +513,7 @@ class ThreadBenchmarkRun:
 
 
 def choose_duckdb_threads(runs: Sequence[ThreadBenchmarkRun]) -> int:
-    if {run.duckdb_thread_count for run in runs} != {4, 8, 16}:
+    if {run.duckdb_thread_count for run in runs} != set(THREAD_CANDIDATES):
         raise R2AT04AuditError("thread_candidate_set_mismatch")
     if any(run.validator_status != "passed" for run in runs):
         raise R2AT04AuditError("thread_validator_failed")
@@ -241,82 +535,211 @@ def choose_duckdb_threads(runs: Sequence[ThreadBenchmarkRun]) -> int:
     return fastest.duckdb_thread_count
 
 
+def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(value, handle, ensure_ascii=False, indent=2, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _logical_profiles_equal(runs: Sequence[ThreadBenchmarkRun]) -> bool:
+    return (
+        len(
+            {
+                json.dumps(run.output_tables, sort_keys=True, separators=(",", ":"))
+                for run in runs
+            }
+        )
+        == 1
+    )
+
+
+def _failure_evidence_metadata(
+    output_databases: Mapping[int, Path], diagnostic_id: str
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "duckdb_thread_count": threads,
+            "diagnostic_id": diagnostic_id,
+            "basename": path.name,
+            "sha256": sha256_file(path),
+            "byte_size": path.stat().st_size,
+        }
+        for threads, path in sorted(output_databases.items())
+        if path.is_file()
+    ]
+
+
+def finalize_thread_benchmark_outputs(
+    *,
+    runs: Sequence[ThreadBenchmarkRun],
+    output_databases: Mapping[int, Path],
+    scratch_directory: Path,
+    receipt_path: Path,
+    failure_evidence_root: Path,
+    implementation_head: str,
+    score_release_id: str,
+    score_database_sha256: str,
+    score_database_byte_size: int,
+    canonical_request: Mapping[str, Any],
+    security_ids: Sequence[str],
+) -> dict[str, Any]:
+    """Compare logical outputs, persist receipt, then clean or retain evidence."""
+
+    pairs = [
+        compare_output_databases(
+            left_database=output_databases[left],
+            right_database=output_databases[right],
+            left_threads=left,
+            right_threads=right,
+        )
+        for left, right in ((4, 8), (4, 16), (8, 16))
+    ]
+    logically_equal = all(pair["status"] == "logically_equal" for pair in pairs)
+    profiles_equal = _logical_profiles_equal(runs)
+    selected_threads: int | None = None
+    evidence: list[dict[str, Any]] = []
+    diagnostic_id: str | None = None
+    if not logically_equal:
+        status = "blocked"
+        reason_code = "thread_dependent_logical_output_mismatch"
+        diagnostic_id = "thread-benchmark-logical-mismatch-" + datetime.now(
+            UTC
+        ).strftime("%Y%m%dT%H%M%S%fZ")
+        evidence = _failure_evidence_metadata(output_databases, diagnostic_id)
+    elif not profiles_equal:
+        status = "blocked"
+        reason_code = "fingerprint_algorithm_mismatch_without_logical_difference"
+    else:
+        status = "passed"
+        reason_code = "passed"
+        selected_threads = choose_duckdb_threads(runs)
+    fingerprint_preimage = {
+        "candidate_threads": list(THREAD_CANDIDATES),
+        "request_id": canonical_request["request_id"],
+        "security_ids": list(security_ids),
+        "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
+        "canonical_chunk_row_count": CANONICAL_CHUNK_ROW_COUNT,
+        "output_tables": runs[0].output_tables if runs else {},
+    }
+    benchmark_fingerprint = (
+        hashlib.sha256(_canonical_json_bytes(fingerprint_preimage)).hexdigest()
+        if status == "passed"
+        else None
+    )
+    receipt: dict[str, Any] = {
+        "task_id": "R2A-T04",
+        "status": status,
+        "reason_code": reason_code,
+        "implementation_head": implementation_head,
+        "score_release_id": score_release_id,
+        "score_database_sha256": score_database_sha256,
+        "score_database_byte_size": score_database_byte_size,
+        "request_id": canonical_request["request_id"],
+        "request_hash": canonical_request["request_hash"],
+        "security_ids": list(security_ids),
+        "candidate_threads": list(THREAD_CANDIDATES),
+        "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
+        "canonical_chunk_row_count": CANONICAL_CHUNK_ROW_COUNT,
+        "runs": [asdict(run) for run in runs],
+        "pairwise_comparisons": pairs,
+        "selected_duckdb_thread_count": selected_threads,
+        "thread_benchmark_fingerprint": benchmark_fingerprint,
+        "failure_evidence_diagnostic_id": diagnostic_id,
+        "failure_evidence_files": evidence,
+        "formal_run_attempt_consumed": False,
+        "formal_run_authorized": False,
+    }
+    _atomic_write_json(receipt_path, receipt)
+    if reason_code == "thread_dependent_logical_output_mismatch":
+        evidence_directory = failure_evidence_root / str(diagnostic_id)
+        evidence_directory.mkdir(parents=True, exist_ok=False)
+        for path in output_databases.values():
+            if path.is_file():
+                os.replace(path, evidence_directory / path.name)
+        if scratch_directory.exists() and not any(scratch_directory.iterdir()):
+            scratch_directory.rmdir()
+    elif scratch_directory.exists():
+        shutil.rmtree(scratch_directory)
+    return receipt
+
+
 def run_thread_benchmark(
     *,
     score_database: Path,
     score_release_id: str,
     canonical_request: Mapping[str, Any],
     scratch_directory: Path,
+    receipt_path: Path,
+    failure_evidence_root: Path,
+    implementation_head: str,
 ) -> dict[str, Any]:
     """Benchmark 4/8/16 threads on the frozen four-security full-history scope."""
 
     scratch_directory.mkdir(parents=True, exist_ok=False)
     before_size = score_database.stat().st_size
     before_hash = sha256_file(score_database)
-    try:
-        with duckdb.connect(str(score_database), read_only=True) as source:
-            securities = [
-                str(row[0])
-                for row in source.execute(
-                    "SELECT security_id FROM securities ORDER BY security_id"
-                ).fetchall()
-            ]
-        selected = stable_smoke_security_ids(score_release_id, securities)
-        runs: list[ThreadBenchmarkRun] = []
-        for threads in (4, 8, 16):
-            output = scratch_directory / f"threads-{threads}.duckdb"
-            _, elapsed, peak_rss, output_bytes = evaluate_request_with_threads(
-                score_database=score_database,
-                canonical_request=canonical_request,
-                output_database=output,
+    with duckdb.connect(str(score_database), read_only=True) as source:
+        securities = [
+            str(row[0])
+            for row in source.execute(
+                "SELECT security_id FROM securities ORDER BY security_id"
+            ).fetchall()
+        ]
+    selected = stable_smoke_security_ids(score_release_id, securities)
+    runs: list[ThreadBenchmarkRun] = []
+    outputs: dict[int, Path] = {}
+    for threads in THREAD_CANDIDATES:
+        output = scratch_directory / f"threads-{threads}.duckdb"
+        _, elapsed, peak_rss, output_bytes = evaluate_request_with_threads(
+            score_database=score_database,
+            canonical_request=canonical_request,
+            output_database=output,
+            duckdb_thread_count=threads,
+            security_ids=selected,
+        )
+        with duckdb.connect(str(output), read_only=True) as connection:
+            validate_dynamic_evaluation_output(connection)
+            profiles = canonical_table_profiles(connection)
+        outputs[threads] = output
+        runs.append(
+            ThreadBenchmarkRun(
                 duckdb_thread_count=threads,
-                security_ids=selected,
+                wall_seconds=elapsed,
+                peak_rss_bytes=peak_rss,
+                temporary_output_bytes=output_bytes,
+                validator_status="passed",
+                output_tables=profiles,
             )
-            with duckdb.connect(str(output), read_only=True) as connection:
-                validate_dynamic_evaluation_output(connection)
-                profiles = canonical_table_profiles(connection)
-            runs.append(
-                ThreadBenchmarkRun(
-                    duckdb_thread_count=threads,
-                    wall_seconds=elapsed,
-                    peak_rss_bytes=peak_rss,
-                    temporary_output_bytes=output_bytes,
-                    validator_status="passed",
-                    output_tables=profiles,
-                )
-            )
-            output.unlink()
-        selected_threads = choose_duckdb_threads(runs)
-        fingerprint_preimage = {
-            "candidate_threads": [4, 8, 16],
-            "request_id": canonical_request["request_id"],
-            "security_ids": list(selected),
-            "output_tables": runs[0].output_tables,
-        }
-        benchmark_fingerprint = hashlib.sha256(
-            json.dumps(
-                fingerprint_preimage,
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
-        ).hexdigest()
-        if (
-            score_database.stat().st_size != before_size
-            or sha256_file(score_database) != before_hash
-        ):
-            raise R2AT04AuditError("score_source_mutated_during_benchmark")
-        return {
-            "status": "passed",
-            "request_id": canonical_request["request_id"],
-            "security_ids": list(selected),
-            "selected_duckdb_thread_count": selected_threads,
-            "thread_benchmark_fingerprint": benchmark_fingerprint,
-            "runs": [asdict(run) for run in runs],
-            "formal_run_attempt_consumed": False,
-        }
-    finally:
-        if scratch_directory.exists():
-            shutil.rmtree(scratch_directory)
+        )
+    if (
+        score_database.stat().st_size != before_size
+        or sha256_file(score_database) != before_hash
+    ):
+        raise R2AT04AuditError("score_source_mutated_during_benchmark")
+    return finalize_thread_benchmark_outputs(
+        runs=runs,
+        output_databases=outputs,
+        scratch_directory=scratch_directory,
+        receipt_path=receipt_path,
+        failure_evidence_root=failure_evidence_root,
+        implementation_head=implementation_head,
+        score_release_id=score_release_id,
+        score_database_sha256=before_hash,
+        score_database_byte_size=before_size,
+        canonical_request=canonical_request,
+        security_ids=selected,
+    )
 
 
 def validate_market_source(
