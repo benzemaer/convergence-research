@@ -108,6 +108,33 @@ def test_formal_builder_inspects_same_file_relations_and_adapter_accepts(
     assert set(relations) == set(payload["inputs"])
 
 
+def test_formal_builder_normalizes_accepted_r0_compact_dates(tmp_path: Path) -> None:
+    template, databases = _formal_fixture(tmp_path)
+    database = databases["pcvt_component_scores"]
+    payload = json.loads(template.read_text(encoding="utf-8"))
+    compact_date_roles = (
+        "pcvt_component_scores",
+        "pcvt_dimension_scores",
+        "pcvt_validation_raw",
+    )
+    with duckdb.connect(str(database)) as connection:
+        for role in compact_date_roles:
+            table = payload["inputs"][role]["logical_table_name"]
+            connection.execute(
+                f"UPDATE \"{table}\" SET trading_date=replace(trading_date,'-','')"
+            )
+        connection.execute("CHECKPOINT")
+
+    output = tmp_path / "compact-date-formal-manifest.json"
+    built = _build_formal_manifest(output, _formal_sources(template))
+    for role in compact_date_roles:
+        assert built["inputs"][role]["date_min"] == "2020-01-01"
+        assert built["inputs"][role]["date_max"] == "2020-05-02"
+    with duckdb.connect() as connection:
+        relations = FormalInputAdapter(output).attach_and_validate(connection)
+    assert set(relations) == set(built["inputs"])
+
+
 def test_formal_builder_rejects_wrong_table_and_source_metadata(tmp_path: Path) -> None:
     template, _ = _formal_fixture(tmp_path)
     sources = _formal_sources(template)

@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -201,4 +202,12 @@ def _require_columns(names: set[str], required: set[str], input_name: str) -> No
 
 
 def _date_text(value: object) -> str | None:
-    return None if value is None else str(value)
+    if value is None:
+        return None
+    text = str(value)
+    if re.fullmatch(r"[0-9]{8}", text):
+        try:
+            return datetime.strptime(text, "%Y%m%d").date().isoformat()
+        except ValueError as exc:
+            raise FormalInputError(f"invalid_compact_date:{text}") from exc
+    return text
