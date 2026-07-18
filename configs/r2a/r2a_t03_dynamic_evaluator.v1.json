@@ -1,0 +1,73 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
+  "task_id": "R2A-T03",
+  "status": "implementation_candidate",
+  "evaluator_version": "r2a_t03_dynamic_evaluator.v1",
+  "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1",
+  "bindings": {
+    "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+    "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
+    "accepted_t02_handoff_sha256": "f8ff97543b95ba3676acd36ea3d48adb06dfb1f9ab51a7ee7b8413003e1b5082",
+    "accepted_protocol_config_sha256": "bd57b1c90a340fe19e52450676b48f3d9f8cba20b93e344da429b5f378540d99"
+  },
+  "input_contract": {
+    "tables": {
+      "security_observation_spine": ["score_release_id:VARCHAR", "security_id:VARCHAR", "trading_date:DATE", "observation_sequence:BIGINT", "expected_observation_status:VARCHAR", "observation_available_time:TIMESTAMP WITH TIME ZONE"],
+      "daily_dimension_scores": ["score_release_id:VARCHAR", "security_id:VARCHAR", "trading_date:DATE", "observation_sequence:BIGINT", "dimension_id:VARCHAR", "score_dimension:DOUBLE?", "score_dimension_min:DOUBLE?", "eligible_dimension:BOOLEAN", "validity_status:VARCHAR", "reason_codes:VARCHAR[]", "available_time:TIMESTAMP WITH TIME ZONE"]
+    },
+    "read_only": true,
+    "selected_dimensions_only": true,
+    "full_observation_history_required": true
+  },
+  "security_scope_contract": {
+    "allowed": ["all", "explicit"],
+    "date_slicing_allowed": false,
+    "duplicate_unknown_or_empty_explicit_scope": "reject",
+    "included_in_request_identity": false
+  },
+  "algorithms": {
+    "dimension_formula": "ready ? mean>=1-q-epsilon AND min>=1-q-weak_delta : NULL",
+    "joint_formula": "complete_case_AND_selected_dimensions",
+    "streak_formula": "true:previous_true+1;false:0;NULL:NULL_and_interrupt",
+    "confirmation_formula": "event=streak==K;confirmed=true only from Kth true without backfill",
+    "interval_formula": "start_confirmation_date;end_last_confirmed_before_false_or_NULL;input_end_right_censored",
+    "weak_delta_bp": 1000,
+    "floating_comparison_epsilon": 1e-12,
+    "confirmation_k_domain": [2, 3, 4, 5, 6, 7]
+  },
+  "termination_priority": ["expected_observation_missing", "expected_observation_listing_pause", "selected_dimension_blocked", "selected_dimension_diagnostic_required", "selected_dimension_unknown", "selected_dimension_not_eligible", "selected_dimension_score_non_finite", "raw_false"],
+  "output_contract": {
+    "dynamic_request": {
+      "columns": [
+        {"name":"request_id","type":"VARCHAR","nullable":false}, {"name":"request_hash","type":"VARCHAR","nullable":false}, {"name":"request_schema_version","type":"VARCHAR","nullable":false}, {"name":"dynamic_protocol_version","type":"VARCHAR","nullable":false}, {"name":"evaluator_version","type":"VARCHAR","nullable":false}, {"name":"output_schema_version","type":"VARCHAR","nullable":false}, {"name":"score_release_id","type":"VARCHAR","nullable":false}, {"name":"selected_dimensions","type":"VARCHAR[]","nullable":false}, {"name":"q_by_dimension","type":"VARCHAR","nullable":false}, {"name":"confirmation_k","type":"INTEGER","nullable":false}, {"name":"weak_delta_bp","type":"INTEGER","nullable":false}, {"name":"floating_comparison_epsilon","type":"DOUBLE","nullable":false}
+      ],
+      "primary_key": ["request_id"]
+    },
+    "evaluation_scope": {
+      "columns": [
+        {"name":"request_id","type":"VARCHAR","nullable":false}, {"name":"security_scope","type":"VARCHAR","nullable":false}, {"name":"requested_security_ids","type":"VARCHAR[]","nullable":false}, {"name":"evaluated_security_count","type":"BIGINT","nullable":false}, {"name":"date_min","type":"DATE","nullable":false}, {"name":"date_max","type":"DATE","nullable":false}, {"name":"spine_row_count","type":"BIGINT","nullable":false}, {"name":"selected_dimension_count","type":"INTEGER","nullable":false}
+      ],
+      "primary_key": ["request_id"]
+    },
+    "daily_dimension_states": {
+      "columns": [
+        {"name":"request_id","type":"VARCHAR","nullable":false}, {"name":"security_id","type":"VARCHAR","nullable":false}, {"name":"trading_date","type":"DATE","nullable":false}, {"name":"observation_sequence","type":"BIGINT","nullable":false}, {"name":"expected_observation_status","type":"VARCHAR","nullable":false}, {"name":"observation_available_time","type":"TIMESTAMP WITH TIME ZONE","nullable":false}, {"name":"dimension_id","type":"VARCHAR","nullable":false}, {"name":"q_bp","type":"INTEGER","nullable":false}, {"name":"main_threshold","type":"DOUBLE","nullable":false}, {"name":"weak_threshold","type":"DOUBLE","nullable":false}, {"name":"score_dimension","type":"DOUBLE","nullable":true}, {"name":"score_dimension_min","type":"DOUBLE","nullable":true}, {"name":"eligible_dimension","type":"BOOLEAN","nullable":false}, {"name":"validity_status","type":"VARCHAR","nullable":false}, {"name":"source_reason_codes","type":"VARCHAR[]","nullable":false}, {"name":"dimension_ready","type":"BOOLEAN","nullable":false}, {"name":"dimension_active","type":"BOOLEAN","nullable":true}, {"name":"dimension_reason_codes","type":"VARCHAR[]","nullable":false}, {"name":"available_time","type":"TIMESTAMP WITH TIME ZONE","nullable":false}
+      ],
+      "primary_key": ["request_id", "security_id", "trading_date", "dimension_id"]
+    },
+    "daily_joint_states": {
+      "columns": [
+        {"name":"request_id","type":"VARCHAR","nullable":false}, {"name":"security_id","type":"VARCHAR","nullable":false}, {"name":"trading_date","type":"DATE","nullable":false}, {"name":"observation_sequence","type":"BIGINT","nullable":false}, {"name":"expected_observation_status","type":"VARCHAR","nullable":false}, {"name":"available_time","type":"TIMESTAMP WITH TIME ZONE","nullable":false}, {"name":"joint_validity_status","type":"VARCHAR","nullable":false}, {"name":"joint_ready","type":"BOOLEAN","nullable":false}, {"name":"joint_reason_codes","type":"VARCHAR[]","nullable":false}, {"name":"raw_state","type":"BOOLEAN","nullable":true}, {"name":"raw_streak","type":"INTEGER","nullable":true}, {"name":"raw_streak_start_date","type":"DATE","nullable":true}, {"name":"confirmation_event","type":"BOOLEAN","nullable":false}, {"name":"confirmed_state","type":"BOOLEAN","nullable":true}, {"name":"confirmed_interval_ordinal","type":"BIGINT","nullable":true}
+      ],
+      "primary_key": ["request_id", "security_id", "trading_date"]
+    },
+    "confirmed_intervals": {
+      "columns": [
+        {"name":"request_id","type":"VARCHAR","nullable":false}, {"name":"security_id","type":"VARCHAR","nullable":false}, {"name":"interval_ordinal","type":"BIGINT","nullable":false}, {"name":"raw_start_date","type":"DATE","nullable":false}, {"name":"raw_start_observation_sequence","type":"BIGINT","nullable":false}, {"name":"confirmation_date","type":"DATE","nullable":false}, {"name":"confirmation_observation_sequence","type":"BIGINT","nullable":false}, {"name":"last_confirmed_end_date","type":"DATE","nullable":false}, {"name":"last_confirmed_end_observation_sequence","type":"BIGINT","nullable":false}, {"name":"termination_date","type":"DATE","nullable":true}, {"name":"termination_observation_sequence","type":"BIGINT","nullable":true}, {"name":"termination_reason","type":"VARCHAR","nullable":false}, {"name":"termination_reason_codes","type":"VARCHAR[]","nullable":false}, {"name":"right_censored","type":"BOOLEAN","nullable":false}, {"name":"selected_dimensions","type":"VARCHAR[]","nullable":false}, {"name":"q_by_dimension","type":"VARCHAR","nullable":false}, {"name":"confirmation_k","type":"INTEGER","nullable":false}, {"name":"confirmed_observation_count","type":"BIGINT","nullable":false}
+      ],
+      "primary_key": ["request_id", "security_id", "interval_ordinal"]
+    }
+  },
+  "zero_event_behavior": "completed_with_empty_confirmed_intervals_table",
+  "non_goals": ["real_score_data", "parameter_selection", "formal_dynamic_package", "cache", "date_slicing", "d", "g", "exit_delay", "gap_tolerance", "interval_merge", "DONE", "accepted_handoff", "R2A-T04"]
+}

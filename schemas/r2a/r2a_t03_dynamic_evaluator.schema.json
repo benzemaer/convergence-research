@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
+  "title": "R2A-T03 dynamic evaluator implementation candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "task_id", "status", "evaluator_version", "output_schema_version", "bindings", "input_contract", "security_scope_contract", "algorithms", "termination_priority", "output_contract", "zero_event_behavior", "non_goals"],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t03_dynamic_evaluator.schema.json"},
+    "task_id": {"const": "R2A-T03"},
+    "status": {"const": "implementation_candidate"},
+    "evaluator_version": {"const": "r2a_t03_dynamic_evaluator.v1"},
+    "output_schema_version": {"const": "r2a_t03_dynamic_evaluation_output.v1"},
+    "bindings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["score_release_id", "dynamic_protocol_version", "accepted_t02_handoff_sha256", "accepted_protocol_config_sha256"],
+      "properties": {
+        "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"},
+        "dynamic_protocol_version": {"const": "pcavt_dynamic_state_protocol.v1"},
+        "accepted_t02_handoff_sha256": {"const": "f8ff97543b95ba3676acd36ea3d48adb06dfb1f9ab51a7ee7b8413003e1b5082"},
+        "accepted_protocol_config_sha256": {"const": "bd57b1c90a340fe19e52450676b48f3d9f8cba20b93e344da429b5f378540d99"}
+      }
+    },
+    "input_contract": {"type": "object", "additionalProperties": false, "required": ["tables", "read_only", "selected_dimensions_only", "full_observation_history_required"], "properties": {"tables": {"type": "object", "additionalProperties": false, "required": ["security_observation_spine", "daily_dimension_scores"], "properties": {"security_observation_spine": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"type": "string"}}, "daily_dimension_scores": {"type": "array", "minItems": 11, "maxItems": 11, "items": {"type": "string"}}}}, "read_only": {"const": true}, "selected_dimensions_only": {"const": true}, "full_observation_history_required": {"const": true}}},
+    "security_scope_contract": {"const": {"allowed": ["all", "explicit"], "date_slicing_allowed": false, "duplicate_unknown_or_empty_explicit_scope": "reject", "included_in_request_identity": false}},
+    "algorithms": {"type": "object", "additionalProperties": false, "required": ["dimension_formula", "joint_formula", "streak_formula", "confirmation_formula", "interval_formula", "weak_delta_bp", "floating_comparison_epsilon", "confirmation_k_domain"], "properties": {"dimension_formula": {"type": "string"}, "joint_formula": {"type": "string"}, "streak_formula": {"type": "string"}, "confirmation_formula": {"type": "string"}, "interval_formula": {"type": "string"}, "weak_delta_bp": {"const": 1000}, "floating_comparison_epsilon": {"const": 1e-12}, "confirmation_k_domain": {"const": [2, 3, 4, 5, 6, 7]}}},
+    "termination_priority": {"const": ["expected_observation_missing", "expected_observation_listing_pause", "selected_dimension_blocked", "selected_dimension_diagnostic_required", "selected_dimension_unknown", "selected_dimension_not_eligible", "selected_dimension_score_non_finite", "raw_false"]},
+    "output_contract": {"type": "object", "additionalProperties": false, "required": ["dynamic_request", "evaluation_scope", "daily_dimension_states", "daily_joint_states", "confirmed_intervals"], "properties": {"dynamic_request": {"$ref": "#/$defs/table"}, "evaluation_scope": {"$ref": "#/$defs/table"}, "daily_dimension_states": {"$ref": "#/$defs/table"}, "daily_joint_states": {"$ref": "#/$defs/table"}, "confirmed_intervals": {"$ref": "#/$defs/table"}}},
+    "zero_event_behavior": {"const": "completed_with_empty_confirmed_intervals_table"},
+    "non_goals": {"const": ["real_score_data", "parameter_selection", "formal_dynamic_package", "cache", "date_slicing", "d", "g", "exit_delay", "gap_tolerance", "interval_merge", "DONE", "accepted_handoff", "R2A-T04"]}
+  },
+  "$defs": {
+    "column": {"type": "object", "additionalProperties": false, "required": ["name", "type", "nullable"], "properties": {"name": {"type": "string", "minLength": 1}, "type": {"enum": ["VARCHAR", "VARCHAR[]", "INTEGER", "BIGINT", "DOUBLE", "BOOLEAN", "DATE", "TIMESTAMP WITH TIME ZONE"]}, "nullable": {"type": "boolean"}}},
+    "table": {"type": "object", "additionalProperties": false, "required": ["columns", "primary_key"], "properties": {"columns": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/column"}}, "primary_key": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}}}
+  }
+}
