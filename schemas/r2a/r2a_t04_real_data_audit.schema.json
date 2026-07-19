@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_real_data_audit.schema.json",
-  "title": "R2A-T04 Score parameter-response and interval-structure audit configuration",
+  "title": "R2A-T04 CA q-response and interval-structure audit configuration",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,8 +9,14 @@
     "authorization_revision", "reviewed_harness_head", "formal_run_authorized",
     "formal_run_started", "formal_run_consumed",
     "authorization_effective_only_after_exact_head_quality_success",
-    "authorization_revision_3_head", "authorization_revision_3_status",
-    "authorization_revision_3_used", "authorization_revision_3_formal_run_started",
+    "revision_4_authorization_head", "revision_4_run_id",
+    "revision_4_formal_authorization_id", "revision_4_formal_run_started",
+    "revision_4_formal_run_consumed", "revision_4_formal_run_completed",
+    "revision_4_result", "revision_4_completed_request_count",
+    "revision_4_completed_request", "revision_4_interrupted_request",
+    "revision_4_result_review_status", "authorization_revision_3_head",
+    "authorization_revision_3_status", "authorization_revision_3_used",
+    "authorization_revision_3_formal_run_started",
     "authorization_revision_3_formal_attempt_consumed",
     "authorization_revision_2_head", "authorization_revision_2_status",
     "authorization_revision_2_used", "authorization_revision_2_formal_run_started",
@@ -21,22 +27,33 @@
     "full_universe_request_count", "R2A-T04_DONE", "R2A-T05_allowed_to_start",
     "score_release", "accepted_evaluator", "panel_id", "request_panel_count",
     "full_security_scope_required", "full_observation_history_required",
-    "full_universe_request_concurrency", "thread_preflight",
+    "full_universe_request_concurrency", "optimized_benchmark", "thread_preflight",
     "formal_run_attempt_limit", "minimum_free_disk_score_db_multiple",
     "review_bundle_max_bytes", "interval_sample_per_request", "request_panel"
   ],
   "properties": {
     "$schema": {"const": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json"},
     "task_id": {"const": "R2A-T04"},
-    "scope_id": {"const": "r2a_t04_score_parameter_response_interval_structure.v1"},
-    "status": {"const": "authorized_not_started"},
-    "formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
-    "authorization_revision": {"const": 4},
-    "reviewed_harness_head": {"const": "3f548684bef00eda1b071c9f57043ae9e0cfe307"},
-    "formal_run_authorized": {"const": true},
+    "scope_id": {"const": "r2a_t04_ca_q15_q25_k5_response_audit.v1"},
+    "status": {"enum": ["ca_scope_performance_repair_pending_benchmark", "ca_two_request_benchmark_passed_pending_authorization", "authorized_not_started"]},
+    "formal_authorization_id": {"const": "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5"},
+    "authorization_revision": {"const": 5},
+    "reviewed_harness_head": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "formal_run_authorized": {"type": "boolean"},
     "formal_run_started": {"const": false},
     "formal_run_consumed": {"const": false},
     "authorization_effective_only_after_exact_head_quality_success": {"const": true},
+    "revision_4_authorization_head": {"const": "bd906df6b314352dccde75bc087709503d5e2262"},
+    "revision_4_run_id": {"const": "R2A-T04-20260719T090524491Z"},
+    "revision_4_formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
+    "revision_4_formal_run_started": {"const": true},
+    "revision_4_formal_run_consumed": {"const": true},
+    "revision_4_formal_run_completed": {"const": false},
+    "revision_4_result": {"const": "terminated_incomplete_performance"},
+    "revision_4_completed_request_count": {"const": 1},
+    "revision_4_completed_request": {"const": "D01_P_q15_k3"},
+    "revision_4_interrupted_request": {"const": "D02_PA_q15_k3"},
+    "revision_4_result_review_status": {"const": "rejected_incomplete"},
     "authorization_revision_3_head": {"const": "21837edddfcc298b8539bcf9f71a1b7e016b6d47"},
     "authorization_revision_3_status": {"const": "superseded_before_formal_run"},
     "authorization_revision_3_used": {"const": false},
@@ -56,17 +73,15 @@
     "R2A-T04_DONE": {"const": "absent"},
     "R2A-T05_allowed_to_start": {"const": false},
     "score_release": {
-      "type": "object", "additionalProperties": false,
-      "required": ["score_release_id", "filename", "sha256", "byte_size", "security_count", "date_min", "date_max", "accepted_t01_handoff_sha256"],
-      "properties": {
-        "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"},
-        "filename": {"const": "score_data.duckdb"},
-        "sha256": {"const": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"},
-        "byte_size": {"const": 4255395840},
-        "security_count": {"const": 800},
-        "date_min": {"const": "2016-01-04"},
-        "date_max": {"const": "2026-06-30"},
-        "accepted_t01_handoff_sha256": {"const": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"}
+      "const": {
+        "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+        "filename": "score_data.duckdb",
+        "sha256": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+        "byte_size": 4255395840,
+        "security_count": 800,
+        "date_min": "2016-01-04",
+        "date_max": "2026-06-30",
+        "accepted_t01_handoff_sha256": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"
       }
     },
     "accepted_evaluator": {
@@ -78,74 +93,52 @@
         "accepted_t03_config_sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"
       }
     },
-    "panel_id": {"const": "r2a_t04_representative_panel.v1"},
-    "request_panel_count": {"const": 16},
+    "panel_id": {"const": "r2a_t04_ca_q15_q25_k5_panel.v1"},
+    "request_panel_count": {"const": 2},
     "full_security_scope_required": {"const": true},
     "full_observation_history_required": {"const": true},
     "full_universe_request_concurrency": {"const": 1},
-    "thread_preflight": {
-      "type": "object", "additionalProperties": false,
-      "required": [
-        "candidate_threads", "request_name", "security_count", "selection_method",
-        "fingerprint_algorithm", "canonical_chunk_row_count", "failure_receipt_required",
-        "pairwise_logical_comparison_required", "benchmark_execution_head",
-        "benchmark_execution_quality", "benchmark_request_id", "benchmark_request_hash",
-        "thread_benchmark_status", "duckdb_thread_count", "thread_benchmark_fingerprint",
-        "thread_benchmark_receipt_sha256", "thread_benchmark_receipt_byte_size",
-        "benchmark_security_ids", "thread_runs", "pairwise_comparison_count",
-        "pairwise_logical_status", "pairwise_schema_mismatch_count",
-        "pairwise_left_only_key_count", "pairwise_right_only_key_count",
-        "pairwise_value_mismatch_row_count", "pairwise_column_mismatch_count",
-        "thread_benchmark_evidence_reused", "reuse_basis", "thread_benchmark_rerun_required"
-      ],
+    "optimized_benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "receipt_path", "receipt_sha256", "implementation_head", "implementation_quality", "duckdb_thread_count", "equivalence_security_ids", "per_request_wall_seconds_max", "combined_wall_seconds_max", "per_request_peak_rss_bytes_max"],
       "properties": {
-        "candidate_threads": {"const": [4, 8, 16]},
-        "request_name": {"const": "D05_PCAVT_q15_k3"},
-        "security_count": {"const": 4},
-        "selection_method": {"const": "sha256(score_release_id + ':' + security_id)_ascending"},
-        "fingerprint_algorithm": {"const": "arrow_ipc_fixed_logical_row_chunks.v1"},
-        "canonical_chunk_row_count": {"const": 65536},
-        "failure_receipt_required": {"const": true},
-        "pairwise_logical_comparison_required": {"const": true},
-        "benchmark_execution_head": {"const": "01bf7e12f0cb19a31c71689ada32f7a78f8aec75"},
-        "benchmark_execution_quality": {"const": "29658749232 / success"},
-        "benchmark_request_id": {"const": "pcavt-dynreq-v1-2937df4f84219640"},
-        "benchmark_request_hash": {"const": "2937df4f8421964007b5d479a6b1f959564096bbe5df18ffe35b91b325192722"},
-        "thread_benchmark_status": {"const": "passed"},
+        "status": {"enum": ["pending", "passed"]},
+        "receipt_path": {"const": "artifacts/r2a_t04_ca_benchmark/r2a_t04_ca_set_based_benchmark_receipt.json"},
+        "receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "implementation_head": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "implementation_quality": {"type": ["string", "null"], "minLength": 1},
         "duckdb_thread_count": {"const": 4},
-        "thread_benchmark_fingerprint": {"const": "049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231"},
-        "thread_benchmark_receipt_sha256": {"const": "c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369"},
-        "thread_benchmark_receipt_byte_size": {"const": 97485},
-        "benchmark_security_ids": {"const": ["603345.SH", "603233.SH", "688220.SH", "300316.SZ"]},
-        "thread_runs": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object"}},
-        "pairwise_comparison_count": {"const": 3},
-        "pairwise_logical_status": {"const": "passed"},
-        "pairwise_schema_mismatch_count": {"const": 0},
-        "pairwise_left_only_key_count": {"const": 0},
-        "pairwise_right_only_key_count": {"const": 0},
-        "pairwise_value_mismatch_row_count": {"const": 0},
-        "pairwise_column_mismatch_count": {"const": 0},
-        "thread_benchmark_evidence_reused": {"const": true},
-        "reuse_basis": {"const": "evaluator_request_output_and_fingerprint_core_byte_identical"},
-        "thread_benchmark_rerun_required": {"const": false}
+        "equivalence_security_ids": {"const": ["603345.SH", "603233.SH", "688220.SH", "300316.SZ"]},
+        "per_request_wall_seconds_max": {"const": 600},
+        "combined_wall_seconds_max": {"const": 1200},
+        "per_request_peak_rss_bytes_max": {"const": 6442450944}
       }
     },
+    "thread_preflight": {"type": "object"},
     "formal_run_attempt_limit": {"const": 1},
     "minimum_free_disk_score_db_multiple": {"const": 3},
     "review_bundle_max_bytes": {"const": 62914560},
     "interval_sample_per_request": {"const": 20},
     "request_panel": {
-      "type": "array", "minItems": 16, "maxItems": 16,
-      "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["logical_request_name", "selected_dimensions", "q_by_dimension", "confirmation_k"],
-        "properties": {
-          "logical_request_name": {"type": "string", "minLength": 1},
-          "selected_dimensions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["P", "C", "A", "V", "T"]}},
-          "q_by_dimension": {"type": "object", "minProperties": 1, "additionalProperties": {"enum": [1000, 1500, 2000, 2500]}},
-          "confirmation_k": {"enum": [2, 3, 4, 5, 6, 7]}
-        }
-      }
+      "const": [
+        {"logical_request_name": "CA_q15_k5", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 1500, "A": 1500}, "confirmation_k": 5},
+        {"logical_request_name": "CA_q25_k5", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 2500, "A": 2500}, "confirmation_k": 5}
+      ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "ca_scope_performance_repair_pending_benchmark"}}},
+      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "optimized_benchmark": {"properties": {"status": {"const": "pending"}}}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "ca_two_request_benchmark_passed_pending_authorization"}}},
+      "then": {"properties": {"formal_run_authorized": {"const": false}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
+    },
+    {
+      "if": {"properties": {"status": {"const": "authorized_not_started"}}},
+      "then": {"properties": {"formal_run_authorized": {"const": true}, "reviewed_harness_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
+    }
+  ]
 }

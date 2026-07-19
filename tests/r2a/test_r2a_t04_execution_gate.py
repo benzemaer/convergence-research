@@ -38,7 +38,7 @@ def _config() -> dict[str, object]:
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 4,
+            "authorization_revision": 5,
             "reviewed_harness_head": REPAIR_HEAD,
             "formal_run_authorized": True,
             "formal_run_started": False,
@@ -47,6 +47,14 @@ def _config() -> dict[str, object]:
             "supersedes_authorization_head": (
                 "9d3c2dab43a10b12931db921ef730db6e8552ff1"
             ),
+        }
+    )
+    config["optimized_benchmark"].update(
+        {
+            "status": "passed",
+            "receipt_sha256": "f" * 64,
+            "implementation_head": "c" * 40,
+            "implementation_quality": "1 / success",
         }
     )
     return config
@@ -157,6 +165,10 @@ def _benchmark(_path: Path, config: dict[str, object]) -> dict[str, object]:
     }
 
 
+def _optimized(config: dict[str, object]) -> dict[str, object]:
+    return {"implementation_head": config["optimized_benchmark"]["implementation_head"]}
+
+
 def _gate(tmp_path: Path, **overrides: object) -> dict[str, object]:
     config = _config()
     panel = build_request_panel(config)
@@ -171,6 +183,7 @@ def _gate(tmp_path: Path, **overrides: object) -> dict[str, object]:
         "panel": panel,
         "identity_verifier": _identity,
         "benchmark_validator": _benchmark,
+        "optimized_benchmark_validator": _optimized,
     }
     arguments.update(overrides)
     return validate_score_formal_execution_gate(**arguments)
@@ -180,13 +193,13 @@ def test_score_formal_gate_accepts_only_frozen_contract(tmp_path: Path) -> None:
     receipt = _gate(tmp_path)
     assert receipt["status"] == "passed"
     assert receipt["duckdb_thread_count"] == 4
-    assert receipt["request_count"] == 16
+    assert receipt["request_count"] == 2
 
 
 @pytest.mark.parametrize(
     ("field", "value", "reason"),
     [
-        ("authorization_revision", 3, "formal_config_authorization_revision_mismatch"),
+        ("authorization_revision", 4, "formal_config_authorization_revision_mismatch"),
         (
             "formal_run_authorized",
             False,

@@ -8,13 +8,13 @@
   "properties": {
     "task_id": {"const": "R2A-T04"},
     "bundle_mode": {"const": "formal_review"},
-    "scope_id": {"const": "r2a_t04_score_parameter_response_interval_structure.v1"},
+    "scope_id": {"const": "r2a_t04_ca_q15_q25_k5_response_audit.v1"},
     "status": {"enum": ["score_audit_completed_pending_result_review", "formal_run_blocked"]},
     "formal_run_id": {"type": "string", "pattern": "^R2A-T04-[0-9]{8}T[0-9]{9}Z$"},
-    "formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
-    "authorization_revision": {"const": 4},
-    "panel_id": {"const": "r2a_t04_representative_panel.v1"},
-    "request_count": {"const": 16},
+    "formal_authorization_id": {"const": "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5"},
+    "authorization_revision": {"const": 5},
+    "panel_id": {"const": "r2a_t04_ca_q15_q25_k5_panel.v1"},
+    "request_count": {"const": 2},
     "score_source": {
       "type": "object", "additionalProperties": false,
       "required": ["score_release_id", "sha256", "byte_size"],

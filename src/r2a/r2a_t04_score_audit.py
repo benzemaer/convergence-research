@@ -18,21 +18,23 @@ from src.r2a.r2a_t04_audit_validator import validate_review_bundle
 from src.r2a.r2a_t04_real_data_audit import (
     R2AT04AuditError,
     canonical_table_profiles,
-    evaluate_request_with_threads,
     free_disk_gate,
     record_score_structure,
     request_metrics,
-    run_response_checks_sql,
     sha256_file,
     termination_metrics,
     verify_file_identity,
     write_csv_records,
     year_metrics,
 )
+from src.r2a.r2a_t04_set_based_evaluator import (
+    evaluate_request_set_based_with_threads,
+)
 
-SCOPE_ID = "r2a_t04_score_parameter_response_interval_structure.v1"
-FORMAL_AUTHORIZATION_ID = "R2A-T04-REAL-AUDIT-AUTH-20260719"
-PANEL_ID = "r2a_t04_representative_panel.v1"
+SCOPE_ID = "r2a_t04_ca_q15_q25_k5_response_audit.v1"
+FORMAL_AUTHORIZATION_ID = "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5"
+PANEL_ID = "r2a_t04_ca_q15_q25_k5_panel.v1"
+EXPECTED_REQUEST_COUNT = 2
 REVIEW_FILES = (
     "request_metrics.csv",
     "year_metrics.csv",
@@ -97,20 +99,8 @@ def initialize_score_audit_database(audit: duckdb.DuckDBPyConnection) -> None:
         "security_id,trading_date))"
     )
     audit.execute(
-        "CREATE TABLE baseline_dimensions(security_id VARCHAR,trading_date DATE,"
-        "dimension_id VARCHAR,q_bp INTEGER,main_threshold DOUBLE,"
-        "weak_threshold DOUBLE,dimension_ready BOOLEAN,dimension_active BOOLEAN,"
-        "PRIMARY KEY(security_id,trading_date,dimension_id))"
-    )
-    audit.execute(
         "CREATE TABLE response_checks(check_id VARCHAR,comparison VARCHAR,"
         "violation_count BIGINT,strict_change BOOLEAN,passed BOOLEAN,detail VARCHAR)"
-    )
-    audit.execute(
-        "CREATE TABLE dimension_response_profiles(logical_request_name VARCHAR,"
-        "dimension_id VARCHAR,row_count BIGINT,row_fingerprint VARCHAR,"
-        "active_count BIGINT,active_fingerprint VARCHAR,"
-        "PRIMARY KEY(logical_request_name,dimension_id))"
     )
     audit.execute(
         "CREATE TABLE interval_inventory(logical_request_name VARCHAR,"
@@ -137,69 +127,121 @@ def initialize_score_audit_database(audit: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def _record_marginal_profile(
-    audit: duckdb.DuckDBPyConnection, logical_name: str
-) -> None:
-    if logical_name != "D05_PCAVT_q15_k3" and not logical_name.startswith("M0"):
-        return
-    audit.execute(
-        "INSERT INTO dimension_response_profiles "
-        "SELECT ?,dimension_id,count(*),"
-        "CAST(bit_xor(hash(security_id,trading_date,dimension_id,q_bp,"
-        "main_threshold,weak_threshold,dimension_ready,dimension_active)) "
-        "AS VARCHAR),count(*) FILTER(WHERE dimension_active),"
-        "CAST(bit_xor(hash(security_id,trading_date)) "
-        "FILTER(WHERE dimension_active) AS VARCHAR) "
-        "FROM dyn.daily_dimension_states GROUP BY dimension_id",
-        [logical_name],
+def run_ca_q_response_checks_sql(audit: duckdb.DuckDBPyConnection) -> None:
+    """Record only the frozen CA q=1500 versus q=2500 response relations."""
+
+    comparison = "CA_q15_k5 -> CA_q25_k5"
+    left_name = "CA_q15_k5"
+    right_name = "CA_q25_k5"
+    joint_mismatch = int(
+        audit.execute(
+            "SELECT count(*) FROM (SELECT security_id,trading_date,joint_ready FROM "
+            "response_daily WHERE logical_request_name=?) l FULL OUTER JOIN (SELECT "
+            "security_id,trading_date,joint_ready FROM response_daily WHERE "
+            "logical_request_name=?) r USING(security_id,trading_date) WHERE "
+            "l.security_id IS NULL OR r.security_id IS NULL OR "
+            "l.joint_ready IS DISTINCT FROM r.joint_ready",
+            [left_name, right_name],
+        ).fetchone()[0]
     )
-    if not logical_name.startswith("M0"):
-        return
-    target = {
-        "M01": "P",
-        "M02": "C",
-        "M03": "A",
-        "M04": "V",
-        "M05": "T",
-    }[logical_name[:3]]
-    non_target_violation = audit.execute(
-        "SELECT count(*) FROM baseline_dimensions b JOIN "
-        "dyn.daily_dimension_states d USING(security_id,trading_date,dimension_id) "
-        "WHERE b.dimension_id<>? AND (b.q_bp<>d.q_bp OR "
-        "b.main_threshold<>d.main_threshold OR "
-        "b.weak_threshold<>d.weak_threshold OR "
-        "b.dimension_ready IS DISTINCT FROM d.dimension_ready OR "
-        "b.dimension_active IS DISTINCT FROM d.dimension_active)",
-        [target],
-    ).fetchone()[0]
-    target_missing = audit.execute(
-        "SELECT count(*) FROM baseline_dimensions b ANTI JOIN ("
-        "SELECT security_id,trading_date,dimension_id FROM "
-        "dyn.daily_dimension_states WHERE dimension_id=? AND "
-        "dimension_active=true) d USING(security_id,trading_date,dimension_id) "
-        "WHERE b.dimension_id=? AND b.dimension_active=true",
-        [target, target],
-    ).fetchone()[0]
-    strict = audit.execute(
-        "SELECT count(*)>0 FROM dyn.daily_dimension_states d ANTI JOIN ("
-        "SELECT security_id,trading_date,dimension_id FROM baseline_dimensions "
-        "WHERE dimension_id=? AND dimension_active=true) b "
-        "USING(security_id,trading_date,dimension_id) "
-        "WHERE d.dimension_id=? AND d.dimension_active=true",
-        [target, target],
-    ).fetchone()[0]
-    violation = int(non_target_violation + target_missing)
-    audit.execute(
-        "INSERT INTO response_checks VALUES (?,?,?,?,?,?)",
-        [
-            f"marginal_{target}_non_target_invariance",
-            logical_name,
-            violation,
-            bool(strict),
-            violation == 0,
-            "target_expansion_and_non_target_exact_invariance",
-        ],
+
+    def subset_counts(field: str) -> tuple[int, int, int, int]:
+        left_count = int(
+            audit.execute(
+                f"SELECT count(*) FROM response_daily WHERE logical_request_name=? "
+                f"AND {field}=true",
+                [left_name],
+            ).fetchone()[0]
+        )
+        right_count = int(
+            audit.execute(
+                f"SELECT count(*) FROM response_daily WHERE logical_request_name=? "
+                f"AND {field}=true",
+                [right_name],
+            ).fetchone()[0]
+        )
+        violation = int(
+            audit.execute(
+                f"SELECT count(*) FROM response_daily l ANTI JOIN response_daily r "
+                "ON l.security_id=r.security_id AND l.trading_date=r.trading_date "
+                f"AND r.logical_request_name=? AND r.{field}=true "
+                f"WHERE l.logical_request_name=? AND l.{field}=true",
+                [right_name, left_name],
+            ).fetchone()[0]
+        )
+        right_only = int(
+            audit.execute(
+                f"SELECT count(*) FROM response_daily r ANTI JOIN response_daily l "
+                "ON l.security_id=r.security_id AND l.trading_date=r.trading_date "
+                f"AND l.logical_request_name=? AND l.{field}=true "
+                f"WHERE r.logical_request_name=? AND r.{field}=true",
+                [left_name, right_name],
+            ).fetchone()[0]
+        )
+        return left_count, right_count, violation, right_only
+
+    raw_left, raw_right, raw_violation, raw_right_only = subset_counts("raw_state")
+    confirmed_left, confirmed_right, confirmed_violation, confirmed_right_only = (
+        subset_counts("confirmed_state")
     )
+    raw_strict = raw_right_only > 0
+    confirmed_strict = confirmed_right_only > 0
+    non_degenerate = raw_strict or confirmed_strict
+    rows = [
+        (
+            "ca_q_joint_ready_equality",
+            comparison,
+            joint_mismatch,
+            False,
+            joint_mismatch == 0,
+            json.dumps({"mismatch_count": joint_mismatch}, sort_keys=True),
+        ),
+        (
+            "ca_q_raw_subset",
+            comparison,
+            raw_violation,
+            raw_strict,
+            raw_violation == 0,
+            json.dumps(
+                {
+                    "left_count": raw_left,
+                    "right_count": raw_right,
+                    "right_only_count": raw_right_only,
+                },
+                sort_keys=True,
+            ),
+        ),
+        (
+            "ca_q_confirmed_subset",
+            comparison,
+            confirmed_violation,
+            confirmed_strict,
+            confirmed_violation == 0,
+            json.dumps(
+                {
+                    "left_count": confirmed_left,
+                    "right_count": confirmed_right,
+                    "right_only_count": confirmed_right_only,
+                },
+                sort_keys=True,
+            ),
+        ),
+        (
+            "ca_q_response_non_degenerate",
+            comparison,
+            0 if non_degenerate else 1,
+            non_degenerate,
+            non_degenerate,
+            json.dumps(
+                {
+                    "raw_strict_change": raw_strict,
+                    "confirmed_strict_change": confirmed_strict,
+                },
+                sort_keys=True,
+            ),
+        ),
+    ]
+    audit.executemany("INSERT INTO response_checks VALUES (?,?,?,?,?,?)", rows)
 
 
 def record_score_request_result(
@@ -268,13 +310,6 @@ def record_score_request_result(
             "raw_streak_start_date,confirmation_event "
             "FROM dyn.daily_joint_states"
         )
-        if logical_name == "D05_PCAVT_q15_k3":
-            audit.execute(
-                "INSERT INTO baseline_dimensions SELECT security_id,trading_date,"
-                "dimension_id,q_bp,main_threshold,weak_threshold,dimension_ready,"
-                "dimension_active FROM dyn.daily_dimension_states"
-            )
-        _record_marginal_profile(audit, logical_name)
         audit.execute(
             f"INSERT INTO interval_inventory SELECT '{escaped}',i.request_id,"
             "r.request_hash,i.security_id,i.interval_ordinal,i.raw_start_date,"
@@ -490,7 +525,7 @@ def _validate_reconciliations(
         "AS BIGINT)>?) FROM request_metrics_records",
         [expected_security_count, expected_security_count],
     ).fetchone()
-    if int(request_count) != 16:
+    if int(request_count) != EXPECTED_REQUEST_COUNT:
         raise R2AT04AuditError("formal_request_count_mismatch")
     interval_failures = audit.execute(
         "SELECT count(*) FROM request_metrics_records r LEFT JOIN ("
@@ -525,9 +560,9 @@ def _validate_reconciliations(
         "sum(CAST(json_extract(metrics_json,'$.confirmed_interval_count') AS BIGINT)) "
         "FROM request_metrics_records"
     ).fetchone()
-    response_failures, strict_marginals = audit.execute(
-        "SELECT count(*) FILTER(WHERE passed=false),"
-        "count(*) FILTER(WHERE check_id LIKE 'marginal_%_non_target_invariance' "
+    response_count, response_failures, non_degenerate_passed = audit.execute(
+        "SELECT count(*),count(*) FILTER(WHERE passed=false),"
+        "count(*) FILTER(WHERE check_id='ca_q_response_non_degenerate' "
         "AND strict_change=true AND passed=true) FROM response_checks"
     ).fetchone()
     failures = {
@@ -540,7 +575,11 @@ def _validate_reconciliations(
     }
     if any(failures.values()):
         raise R2AT04AuditError("score_audit_reconciliation_failed")
-    if int(response_failures) or int(strict_marginals) != 5:
+    if (
+        int(response_count) != 4
+        or int(response_failures)
+        or int(non_degenerate_passed) != 1
+    ):
         raise R2AT04AuditError("score_audit_response_checks_failed")
     if not total_raw or not total_intervals:
         raise R2AT04AuditError("score_audit_response_degenerate")
@@ -566,71 +605,52 @@ def _analysis(
             f"({score_identity['byte_size']} bytes).",
         ),
         (
-            "Frozen 16-request panel",
-            "The frozen panel contains 16 canonical requests and is diagnostic only.",
+            "Frozen CA two-request panel",
+            "The frozen panel contains only CA_q15_k5 and CA_q25_k5.",
         ),
         (
             "Accepted output validator status",
             "Every recorded request passed the accepted persisted-output validator.",
         ),
         (
-            "Joint evaluability and reason decomposition",
-            "Request and year metrics retain readiness, validity, eligibility, "
-            "finiteness, and reason counts.",
+            "Joint evaluability",
+            "Joint readiness must be identical because q changes activity, not "
+            "readiness.",
         ),
         (
-            "Equal-q response",
-            "Raw/confirmed supersets and joint-ready equality are recorded in "
-            "`response_checks.csv`.",
+            "CA q=1500 vs q=2500 raw-state response",
+            "The q=1500 raw-state key set must be a subset of q=2500.",
         ),
         (
-            "Confirmation-K response",
-            "Raw equality, confirmed contraction, and non-early confirmation "
-            "are checked.",
+            "CA q=1500 vs q=2500 confirmed-state response",
+            "The q=1500 confirmed-state key set must be a subset of q=2500.",
         ),
         (
-            "Dimension ladder contraction",
-            "P→PA→PCA→PCAV→PCAVT raw and confirmed contraction are checked.",
-        ),
-        (
-            "Per-dimension marginal-q response",
-            "Target expansion, non-target invariance, and joint raw supersets "
-            "are checked.",
-        ),
-        (
-            "Interval count and duration structure",
-            "Counts, quantiles, censoring, and confirmed-observation totals "
-            "are reported.",
+            "Interval count and duration comparison",
+            "Counts, duration quantiles, censoring, and confirmed totals are compared.",
         ),
         (
             "Security breadth and concentration",
-            "Breadth, zero-interval counts, and per-security interval "
-            "distributions are reported.",
+            "Breadth, zero-interval counts, and per-security concentration are "
+            "reported.",
         ),
         (
             "Year stability",
-            "Year metrics retain evaluability, state, event, interval, breadth, "
-            "duration, censoring, and termination summaries.",
+            "Year metrics retain evaluability, state, interval, and breadth structure.",
         ),
         (
             "Termination distribution",
-            "Termination reason counts and rates are reported by request and year.",
+            "Termination reason counts and rates are reported by request.",
         ),
         (
-            "Dimension Score endpoint structure",
-            "Accepted five-dimension mean/min distributions are summarized at "
-            "four interval anchors.",
+            "Score endpoint structure",
+            "Five dimensions and ten components are diagnostic context at four "
+            "anchors.",
         ),
         (
-            "Component Score endpoint structure",
-            "Accepted ten-component raw, percentile, and Score distributions "
-            "are summarized at four anchors.",
-        ),
-        (
-            "Failure cases and limitations",
-            "This audit does not select a best q/K, register a canonical dynamic "
-            "state, generate prediction labels or trading signals, run a "
-            "backtest, or construct a portfolio.",
+            "Limitations",
+            "This audit does not select q, register a canonical state, create trading "
+            "signals, use future returns, backtest, or construct a portfolio.",
         ),
         (
             "Automated recommendation",
@@ -758,9 +778,9 @@ def finalize_score_review_bundle(
         ),
         "formal_run_id": formal_run_id,
         "formal_authorization_id": FORMAL_AUTHORIZATION_ID,
-        "authorization_revision": 4,
+        "authorization_revision": 5,
         "panel_id": PANEL_ID,
-        "request_count": 16,
+        "request_count": EXPECTED_REQUEST_COUNT,
         "score_source": score_public,
         "execution": {
             "full_universe_request_concurrency": 1,
@@ -803,25 +823,28 @@ def run_score_formal_audit(
     review_output: Path,
     execution_gate: Mapping[str, Any],
     evaluator: Callable[..., tuple[DynamicEvaluationSummary, float, int, int]] = (
-        evaluate_request_with_threads
+        evaluate_request_set_based_with_threads
     ),
     output_validator: Callable[[duckdb.DuckDBPyConnection], Any] = (
         validate_dynamic_evaluation_output
     ),
 ) -> dict[str, Any]:
-    """Run the frozen 16-request Score audit strictly serially and once."""
+    """Run the frozen CA two-request Score audit strictly serially and once."""
 
     if execution_gate.get("status") != "passed":
         raise R2AT04AuditError("formal_execution_gate_not_passed")
     if (
         config.get("status") != "authorized_not_started"
-        or config.get("authorization_revision") != 4
+        or config.get("authorization_revision") != 5
         or config.get("formal_run_authorized") is not True
         or config.get("formal_run_started") is not False
         or config.get("formal_run_consumed") is not False
     ):
         raise R2AT04AuditError("formal_authorization_metadata_invalid")
-    if len(panel) != 16 or config.get("full_universe_request_concurrency") != 1:
+    if (
+        len(panel) != EXPECTED_REQUEST_COUNT
+        or config.get("full_universe_request_concurrency") != 1
+    ):
         raise R2AT04AuditError("formal_concurrency_or_panel_gate_failed")
     if output_root.exists() or review_output.exists():
         raise R2AT04AuditError("formal_output_already_exists")
@@ -844,7 +867,7 @@ def run_score_formal_audit(
         (output_root / child).mkdir()
     authorization = {
         "formal_authorization_id": config["formal_authorization_id"],
-        "authorization_revision": 4,
+        "authorization_revision": 5,
         "formal_run_consumed": True,
         "scope_id": SCOPE_ID,
         "full_universe_request_concurrency": 1,
@@ -937,7 +960,7 @@ def run_score_formal_audit(
             with log_path.open("a", encoding="utf-8", newline="\n") as handle:
                 handle.write(json.dumps(request_summary, sort_keys=True) + "\n")
             result_path.unlink()
-        run_response_checks_sql(audit)
+        run_ca_q_response_checks_sql(audit)
         validation = _validate_reconciliations(
             audit,
             expected_security_count=int(config["score_release"]["security_count"]),
@@ -963,10 +986,10 @@ def run_score_formal_audit(
     run_manifest = {
         "formal_run_id": formal_run_id,
         "formal_authorization_id": config["formal_authorization_id"],
-        "authorization_revision": 4,
+        "authorization_revision": 5,
         "scope_id": SCOPE_ID,
         "formal_run_consumed": True,
-        "request_count": 16,
+        "request_count": EXPECTED_REQUEST_COUNT,
         "request_execution": "strictly_serial",
         "duckdb_thread_count": 4,
         "free_bytes_before_run": free_bytes,
@@ -986,7 +1009,7 @@ def run_score_formal_audit(
         "scope_id": SCOPE_ID,
         "status": summary["status"],
         "score_identity": score_identity,
-        "request_count": 16,
+        "request_count": EXPECTED_REQUEST_COUNT,
         "elapsed_seconds": run_manifest["elapsed_seconds"],
         "automated_recommendation": summary["review_boundary"][
             "automated_recommendation"

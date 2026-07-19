@@ -20,6 +20,21 @@ ROOT = Path(__file__).resolve().parents[2]
 THREAD_RECEIPT_SCHEMA = (
     ROOT / "schemas/r2a/r2a_t04_thread_benchmark_receipt.schema.json"
 )
+OPTIMIZED_RECEIPT_SCHEMA = (
+    ROOT / "schemas/r2a/r2a_t04_ca_set_based_benchmark_receipt.schema.json"
+)
+EXPECTED_CA_REQUESTS = (
+    (
+        "CA_q15_k5",
+        "pcavt-dynreq-v1-cf420e9c025374d1",
+        "cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f",
+    ),
+    (
+        "CA_q25_k5",
+        "pcavt-dynreq-v1-b210f9e5211c46db",
+        "b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9",
+    ),
+)
 EXPECTED_REQUEST_ID = "pcavt-dynreq-v1-2937df4f84219640"
 EXPECTED_REQUEST_HASH = (
     "2937df4f8421964007b5d479a6b1f959564096bbe5df18ffe35b91b325192722"
@@ -103,6 +118,106 @@ def validate_frozen_thread_benchmark_receipt(
     return receipt
 
 
+def validate_ca_set_based_benchmark_receipt(
+    config: Mapping[str, Any],
+    receipt_path: Path | None = None,
+) -> dict[str, Any]:
+    """Validate the committed equivalence and full-universe performance evidence."""
+
+    optimized = config["optimized_benchmark"]
+    path = receipt_path or ROOT / str(optimized["receipt_path"])
+    if not path.is_file():
+        raise R2AT04ExecutionGateError("optimized_benchmark_receipt_missing")
+    _require_equal(
+        actual=sha256_file(path),
+        expected=optimized["receipt_sha256"],
+        reason_code="optimized_benchmark_receipt_sha256_mismatch",
+    )
+    receipt = _validated_json(path, OPTIMIZED_RECEIPT_SCHEMA)
+    expected = {
+        "status": "passed",
+        "implementation_head": optimized["implementation_head"],
+        "implementation_quality": optimized["implementation_quality"],
+        "scope_id": config["scope_id"],
+        "panel_id": config["panel_id"],
+        "request_count": 2,
+        "score_release_id": config["score_release"]["score_release_id"],
+        "score_database_sha256": config["score_release"]["sha256"],
+        "score_database_byte_size": config["score_release"]["byte_size"],
+        "formal_run_started": False,
+        "formal_attempt_consumed": False,
+        "scientific_result_generated": False,
+        "contains_absolute_paths": False,
+        "source_database_modified": False,
+        "residual_output_count": 0,
+    }
+    for field, expected_value in expected.items():
+        _require_equal(
+            actual=receipt.get(field),
+            expected=expected_value,
+            reason_code=f"optimized_benchmark_receipt_{field}_mismatch",
+        )
+    identities = tuple(
+        (
+            item.get("logical_request_name"),
+            item.get("request_id"),
+            item.get("request_hash"),
+        )
+        for item in receipt["requests"]
+    )
+    _require_equal(
+        actual=identities,
+        expected=EXPECTED_CA_REQUESTS,
+        reason_code="optimized_benchmark_request_identity_mismatch",
+    )
+    equivalence = receipt["equivalence"]
+    _require_equal(
+        actual=equivalence.get("all_tables_logically_equal"),
+        expected=True,
+        reason_code="optimized_benchmark_equivalence_failed",
+    )
+    _require_equal(
+        actual=equivalence.get("canonical_profiles_equal"),
+        expected=True,
+        reason_code="optimized_benchmark_profile_equivalence_failed",
+    )
+    _require_equal(
+        actual=len(equivalence.get("request_results", [])),
+        expected=2,
+        reason_code="optimized_benchmark_equivalence_request_count_mismatch",
+    )
+    for item in equivalence["request_results"]:
+        _require_equal(
+            actual=item.get("comparison_status"),
+            expected="logically_equal",
+            reason_code="optimized_benchmark_logical_comparison_failed",
+        )
+        if any(int(value) for value in item.get("mismatch_counts", {}).values()):
+            raise R2AT04ExecutionGateError("optimized_benchmark_mismatch_nonzero")
+    full = receipt["full_universe"]
+    _require_equal(
+        actual=full.get("performance_gate_passed"),
+        expected=True,
+        reason_code="optimized_benchmark_performance_failed",
+    )
+    _require_equal(
+        actual=len(full.get("request_results", [])),
+        expected=2,
+        reason_code="optimized_benchmark_full_request_count_mismatch",
+    )
+    for item in full["request_results"]:
+        if (
+            item.get("validator_status") != "passed"
+            or int(item.get("evaluated_security_count", 0)) != 800
+            or float(item.get("wall_seconds", float("inf"))) > 600
+            or int(item.get("peak_rss_bytes", 2**63)) > 6_442_450_944
+        ):
+            raise R2AT04ExecutionGateError("optimized_benchmark_request_gate_failed")
+    if float(full.get("combined_wall_seconds", float("inf"))) > 1200:
+        raise R2AT04ExecutionGateError("optimized_benchmark_combined_wall_failed")
+    return receipt
+
+
 def validate_score_formal_execution_gate(
     *,
     config: Mapping[str, Any],
@@ -115,19 +230,22 @@ def validate_score_formal_execution_gate(
     benchmark_validator: Callable[..., dict[str, Any]] = (
         validate_frozen_thread_benchmark_receipt
     ),
+    optimized_benchmark_validator: Callable[..., dict[str, Any]] = (
+        validate_ca_set_based_benchmark_receipt
+    ),
 ) -> dict[str, Any]:
     """Validate all Score-only bindings before an output root may be created."""
 
     expected_config = {
-        "scope_id": "r2a_t04_score_parameter_response_interval_structure.v1",
+        "scope_id": "r2a_t04_ca_q15_q25_k5_response_audit.v1",
         "status": "authorized_not_started",
-        "authorization_revision": 4,
+        "authorization_revision": 5,
         "formal_run_authorized": True,
         "formal_run_started": False,
         "formal_run_consumed": False,
         "authorization_effective_only_after_exact_head_quality_success": True,
-        "panel_id": "r2a_t04_representative_panel.v1",
-        "request_panel_count": 16,
+        "panel_id": "r2a_t04_ca_q15_q25_k5_panel.v1",
+        "request_panel_count": 2,
         "full_universe_request_concurrency": 1,
     }
     for field, expected in expected_config.items():
@@ -145,10 +263,10 @@ def validate_score_formal_execution_gate(
         raise R2AT04ExecutionGateError("authorization_head_invalid")
     if authorization_head == config.get("supersedes_authorization_head"):
         raise R2AT04ExecutionGateError("authorization_head_is_superseded")
-    if len(panel) != 16:
+    if len(panel) != 2:
         raise R2AT04ExecutionGateError("formal_panel_count_mismatch")
     logical_names = [str(item.get("logical_request_name")) for item in panel]
-    if len(set(logical_names)) != 16:
+    if tuple(logical_names) != tuple(item[0] for item in EXPECTED_CA_REQUESTS):
         raise R2AT04ExecutionGateError("formal_panel_identity_not_unique")
     preflight = config["thread_preflight"]
     _require_equal(
@@ -165,18 +283,23 @@ def validate_score_formal_execution_gate(
         benchmark = benchmark_validator(thread_benchmark_receipt_path, config)
     except R2AT04AuditError as error:
         raise R2AT04ExecutionGateError(error.reason_code) from error
+    optimized_benchmark = optimized_benchmark_validator(config)
     return {
         "status": "passed",
         "authorization_head": authorization_head,
         "authorization_parent": authorization_parent,
-        "authorization_revision": 4,
+        "authorization_revision": 5,
         "scope_id": config["scope_id"],
         "score_identity": score_identity,
         "benchmark_receipt_sha256": preflight["thread_benchmark_receipt_sha256"],
         "benchmark_fingerprint": benchmark["thread_benchmark_fingerprint"],
+        "optimized_benchmark_receipt_sha256": config["optimized_benchmark"][
+            "receipt_sha256"
+        ],
+        "optimized_evaluator_head": optimized_benchmark["implementation_head"],
         "duckdb_thread_count": 4,
         "panel_id": config["panel_id"],
-        "request_count": 16,
+        "request_count": 2,
         "full_universe_request_concurrency": 1,
         "formal_run_started": False,
         "formal_run_consumed": False,

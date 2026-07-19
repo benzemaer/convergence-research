@@ -10,7 +10,6 @@ import pytest
 from src.r2a.r2a_t04_audit_validator import (
     REQUIRED_COMPACT_FILES,
     R2AT04ValidationError,
-    validate_marginal_dimension_rows,
     validate_response_rows,
     validate_review_bundle,
 )
@@ -22,31 +21,10 @@ def _sha(path: Path) -> str:
 
 def _response_fixture() -> list[dict[str, object]]:
     universe = [("S1", f"2026-01-{day:02d}") for day in range(1, 7)]
-    raw_sets = {
-        "Q01_PCAVT_q10_k3": {0},
-        "D05_PCAVT_q15_k3": {0, 1},
-        "Q02_PCAVT_q20_k3": {0, 1, 2},
-        "Q03_PCAVT_q25_k3": {0, 1, 2, 3},
-        "K01_PCAVT_q15_k2": {0, 1},
-        "K02_PCAVT_q15_k5": {0, 1},
-        "K03_PCAVT_q15_k7": {0, 1},
-        "D04_PCAV_q15_k3": {0, 1, 2},
-        "D03_PCA_q15_k3": {0, 1, 2, 3},
-        "D02_PA_q15_k3": {0, 1, 2, 3, 4},
-        "D01_P_q15_k3": {0, 1, 2, 3, 4, 5},
-    }
+    raw_sets = {"CA_q15_k5": {0, 1}, "CA_q25_k5": {0, 1, 2, 3}}
     confirmed_sets = {
-        "Q01_PCAVT_q10_k3": {0},
-        "D05_PCAVT_q15_k3": {0, 1},
-        "Q02_PCAVT_q20_k3": {0, 1, 2},
-        "Q03_PCAVT_q25_k3": {0, 1, 2, 3},
-        "K01_PCAVT_q15_k2": {0, 1, 2},
-        "K02_PCAVT_q15_k5": {0, 1},
-        "K03_PCAVT_q15_k7": {0},
-        "D04_PCAV_q15_k3": {0, 1, 2},
-        "D03_PCA_q15_k3": {0, 1, 2, 3},
-        "D02_PA_q15_k3": {0, 1, 2, 3, 4},
-        "D01_P_q15_k3": {0, 1, 2, 3, 4, 5},
+        "CA_q15_k5": {0},
+        "CA_q25_k5": {0, 1},
     }
     return [
         {
@@ -62,7 +40,7 @@ def _response_fixture() -> list[dict[str, object]]:
     ]
 
 
-def test_response_subset_k_equality_and_non_degeneracy() -> None:
+def test_ca_response_subset_readiness_and_non_degeneracy() -> None:
     assert all(check["passed"] for check in validate_response_rows(_response_fixture()))
 
 
@@ -71,47 +49,17 @@ def test_response_subset_violation_and_degeneracy_are_blocking() -> None:
     next(
         row
         for row in rows
-        if row["logical_request_name"] == "Q01_PCAVT_q10_k3"
+        if row["logical_request_name"] == "CA_q15_k5"
         and row["trading_date"] == "2026-01-06"
     )["raw_state"] = True
-    with pytest.raises(R2AT04ValidationError, match="q_raw_subset"):
+    with pytest.raises(R2AT04ValidationError, match="ca_q_raw_subset"):
         validate_response_rows(rows)
-    for row in _response_fixture():
+    degenerate = _response_fixture()
+    for row in degenerate:
         row["raw_state"] = False
         row["confirmed_state"] = False
-    with pytest.raises(R2AT04ValidationError, match="response_degenerate"):
-        validate_response_rows(_response_fixture()[:0])
-
-
-def test_marginal_non_target_invariance_and_target_superset() -> None:
-    baseline: list[dict[str, object]] = []
-    candidate: list[dict[str, object]] = []
-    for dimension in ("P", "A"):
-        for day in range(2):
-            row = {
-                "security_id": "S1",
-                "trading_date": f"2026-01-0{day + 1}",
-                "dimension_id": dimension,
-                "q_bp": 1500,
-                "main_threshold": 0.85,
-                "weak_threshold": 0.75,
-                "dimension_ready": True,
-                "dimension_active": day == 0,
-            }
-            baseline.append(row)
-            changed = dict(row)
-            if dimension == "P":
-                changed.update(
-                    {
-                        "q_bp": 2500,
-                        "main_threshold": 0.75,
-                        "weak_threshold": 0.65,
-                        "dimension_active": True,
-                    }
-                )
-            candidate.append(changed)
-    result = validate_marginal_dimension_rows(baseline, candidate, target_dimension="P")
-    assert result["strict_target_expansion"] is True
+    with pytest.raises(R2AT04ValidationError, match="blocked_ca_q_response_degenerate"):
+        validate_response_rows(degenerate)
 
 
 def _write_csv(
@@ -129,11 +77,11 @@ def _valid_bundle(bundle: Path) -> dict[str, object]:
         path = bundle / name
         if name == "request_output_profiles.json":
             path.write_text(
-                json.dumps({f"R{i:02d}": {} for i in range(16)}) + "\n",
+                json.dumps({f"R{i:02d}": {} for i in range(2)}) + "\n",
                 encoding="utf-8",
             )
         elif name == "request_panel.json":
-            path.write_text(json.dumps([{}] * 16) + "\n", encoding="utf-8")
+            path.write_text(json.dumps([{}] * 2) + "\n", encoding="utf-8")
         elif name == "score_source_identity.json":
             path.write_text(
                 json.dumps(
@@ -190,13 +138,13 @@ def _valid_bundle(bundle: Path) -> dict[str, object]:
     summary: dict[str, object] = {
         "task_id": "R2A-T04",
         "bundle_mode": "formal_review",
-        "scope_id": "r2a_t04_score_parameter_response_interval_structure.v1",
+        "scope_id": "r2a_t04_ca_q15_q25_k5_response_audit.v1",
         "status": "score_audit_completed_pending_result_review",
         "formal_run_id": "R2A-T04-20260719T000000000Z",
-        "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
-        "authorization_revision": 4,
-        "panel_id": "r2a_t04_representative_panel.v1",
-        "request_count": 16,
+        "formal_authorization_id": "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5",
+        "authorization_revision": 5,
+        "panel_id": "r2a_t04_ca_q15_q25_k5_panel.v1",
+        "request_count": 2,
         "score_source": {
             "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
             "sha256": (

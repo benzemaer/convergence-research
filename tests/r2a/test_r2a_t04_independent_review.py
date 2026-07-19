@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import shutil
@@ -49,7 +50,7 @@ def score_only_package(
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 4,
+            "authorization_revision": 5,
             "formal_run_authorized": True,
             "formal_run_started": False,
             "formal_run_consumed": False,
@@ -242,32 +243,27 @@ def test_root_contract_mutations_fail(
     [
         (
             "request",
-            "UPDATE request_metrics_records SET metrics_json=json_merge_patch(metrics_json,'{\"raw_true_count\":999}') WHERE logical_request_name='D01_P_q15_k3'",
+            "UPDATE request_metrics_records SET metrics_json=json_merge_patch(metrics_json,'{\"raw_true_count\":999}') WHERE logical_request_name='CA_q15_k5'",
             "request_metric_mismatch_count",
         ),
         (
             "year",
-            "UPDATE year_metrics_records SET metrics_json=json_merge_patch(metrics_json,'{\"confirmation_events\":999}') WHERE logical_request_name='D01_P_q15_k3'",
+            "UPDATE year_metrics_records SET metrics_json=json_merge_patch(metrics_json,'{\"confirmation_events\":999}') WHERE logical_request_name='CA_q15_k5'",
             "year_metric_mismatch_count",
         ),
         (
             "termination",
-            "UPDATE termination_metrics_records SET count=count+1 WHERE logical_request_name='D01_P_q15_k3'",
+            "UPDATE termination_metrics_records SET count=count+1 WHERE logical_request_name='CA_q15_k5'",
             "termination_metric_mismatch_count",
         ),
         (
             "response_subset",
-            "UPDATE response_daily SET raw_state=false WHERE rowid=(SELECT min(rowid) FROM response_daily WHERE logical_request_name='Q02_PCAVT_q20_k3' AND raw_state=true)",
-            "response_check_mismatch_count",
-        ),
-        (
-            "marginal",
-            "UPDATE dimension_response_profiles SET row_fingerprint='wrong' WHERE logical_request_name='M01_P25' AND dimension_id='C'",
+            "UPDATE response_checks SET violation_count=999 WHERE check_id='ca_q_raw_subset'",
             "response_check_mismatch_count",
         ),
         (
             "interval_count",
-            "UPDATE request_metrics_records SET metrics_json=json_merge_patch(metrics_json,'{\"confirmed_interval_count\":999}') WHERE logical_request_name='D01_P_q15_k3'",
+            "UPDATE request_metrics_records SET metrics_json=json_merge_patch(metrics_json,'{\"confirmed_interval_count\":999}') WHERE logical_request_name='CA_q15_k5'",
             "interval_inventory_mismatch_count",
         ),
         (
@@ -320,12 +316,15 @@ def test_parquet_and_security_distribution_mismatch_fail(
 def test_security_distribution_mismatch_fails(
     package: dict[str, Path | dict[str, object]],
 ) -> None:
-    rows = (package["formal_root"] / "interval_security_distribution.csv").read_text(
-        encoding="utf-8"
-    )
-    (package["formal_root"] / "interval_security_distribution.csv").write_text(
-        rows.replace(",1,", ",999,", 1), encoding="utf-8"
-    )
+    path = package["formal_root"] / "interval_security_distribution.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+        headers = list(rows[0])
+    rows[0]["interval_count"] = str(int(rows[0]["interval_count"]) + 1)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=headers, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
     receipt = _review(package)
     assert receipt["status"] == "failed"
 

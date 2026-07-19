@@ -10,14 +10,11 @@ import duckdb
 import pytest
 
 from src.r2a.r2a_t03_dynamic_evaluator import evaluate_dynamic_request
-from src.r2a.r2a_t04_real_data_audit import (
-    R2AT04AuditError,
-    run_response_checks_sql,
-)
 from src.r2a.r2a_t04_request_panel import build_request_panel
 from src.r2a.r2a_t04_score_audit import (
     deterministic_interval_samples,
     initialize_score_audit_database,
+    run_ca_q_response_checks_sql,
     run_score_formal_audit,
 )
 
@@ -132,7 +129,7 @@ def _authorized_config() -> dict[str, object]:
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 4,
+            "authorization_revision": 5,
             "formal_run_authorized": True,
             "formal_run_started": False,
             "formal_run_consumed": False,
@@ -165,9 +162,7 @@ def test_score_audit_database_has_no_market_tables() -> None:
         "year_metrics_records",
         "termination_metrics_records",
         "response_daily",
-        "baseline_dimensions",
         "response_checks",
-        "dimension_response_profiles",
         "interval_inventory",
         "score_dimension_structure",
         "score_component_structure",
@@ -219,7 +214,7 @@ def test_interval_sample_is_deterministic_and_bounded(tmp_path: Path) -> None:
     )
 
 
-def test_synthetic_16_request_formal_execution_is_serial_and_reconciled(
+def test_synthetic_two_request_formal_execution_is_serial_and_reconciled(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     score = tmp_path / "score.duckdb"
@@ -273,7 +268,7 @@ def test_synthetic_16_request_formal_execution_is_serial_and_reconciled(
     with duckdb.connect(str(output / "audit_metrics.duckdb"), read_only=True) as audit:
         assert (
             audit.execute("SELECT count(*) FROM request_metrics_records").fetchone()[0]
-            == 16
+            == 2
         )
         assert (
             audit.execute("SELECT count(*) FROM interval_inventory").fetchone()[0]
@@ -308,7 +303,7 @@ def test_synthetic_16_request_formal_execution_is_serial_and_reconciled(
             == 0
         )
     summary = json.loads((review / "run_summary.json").read_text(encoding="utf-8"))
-    assert summary["authorization_revision"] == 4
+    assert summary["authorization_revision"] == 5
     assert (
         json.loads((output / "score_source_identity.json").read_text(encoding="utf-8"))[
             "score_release_id"
@@ -319,7 +314,7 @@ def test_synthetic_16_request_formal_execution_is_serial_and_reconciled(
         json.loads((output / "run_manifest.json").read_text(encoding="utf-8"))[
             "authorization_revision"
         ]
-        == 4
+        == 5
     )
     assert summary["review_boundary"] == {
         "automated_recommendation": "continue_to_owner_result_review",
@@ -328,8 +323,8 @@ def test_synthetic_16_request_formal_execution_is_serial_and_reconciled(
         "R2A_T05_allowed_to_start": False,
     }
     analysis = (review / "result_analysis.md").read_text(encoding="utf-8")
-    assert "best q/K" in analysis
-    assert "does not select" in analysis
+    assert "does not select q" in analysis
+    assert "CA q=1500 vs q=2500" in analysis
     assert not any(path.suffix == ".png" for path in review.rglob("*"))
 
 
@@ -353,5 +348,11 @@ def test_response_degeneracy_blocks_formal_result() -> None:
                 for item in build_request_panel(config)
             ],
         )
-        with pytest.raises(R2AT04AuditError, match="response_checks_failed"):
-            run_response_checks_sql(audit)
+        run_ca_q_response_checks_sql(audit)
+        assert (
+            audit.execute(
+                "SELECT passed FROM response_checks "
+                "WHERE check_id='ca_q_response_non_degenerate'"
+            ).fetchone()[0]
+            is False
+        )

@@ -190,19 +190,28 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_scope_id: r2a_t04_score_parameter_response_interval_structure.v1
-R2A-T04_status: authorization_revision_4_committed_pending_exact_head_quality
+R2A-T04_scope_id: r2a_t04_ca_q15_q25_k5_response_audit.v1
+R2A-T04_panel_id: r2a_t04_ca_q15_q25_k5_panel.v1
+R2A-T04_status: ca_scope_performance_repair_pending_benchmark
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
-formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-authorization_revision: 4
-reviewed_harness_head: 3f548684bef00eda1b071c9f57043ae9e0cfe307
-reviewed_harness_Quality: 29679876030 / success
-formal_run_authorized: true
+formal_authorization_id: R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5
+authorization_revision: 5
+formal_run_authorized: false
 authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_consumed: false
+revision_4_authorization_head: bd906df6b314352dccde75bc087709503d5e2262
+revision_4_run_id: R2A-T04-20260719T090524491Z
+revision_4_formal_run_started: true
+revision_4_formal_run_consumed: true
+revision_4_formal_run_completed: false
+revision_4_result: terminated_incomplete_performance
+revision_4_completed_request_count: 1
+revision_4_completed_request: D01_P_q15_k3
+revision_4_interrupted_request: D02_PA_q15_k3
+revision_4_result_review_status: rejected_incomplete
 authorization_revision_2_head: 9d3c2dab43a10b12931db921ef730db6e8552ff1
 authorization_revision_2_status: superseded_before_formal_run
 authorization_revision_2_used: false
@@ -228,7 +237,12 @@ duckdb_thread_count: 4
 R2A-T04_formal_full_universe_score_data_read: false
 R2A-T04_formal_dynamic_evaluation_executed: false
 R2A-T04_unique_input: accepted_R2A-T01_Score_release
-R2A-T04_unique_formal_scope: 16-request_Score_parameter_response_and_interval_structure_audit
+R2A-T04_unique_formal_scope: CA_q15_k5_vs_CA_q25_k5_response_and_interval_structure
+R2A-T04_request_count: 2
+CA_q15_k5_request_id: pcavt-dynreq-v1-cf420e9c025374d1
+CA_q15_k5_request_hash: cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f
+CA_q25_k5_request_id: pcavt-dynreq-v1-b210f9e5211c46db
+CA_q25_k5_request_hash: b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9
 owner_result_review: not_started
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
@@ -242,16 +256,12 @@ R2A-T03 的任务契约见
 `73b9b54ef76191fdbb44ffd7e4ae335601016466` 已接受，accepted handoff 与唯一 `DONE` 已建立。
 接受范围仅覆盖 evaluator、开发期输出契约与 synthetic/property evidence；尚未读取真实 Score release、
 运行真实 dynamic evaluation、选择最佳 q/K 或产生真实状态产物。PR #112 合并后
-R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
-启动。T04 的唯一输入是 accepted R2A-T01 Score release，唯一正式范围是冻结 16-request panel 的
-Score 参数响应、区间结构与 Score 端点结构审核，不依赖其他数据产品。冻结 benchmark evidence 已证明
-4/8/16 输出逻辑一致并选择 threads=4，本轮直接复用且不重跑。Authorization revision 2 HEAD
-`9d3c2dab...` 已在 formal run 前被替代，未被使用或消费 attempt；替代理由只是将范围收敛为
-Score parameter response and interval structure。Revision 3 authorization HEAD `21837edd...` 因
-独立 review CLI 未对齐 Score-only scope 而在 formal run 前被替代；它未被使用，也未消费 attempt。
-独立 review repair HEAD `3f548684...` 已通过 Quality `29679876030 / success`；metadata-only
-authorization revision 4 已绑定该精确 repair HEAD，并等待精确 authorization HEAD Quality。正式
-full-universe run 尚未开始，也未消费 formal attempt。
+R2A-T04 的唯一输入仍是 accepted R2A-T01 Score release。Revision 4 formal run
+`R2A-T04-20260719T090524491Z` 已消费但因性能终止，只完成一个 request，结果不可接受且不可重跑。
+Revision 5 将范围收缩为 `CA_q15_k5` 与 `CA_q25_k5` 两请求，只检查 joint-ready equality、raw/confirmed
+subset 与严格非退化。T04-local set-based evaluator 只优化 Score staging 搬运，不修改 T03 科学公式。
+当前仍需依次通过 implementation Quality、四证券新旧等价、两个 full-800 性能 benchmark、evidence
+Quality 与 metadata-only authorization Quality；本轮不得执行新的 formal run。
 任务契约见
 [`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 

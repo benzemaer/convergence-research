@@ -1,4 +1,4 @@
-"""Frozen representative request panel for the R2A-T04 real-data audit."""
+"""Frozen CA q-response request panel for the R2A-T04 real-data audit."""
 
 from __future__ import annotations
 
@@ -16,22 +16,8 @@ from src.r2a.r2a_t02_request_identity import (
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "configs/r2a/r2a_t04_real_data_audit.v1.json"
 EXPECTED_LOGICAL_NAMES = (
-    "D01_P_q15_k3",
-    "D02_PA_q15_k3",
-    "D03_PCA_q15_k3",
-    "D04_PCAV_q15_k3",
-    "D05_PCAVT_q15_k3",
-    "Q01_PCAVT_q10_k3",
-    "Q02_PCAVT_q20_k3",
-    "Q03_PCAVT_q25_k3",
-    "K01_PCAVT_q15_k2",
-    "K02_PCAVT_q15_k5",
-    "K03_PCAVT_q15_k7",
-    "M01_P25",
-    "M02_C25",
-    "M03_A25",
-    "M04_V25",
-    "M05_T25",
+    "CA_q15_k5",
+    "CA_q25_k5",
 )
 
 
@@ -54,18 +40,18 @@ def load_audit_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
 def build_request_panel(
     config: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], ...]:
-    """Build and validate the exact 16-request canonical panel."""
+    """Build and validate the exact two-request canonical panel."""
 
     resolved = dict(config) if config is not None else load_audit_config()
-    if resolved.get("panel_id") != "r2a_t04_representative_panel.v1":
+    if resolved.get("panel_id") != "r2a_t04_ca_q15_q25_k5_panel.v1":
         raise R2AT04PanelError("panel_id_mismatch")
     raw_panel = resolved.get("request_panel")
-    if not isinstance(raw_panel, list) or len(raw_panel) != 16:
+    if not isinstance(raw_panel, list) or len(raw_panel) != 2:
         raise R2AT04PanelError("logical_request_count_mismatch")
     names = tuple(item.get("logical_request_name") for item in raw_panel)
     if names != EXPECTED_LOGICAL_NAMES:
         raise R2AT04PanelError("logical_request_order_mismatch")
-    if len(set(names)) != 16:
+    if len(set(names)) != 2:
         raise R2AT04PanelError("duplicate_logical_request_name")
     built: list[dict[str, Any]] = []
     for item in raw_panel:
@@ -89,7 +75,7 @@ def build_request_panel(
         built.append({"logical_request_name": item["logical_request_name"], **envelope})
     request_ids = [str(item["request_id"]) for item in built]
     request_hashes = [str(item["request_hash"]) for item in built]
-    if len(set(request_ids)) != 16 or len(set(request_hashes)) != 16:
+    if len(set(request_ids)) != 2 or len(set(request_hashes)) != 2:
         raise R2AT04PanelError("canonical_request_identity_not_unique")
     for index, existing in enumerate(built):
         for candidate in built[index + 1 :]:

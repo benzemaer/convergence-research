@@ -69,147 +69,67 @@ def _true_sets(
     return result
 
 
-def _assert_subset_chain(
-    values: Mapping[str, set[tuple[str, str]]],
-    names: Sequence[str],
-    check_id: str,
-) -> dict[str, Any]:
-    strict = False
-    for smaller, larger in zip(names, names[1:]):
-        violation = values.get(smaller, set()) - values.get(larger, set())
-        if violation:
-            raise R2AT04ValidationError(
-                check_id, f"{smaller}->{larger}:{len(violation)}"
-            )
-        strict = strict or values.get(smaller, set()) != values.get(larger, set())
-    return {"check_id": check_id, "passed": True, "strict_change": strict}
-
-
 def validate_response_rows(
     rows: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], ...]:
-    """Independently validate q, K and dimension response relations."""
+    """Independently validate the frozen CA q-response relations."""
 
+    names = ("CA_q15_k5", "CA_q25_k5")
+    by_name_key = {(str(row["logical_request_name"]), _key(row)): row for row in rows}
+    keys = {
+        name: {key for candidate, key in by_name_key if candidate == name}
+        for name in names
+    }
+    if keys[names[0]] != keys[names[1]]:
+        raise R2AT04ValidationError("ca_q_key_set_mismatch")
+    joint_mismatch = sum(
+        by_name_key[(names[0], key)].get("joint_ready")
+        != by_name_key[(names[1], key)].get("joint_ready")
+        for key in keys[names[0]]
+    )
+    if joint_mismatch:
+        raise R2AT04ValidationError("ca_q_joint_ready_mismatch", str(joint_mismatch))
     raw = _true_sets(rows, "raw_state")
     confirmed = _true_sets(rows, "confirmed_state")
-    checks = [
-        _assert_subset_chain(
-            raw,
-            (
-                "Q01_PCAVT_q10_k3",
-                "D05_PCAVT_q15_k3",
-                "Q02_PCAVT_q20_k3",
-                "Q03_PCAVT_q25_k3",
-            ),
-            "q_raw_subset",
-        ),
-        _assert_subset_chain(
-            confirmed,
-            (
-                "Q01_PCAVT_q10_k3",
-                "D05_PCAVT_q15_k3",
-                "Q02_PCAVT_q20_k3",
-                "Q03_PCAVT_q25_k3",
-            ),
-            "q_confirmed_subset",
-        ),
-        _assert_subset_chain(
-            confirmed,
-            (
-                "K03_PCAVT_q15_k7",
-                "K02_PCAVT_q15_k5",
-                "D05_PCAVT_q15_k3",
-                "K01_PCAVT_q15_k2",
-            ),
-            "k_confirmed_subset",
-        ),
-        _assert_subset_chain(
-            raw,
-            (
-                "D05_PCAVT_q15_k3",
-                "D04_PCAV_q15_k3",
-                "D03_PCA_q15_k3",
-                "D02_PA_q15_k3",
-                "D01_P_q15_k3",
-            ),
-            "dimension_raw_subset",
-        ),
-        _assert_subset_chain(
-            confirmed,
-            (
-                "D05_PCAVT_q15_k3",
-                "D04_PCAV_q15_k3",
-                "D03_PCA_q15_k3",
-                "D02_PA_q15_k3",
-                "D01_P_q15_k3",
-            ),
-            "dimension_confirmed_subset",
-        ),
-    ]
-    by_name_key = {(str(row["logical_request_name"]), _key(row)): row for row in rows}
-    k_names = (
-        "K01_PCAVT_q15_k2",
-        "D05_PCAVT_q15_k3",
-        "K02_PCAVT_q15_k5",
-        "K03_PCAVT_q15_k7",
+    raw_violation = raw[names[0]] - raw[names[1]]
+    confirmed_violation = confirmed[names[0]] - confirmed[names[1]]
+    if raw_violation:
+        raise R2AT04ValidationError("ca_q_raw_subset", str(len(raw_violation)))
+    if confirmed_violation:
+        raise R2AT04ValidationError(
+            "ca_q_confirmed_subset", str(len(confirmed_violation))
+        )
+    raw_strict = raw[names[0]] != raw[names[1]]
+    confirmed_strict = confirmed[names[0]] != confirmed[names[1]]
+    if not (raw_strict or confirmed_strict):
+        raise R2AT04ValidationError("blocked_ca_q_response_degenerate")
+    comparison = "CA_q15_k5 -> CA_q25_k5"
+    return (
+        {
+            "check_id": "ca_q_joint_ready_equality",
+            "comparison": comparison,
+            "passed": True,
+            "strict_change": False,
+        },
+        {
+            "check_id": "ca_q_raw_subset",
+            "comparison": comparison,
+            "passed": True,
+            "strict_change": raw_strict,
+        },
+        {
+            "check_id": "ca_q_confirmed_subset",
+            "comparison": comparison,
+            "passed": True,
+            "strict_change": confirmed_strict,
+        },
+        {
+            "check_id": "ca_q_response_non_degenerate",
+            "comparison": comparison,
+            "passed": True,
+            "strict_change": True,
+        },
     )
-    baseline_keys = {key for name, key in by_name_key if name == k_names[1]}
-    for name in k_names:
-        actual = {key for candidate, key in by_name_key if candidate == name}
-        if actual != baseline_keys:
-            raise R2AT04ValidationError("k_key_set_mismatch", name)
-        for key in baseline_keys:
-            if by_name_key[(name, key)].get("raw_state") != by_name_key[
-                (k_names[1], key)
-            ].get("raw_state"):
-                raise R2AT04ValidationError("k_raw_state_mismatch", f"{name}:{key}")
-    if not all(check["strict_change"] for check in checks):
-        missing = [check["check_id"] for check in checks if not check["strict_change"]]
-        raise R2AT04ValidationError("response_degenerate", ",".join(missing))
-    checks.append({"check_id": "k_raw_state_equality", "passed": True})
-    return tuple(checks)
-
-
-def validate_marginal_dimension_rows(
-    baseline_rows: Sequence[Mapping[str, Any]],
-    candidate_rows: Sequence[Mapping[str, Any]],
-    *,
-    target_dimension: str,
-) -> dict[str, Any]:
-    fields = (
-        "q_bp",
-        "main_threshold",
-        "weak_threshold",
-        "dimension_ready",
-        "dimension_active",
-    )
-    baseline = {(_key(row), str(row["dimension_id"])): row for row in baseline_rows}
-    candidate = {(_key(row), str(row["dimension_id"])): row for row in candidate_rows}
-    if set(baseline) != set(candidate):
-        raise R2AT04ValidationError("marginal_dimension_key_mismatch")
-    for key, left in baseline.items():
-        right = candidate[key]
-        if key[1] != target_dimension and any(
-            left.get(field) != right.get(field) for field in fields
-        ):
-            raise R2AT04ValidationError("marginal_non_target_changed", str(key))
-    baseline_active = {
-        key[0]
-        for key, row in baseline.items()
-        if key[1] == target_dimension and row.get("dimension_active") is True
-    }
-    candidate_active = {
-        key[0]
-        for key, row in candidate.items()
-        if key[1] == target_dimension and row.get("dimension_active") is True
-    }
-    if not baseline_active <= candidate_active:
-        raise R2AT04ValidationError("marginal_target_active_not_superset")
-    return {
-        "check_id": f"marginal_{target_dimension}_invariance",
-        "passed": True,
-        "strict_target_expansion": baseline_active != candidate_active,
-    }
 
 
 def _sha256(path: Path) -> str:
@@ -316,7 +236,7 @@ def validate_review_bundle(bundle: Path) -> dict[str, Any]:
     profiles = json.loads(
         (bundle / "request_output_profiles.json").read_text(encoding="utf-8")
     )
-    if not isinstance(profiles, dict) or len(profiles) != 16:
+    if not isinstance(profiles, dict) or len(profiles) != 2:
         raise R2AT04ValidationError("request_output_profiles_count_mismatch")
     sample_rows = _csv_rows(bundle / "interval_samples.csv")
     sample_counts = Counter(row["logical_request_name"] for row in sample_rows)
@@ -352,7 +272,7 @@ def validate_review_bundle(bundle: Path) -> dict[str, Any]:
             raise R2AT04ValidationError("score_endpoint_summary_key_not_unique")
     return {
         "status": "passed",
-        "request_count": 16,
+        "request_count": 2,
         "file_count": len(REQUIRED_COMPACT_FILES) + 1,
         "interval_sample_count": len(sample_rows),
         "total_bytes": total_bytes,

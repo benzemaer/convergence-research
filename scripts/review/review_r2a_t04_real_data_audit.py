@@ -35,10 +35,10 @@ from src.r2a.r2a_t04_request_panel import (  # noqa: E402
 )
 
 TASK_ID = "R2A-T04"
-SCOPE_ID = "r2a_t04_score_parameter_response_interval_structure.v1"
-AUTHORIZATION_ID = "R2A-T04-REAL-AUDIT-AUTH-20260719"
-AUTHORIZATION_REVISION = 4
-PANEL_ID = "r2a_t04_representative_panel.v1"
+SCOPE_ID = "r2a_t04_ca_q15_q25_k5_response_audit.v1"
+AUTHORIZATION_ID = "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5"
+AUTHORIZATION_REVISION = 5
+PANEL_ID = "r2a_t04_ca_q15_q25_k5_panel.v1"
 RUN_ID_PATTERN = re.compile(r"^R2A-T04-[0-9]{8}T[0-9]{9}Z$")
 EXPECTED_SCORE_IDENTITY = {
     "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
@@ -62,9 +62,7 @@ REQUIRED_AUDIT_TABLES = {
     "year_metrics_records",
     "termination_metrics_records",
     "response_daily",
-    "baseline_dimensions",
     "response_checks",
-    "dimension_response_profiles",
     "interval_inventory",
     "score_dimension_structure",
     "score_component_structure",
@@ -308,7 +306,7 @@ def _check_root_inventory(review: Review, run_root: Path) -> None:
     if missing:
         review.fail("inventory", "required_root_files", expected=[], actual=missing)
     request_files = sorted((run_root / "requests").glob("*.json"))
-    review.equal("inventory", "request_json_count", len(request_files), 16)
+    review.equal("inventory", "request_json_count", len(request_files), 2)
     residual = (
         sorted(
             path.relative_to(run_root).as_posix()
@@ -365,7 +363,7 @@ def _check_run_identity(
         "formal_authorization_id": AUTHORIZATION_ID,
         "authorization_revision": AUTHORIZATION_REVISION,
         "formal_run_consumed": True,
-        "request_count": 16,
+        "request_count": 2,
         "request_execution": "strictly_serial",
         "duckdb_thread_count": 4,
     }
@@ -387,7 +385,7 @@ def _check_run_identity(
         ("scope_id", SCOPE_ID),
         ("formal_authorization_id", AUTHORIZATION_ID),
         ("authorization_revision", AUTHORIZATION_REVISION),
-        ("request_count", 16),
+        ("request_count", 2),
     ):
         review.equal("run_identity", f"summary_{field}", summary.get(field), expected)
     execution = summary.get("execution", {})
@@ -425,12 +423,12 @@ def _check_run_identity(
         .splitlines()
         if line
     ]
-    review.equal("run_identity", "formal_log_record_count", len(log_rows), 16)
+    review.equal("run_identity", "formal_log_record_count", len(log_rows), 2)
     review.equal(
         "run_identity",
         "formal_log_validator_status",
         sum(row.get("validator_status") == "passed" for row in log_rows),
-        16,
+        2,
     )
     return authorization, manifest
 
@@ -442,7 +440,7 @@ def _check_panel(review: Review, run_root: Path, bundle: Path) -> list[dict[str,
     built = list(build_request_panel(config))
     review.equal("panel", "run_root_vs_compact", local, compact)
     review.equal("panel", "run_root_vs_current_config", local, built)
-    review.equal("panel", "panel_count", len(local), 16)
+    review.equal("panel", "panel_count", len(local), 2)
     review.equal("panel", "panel_id", config.get("panel_id"), PANEL_ID)
     for field in ("logical_request_name", "request_id", "request_hash"):
         values = [item.get(field) for item in local]
@@ -545,8 +543,8 @@ def _request_metrics(
         db, "SELECT * FROM request_metrics_records ORDER BY logical_request_name"
     )
     validator_passed = sum(row["validator_status"] == "passed" for row in records)
-    review.equal("request_metric", "validator_record_count", len(records), 16)
-    review.equal("request_metric", "validator_passed_count", validator_passed, 16)
+    review.equal("request_metric", "validator_record_count", len(records), 2)
+    review.equal("request_metric", "validator_passed_count", validator_passed, 2)
     fields = (
         "spine_observation_count",
         "joint_ready_count",
@@ -706,201 +704,74 @@ def _termination_metrics(
         )
 
 
-def _chain_check(
-    db: duckdb.DuckDBPyConnection, names: Sequence[str], field: str
-) -> tuple[int, bool]:
-    violations = 0
-    strict = False
-    for smaller, larger in zip(names, names[1:]):
-        violations += int(
-            db.execute(
-                f"SELECT count(*) FROM response_daily s ANTI JOIN (SELECT security_id,trading_date "
-                f"FROM response_daily WHERE logical_request_name=? AND {field}=true) l "
-                f"USING(security_id,trading_date) WHERE s.logical_request_name=? AND s.{field}=true",
-                [larger, smaller],
-            ).fetchone()[0]
-        )
-        counts = [
-            int(
-                db.execute(
-                    f"SELECT count(*) FROM response_daily WHERE logical_request_name=? AND {field}=true",
-                    [name],
-                ).fetchone()[0]
-            )
-            for name in (smaller, larger)
-        ]
-        strict = strict or counts[0] != counts[1]
-    return violations, strict
-
-
 def _response_checks(
     review: Review, db: duckdb.DuckDBPyConnection, bundle: Path
 ) -> None:
-    computed: dict[str, dict[str, Any]] = {}
-    chains = {
-        "q_raw": (
-            (
-                "Q01_PCAVT_q10_k3",
-                "D05_PCAVT_q15_k3",
-                "Q02_PCAVT_q20_k3",
-                "Q03_PCAVT_q25_k3",
-            ),
-            "raw_state",
-        ),
-        "q_confirmed": (
-            (
-                "Q01_PCAVT_q10_k3",
-                "D05_PCAVT_q15_k3",
-                "Q02_PCAVT_q20_k3",
-                "Q03_PCAVT_q25_k3",
-            ),
-            "confirmed_state",
-        ),
-        "k_confirmed": (
-            (
-                "K03_PCAVT_q15_k7",
-                "K02_PCAVT_q15_k5",
-                "D05_PCAVT_q15_k3",
-                "K01_PCAVT_q15_k2",
-            ),
-            "confirmed_state",
-        ),
-        "dimension_raw": (
-            (
-                "D05_PCAVT_q15_k3",
-                "D04_PCAV_q15_k3",
-                "D03_PCA_q15_k3",
-                "D02_PA_q15_k3",
-                "D01_P_q15_k3",
-            ),
-            "raw_state",
-        ),
-        "dimension_confirmed": (
-            (
-                "D05_PCAVT_q15_k3",
-                "D04_PCAV_q15_k3",
-                "D03_PCA_q15_k3",
-                "D02_PA_q15_k3",
-                "D01_P_q15_k3",
-            ),
-            "confirmed_state",
-        ),
-    }
-    for check_id, (names, field) in chains.items():
-        violation, strict = _chain_check(db, names, field)
-        computed[check_id] = {
-            "violation_count": violation,
-            "strict_change": strict,
-            "passed": violation == 0 and strict,
-        }
-    for check_id, names, field in (
-        (
-            "k_raw_equality",
-            (
-                "K01_PCAVT_q15_k2",
-                "D05_PCAVT_q15_k3",
-                "K02_PCAVT_q15_k5",
-                "K03_PCAVT_q15_k7",
-            ),
-            "raw_state",
-        ),
-        (
-            "q_joint_ready_equality",
-            (
-                "Q01_PCAVT_q10_k3",
-                "D05_PCAVT_q15_k3",
-                "Q02_PCAVT_q20_k3",
-                "Q03_PCAVT_q25_k3",
-            ),
-            "joint_ready",
-        ),
-    ):
-        violation = sum(
-            int(
-                db.execute(
-                    f"SELECT count(*) FROM (SELECT security_id,trading_date,{field} state_value "
-                    f"FROM response_daily WHERE logical_request_name=?) a FULL JOIN "
-                    f"(SELECT security_id,trading_date,{field} state_value FROM response_daily "
-                    f"WHERE logical_request_name=?) b USING(security_id,trading_date) "
-                    "WHERE a.state_value IS DISTINCT FROM b.state_value",
-                    [names[0], name],
-                ).fetchone()[0]
-            )
-            for name in names[1:]
-        )
-        computed[check_id] = {
-            "violation_count": violation,
-            "strict_change": None,
-            "passed": violation == 0,
-        }
-    k_names = (
-        "K01_PCAVT_q15_k2",
-        "D05_PCAVT_q15_k3",
-        "K02_PCAVT_q15_k5",
-        "K03_PCAVT_q15_k7",
-    )
-    violation = sum(
-        int(
+    left_name = "CA_q15_k5"
+    right_name = "CA_q25_k5"
+    comparison = "CA_q15_k5 -> CA_q25_k5"
+
+    def subset(field: str) -> tuple[int, bool]:
+        violation = int(
             db.execute(
-                "SELECT count(*) FROM response_daily lo JOIN response_daily hi ON lo.security_id=hi.security_id "
-                "AND lo.raw_streak_start_date=hi.raw_streak_start_date WHERE lo.logical_request_name=? "
-                "AND hi.logical_request_name=? AND lo.confirmation_event AND hi.confirmation_event "
-                "AND hi.trading_date<lo.trading_date",
-                [lower, higher],
+                f"SELECT count(*) FROM response_daily l ANTI JOIN response_daily r "
+                "ON l.security_id=r.security_id AND l.trading_date=r.trading_date "
+                f"AND r.logical_request_name=? AND r.{field}=true "
+                f"WHERE l.logical_request_name=? AND l.{field}=true",
+                [right_name, left_name],
             ).fetchone()[0]
         )
-        for lower, higher in zip(k_names, k_names[1:])
+        right_only = int(
+            db.execute(
+                f"SELECT count(*) FROM response_daily r ANTI JOIN response_daily l "
+                "ON l.security_id=r.security_id AND l.trading_date=r.trading_date "
+                f"AND l.logical_request_name=? AND l.{field}=true "
+                f"WHERE r.logical_request_name=? AND r.{field}=true",
+                [left_name, right_name],
+            ).fetchone()[0]
+        )
+        return violation, right_only > 0
+
+    joint_mismatch = int(
+        db.execute(
+            "SELECT count(*) FROM (SELECT security_id,trading_date,joint_ready FROM "
+            "response_daily WHERE logical_request_name=?) l FULL JOIN (SELECT "
+            "security_id,trading_date,joint_ready FROM response_daily WHERE "
+            "logical_request_name=?) r USING(security_id,trading_date) WHERE "
+            "l.security_id IS NULL OR r.security_id IS NULL OR "
+            "l.joint_ready IS DISTINCT FROM r.joint_ready",
+            [left_name, right_name],
+        ).fetchone()[0]
     )
-    computed["k_confirmation_not_earlier"] = {
-        "violation_count": violation,
-        "strict_change": None,
-        "passed": violation == 0,
+    raw_violation, raw_strict = subset("raw_state")
+    confirmed_violation, confirmed_strict = subset("confirmed_state")
+    non_degenerate = raw_strict or confirmed_strict
+    computed = {
+        "ca_q_joint_ready_equality": {
+            "comparison": comparison,
+            "violation_count": joint_mismatch,
+            "strict_change": False,
+            "passed": joint_mismatch == 0,
+        },
+        "ca_q_raw_subset": {
+            "comparison": comparison,
+            "violation_count": raw_violation,
+            "strict_change": raw_strict,
+            "passed": raw_violation == 0,
+        },
+        "ca_q_confirmed_subset": {
+            "comparison": comparison,
+            "violation_count": confirmed_violation,
+            "strict_change": confirmed_strict,
+            "passed": confirmed_violation == 0,
+        },
+        "ca_q_response_non_degenerate": {
+            "comparison": comparison,
+            "violation_count": 0 if non_degenerate else 1,
+            "strict_change": non_degenerate,
+            "passed": non_degenerate,
+        },
     }
-    profiles = _indexed(
-        _rows(db, "SELECT * FROM dimension_response_profiles"),
-        ("logical_request_name", "dimension_id"),
-    )
-    for marginal, dimension in (
-        ("M01_P25", "P"),
-        ("M02_C25", "C"),
-        ("M03_A25", "A"),
-        ("M04_V25", "V"),
-        ("M05_T25", "T"),
-    ):
-        violation, strict = _chain_check(
-            db, ("D05_PCAVT_q15_k3", marginal), "raw_state"
-        )
-        computed[f"marginal_{dimension}_joint_raw_superset"] = {
-            "violation_count": violation,
-            "strict_change": strict,
-            "passed": violation == 0,
-        }
-        mismatch = 0
-        for other in "PCAVT":
-            baseline = profiles.get(("D05_PCAVT_q15_k3", other))
-            candidate = profiles.get((marginal, other))
-            if baseline is None or candidate is None:
-                mismatch += 1
-            elif other != dimension and any(
-                baseline[field] != candidate[field]
-                for field in (
-                    "row_count",
-                    "row_fingerprint",
-                    "active_count",
-                    "active_fingerprint",
-                )
-            ):
-                mismatch += 1
-        baseline_target = profiles.get(("D05_PCAVT_q15_k3", dimension), {})
-        candidate_target = profiles.get((marginal, dimension), {})
-        target_expansion = int(candidate_target.get("active_count", -1)) > int(
-            baseline_target.get("active_count", -1)
-        )
-        computed[f"marginal_{dimension}_non_target_invariance"] = {
-            "violation_count": mismatch,
-            "strict_change": target_expansion,
-            "passed": mismatch == 0,
-        }
     db_rows = _indexed(_rows(db, "SELECT * FROM response_checks"), ("check_id",))
     csv_rows = _indexed(_csv(bundle / "response_checks.csv"), ("check_id",))
     review.equal(
@@ -916,7 +787,7 @@ def _response_checks(
         {key[0] for key in csv_rows},
     )
     for key, actual in computed.items():
-        require_strict = key in chains or key.endswith("_non_target_invariance")
+        require_strict = key == "ca_q_response_non_degenerate"
         if (
             actual["violation_count"] != 0
             or not actual["passed"]
@@ -935,7 +806,7 @@ def _response_checks(
             "response_check",
             actual,
             db_rows.get((key,)),
-            ("violation_count", "strict_change", "passed"),
+            ("comparison", "violation_count", "strict_change", "passed"),
             key,
         )
         _compare_fields(
@@ -943,7 +814,7 @@ def _response_checks(
             "response_check",
             actual,
             csv_rows.get((key,)),
-            ("violation_count", "strict_change", "passed"),
+            ("comparison", "violation_count", "strict_change", "passed"),
             key,
         )
 

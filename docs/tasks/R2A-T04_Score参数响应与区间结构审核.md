@@ -1,173 +1,82 @@
-# R2A-T04 Score 参数响应与区间结构审核
+# R2A-T04 CA q15/q25 参数响应与区间结构审核
 
-## 1. 定位与当前状态
-
-R2A-T04 的唯一输入是 accepted R2A-T01 Score release；唯一正式范围是冻结 16-request panel 的 Score 参数响应、区间结构与 accepted Score 端点结构审核。它不依赖其他数据产品。
+## 1. 当前阶段
 
 ```text
-task_id: R2A-T04
-scope_id: r2a_t04_score_parameter_response_interval_structure.v1
-status: authorization_revision_4_committed_pending_exact_head_quality
-formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-authorization_revision: 4
-reviewed_harness_head: 3f548684bef00eda1b071c9f57043ae9e0cfe307
-reviewed_harness_Quality: 29679876030 / success
-formal_run_authorized: true
-authorization_effective_only_after_exact_head_quality_success: true
+scope_id: r2a_t04_ca_q15_q25_k5_response_audit.v1
+panel_id: r2a_t04_ca_q15_q25_k5_panel.v1
+request_count: 2
+status: ca_scope_performance_repair_pending_benchmark
+authorization_revision: 5
+formal_authorization_id: R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5
+formal_run_authorized: false
 formal_run_started: false
 formal_run_consumed: false
-full_universe_request_count: 0
-full_universe_request_concurrency: 1
-duckdb_thread_count: 4
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
 ```
 
-Authorization revision 2 HEAD `9d3c2dab43a10b12931db921ef730db6e8552ff1` 已在 formal run 前被替代，未被使用、未开始正式运行、未消费 formal attempt：
+唯一输入是 accepted R2A-T01 Score release。唯一研究比较是 `CA_q15_k5` 与 `CA_q25_k5` 的 Score 参数响应和收敛区间结构。
+
+## 2. Revision 4 失败事实
+
+Revision 4 run `R2A-T04-20260719T090524491Z` 已开始并消费，但因性能被人工终止，只完成 `D01_P_q15_k3`，在 `D02_PA_q15_k3` 中断。其状态固定为 `terminated_incomplete_performance / rejected_incomplete`。该 revision 不可恢复、不可重跑，旧 RunRoot 不得删除或修改，结果不得接受。
+
+## 3. 冻结请求
 
 ```text
-authorization_revision_2_status: superseded_before_formal_run
-authorization_revision_2_used: false
-authorization_revision_2_formal_run_started: false
-authorization_revision_2_formal_attempt_consumed: false
-authorization_revision_2_superseded_reason: scope_corrected_to_score_parameter_response_and_interval_structure
-authorization_revision_3_head: 21837edddfcc298b8539bcf9f71a1b7e016b6d47
-authorization_revision_3_status: superseded_before_formal_run
-authorization_revision_3_used: false
-authorization_revision_3_formal_run_started: false
-authorization_revision_3_formal_attempt_consumed: false
-superseded_reason: independent_review_cli_not_aligned_with_score_only_scope
+CA_q15_k5
+request_id: pcavt-dynreq-v1-cf420e9c025374d1
+request_hash: cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f
+selected_dimensions: [C, A]
+q_by_dimension: {C: 1500, A: 1500}
+confirmation_k: 5
+
+CA_q25_k5
+request_id: pcavt-dynreq-v1-b210f9e5211c46db
+request_hash: b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9
+selected_dimensions: [C, A]
+q_by_dimension: {C: 2500, A: 2500}
+confirmation_k: 5
 ```
 
-## 2. 不可变输入绑定
+请求必须由 `build_canonical_request()` 构建，并继续执行 request ID/hash uniqueness 与 short-ID collision guard。
 
-```text
-score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
-score_database_sha256: d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3
-score_database_byte_size: 4255395840
-score_security_count: 800
-score_date_min: 2016-01-04
-score_date_max: 2026-06-30
+## 4. 科学检查
 
-evaluator_version: r2a_t03_dynamic_evaluator.v1
-output_schema_version: r2a_t03_dynamic_evaluation_output.v1
-dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
-panel_id: r2a_t04_representative_panel.v1
-request_count: 16
-```
+只允许以下四项 response checks：
 
-Score database 只读打开。线程 benchmark evidence 直接复用，不得重跑：
+1. `ca_q_joint_ready_equality`：两请求逐 security/date 的 `joint_ready` 完全相同；
+2. `ca_q_raw_subset`：q=1500 raw-true keys 是 q=2500 的子集；
+3. `ca_q_confirmed_subset`：q=1500 confirmed-true keys 是 q=2500 的子集；
+4. `ca_q_response_non_degenerate`：raw 或 confirmed 至少一个集合严格变化。
 
-```text
-benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
-benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
-benchmark_receipt_byte_size: 97485
-benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
-selected_duckdb_threads: 4
-thread_benchmark_evidence_reused: true
-reuse_basis: evaluator_request_output_and_fingerprint_core_byte_identical
-thread_benchmark_rerun_required: false
-```
+任何 subset violation 或 readiness mismatch 阻塞；两层集合均相同则 `blocked_ca_q_response_degenerate`。旧 P→PA→PCA→PCAV→PCAVT ladder、K chain、PCAVT equal-q chain、五个 marginal request 及其 checks 不再执行或要求。
 
-## 3. 冻结的 16-request panel
+## 5. 保持不变的输出
 
-Panel 包含五级维度阶梯 `P`、`PA`、`PCA`、`PCAV`、`PCAVT`；PCAVT equal-q 1000/1500/2000/2500 bp；PCAVT confirmation K=2/3/5/7；以及 P/C/A/V/T 各自从 q=1500 bp 单独放宽至 2500 bp 的五个 marginal requests。D05 基线在比较组间复用，总 request 数恰为 16。
+复用 T03 canonical request validation、source validation、dimension/joint 状态公式、raw streak、K=5 confirmation、confirmed interval、termination/right-censoring、五张 output tables 与 accepted validator。继续生成 request/year/termination metrics、interval inventory、deterministic samples，以及四类 interval endpoint 上的五维和十组件 Score 结构。Endpoint 中的 P/V/T 只作上下文，不参与 CA 联合条件。
 
-Panel 用于审核响应关系，不构成最佳参数候选集。T04 不选择或冻结唯一 q/K。
+## 6. Set-based transfer repair
 
-## 4. 参数响应硬校验
+`src/r2a/r2a_t04_set_based_evaluator.py` 是 T04-local wrapper。它复用 T03 private helpers，唯一计算路径差异是通过 DuckDB `ATTACH '<score_data.duckdb>' AS score_source (READ_ONLY)` 和 `INSERT ... SELECT` 将 spine 与 C/A dimension rows 直接写入 staging。禁止 pandas、全量 Python rows、source `fetchall/fetchmany` 搬运、全量 `executemany` 写入和跨 request persistent cache。
 
-必须验证：
+T03 evaluator、T03 output contract 和 legacy `r2a_t04_real_data_audit.py` 不修改。
 
-- equal-q 的 raw 与 confirmed 状态随 q 放宽形成 superset，joint-ready 精确相等；
-- 不同 K 的 raw 状态精确相等，confirmed 状态随 K 增大收缩，高 K confirmation 不早于低 K；
-- `P → PA → PCA → PCAV → PCAVT` 的 raw 与 confirmed 状态逐级收缩；
-- 每个 marginal request 的目标维 active state 严格扩张，非目标维精确不变，joint raw state 为 D05 的 superset；
-- 整个 panel 的 raw true 与 confirmed interval 总数均大于零，响应不得退化。
+## 7. Benchmark 与授权顺序
 
-任一响应 mismatch 或退化都阻塞正式结果。
+Implementation HEAD 通过 Quality 后，使用固定证券 `603345.SH, 603233.SH, 688220.SH, 300316.SZ`、完整历史、threads=4，对两个 request 分别运行旧/新 evaluator，五表 schema、row count、PK、所有非键字段和 canonical profiles 必须完全一致。
 
-## 5. 区间结构审核
+随后只用新 evaluator 严格串行运行两个 full-800 benchmark。每个 request 必须 validator passed、800 securities、wall ≤600 秒、peak RSS ≤6442450944；合计 wall ≤1200 秒。Benchmark 不创建 formal authorization，不消费 attempt，不产生科学结论。
 
-每个 request 报告 spine、present、joint-ready、raw true/false/null、raw rate、最大 streak 与证券级 streak 分位数、confirmed count/rate、confirmation event、interval count、security breadth、zero-interval securities、duration 分布、right-censored 分布与 termination distribution。年度表报告相同核心结构，并明确 2026 是截至 2026-06-30 的部分年度。
+Passed receipt 提交并通过 Quality 后，才允许创建 metadata-only revision 5 authorization commit；该提交的 parent 必须是精确 evidence HEAD。授权提交 Quality 成功后仍不得在本轮运行 formal。
 
-`interval_inventory` 的主键为：
+## 8. Compact review 与分析边界
 
-```text
-logical_request_name
-request_id
-security_id
-interval_ordinal
-```
+Compact bundle 保持原 14 文件清单且总计 ≤60 MiB；request count 和 profiles count 均为 2。`result_analysis.md` 固定为 Score identity、两请求 panel、validator、joint evaluability、raw/confirmed response、interval duration、breadth、year、termination、Score endpoints、limitations、automated recommendation 十三节。
 
-每个 request 的 inventory row count 必须与 request metrics 的 confirmed interval count 完全一致，且主键不得重复。
+Recommendation 只能是 `continue_to_owner_result_review` 或 `blocked_evaluator_or_response_degeneracy`。不得写最佳 q、canonical q、交易信号、未来收益、回测或组合。
 
-## 6. Score 端点结构审核
+## 9. 停止点
 
-对每个 confirmed interval 抽取四类非空日期：`raw_start`、`confirmation`、`last_confirmed_end` 和 `termination`。每个端点保留五个 dimension 的 mean/min、eligibility、validity、reason codes，以及十个 component 的 raw value、percentile、Score、eligibility、validity、reason codes。
-
-若四类端点的非空日期总数为 `endpoint_count`，则每个 request 必须满足：
-
-```text
-score_dimension_structure rows = endpoint_count × 5
-score_component_structure rows = endpoint_count × 10
-```
-
-端点 key 不得重复。聚合分位数必须由 DuckDB `quantile_cont` 计算，不能把全量 endpoint rows 载入 Python。
-
-## 7. 确定性区间样本
-
-每个 request 最多选择 20 个 interval，稳定排序键为：
-
-```text
-sha256(request_hash + ":" + security_id + ":" + confirmation_date + ":" + interval_ordinal)
-```
-
-按 hash 升序截取；不足 20 个时保留全部。不得人工选样或按结果好坏筛选。
-
-## 8. 串行正式执行
-
-Formal gate 通过后，16 个 requests 必须严格串行。每个 request 使用 800 只证券的完整 observation history，DuckDB threads 固定为 4。执行顺序固定为 evaluator、accepted output validator、五表 canonical profiles、metrics/response/interval/Score endpoint 抽取、formal log，然后删除临时 result DuckDB。禁止并行 requests、resume、自动重跑、跳过 request、按日期切片、证券抽样或动态调整 threads。
-
-Gate 必须在创建 output root 前验证 authorization HEAD/parent/revision、Score identity、benchmark receipt identity/fingerprint/threads、panel identity/count 与 concurrency=1。
-
-## 9. Formal 与 compact review 产物
-
-Local formal root 保留 authorization、Score identity、panel、manifest、receipt、analysis、per-request request JSON、log、`audit_metrics.duckdb`、完整 interval parquet 与证券级 interval distribution。完整数据库与 interval 明细不得提交 Git。
-
-Compact review bundle 恰含：
-
-```text
-request_metrics.csv
-year_metrics.csv
-termination_metrics.csv
-response_checks.csv
-interval_structure_summary.csv
-interval_samples.csv
-score_dimension_endpoint_summary.csv
-score_component_endpoint_summary.csv
-request_output_profiles.json
-request_panel.json
-score_source_identity.json
-validation_receipt.json
-result_analysis.md
-run_summary.json
-```
-
-Bundle 总大小不超过 60 MiB，不含完整 request result 或 audit database。自动 recommendation 只能为 `continue_to_owner_result_review` 或 `blocked_evaluator_or_response_degeneracy`，owner result review 保持 pending。
-
-## 10. 研究边界与停止点
-
-T04 不选择最佳 q/K，不注册 canonical dynamic state，不生成预测标签或交易信号，不做回测或组合。正式结果接受前不得创建 `DONE`，不得允许 R2A-T05。
-
-Authorization revision 3 HEAD `21837edddfcc298b8539bcf9f71a1b7e016b6d47` 已在正式运行前被替代，未使用且未消费 attempt。独立 review repair HEAD `3f548684bef00eda1b071c9f57043ae9e0cfe307` 已通过 Quality `29679876030 / success`；metadata-only revision 4 已精确绑定该 HEAD。停止在：
-
-```text
-R2A-T04 Score-only revision 4 formal authorization review
-formal_run_authorized: true
-formal_run_started: false
-formal_run_consumed: false
-full_universe_request_count: 0
-R2A-T04_DONE: absent
-R2A-T05_allowed_to_start: false
-```
+最终停止在 `R2A-T04 CA two-request formal authorization review`。Revision 4 保持 consumed/unaccepted；revision 5 仅 authorized_not_started，`DONE` absent，R2A-T05 false。
