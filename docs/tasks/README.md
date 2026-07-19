@@ -192,15 +192,15 @@ R2A-T04_allowed_to_start: true
 R2A-T04_started: true
 R2A-T04_scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
 R2A-T04_panel_id: r2a_t04_ca_four_q_k5_panel.v1
-R2A-T04_status: ca_four_q_scope_expansion_pending_benchmark
+R2A-T04_status: authorized_not_started
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
 formal_authorization_id: R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6
 authorization_revision: 6
-reviewed_harness_head: null
-reviewed_harness_Quality: pending
-formal_run_authorized: false
+reviewed_harness_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
+reviewed_harness_Quality: 29707568838 / success
+formal_run_authorized: true
 authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_consumed: false
@@ -252,6 +252,16 @@ optimized_benchmark_receipt_sha256: 59e87d0124e52411a47242d017facfd91f98659c2055
 optimized_benchmark_CA_q15_wall_seconds: 203.97563770017587
 optimized_benchmark_CA_q25_wall_seconds: 555.4190305001102
 optimized_benchmark_combined_wall_seconds: 759.3946682002861
+q10_q20_benchmark_status: passed
+q10_q20_benchmark_receipt_sha256: adf58b303e52f1f9e869e679532bf399a44d3ca8a19f740e14182f1a97b6bec6
+scope_expansion_implementation_head: abd78af8c2fb10d3bd8257355a57df29c923632c
+scope_expansion_implementation_Quality: 29706820683 / success
+q10_q20_benchmark_evidence_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
+q10_q20_benchmark_evidence_Quality: 29707568838 / success
+q10_full_800_wall_seconds: 115.87203370011412
+q20_full_800_wall_seconds: 261.42730220011435
+q10_q20_combined_wall_seconds: 377.29933590022847
+four_q_combined_evaluator_seconds: 1136.6940041005146
 R2A-T04_formal_full_universe_score_data_read: false
 R2A-T04_formal_dynamic_evaluation_executed: false
 R2A-T04_unique_input: accepted_R2A-T01_Score_release

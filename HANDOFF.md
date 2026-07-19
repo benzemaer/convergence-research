@@ -12,16 +12,17 @@ PR: #113 / Open / Draft
 R2A-T04 scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
 panel_id: r2a_t04_ca_four_q_k5_panel.v1
 request_count: 4
-status: ca_four_q_scope_expansion_pending_benchmark
+status: authorized_not_started
 authorization_revision: 6
 formal_authorization_id: R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6
-reviewed_harness_head: null
-formal_run_authorized: false
+reviewed_harness_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
+reviewed_harness_Quality: 29707568838 / success
+formal_run_authorized: true
 formal_run_started: false
 formal_run_consumed: false
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
-current_stop: R2A-T04 CA four-q scope-expansion implementation
+current_stop: R2A-T04 CA four-q formal authorization review
 ```
 
 ## 1. 已接受基线
@@ -129,7 +130,9 @@ Revision 6 获得授权前必须依次完成 implementation Quality、q10/q20 su
 
 旧 4/8/16 thread benchmark 不重跑，继续冻结 threads=4 与 T03 determinism evidence。Benchmark 不是 formal run，不消费 revision 5 attempt，不产生科学结论。
 
-前四项已经完成：set-based implementation HEAD `cd41877a3423d7760eacc148049d6cbcbc8ed5c7` 的 Quality `29697311968` 成功；固定四证券的两请求旧/新五表完全等价；full-800 `CA_q15_k5` 与 `CA_q25_k5` 分别为 203.98 秒和 555.42 秒，合计 759.39 秒，validator 与性能 gate 均通过；benchmark receipt SHA-256 为 `59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76`；evidence HEAD `fc685e451600adb9eca0e09da985d45b5352c729` 的 Quality `29698931225` 成功。当前只等待 metadata-only authorization HEAD 的精确 Quality，不得由此自动启动 formal。
+Revision 5 历史 evidence 已完成：set-based implementation HEAD `cd41877a3423d7760eacc148049d6cbcbc8ed5c7` 的 Quality `29697311968` 成功；q15/q25 full-800 分别为 203.98 秒和 555.42 秒，receipt SHA-256 为 `59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76`。
+
+Revision 6 scope-expansion implementation HEAD `abd78af8c2fb10d3bd8257355a57df29c923632c` 的 Quality `29706820683` 成功。q10/q20 四证券旧/新五表完全等价；full-800 q10 为 115.8720 秒、q20 为 261.4273 秒，supplemental 合计 377.2993 秒，四档综合 1136.6940 秒；receipt SHA-256 为 `adf58b303e52f1f9e869e679532bf399a44d3ca8a19f740e14182f1a97b6bec6`。Evidence HEAD `277b5c3d6433caee05d3d0156318f9b386eb316a` 的 Quality `29707568838` 成功。当前 revision 6 metadata-only authorization 绑定该精确 parent，仍不得自动启动 formal。
 
 ## 7. 禁止事项与最终停止点
 
@@ -144,7 +147,7 @@ revision_4_result_accepted: false
 revision_5_formal_run_completed: true
 revision_5_owner_result_review: not_accepted
 revision_5_result_status: valid_scope_superseded_before_owner_acceptance
-revision_6_formal_run_authorized: false
+revision_6_formal_run_authorized: true
 revision_6_formal_run_started: false
 revision_6_formal_run_consumed: false
 request_count: 4
