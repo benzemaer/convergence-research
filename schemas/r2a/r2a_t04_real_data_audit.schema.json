@@ -27,7 +27,9 @@
     "full_universe_request_count", "R2A-T04_DONE", "R2A-T05_allowed_to_start",
     "score_release", "accepted_evaluator", "panel_id", "request_panel_count",
     "full_security_scope_required", "full_observation_history_required",
-    "full_universe_request_concurrency", "optimized_benchmark", "thread_preflight",
+    "full_universe_request_concurrency", "optimized_benchmark_status",
+    "optimized_benchmark_receipt_sha256", "optimized_evaluator_head",
+    "optimized_benchmark", "thread_preflight",
     "formal_run_attempt_limit", "minimum_free_disk_score_db_multiple",
     "review_bundle_max_bytes", "interval_sample_per_request", "request_panel"
   ],
@@ -98,6 +100,9 @@
     "full_security_scope_required": {"const": true},
     "full_observation_history_required": {"const": true},
     "full_universe_request_concurrency": {"const": 1},
+    "optimized_benchmark_status": {"enum": ["pending", "passed"]},
+    "optimized_benchmark_receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "optimized_evaluator_head": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
     "optimized_benchmark": {
       "type": "object",
       "additionalProperties": false,
@@ -130,15 +135,15 @@
   "allOf": [
     {
       "if": {"properties": {"status": {"const": "ca_scope_performance_repair_pending_benchmark"}}},
-      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "optimized_benchmark": {"properties": {"status": {"const": "pending"}}}}}
+      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "optimized_benchmark_status": {"const": "pending"}, "optimized_benchmark_receipt_sha256": {"const": null}, "optimized_evaluator_head": {"const": null}, "optimized_benchmark": {"properties": {"status": {"const": "pending"}}}}}
     },
     {
       "if": {"properties": {"status": {"const": "ca_two_request_benchmark_passed_pending_authorization"}}},
-      "then": {"properties": {"formal_run_authorized": {"const": false}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
+      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "optimized_benchmark_status": {"const": "passed"}, "optimized_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "optimized_evaluator_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
     },
     {
       "if": {"properties": {"status": {"const": "authorized_not_started"}}},
-      "then": {"properties": {"formal_run_authorized": {"const": true}, "reviewed_harness_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
+      "then": {"properties": {"formal_run_authorized": {"const": true}, "reviewed_harness_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark_status": {"const": "passed"}, "optimized_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "optimized_evaluator_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
     }
   ]
 }
