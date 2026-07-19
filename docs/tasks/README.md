@@ -190,54 +190,38 @@ dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
-R2A-T04_status: successor_formal_authorization_committed_pending_quality
+R2A-T04_scope_id: r2a_t04_score_parameter_response_interval_structure.v1
+R2A-T04_status: score_scope_repair_pending_review
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
-reviewed_harness_head: ddfd16f83e2bfe8fb541e96bb253d9fece79cfbe
-reviewed_harness_Quality: 29661728629 / success
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
 authorization_revision: 2
-formal_run_authorized: true_pending_exact_successor_authorization_head_quality
-authorization_effective_only_after_exact_head_quality_success: true
+formal_run_authorized: false
+authorization_effective_only_after_exact_head_quality_success: false
 formal_run_started: false
-formal_run_attempt_consumed: false
-supersedes_authorization_head: 17f6ec68d24f50e49c389afb439a413d7a7edb85
-superseded_authorization_used: false
-superseded_authorization_formal_attempt_consumed: false
-superseded_authorization_head: 17f6ec68d24f50e49c389afb439a413d7a7edb85
-authorization_head_17f6ec68_status: superseded_before_real_input_smoke
-superseded_reason: real_input_smoke_and_formal_execution_binding_incomplete
-formal_run_started_under_superseded_authorization: false
-formal_run_attempt_consumed_under_superseded_authorization: false
-market_context_read_under_superseded_authorization: false
-synthetic_end_to_end_smoke: passed_in_tests
-previous_thread_benchmark_status: blocked
-previous_thread_benchmark_error: thread_fingerprint_mismatch
-previous_thread_benchmark_evidence_status: incomplete_no_receipt
-previous_thread_benchmark_logical_output_difference_confirmed: false
-previous_thread_benchmark_fingerprint_algorithm_suspect: arrow_record_batch_boundary_sensitive
+formal_run_consumed: false
+authorization_revision_2_head: 9d3c2dab43a10b12931db921ef730db6e8552ff1
+authorization_revision_2_status: superseded_before_formal_run
+authorization_revision_2_used: false
+authorization_revision_2_formal_run_started: false
+authorization_revision_2_formal_attempt_consumed: false
+superseded_reason: scope_corrected_to_score_parameter_response_and_interval_structure
 thread_benchmark_status: passed
 thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
 thread_benchmark_receipt_byte_size: 97485
 thread_benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
 thread_benchmark_evidence_reused: true
-reuse_basis: benchmark_core_evaluator_request_and_fingerprint_code_byte_identical
+reuse_basis: evaluator_request_output_and_fingerprint_core_byte_identical
 thread_benchmark_rerun_required: false
-real_input_smoke_status: not_started
 full_universe_request_concurrency: 1
 full_universe_request_count: 0
 duckdb_thread_count: 4
-R2A-T04_preflight_score_data_read: true
-R2A-T04_preflight_score_scope: four_security_full_history_thread_benchmark
-R2A-T04_preflight_dynamic_evaluation_executed: true
-R2A-T04_preflight_market_context_data_read: false
 R2A-T04_formal_full_universe_score_data_read: false
 R2A-T04_formal_dynamic_evaluation_executed: false
-real_score_data_read: true
-real_score_data_read_scope: four_security_full_history_thread_benchmark
-market_context_data_read: false
-owner_visual_review: not_started
+R2A-T04_unique_input: accepted_R2A-T01_Score_release
+R2A-T04_unique_formal_scope: 16-request_Score_parameter_response_and_interval_structure_audit
+owner_result_review: not_started
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
 independent_output_validator: full_persisted_table_recomputation_accepted
@@ -249,19 +233,16 @@ R2A-T03 的任务契约见
 [`R2A-T03_Dynamic_evaluator实现.md`](R2A-T03_Dynamic_evaluator实现.md)。Reviewed implementation
 `73b9b54ef76191fdbb44ffd7e4ae335601016466` 已接受，accepted handoff 与唯一 `DONE` 已建立。
 接受范围仅覆盖 evaluator、开发期输出契约与 synthetic/property evidence；尚未读取真实 Score release、
-运行真实 dynamic evaluation、选择最佳 q/K、完成价格图审核或产生真实状态产物。PR #112 合并后
+运行真实 dynamic evaluation、选择最佳 q/K 或产生真实状态产物。PR #112 合并后
 R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
-启动。Harness implementation candidate 和 pytest temporary-directory synthetic end-to-end smoke 已完成；
-首次 4/8/16 threads preflight 读取 accepted Score 的四证券完整历史后，旧 fingerprint 疑似受 Arrow
-物理 batch 边界影响，且 cleanup 前未生成 receipt；该历史结果仍只记为 blocked、evidence incomplete。
-Reviewed repair head `01bf7e12...` 通过 Quality 后执行的唯一 repaired benchmark 已通过：4/8/16 的
-validator、固定逻辑 chunk profiles 与三组五表 pairwise comparison 全部一致，选择并冻结 threads=4。
-Authorization HEAD `17f6ec68...` 已在读取 market context 或消费 formal attempt 前废弃，原因仅为
-real-input smoke 与 formal execution 绑定不完整。Execution-gate repair HEAD `ddfd16f8...` 已通过
-Quality `29661728629`；revision 2 successor authorization 已建立并等待其精确 HEAD Quality。唯一
-full-universe formal run 尚未开始，未来获准后 16 个 requests 仍必须严格串行。
+启动。T04 的唯一输入是 accepted R2A-T01 Score release，唯一正式范围是冻结 16-request panel 的
+Score 参数响应、区间结构与 Score 端点结构审核，不依赖其他数据产品。冻结 benchmark evidence 已证明
+4/8/16 输出逻辑一致并选择 threads=4，本轮直接复用且不重跑。Authorization revision 2 HEAD
+`9d3c2dab...` 已在 formal run 前被替代，未被使用或消费 attempt；替代理由只是将范围收敛为
+Score parameter response and interval structure。当前先等待 Score-only scope repair 的精确 Quality；
+成功后才允许创建 metadata-only revision 3 authorization。正式 full-universe run 尚未开始。
 任务契约见
-[`R2A-T04_真实数据参数响应与结果合理性审核.md`](R2A-T04_真实数据参数响应与结果合理性审核.md)。
+[`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 
 ## 命名与路径规则
 

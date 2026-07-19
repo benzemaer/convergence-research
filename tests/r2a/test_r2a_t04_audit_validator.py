@@ -1,72 +1,23 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
-from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 
 from src.r2a.r2a_t04_audit_validator import (
+    REQUIRED_COMPACT_FILES,
     R2AT04ValidationError,
-    recompute_path_metrics,
     validate_marginal_dimension_rows,
     validate_response_rows,
     validate_review_bundle,
 )
 
 
-def _sha256(path: Path) -> str:
+def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _write_smoke_bundle(bundle: Path, artifact: Path) -> dict[str, object]:
-    summary: dict[str, object] = {
-        "task_id": "R2A-T04",
-        "bundle_mode": "synthetic_smoke",
-        "status": "real_data_run_completed_pending_result_review",
-        "formal_run_id": "R2A-T04-20260719T000000000Z",
-        "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
-        "panel_id": "r2a_t04_representative_panel.v1",
-        "request_count": 2,
-        "score_source": {
-            "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
-            "sha256": (
-                "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"
-            ),
-            "byte_size": 4255395840,
-        },
-        "market_source": {"source_id": "synthetic", "sha256": "0" * 64, "byte_size": 1},
-        "execution": {
-            "full_universe_request_concurrency": 1,
-            "duckdb_thread_count": 4,
-            "chart_worker_count": 1,
-            "formal_run_consumed": False,
-        },
-        "validation": {
-            "request_validator_failure_count": 0,
-            "response_violation_count": 0,
-            "blocking_anomaly_count": 0,
-            "status": "passed",
-        },
-        "review_boundary": {
-            "automated_recommendation": "smoke_passed",
-            "owner_visual_review": "not_applicable_smoke",
-            "R2A_T04_DONE": "absent",
-            "R2A_T05_allowed_to_start": False,
-        },
-        "files": [
-            {
-                "relative_path": artifact.relative_to(bundle).as_posix(),
-                "sha256": _sha256(artifact),
-                "byte_size": artifact.stat().st_size,
-            }
-        ],
-    }
-    (bundle / "run_summary.json").write_text(
-        json.dumps(summary) + "\n", encoding="utf-8"
-    )
-    return summary
 
 
 def _response_fixture() -> list[dict[str, object]]:
@@ -97,28 +48,25 @@ def _response_fixture() -> list[dict[str, object]]:
         "D02_PA_q15_k3": {0, 1, 2, 3, 4},
         "D01_P_q15_k3": {0, 1, 2, 3, 4, 5},
     }
-    rows = []
-    for name, raw_indices in raw_sets.items():
-        for index, (security_id, trading_date) in enumerate(universe):
-            rows.append(
-                {
-                    "logical_request_name": name,
-                    "security_id": security_id,
-                    "trading_date": trading_date,
-                    "joint_ready": True,
-                    "raw_state": index in raw_indices,
-                    "confirmed_state": index in confirmed_sets[name],
-                }
-            )
-    return rows
+    return [
+        {
+            "logical_request_name": name,
+            "security_id": security_id,
+            "trading_date": trading_date,
+            "joint_ready": True,
+            "raw_state": index in raw_indices,
+            "confirmed_state": index in confirmed_sets[name],
+        }
+        for name, raw_indices in raw_sets.items()
+        for index, (security_id, trading_date) in enumerate(universe)
+    ]
 
 
 def test_response_subset_k_equality_and_non_degeneracy() -> None:
-    checks = validate_response_rows(_response_fixture())
-    assert all(check["passed"] for check in checks)
+    assert all(check["passed"] for check in validate_response_rows(_response_fixture()))
 
 
-def test_response_subset_violation_is_blocking() -> None:
+def test_response_subset_violation_and_degeneracy_are_blocking() -> None:
     rows = _response_fixture()
     next(
         row
@@ -128,11 +76,16 @@ def test_response_subset_violation_is_blocking() -> None:
     )["raw_state"] = True
     with pytest.raises(R2AT04ValidationError, match="q_raw_subset"):
         validate_response_rows(rows)
+    for row in _response_fixture():
+        row["raw_state"] = False
+        row["confirmed_state"] = False
+    with pytest.raises(R2AT04ValidationError, match="response_degenerate"):
+        validate_response_rows(_response_fixture()[:0])
 
 
 def test_marginal_non_target_invariance_and_target_superset() -> None:
-    baseline = []
-    candidate = []
+    baseline: list[dict[str, object]] = []
+    candidate: list[dict[str, object]] = []
     for dimension in ("P", "A"):
         for day in range(2):
             row = {
@@ -148,67 +101,201 @@ def test_marginal_non_target_invariance_and_target_superset() -> None:
             baseline.append(row)
             changed = dict(row)
             if dimension == "P":
-                changed["q_bp"] = 2500
-                changed["main_threshold"] = 0.75
-                changed["weak_threshold"] = 0.65
-                changed["dimension_active"] = True
+                changed.update(
+                    {
+                        "q_bp": 2500,
+                        "main_threshold": 0.75,
+                        "weak_threshold": 0.65,
+                        "dimension_active": True,
+                    }
+                )
             candidate.append(changed)
     result = validate_marginal_dimension_rows(baseline, candidate, target_dimension="P")
     assert result["strict_target_expansion"] is True
 
 
-def test_observation_offset_path_metrics_and_censoring() -> None:
-    first = date(2026, 1, 1)
-    observations = [
-        {
-            "trading_date": first + timedelta(days=index),
-            "adj_close": 10 + index,
-            "adj_high": 10.5 + index,
-            "adj_low": 9.5 + index,
-        }
-        for index in range(25)
-    ]
-    metrics = recompute_path_metrics(observations, anchor_index=0, horizon=20)
-    assert metrics["horizon_available"] is True
-    assert metrics["time_to_peak"] == 20
-    assert metrics["time_to_trough"] == 1
-    censored = recompute_path_metrics(observations, anchor_index=10, horizon=20)
-    assert censored["horizon_available"] is False
+def _write_csv(
+    path: Path, headers: list[str], rows: list[list[object]] | None = None
+) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(headers)
+        writer.writerows(rows or [])
 
 
-def test_review_bundle_rejects_done_and_absolute_paths(tmp_path: Path) -> None:
-    bundle = tmp_path / "bundle"
+def _valid_bundle(bundle: Path) -> dict[str, object]:
     bundle.mkdir()
-    artifact = bundle / "receipt.json"
-    artifact.write_text("{}\n", encoding="utf-8")
-    summary = _write_smoke_bundle(bundle, artifact)
+    for name in REQUIRED_COMPACT_FILES:
+        path = bundle / name
+        if name == "request_output_profiles.json":
+            path.write_text(
+                json.dumps({f"R{i:02d}": {} for i in range(16)}) + "\n",
+                encoding="utf-8",
+            )
+        elif name == "request_panel.json":
+            path.write_text(json.dumps([{}] * 16) + "\n", encoding="utf-8")
+        elif name == "score_source_identity.json":
+            path.write_text(
+                json.dumps(
+                    {
+                        "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+                        "sha256": (
+                            "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462"
+                            "ce61c3f176403a3"
+                        ),
+                        "byte_size": 4255395840,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        elif name == "validation_receipt.json":
+            path.write_text('{"status":"passed"}\n', encoding="utf-8")
+        elif name == "result_analysis.md":
+            path.write_text("# Score-only review\n", encoding="utf-8")
+        elif name == "interval_samples.csv":
+            _write_csv(
+                path,
+                [
+                    "logical_request_name",
+                    "request_hash",
+                    "security_id",
+                    "confirmation_date",
+                    "interval_ordinal",
+                    "sample_hash",
+                ],
+            )
+        elif name == "score_dimension_endpoint_summary.csv":
+            _write_csv(path, ["logical_request_name", "anchor_type", "dimension_id"])
+        elif name == "score_component_endpoint_summary.csv":
+            _write_csv(
+                path,
+                [
+                    "logical_request_name",
+                    "anchor_type",
+                    "dimension_id",
+                    "component_id",
+                ],
+            )
+        else:
+            _write_csv(path, ["logical_request_name"])
+    files = [
+        {
+            "relative_path": name,
+            "sha256": _sha(bundle / name),
+            "byte_size": (bundle / name).stat().st_size,
+        }
+        for name in sorted(REQUIRED_COMPACT_FILES)
+    ]
+    summary: dict[str, object] = {
+        "task_id": "R2A-T04",
+        "bundle_mode": "formal_review",
+        "scope_id": "r2a_t04_score_parameter_response_interval_structure.v1",
+        "status": "score_audit_completed_pending_result_review",
+        "formal_run_id": "R2A-T04-20260719T000000000Z",
+        "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
+        "authorization_revision": 3,
+        "panel_id": "r2a_t04_representative_panel.v1",
+        "request_count": 16,
+        "score_source": {
+            "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+            "sha256": (
+                "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"
+            ),
+            "byte_size": 4255395840,
+        },
+        "execution": {
+            "full_universe_request_concurrency": 1,
+            "duckdb_thread_count": 4,
+            "formal_run_consumed": True,
+        },
+        "validation": {
+            "request_validator_failure_count": 0,
+            "response_violation_count": 0,
+            "scope_security_count_mismatch_count": 0,
+            "interval_reconciliation_failure_count": 0,
+            "score_endpoint_reconciliation_failure_count": 0,
+            "blocking_anomaly_count": 0,
+            "status": "passed",
+        },
+        "review_boundary": {
+            "automated_recommendation": "continue_to_owner_result_review",
+            "owner_result_review": "pending",
+            "R2A_T04_DONE": "absent",
+            "R2A_T05_allowed_to_start": False,
+        },
+        "files": files,
+    }
+    (bundle / "run_summary.json").write_text(
+        json.dumps(summary) + "\n", encoding="utf-8"
+    )
+    return summary
+
+
+def test_review_bundle_exact_score_only_inventory(tmp_path: Path) -> None:
+    bundle = tmp_path / "bundle"
+    _valid_bundle(bundle)
+    receipt = validate_review_bundle(bundle)
+    assert receipt["status"] == "passed"
+    assert not (bundle / "charts").exists()
+
+
+def test_review_bundle_rejects_done_absolute_and_forbidden_fields(
+    tmp_path: Path,
+) -> None:
+    bundle = tmp_path / "bundle"
+    summary = _valid_bundle(bundle)
     (bundle / "DONE").write_text("forbidden\n", encoding="utf-8")
     with pytest.raises(R2AT04ValidationError, match="t04_done_forbidden"):
         validate_review_bundle(bundle)
     (bundle / "DONE").unlink()
-    summary["files"][0]["relative_path"] = "C:/outside.json"
+    summary["files"][0]["relative_path"] = "C:/outside.csv"
     (bundle / "run_summary.json").write_text(
         json.dumps(summary) + "\n", encoding="utf-8"
     )
-    with pytest.raises(R2AT04ValidationError, match="absolute_path_in_bundle"):
+    with pytest.raises(R2AT04ValidationError):
         validate_review_bundle(bundle)
-
-
-def test_review_bundle_rejects_large_artifact_and_missing_chart(tmp_path: Path) -> None:
-    bundle = tmp_path / "bundle"
-    bundle.mkdir()
-    artifact = bundle / "large.bin"
-    with artifact.open("wb") as handle:
-        handle.truncate(61 * 1024 * 1024)
-    _write_smoke_bundle(bundle, artifact)
-    with pytest.raises(R2AT04ValidationError, match="review_bundle_exceeds_60_mb"):
-        validate_review_bundle(bundle)
-    artifact.unlink()
-    artifact = bundle / "receipt.json"
-    artifact.write_text("{}\n", encoding="utf-8")
-    _write_smoke_bundle(bundle, artifact)
-    (bundle / "chart_sample_registry.csv").write_text(
-        "chart_path\ncharts/missing.png\n", encoding="utf-8"
+    summary = _valid_bundle(tmp_path / "forbidden")
+    summary["market_source"] = {"sha256": "0" * 64}
+    (tmp_path / "forbidden" / "run_summary.json").write_text(
+        json.dumps(summary) + "\n", encoding="utf-8"
     )
-    with pytest.raises(R2AT04ValidationError, match="chart_file_missing"):
+    with pytest.raises(R2AT04ValidationError):
+        validate_review_bundle(tmp_path / "forbidden")
+
+
+def test_review_bundle_rejects_sample_hash_and_extra_file(tmp_path: Path) -> None:
+    bundle = tmp_path / "bundle"
+    _valid_bundle(bundle)
+    _write_csv(
+        bundle / "interval_samples.csv",
+        [
+            "logical_request_name",
+            "request_hash",
+            "security_id",
+            "confirmation_date",
+            "interval_ordinal",
+            "sample_hash",
+        ],
+        [["R", "a" * 64, "S1", "2026-01-01", 1, "0" * 64]],
+    )
+    summary = json.loads((bundle / "run_summary.json").read_text(encoding="utf-8"))
+    item = next(
+        item
+        for item in summary["files"]
+        if item["relative_path"] == "interval_samples.csv"
+    )
+    item.update(
+        {
+            "sha256": _sha(bundle / "interval_samples.csv"),
+            "byte_size": (bundle / "interval_samples.csv").stat().st_size,
+        }
+    )
+    (bundle / "run_summary.json").write_text(
+        json.dumps(summary) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(R2AT04ValidationError, match="interval_sample_hash_mismatch"):
+        validate_review_bundle(bundle)
+    (bundle / "unexpected.png").write_bytes(b"PNG")
+    with pytest.raises(R2AT04ValidationError):
         validate_review_bundle(bundle)
