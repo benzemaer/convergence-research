@@ -192,13 +192,15 @@ R2A-T04_allowed_to_start: true
 R2A-T04_started: true
 R2A-T04_scope_id: r2a_t04_ca_q15_q25_k5_response_audit.v1
 R2A-T04_panel_id: r2a_t04_ca_q15_q25_k5_panel.v1
-R2A-T04_status: ca_scope_performance_repair_pending_benchmark
+R2A-T04_status: authorized_not_started
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
 formal_authorization_id: R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5
 authorization_revision: 5
-formal_run_authorized: false
+reviewed_harness_head: fc685e451600adb9eca0e09da985d45b5352c729
+reviewed_harness_Quality: 29698931225 / success
+formal_run_authorized: true
 authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_consumed: false
@@ -234,6 +236,13 @@ thread_benchmark_rerun_required: false
 full_universe_request_concurrency: 1
 full_universe_request_count: 0
 duckdb_thread_count: 4
+optimized_evaluator_head: cd41877a3423d7760eacc148049d6cbcbc8ed5c7
+optimized_evaluator_Quality: 29697311968 / success
+optimized_benchmark_status: passed
+optimized_benchmark_receipt_sha256: 59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76
+optimized_benchmark_CA_q15_wall_seconds: 203.97563770017587
+optimized_benchmark_CA_q25_wall_seconds: 555.4190305001102
+optimized_benchmark_combined_wall_seconds: 759.3946682002861
 R2A-T04_formal_full_universe_score_data_read: false
 R2A-T04_formal_dynamic_evaluation_executed: false
 R2A-T04_unique_input: accepted_R2A-T01_Score_release
@@ -260,8 +269,9 @@ R2A-T04 的唯一输入仍是 accepted R2A-T01 Score release。Revision 4 formal
 `R2A-T04-20260719T090524491Z` 已消费但因性能终止，只完成一个 request，结果不可接受且不可重跑。
 Revision 5 将范围收缩为 `CA_q15_k5` 与 `CA_q25_k5` 两请求，只检查 joint-ready equality、raw/confirmed
 subset 与严格非退化。T04-local set-based evaluator 只优化 Score staging 搬运，不修改 T03 科学公式。
-当前仍需依次通过 implementation Quality、四证券新旧等价、两个 full-800 性能 benchmark、evidence
-Quality 与 metadata-only authorization Quality；本轮不得执行新的 formal run。
+Implementation Quality、四证券新旧等价、两个 full-800 性能 benchmark 及 evidence HEAD Quality 均已通过。
+Revision 5 metadata-only authorization 候选已形成，但只有精确 authorization HEAD Quality 成功后才生效；
+本轮仍不得执行新的 formal run。
 任务契约见
 [`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 

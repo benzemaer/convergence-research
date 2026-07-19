@@ -6,10 +6,12 @@
 scope_id: r2a_t04_ca_q15_q25_k5_response_audit.v1
 panel_id: r2a_t04_ca_q15_q25_k5_panel.v1
 request_count: 2
-status: ca_scope_performance_repair_pending_benchmark
+status: authorized_not_started
 authorization_revision: 5
 formal_authorization_id: R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5
-formal_run_authorized: false
+reviewed_harness_head: fc685e451600adb9eca0e09da985d45b5352c729
+reviewed_harness_Quality: 29698931225 / success
+formal_run_authorized: true
 formal_run_started: false
 formal_run_consumed: false
 R2A-T04_DONE: absent
@@ -70,6 +72,10 @@ Implementation HEAD 通过 Quality 后，使用固定证券 `603345.SH, 603233.S
 随后只用新 evaluator 严格串行运行两个 full-800 benchmark。每个 request 必须 validator passed、800 securities、wall ≤600 秒、peak RSS ≤6442450944；合计 wall ≤1200 秒。Benchmark 不创建 formal authorization，不消费 attempt，不产生科学结论。
 
 Passed receipt 提交并通过 Quality 后，才允许创建 metadata-only revision 5 authorization commit；该提交的 parent 必须是精确 evidence HEAD。授权提交 Quality 成功后仍不得在本轮运行 formal。
+
+上述 benchmark 已通过。四证券的两 request 旧/新五表 schema、row count、PK、非键字段及 canonical profiles 全部一致，mismatch 为 0。Full-800 `CA_q15_k5` 为 203.9756 秒、peak RSS 5,042,262,016 bytes；`CA_q25_k5` 为 555.4190 秒、peak RSS 5,134,106,624 bytes；合计 759.3947 秒。两者 validator 均 passed、security count 均为 800，且所有性能 gate 通过。Receipt SHA-256 为 `59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76`；evidence HEAD `fc685e451600adb9eca0e09da985d45b5352c729` 的 Quality `29698931225` 成功。
+
+当前 metadata-only revision 5 authorization 候选只绑定上述 evidence HEAD。`formal_run_started=false`、`formal_run_consumed=false`，且授权只有在精确 authorization HEAD Quality 成功后才生效；不得在本轮运行 formal。
 
 ## 8. Compact review 与分析边界
 

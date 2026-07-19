@@ -1,6 +1,6 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。Revision 4 的失败事实不可改写；revision 5 尚未获得正式运行授权。
+> 本文是无上下文新会话的当前入口。Revision 4 的失败事实不可改写；revision 5 已形成 metadata-only 授权候选，且仅在该精确授权 HEAD 的 Quality 成功后生效。
 
 ## 0. 当前状态
 
@@ -12,15 +12,17 @@ PR: #113 / Open / Draft
 R2A-T04 scope_id: r2a_t04_ca_q15_q25_k5_response_audit.v1
 panel_id: r2a_t04_ca_q15_q25_k5_panel.v1
 request_count: 2
-status: ca_scope_performance_repair_pending_benchmark
+status: authorized_not_started
 authorization_revision: 5
 formal_authorization_id: R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5
-formal_run_authorized: false
+reviewed_harness_head: fc685e451600adb9eca0e09da985d45b5352c729
+reviewed_harness_Quality: 29698931225 / success
+formal_run_authorized: true
 formal_run_started: false
 formal_run_consumed: false
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
-current_stop: R2A-T04 CA scope and set-based transfer implementation
+current_stop: R2A-T04 CA two-request formal authorization review
 ```
 
 ## 1. 已接受基线
@@ -96,6 +98,8 @@ Revision 5 获得授权前必须依次完成：
 5. metadata-only authorization commit 的精确 HEAD Quality success。
 
 旧 4/8/16 thread benchmark 不重跑，继续冻结 threads=4 与 T03 determinism evidence。Benchmark 不是 formal run，不消费 revision 5 attempt，不产生科学结论。
+
+前四项已经完成：set-based implementation HEAD `cd41877a3423d7760eacc148049d6cbcbc8ed5c7` 的 Quality `29697311968` 成功；固定四证券的两请求旧/新五表完全等价；full-800 `CA_q15_k5` 与 `CA_q25_k5` 分别为 203.98 秒和 555.42 秒，合计 759.39 秒，validator 与性能 gate 均通过；benchmark receipt SHA-256 为 `59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76`；evidence HEAD `fc685e451600adb9eca0e09da985d45b5352c729` 的 Quality `29698931225` 成功。当前只等待 metadata-only authorization HEAD 的精确 Quality，不得由此自动启动 formal。
 
 ## 5. 禁止事项与最终停止点
 
