@@ -194,7 +194,7 @@ def _valid_bundle(bundle: Path) -> dict[str, object]:
         "status": "score_audit_completed_pending_result_review",
         "formal_run_id": "R2A-T04-20260719T000000000Z",
         "formal_authorization_id": "R2A-T04-REAL-AUDIT-AUTH-20260719",
-        "authorization_revision": 3,
+        "authorization_revision": 4,
         "panel_id": "r2a_t04_representative_panel.v1",
         "request_count": 16,
         "score_source": {

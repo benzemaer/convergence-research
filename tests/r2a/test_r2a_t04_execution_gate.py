@@ -38,7 +38,7 @@ def _config() -> dict[str, object]:
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 3,
+            "authorization_revision": 4,
             "reviewed_harness_head": REPAIR_HEAD,
             "formal_run_authorized": True,
             "formal_run_started": False,
@@ -186,7 +186,7 @@ def test_score_formal_gate_accepts_only_frozen_contract(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("field", "value", "reason"),
     [
-        ("authorization_revision", 2, "formal_config_authorization_revision_mismatch"),
+        ("authorization_revision", 3, "formal_config_authorization_revision_mismatch"),
         (
             "formal_run_authorized",
             False,

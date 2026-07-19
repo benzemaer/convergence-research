@@ -12,7 +12,7 @@
     "status": {"enum": ["score_audit_completed_pending_result_review", "formal_run_blocked"]},
     "formal_run_id": {"type": "string", "pattern": "^R2A-T04-[0-9]{8}T[0-9]{9}Z$"},
     "formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
-    "authorization_revision": {"const": 3},
+    "authorization_revision": {"const": 4},
     "panel_id": {"const": "r2a_t04_representative_panel.v1"},
     "request_count": {"const": 16},
     "score_source": {

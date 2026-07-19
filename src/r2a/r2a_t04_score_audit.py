@@ -758,7 +758,7 @@ def finalize_score_review_bundle(
         ),
         "formal_run_id": formal_run_id,
         "formal_authorization_id": FORMAL_AUTHORIZATION_ID,
-        "authorization_revision": 3,
+        "authorization_revision": 4,
         "panel_id": PANEL_ID,
         "request_count": 16,
         "score_source": score_public,
@@ -815,7 +815,7 @@ def run_score_formal_audit(
         raise R2AT04AuditError("formal_execution_gate_not_passed")
     if (
         config.get("status") != "authorized_not_started"
-        or config.get("authorization_revision") != 3
+        or config.get("authorization_revision") != 4
         or config.get("formal_run_authorized") is not True
         or config.get("formal_run_started") is not False
         or config.get("formal_run_consumed") is not False
@@ -844,7 +844,7 @@ def run_score_formal_audit(
         (output_root / child).mkdir()
     authorization = {
         "formal_authorization_id": config["formal_authorization_id"],
-        "authorization_revision": 3,
+        "authorization_revision": 4,
         "formal_run_consumed": True,
         "scope_id": SCOPE_ID,
         "full_universe_request_concurrency": 1,
@@ -854,7 +854,13 @@ def run_score_formal_audit(
         ],
     }
     _write_json(output_root / "authorization.json", authorization)
-    _write_json(output_root / "score_source_identity.json", score_identity)
+    _write_json(
+        output_root / "score_source_identity.json",
+        {
+            "score_release_id": config["score_release"]["score_release_id"],
+            **score_identity,
+        },
+    )
     _write_json(output_root / "request_panel.json", list(panel))
     for item in panel:
         _write_json(
@@ -957,6 +963,7 @@ def run_score_formal_audit(
     run_manifest = {
         "formal_run_id": formal_run_id,
         "formal_authorization_id": config["formal_authorization_id"],
+        "authorization_revision": 4,
         "scope_id": SCOPE_ID,
         "formal_run_consumed": True,
         "request_count": 16,

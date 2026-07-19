@@ -191,7 +191,7 @@ R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
 R2A-T04_scope_id: r2a_t04_score_parameter_response_interval_structure.v1
-R2A-T04_status: authorization_revision_3_committed_pending_exact_head_quality
+R2A-T04_status: score_independent_review_repair_pending_review
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
@@ -199,7 +199,7 @@ formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
 authorization_revision: 3
 reviewed_harness_head: ceb460d0e8dd7c459e45ae19da1bbe5582417a1f
 reviewed_harness_Quality: 29669497735 / success
-formal_run_authorized: true
+formal_run_authorized: false
 authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_consumed: false
@@ -208,7 +208,13 @@ authorization_revision_2_status: superseded_before_formal_run
 authorization_revision_2_used: false
 authorization_revision_2_formal_run_started: false
 authorization_revision_2_formal_attempt_consumed: false
-superseded_reason: scope_corrected_to_score_parameter_response_and_interval_structure
+authorization_revision_2_superseded_reason: scope_corrected_to_score_parameter_response_and_interval_structure
+authorization_revision_3_head: 21837edddfcc298b8539bcf9f71a1b7e016b6d47
+authorization_revision_3_status: superseded_before_formal_run
+authorization_revision_3_used: false
+authorization_revision_3_formal_run_started: false
+authorization_revision_3_formal_attempt_consumed: false
+superseded_reason: independent_review_cli_not_aligned_with_score_only_scope
 thread_benchmark_status: passed
 thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
 thread_benchmark_receipt_byte_size: 97485
@@ -241,8 +247,9 @@ R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
 Score 参数响应、区间结构与 Score 端点结构审核，不依赖其他数据产品。冻结 benchmark evidence 已证明
 4/8/16 输出逻辑一致并选择 threads=4，本轮直接复用且不重跑。Authorization revision 2 HEAD
 `9d3c2dab...` 已在 formal run 前被替代，未被使用或消费 attempt；替代理由只是将范围收敛为
-Score parameter response and interval structure。Score-only repair HEAD `ceb460d0...` 已通过 Quality
-`29669497735`，metadata-only revision 3 authorization 已建立并等待其精确 HEAD Quality。正式
+Score parameter response and interval structure。Revision 3 authorization HEAD `21837edd...` 因
+独立 review CLI 未对齐 Score-only scope 而在 formal run 前被替代；它未被使用，也未消费 attempt。
+当前修复独立 review CLI 并关闭 formal authorization，等待精确 repair HEAD Quality。正式
 full-universe run 尚未开始，也未消费 formal attempt。
 任务契约见
 [`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。

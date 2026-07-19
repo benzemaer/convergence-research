@@ -132,7 +132,7 @@ def _authorized_config() -> dict[str, object]:
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 3,
+            "authorization_revision": 4,
             "formal_run_authorized": True,
             "formal_run_started": False,
             "formal_run_consumed": False,
@@ -308,6 +308,19 @@ def test_synthetic_16_request_formal_execution_is_serial_and_reconciled(
             == 0
         )
     summary = json.loads((review / "run_summary.json").read_text(encoding="utf-8"))
+    assert summary["authorization_revision"] == 4
+    assert (
+        json.loads((output / "score_source_identity.json").read_text(encoding="utf-8"))[
+            "score_release_id"
+        ]
+        == "pcavt-score-w120-v1-c7e04f11a2cd09aa"
+    )
+    assert (
+        json.loads((output / "run_manifest.json").read_text(encoding="utf-8"))[
+            "authorization_revision"
+        ]
+        == 4
+    )
     assert summary["review_boundary"] == {
         "automated_recommendation": "continue_to_owner_result_review",
         "owner_result_review": "pending",

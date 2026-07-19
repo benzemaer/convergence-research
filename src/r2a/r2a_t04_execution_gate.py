@@ -121,7 +121,7 @@ def validate_score_formal_execution_gate(
     expected_config = {
         "scope_id": "r2a_t04_score_parameter_response_interval_structure.v1",
         "status": "authorized_not_started",
-        "authorization_revision": 3,
+        "authorization_revision": 4,
         "formal_run_authorized": True,
         "formal_run_started": False,
         "formal_run_consumed": False,
@@ -169,7 +169,7 @@ def validate_score_formal_execution_gate(
         "status": "passed",
         "authorization_head": authorization_head,
         "authorization_parent": authorization_parent,
-        "authorization_revision": 3,
+        "authorization_revision": 4,
         "scope_id": config["scope_id"],
         "score_identity": score_identity,
         "benchmark_receipt_sha256": preflight["thread_benchmark_receipt_sha256"],
