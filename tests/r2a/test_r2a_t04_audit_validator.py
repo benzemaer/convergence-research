@@ -21,9 +21,16 @@ def _sha(path: Path) -> str:
 
 def _response_fixture() -> list[dict[str, object]]:
     universe = [("S1", f"2026-01-{day:02d}") for day in range(1, 7)]
-    raw_sets = {"CA_q15_k5": {0, 1}, "CA_q25_k5": {0, 1, 2, 3}}
+    raw_sets = {
+        "CA_q10_k5": {0},
+        "CA_q15_k5": {0, 1},
+        "CA_q20_k5": {0, 1},
+        "CA_q25_k5": {0, 1, 2, 3},
+    }
     confirmed_sets = {
+        "CA_q10_k5": {0},
         "CA_q15_k5": {0},
+        "CA_q20_k5": {0, 1},
         "CA_q25_k5": {0, 1},
     }
     return [
@@ -49,7 +56,7 @@ def test_response_subset_violation_and_degeneracy_are_blocking() -> None:
     next(
         row
         for row in rows
-        if row["logical_request_name"] == "CA_q15_k5"
+        if row["logical_request_name"] == "CA_q20_k5"
         and row["trading_date"] == "2026-01-06"
     )["raw_state"] = True
     with pytest.raises(R2AT04ValidationError, match="ca_q_raw_subset"):
@@ -58,7 +65,7 @@ def test_response_subset_violation_and_degeneracy_are_blocking() -> None:
     for row in degenerate:
         row["raw_state"] = False
         row["confirmed_state"] = False
-    with pytest.raises(R2AT04ValidationError, match="blocked_ca_q_response_degenerate"):
+    with pytest.raises(R2AT04ValidationError, match="blocked_ca_q_ladder_degenerate"):
         validate_response_rows(degenerate)
 
 
@@ -77,11 +84,11 @@ def _valid_bundle(bundle: Path) -> dict[str, object]:
         path = bundle / name
         if name == "request_output_profiles.json":
             path.write_text(
-                json.dumps({f"R{i:02d}": {} for i in range(2)}) + "\n",
+                json.dumps({f"R{i:02d}": {} for i in range(4)}) + "\n",
                 encoding="utf-8",
             )
         elif name == "request_panel.json":
-            path.write_text(json.dumps([{}] * 2) + "\n", encoding="utf-8")
+            path.write_text(json.dumps([{}] * 4) + "\n", encoding="utf-8")
         elif name == "score_source_identity.json":
             path.write_text(
                 json.dumps(
@@ -138,13 +145,13 @@ def _valid_bundle(bundle: Path) -> dict[str, object]:
     summary: dict[str, object] = {
         "task_id": "R2A-T04",
         "bundle_mode": "formal_review",
-        "scope_id": "r2a_t04_ca_q15_q25_k5_response_audit.v1",
+        "scope_id": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1",
         "status": "score_audit_completed_pending_result_review",
         "formal_run_id": "R2A-T04-20260719T000000000Z",
-        "formal_authorization_id": "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5",
-        "authorization_revision": 5,
-        "panel_id": "r2a_t04_ca_q15_q25_k5_panel.v1",
-        "request_count": 2,
+        "formal_authorization_id": "R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6",
+        "authorization_revision": 6,
+        "panel_id": "r2a_t04_ca_four_q_k5_panel.v1",
+        "request_count": 4,
         "score_source": {
             "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
             "sha256": (

@@ -50,7 +50,7 @@ def score_only_package(
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 5,
+            "authorization_revision": 6,
             "formal_run_authorized": True,
             "formal_run_started": False,
             "formal_run_consumed": False,
@@ -258,7 +258,7 @@ def test_root_contract_mutations_fail(
         ),
         (
             "response_subset",
-            "UPDATE response_checks SET violation_count=999 WHERE check_id='ca_q_raw_subset'",
+            "UPDATE response_checks SET violation_count=999 WHERE check_id='ca_q_raw_subset_q10_q15'",
             "response_check_mismatch_count",
         ),
         (

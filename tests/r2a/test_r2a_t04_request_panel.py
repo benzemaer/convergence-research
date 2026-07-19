@@ -18,15 +18,17 @@ from src.r2a.r2a_t04_request_panel import (
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_frozen_panel_has_two_unique_canonical_identities() -> None:
+def test_frozen_panel_has_four_unique_canonical_identities() -> None:
     panel = build_request_panel()
     assert (
         tuple(item["logical_request_name"] for item in panel) == EXPECTED_LOGICAL_NAMES
     )
-    assert len(panel) == len({item["request_id"] for item in panel}) == 2
-    assert len({item["request_hash"] for item in panel}) == 2
+    assert len(panel) == len({item["request_id"] for item in panel}) == 4
+    assert len({item["request_hash"] for item in panel}) == 4
     assert [item["request_id"] for item in panel] == [
+        "pcavt-dynreq-v1-d07aae4bbbd98f88",
         "pcavt-dynreq-v1-cf420e9c025374d1",
+        "pcavt-dynreq-v1-21bd144aaed98d9e",
         "pcavt-dynreq-v1-b210f9e5211c46db",
     ]
     assert all(item["spec"]["selected_dimensions"] == ["C", "A"] for item in panel)

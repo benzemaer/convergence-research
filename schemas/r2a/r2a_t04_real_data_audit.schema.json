@@ -9,6 +9,11 @@
     "authorization_revision", "reviewed_harness_head", "formal_run_authorized",
     "formal_run_started", "formal_run_consumed",
     "authorization_effective_only_after_exact_head_quality_success",
+    "revision_5_scope_id", "revision_5_run_id",
+    "revision_5_formal_run_started", "revision_5_formal_run_consumed",
+    "revision_5_formal_run_completed", "revision_5_automated_validation",
+    "revision_5_independent_review", "revision_5_owner_result_review",
+    "revision_5_result_status", "revision_5_superseded_reason",
     "revision_4_authorization_head", "revision_4_run_id",
     "revision_4_formal_authorization_id", "revision_4_formal_run_started",
     "revision_4_formal_run_consumed", "revision_4_formal_run_completed",
@@ -29,22 +34,33 @@
     "full_security_scope_required", "full_observation_history_required",
     "full_universe_request_concurrency", "optimized_benchmark_status",
     "optimized_benchmark_receipt_sha256", "optimized_evaluator_head",
-    "optimized_benchmark", "thread_preflight",
+    "optimized_benchmark", "q10_q20_benchmark_status",
+    "q10_q20_benchmark_receipt_sha256", "q10_q20_benchmark", "thread_preflight",
     "formal_run_attempt_limit", "minimum_free_disk_score_db_multiple",
     "review_bundle_max_bytes", "interval_sample_per_request", "request_panel"
   ],
   "properties": {
     "$schema": {"const": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json"},
     "task_id": {"const": "R2A-T04"},
-    "scope_id": {"const": "r2a_t04_ca_q15_q25_k5_response_audit.v1"},
-    "status": {"enum": ["ca_scope_performance_repair_pending_benchmark", "ca_two_request_benchmark_passed_pending_authorization", "authorized_not_started"]},
-    "formal_authorization_id": {"const": "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5"},
-    "authorization_revision": {"const": 5},
+    "scope_id": {"const": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1"},
+    "status": {"enum": ["ca_four_q_scope_expansion_pending_benchmark", "ca_four_q_benchmark_passed_pending_authorization", "authorized_not_started"]},
+    "formal_authorization_id": {"const": "R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6"},
+    "authorization_revision": {"const": 6},
     "reviewed_harness_head": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
     "formal_run_authorized": {"type": "boolean"},
     "formal_run_started": {"const": false},
     "formal_run_consumed": {"const": false},
     "authorization_effective_only_after_exact_head_quality_success": {"const": true},
+    "revision_5_scope_id": {"const": "r2a_t04_ca_q15_q25_k5_response_audit.v1"},
+    "revision_5_run_id": {"const": "R2A-T04-20260719T212259066Z"},
+    "revision_5_formal_run_started": {"const": true},
+    "revision_5_formal_run_consumed": {"const": true},
+    "revision_5_formal_run_completed": {"const": true},
+    "revision_5_automated_validation": {"const": "passed"},
+    "revision_5_independent_review": {"const": "passed"},
+    "revision_5_owner_result_review": {"const": "not_accepted"},
+    "revision_5_result_status": {"const": "valid_scope_superseded_before_owner_acceptance"},
+    "revision_5_superseded_reason": {"const": "owner_requested_q10_q20_scope_extension"},
     "revision_4_authorization_head": {"const": "bd906df6b314352dccde75bc087709503d5e2262"},
     "revision_4_run_id": {"const": "R2A-T04-20260719T090524491Z"},
     "revision_4_formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
@@ -95,8 +111,8 @@
         "accepted_t03_config_sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"
       }
     },
-    "panel_id": {"const": "r2a_t04_ca_q15_q25_k5_panel.v1"},
-    "request_panel_count": {"const": 2},
+    "panel_id": {"const": "r2a_t04_ca_four_q_k5_panel.v1"},
+    "request_panel_count": {"const": 4},
     "full_security_scope_required": {"const": true},
     "full_observation_history_required": {"const": true},
     "full_universe_request_concurrency": {"const": 1},
@@ -120,6 +136,26 @@
         "per_request_peak_rss_bytes_max": {"const": 6442450944}
       }
     },
+    "q10_q20_benchmark_status": {"enum": ["pending", "passed"]},
+    "q10_q20_benchmark_receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "q10_q20_benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "receipt_path", "receipt_sha256", "implementation_head", "implementation_quality", "duckdb_thread_count", "equivalence_security_ids", "per_request_wall_seconds_max", "combined_wall_seconds_max", "four_q_combined_wall_seconds_max", "per_request_peak_rss_bytes_max"],
+      "properties": {
+        "status": {"enum": ["pending", "passed"]},
+        "receipt_path": {"const": "artifacts/r2a_t04_ca_q10_q20_benchmark/r2a_t04_ca_q10_q20_benchmark_receipt.json"},
+        "receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "implementation_head": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "implementation_quality": {"type": ["string", "null"], "minLength": 1},
+        "duckdb_thread_count": {"const": 4},
+        "equivalence_security_ids": {"const": ["603345.SH", "603233.SH", "688220.SH", "300316.SZ"]},
+        "per_request_wall_seconds_max": {"const": 600},
+        "combined_wall_seconds_max": {"const": 1200},
+        "four_q_combined_wall_seconds_max": {"const": 2400},
+        "per_request_peak_rss_bytes_max": {"const": 6442450944}
+      }
+    },
     "thread_preflight": {"type": "object"},
     "formal_run_attempt_limit": {"const": 1},
     "minimum_free_disk_score_db_multiple": {"const": 3},
@@ -127,23 +163,25 @@
     "interval_sample_per_request": {"const": 20},
     "request_panel": {
       "const": [
+        {"logical_request_name": "CA_q10_k5", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 1000, "A": 1000}, "confirmation_k": 5},
         {"logical_request_name": "CA_q15_k5", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 1500, "A": 1500}, "confirmation_k": 5},
+        {"logical_request_name": "CA_q20_k5", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 2000, "A": 2000}, "confirmation_k": 5},
         {"logical_request_name": "CA_q25_k5", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 2500, "A": 2500}, "confirmation_k": 5}
       ]
     }
   },
   "allOf": [
     {
-      "if": {"properties": {"status": {"const": "ca_scope_performance_repair_pending_benchmark"}}},
-      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "optimized_benchmark_status": {"const": "pending"}, "optimized_benchmark_receipt_sha256": {"const": null}, "optimized_evaluator_head": {"const": null}, "optimized_benchmark": {"properties": {"status": {"const": "pending"}}}}}
+      "if": {"properties": {"status": {"const": "ca_four_q_scope_expansion_pending_benchmark"}}},
+      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "q10_q20_benchmark_status": {"const": "pending"}, "q10_q20_benchmark_receipt_sha256": {"const": null}, "q10_q20_benchmark": {"properties": {"status": {"const": "pending"}}}}}
     },
     {
-      "if": {"properties": {"status": {"const": "ca_two_request_benchmark_passed_pending_authorization"}}},
-      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "optimized_benchmark_status": {"const": "passed"}, "optimized_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "optimized_evaluator_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
+      "if": {"properties": {"status": {"const": "ca_four_q_benchmark_passed_pending_authorization"}}},
+      "then": {"properties": {"formal_run_authorized": {"const": false}, "reviewed_harness_head": {"const": null}, "q10_q20_benchmark_status": {"const": "passed"}, "q10_q20_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "q10_q20_benchmark": {"properties": {"status": {"const": "passed"}}}}}
     },
     {
       "if": {"properties": {"status": {"const": "authorized_not_started"}}},
-      "then": {"properties": {"formal_run_authorized": {"const": true}, "reviewed_harness_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark_status": {"const": "passed"}, "optimized_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "optimized_evaluator_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}}}
+      "then": {"properties": {"formal_run_authorized": {"const": true}, "reviewed_harness_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark_status": {"const": "passed"}, "optimized_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "optimized_evaluator_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "optimized_benchmark": {"properties": {"status": {"const": "passed"}}}, "q10_q20_benchmark_status": {"const": "passed"}, "q10_q20_benchmark_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "q10_q20_benchmark": {"properties": {"status": {"const": "passed"}}}}}
     }
   ]
 }

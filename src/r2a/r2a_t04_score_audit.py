@@ -31,10 +31,10 @@ from src.r2a.r2a_t04_set_based_evaluator import (
     evaluate_request_set_based_with_threads,
 )
 
-SCOPE_ID = "r2a_t04_ca_q15_q25_k5_response_audit.v1"
-FORMAL_AUTHORIZATION_ID = "R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5"
-PANEL_ID = "r2a_t04_ca_q15_q25_k5_panel.v1"
-EXPECTED_REQUEST_COUNT = 2
+SCOPE_ID = "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1"
+FORMAL_AUTHORIZATION_ID = "R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6"
+PANEL_ID = "r2a_t04_ca_four_q_k5_panel.v1"
+EXPECTED_REQUEST_COUNT = 4
 REVIEW_FILES = (
     "request_metrics.csv",
     "year_metrics.csv",
@@ -128,24 +128,22 @@ def initialize_score_audit_database(audit: duckdb.DuckDBPyConnection) -> None:
 
 
 def run_ca_q_response_checks_sql(audit: duckdb.DuckDBPyConnection) -> None:
-    """Record only the frozen CA q=1500 versus q=2500 response relations."""
+    """Record the frozen four-level CA q-response ladder relations."""
 
-    comparison = "CA_q15_k5 -> CA_q25_k5"
-    left_name = "CA_q15_k5"
-    right_name = "CA_q25_k5"
+    names = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
     joint_mismatch = int(
         audit.execute(
-            "SELECT count(*) FROM (SELECT security_id,trading_date,joint_ready FROM "
-            "response_daily WHERE logical_request_name=?) l FULL OUTER JOIN (SELECT "
-            "security_id,trading_date,joint_ready FROM response_daily WHERE "
-            "logical_request_name=?) r USING(security_id,trading_date) WHERE "
-            "l.security_id IS NULL OR r.security_id IS NULL OR "
-            "l.joint_ready IS DISTINCT FROM r.joint_ready",
-            [left_name, right_name],
+            "WITH keyed AS (SELECT security_id,trading_date,count(*) n,"
+            "count(DISTINCT joint_ready) distinct_ready FROM response_daily "
+            "WHERE logical_request_name IN (?,?,?,?) GROUP BY 1,2) "
+            "SELECT count(*) FROM keyed WHERE n<>4 OR distinct_ready<>1",
+            list(names),
         ).fetchone()[0]
     )
 
-    def subset_counts(field: str) -> tuple[int, int, int, int]:
+    def subset_counts(
+        field: str, left_name: str, right_name: str
+    ) -> tuple[int, int, int, int]:
         left_count = int(
             audit.execute(
                 f"SELECT count(*) FROM response_daily WHERE logical_request_name=? "
@@ -180,67 +178,56 @@ def run_ca_q_response_checks_sql(audit: duckdb.DuckDBPyConnection) -> None:
         )
         return left_count, right_count, violation, right_only
 
-    raw_left, raw_right, raw_violation, raw_right_only = subset_counts("raw_state")
-    confirmed_left, confirmed_right, confirmed_violation, confirmed_right_only = (
-        subset_counts("confirmed_state")
-    )
-    raw_strict = raw_right_only > 0
-    confirmed_strict = confirmed_right_only > 0
-    non_degenerate = raw_strict or confirmed_strict
     rows = [
         (
             "ca_q_joint_ready_equality",
-            comparison,
+            "CA_q10_k5 = CA_q15_k5 = CA_q20_k5 = CA_q25_k5",
             joint_mismatch,
             False,
             joint_mismatch == 0,
             json.dumps({"mismatch_count": joint_mismatch}, sort_keys=True),
-        ),
-        (
-            "ca_q_raw_subset",
-            comparison,
-            raw_violation,
-            raw_strict,
-            raw_violation == 0,
-            json.dumps(
-                {
-                    "left_count": raw_left,
-                    "right_count": raw_right,
-                    "right_only_count": raw_right_only,
-                },
-                sort_keys=True,
-            ),
-        ),
-        (
-            "ca_q_confirmed_subset",
-            comparison,
-            confirmed_violation,
-            confirmed_strict,
-            confirmed_violation == 0,
-            json.dumps(
-                {
-                    "left_count": confirmed_left,
-                    "right_count": confirmed_right,
-                    "right_only_count": confirmed_right_only,
-                },
-                sort_keys=True,
-            ),
-        ),
-        (
-            "ca_q_response_non_degenerate",
-            comparison,
-            0 if non_degenerate else 1,
-            non_degenerate,
-            non_degenerate,
-            json.dumps(
-                {
-                    "raw_strict_change": raw_strict,
-                    "confirmed_strict_change": confirmed_strict,
-                },
-                sort_keys=True,
-            ),
-        ),
+        )
     ]
+    ladder_strict = False
+    details: dict[str, bool] = {}
+    for field, prefix in (("raw_state", "raw"), ("confirmed_state", "confirmed")):
+        for left_name, right_name in zip(names, names[1:]):
+            left, right, violation, right_only = subset_counts(
+                field, left_name, right_name
+            )
+            strict_change = right_only > 0
+            ladder_strict |= strict_change
+            suffix = f"q{left_name[4:6]}_q{right_name[4:6]}"
+            details[f"{prefix}_{suffix}"] = strict_change
+            rows.append(
+                (
+                    f"ca_q_{prefix}_subset_{suffix}",
+                    f"{left_name} -> {right_name}",
+                    violation,
+                    strict_change,
+                    violation == 0,
+                    json.dumps(
+                        {
+                            "left_count": left,
+                            "right_count": right,
+                            "violation_count": violation,
+                            "right_only_count": right_only,
+                            "strict_change": strict_change,
+                        },
+                        sort_keys=True,
+                    ),
+                )
+            )
+    rows.append(
+        (
+            "ca_q_ladder_non_degenerate",
+            "CA_q10_k5 -> CA_q15_k5 -> CA_q20_k5 -> CA_q25_k5",
+            0 if ladder_strict else 1,
+            ladder_strict,
+            ladder_strict,
+            json.dumps(details, sort_keys=True),
+        )
+    )
     audit.executemany("INSERT INTO response_checks VALUES (?,?,?,?,?,?)", rows)
 
 
@@ -562,7 +549,7 @@ def _validate_reconciliations(
     ).fetchone()
     response_count, response_failures, non_degenerate_passed = audit.execute(
         "SELECT count(*),count(*) FILTER(WHERE passed=false),"
-        "count(*) FILTER(WHERE check_id='ca_q_response_non_degenerate' "
+        "count(*) FILTER(WHERE check_id='ca_q_ladder_non_degenerate' "
         "AND strict_change=true AND passed=true) FROM response_checks"
     ).fetchone()
     failures = {
@@ -576,7 +563,7 @@ def _validate_reconciliations(
     if any(failures.values()):
         raise R2AT04AuditError("score_audit_reconciliation_failed")
     if (
-        int(response_count) != 4
+        int(response_count) != 8
         or int(response_failures)
         or int(non_degenerate_passed) != 1
     ):
@@ -605,8 +592,8 @@ def _analysis(
             f"({score_identity['byte_size']} bytes).",
         ),
         (
-            "Frozen CA two-request panel",
-            "The frozen panel contains only CA_q15_k5 and CA_q25_k5.",
+            "Frozen CA four-q panel",
+            "The frozen panel contains CA_q10_k5, CA_q15_k5, CA_q20_k5, and CA_q25_k5.",
         ),
         (
             "Accepted output validator status",
@@ -618,12 +605,12 @@ def _analysis(
             "readiness.",
         ),
         (
-            "CA q=1500 vs q=2500 raw-state response",
-            "The q=1500 raw-state key set must be a subset of q=2500.",
+            "Raw-state q response ladder",
+            "The q=1000/1500/2000/2500 raw-state sets form an adjacent subset ladder.",
         ),
         (
-            "CA q=1500 vs q=2500 confirmed-state response",
-            "The q=1500 confirmed-state key set must be a subset of q=2500.",
+            "Confirmed-state q response ladder",
+            "The confirmed-state sets form the same adjacent subset ladder.",
         ),
         (
             "Interval count and duration comparison",
@@ -778,7 +765,7 @@ def finalize_score_review_bundle(
         ),
         "formal_run_id": formal_run_id,
         "formal_authorization_id": FORMAL_AUTHORIZATION_ID,
-        "authorization_revision": 5,
+        "authorization_revision": 6,
         "panel_id": PANEL_ID,
         "request_count": EXPECTED_REQUEST_COUNT,
         "score_source": score_public,
@@ -829,13 +816,13 @@ def run_score_formal_audit(
         validate_dynamic_evaluation_output
     ),
 ) -> dict[str, Any]:
-    """Run the frozen CA two-request Score audit strictly serially and once."""
+    """Run the frozen CA four-request Score audit strictly serially and once."""
 
     if execution_gate.get("status") != "passed":
         raise R2AT04AuditError("formal_execution_gate_not_passed")
     if (
         config.get("status") != "authorized_not_started"
-        or config.get("authorization_revision") != 5
+        or config.get("authorization_revision") != 6
         or config.get("formal_run_authorized") is not True
         or config.get("formal_run_started") is not False
         or config.get("formal_run_consumed") is not False
@@ -867,7 +854,7 @@ def run_score_formal_audit(
         (output_root / child).mkdir()
     authorization = {
         "formal_authorization_id": config["formal_authorization_id"],
-        "authorization_revision": 5,
+        "authorization_revision": 6,
         "formal_run_consumed": True,
         "scope_id": SCOPE_ID,
         "full_universe_request_concurrency": 1,
@@ -986,7 +973,7 @@ def run_score_formal_audit(
     run_manifest = {
         "formal_run_id": formal_run_id,
         "formal_authorization_id": config["formal_authorization_id"],
-        "authorization_revision": 5,
+        "authorization_revision": 6,
         "scope_id": SCOPE_ID,
         "formal_run_consumed": True,
         "request_count": EXPECTED_REQUEST_COUNT,

@@ -62,6 +62,7 @@ SCHEMA_ONLY = (
     ROOT / "schemas/r2a/r2a_t04_review_bundle.schema.json",
     ROOT / "schemas/r2a/r2a_t04_thread_benchmark_receipt.schema.json",
     ROOT / "schemas/r2a/r2a_t04_ca_set_based_benchmark_receipt.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_ca_q10_q20_benchmark_receipt.schema.json",
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
     ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
     ROOT / "schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",

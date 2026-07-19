@@ -16,7 +16,9 @@ from src.r2a.r2a_t02_request_identity import (
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "configs/r2a/r2a_t04_real_data_audit.v1.json"
 EXPECTED_LOGICAL_NAMES = (
+    "CA_q10_k5",
     "CA_q15_k5",
+    "CA_q20_k5",
     "CA_q25_k5",
 )
 
@@ -40,18 +42,18 @@ def load_audit_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
 def build_request_panel(
     config: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], ...]:
-    """Build and validate the exact two-request canonical panel."""
+    """Build and validate the exact four-request canonical panel."""
 
     resolved = dict(config) if config is not None else load_audit_config()
-    if resolved.get("panel_id") != "r2a_t04_ca_q15_q25_k5_panel.v1":
+    if resolved.get("panel_id") != "r2a_t04_ca_four_q_k5_panel.v1":
         raise R2AT04PanelError("panel_id_mismatch")
     raw_panel = resolved.get("request_panel")
-    if not isinstance(raw_panel, list) or len(raw_panel) != 2:
+    if not isinstance(raw_panel, list) or len(raw_panel) != 4:
         raise R2AT04PanelError("logical_request_count_mismatch")
     names = tuple(item.get("logical_request_name") for item in raw_panel)
     if names != EXPECTED_LOGICAL_NAMES:
         raise R2AT04PanelError("logical_request_order_mismatch")
-    if len(set(names)) != 2:
+    if len(set(names)) != 4:
         raise R2AT04PanelError("duplicate_logical_request_name")
     built: list[dict[str, Any]] = []
     for item in raw_panel:
@@ -75,7 +77,7 @@ def build_request_panel(
         built.append({"logical_request_name": item["logical_request_name"], **envelope})
     request_ids = [str(item["request_id"]) for item in built]
     request_hashes = [str(item["request_hash"]) for item in built]
-    if len(set(request_ids)) != 2 or len(set(request_hashes)) != 2:
+    if len(set(request_ids)) != 4 or len(set(request_hashes)) != 4:
         raise R2AT04PanelError("canonical_request_identity_not_unique")
     for index, existing in enumerate(built):
         for candidate in built[index + 1 :]:

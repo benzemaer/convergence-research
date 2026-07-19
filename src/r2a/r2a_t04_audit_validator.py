@@ -74,62 +74,59 @@ def validate_response_rows(
 ) -> tuple[dict[str, Any], ...]:
     """Independently validate the frozen CA q-response relations."""
 
-    names = ("CA_q15_k5", "CA_q25_k5")
+    names = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
     by_name_key = {(str(row["logical_request_name"]), _key(row)): row for row in rows}
     keys = {
         name: {key for candidate, key in by_name_key if candidate == name}
         for name in names
     }
-    if keys[names[0]] != keys[names[1]]:
+    if any(keys[name] != keys[names[0]] for name in names[1:]):
         raise R2AT04ValidationError("ca_q_key_set_mismatch")
     joint_mismatch = sum(
-        by_name_key[(names[0], key)].get("joint_ready")
-        != by_name_key[(names[1], key)].get("joint_ready")
+        len({by_name_key[(name, key)].get("joint_ready") for name in names}) != 1
         for key in keys[names[0]]
     )
     if joint_mismatch:
         raise R2AT04ValidationError("ca_q_joint_ready_mismatch", str(joint_mismatch))
     raw = _true_sets(rows, "raw_state")
     confirmed = _true_sets(rows, "confirmed_state")
-    raw_violation = raw[names[0]] - raw[names[1]]
-    confirmed_violation = confirmed[names[0]] - confirmed[names[1]]
-    if raw_violation:
-        raise R2AT04ValidationError("ca_q_raw_subset", str(len(raw_violation)))
-    if confirmed_violation:
-        raise R2AT04ValidationError(
-            "ca_q_confirmed_subset", str(len(confirmed_violation))
-        )
-    raw_strict = raw[names[0]] != raw[names[1]]
-    confirmed_strict = confirmed[names[0]] != confirmed[names[1]]
-    if not (raw_strict or confirmed_strict):
-        raise R2AT04ValidationError("blocked_ca_q_response_degenerate")
-    comparison = "CA_q15_k5 -> CA_q25_k5"
-    return (
+    checks: list[dict[str, Any]] = [
         {
             "check_id": "ca_q_joint_ready_equality",
-            "comparison": comparison,
+            "comparison": "CA_q10_k5 = CA_q15_k5 = CA_q20_k5 = CA_q25_k5",
             "passed": True,
             "strict_change": False,
-        },
+        }
+    ]
+    ladder_strict = False
+    for field_sets, prefix in ((raw, "raw"), (confirmed, "confirmed")):
+        for left, right in zip(names, names[1:]):
+            violation = field_sets[left] - field_sets[right]
+            if violation:
+                raise R2AT04ValidationError(
+                    f"ca_q_{prefix}_subset", str(len(violation))
+                )
+            strict_change = field_sets[left] != field_sets[right]
+            ladder_strict |= strict_change
+            checks.append(
+                {
+                    "check_id": (f"ca_q_{prefix}_subset_q{left[4:6]}_q{right[4:6]}"),
+                    "comparison": f"{left} -> {right}",
+                    "passed": True,
+                    "strict_change": strict_change,
+                }
+            )
+    if not ladder_strict:
+        raise R2AT04ValidationError("blocked_ca_q_ladder_degenerate")
+    checks.append(
         {
-            "check_id": "ca_q_raw_subset",
-            "comparison": comparison,
-            "passed": True,
-            "strict_change": raw_strict,
-        },
-        {
-            "check_id": "ca_q_confirmed_subset",
-            "comparison": comparison,
-            "passed": True,
-            "strict_change": confirmed_strict,
-        },
-        {
-            "check_id": "ca_q_response_non_degenerate",
-            "comparison": comparison,
+            "check_id": "ca_q_ladder_non_degenerate",
+            "comparison": "CA_q10_k5 -> CA_q15_k5 -> CA_q20_k5 -> CA_q25_k5",
             "passed": True,
             "strict_change": True,
-        },
+        }
     )
+    return tuple(checks)
 
 
 def _sha256(path: Path) -> str:
@@ -236,7 +233,7 @@ def validate_review_bundle(bundle: Path) -> dict[str, Any]:
     profiles = json.loads(
         (bundle / "request_output_profiles.json").read_text(encoding="utf-8")
     )
-    if not isinstance(profiles, dict) or len(profiles) != 2:
+    if not isinstance(profiles, dict) or len(profiles) != 4:
         raise R2AT04ValidationError("request_output_profiles_count_mismatch")
     sample_rows = _csv_rows(bundle / "interval_samples.csv")
     sample_counts = Counter(row["logical_request_name"] for row in sample_rows)
@@ -272,7 +269,7 @@ def validate_review_bundle(bundle: Path) -> dict[str, Any]:
             raise R2AT04ValidationError("score_endpoint_summary_key_not_unique")
     return {
         "status": "passed",
-        "request_count": 2,
+        "request_count": 4,
         "file_count": len(REQUIRED_COMPACT_FILES) + 1,
         "interval_sample_count": len(sample_rows),
         "total_bytes": total_bytes,

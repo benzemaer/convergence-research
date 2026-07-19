@@ -1,37 +1,52 @@
-# R2A-T04 CA q15/q25 参数响应与区间结构审核
+# R2A-T04 CA q10/q15/q20/q25 参数响应与区间结构审核
 
 ## 1. 当前阶段
 
 ```text
-scope_id: r2a_t04_ca_q15_q25_k5_response_audit.v1
-panel_id: r2a_t04_ca_q15_q25_k5_panel.v1
-request_count: 2
-status: authorized_not_started
-authorization_revision: 5
-formal_authorization_id: R2A-T04-CA-Q-AUDIT-AUTH-20260720-R5
-reviewed_harness_head: fc685e451600adb9eca0e09da985d45b5352c729
-reviewed_harness_Quality: 29698931225 / success
-formal_run_authorized: true
+scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
+panel_id: r2a_t04_ca_four_q_k5_panel.v1
+request_count: 4
+status: ca_four_q_scope_expansion_pending_benchmark
+authorization_revision: 6
+formal_authorization_id: R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6
+reviewed_harness_head: null
+formal_run_authorized: false
 formal_run_started: false
 formal_run_consumed: false
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
 ```
 
-唯一输入是 accepted R2A-T01 Score release。唯一研究比较是 `CA_q15_k5` 与 `CA_q25_k5` 的 Score 参数响应和收敛区间结构。
+唯一输入是 accepted R2A-T01 Score release。研究比较是固定 C+A、K=5 下 q=1000/1500/2000/2500 的参数响应曲线，不选择最佳 q。
 
 ## 2. Revision 4 失败事实
 
 Revision 4 run `R2A-T04-20260719T090524491Z` 已开始并消费，但因性能被人工终止，只完成 `D01_P_q15_k3`，在 `D02_PA_q15_k3` 中断。其状态固定为 `terminated_incomplete_performance / rejected_incomplete`。该 revision 不可恢复、不可重跑，旧 RunRoot 不得删除或修改，结果不得接受。
 
+Revision 5 run `R2A-T04-20260719T212259066Z` 已完成，自动验证与独立复核均 passed，但 owner 未接受。其状态固定为 `valid_scope_superseded_before_owner_acceptance`，原因是 `owner_requested_q10_q20_scope_extension`。该结果没有失败、不可重跑且本地产物不得修改，但不能作为 T04 最终 accepted closure。
+
 ## 3. 冻结请求
 
 ```text
+CA_q10_k5
+request_id: pcavt-dynreq-v1-d07aae4bbbd98f88
+request_hash: d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f
+selected_dimensions: [C, A]
+q_by_dimension: {C: 1000, A: 1000}
+confirmation_k: 5
+
 CA_q15_k5
 request_id: pcavt-dynreq-v1-cf420e9c025374d1
 request_hash: cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f
 selected_dimensions: [C, A]
 q_by_dimension: {C: 1500, A: 1500}
+confirmation_k: 5
+
+CA_q20_k5
+request_id: pcavt-dynreq-v1-21bd144aaed98d9e
+request_hash: 21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971
+selected_dimensions: [C, A]
+q_by_dimension: {C: 2000, A: 2000}
 confirmation_k: 5
 
 CA_q25_k5
@@ -46,14 +61,14 @@ confirmation_k: 5
 
 ## 4. 科学检查
 
-只允许以下四项 response checks：
+只允许恰好八项 response checks：
 
-1. `ca_q_joint_ready_equality`：两请求逐 security/date 的 `joint_ready` 完全相同；
-2. `ca_q_raw_subset`：q=1500 raw-true keys 是 q=2500 的子集；
-3. `ca_q_confirmed_subset`：q=1500 confirmed-true keys 是 q=2500 的子集；
-4. `ca_q_response_non_degenerate`：raw 或 confirmed 至少一个集合严格变化。
+1. `ca_q_joint_ready_equality`：四请求逐 security/date 的 `joint_ready` 完全相同；
+2. 三项相邻 raw subset：q10⊆q15⊆q20⊆q25；
+3. 三项相邻 confirmed subset：q10⊆q15⊆q20⊆q25；
+4. `ca_q_ladder_non_degenerate`：整个 raw/confirmed ladder 至少一处严格变化。
 
-任何 subset violation 或 readiness mismatch 阻塞；两层集合均相同则 `blocked_ca_q_response_degenerate`。旧 P→PA→PCA→PCAV→PCAVT ladder、K chain、PCAVT equal-q chain、五个 marginal request 及其 checks 不再执行或要求。
+任何 subset violation 或 readiness mismatch 阻塞；相邻集合允许相同，只有四档 raw 与 confirmed 全部相同才以 `blocked_ca_q_ladder_degenerate` 阻塞。区间数量、持续期、终止分布和 right-censored rate 只报告，不作为单调硬门禁。
 
 ## 5. 保持不变的输出
 
@@ -79,10 +94,10 @@ Passed receipt 提交并通过 Quality 后，才允许创建 metadata-only revis
 
 ## 8. Compact review 与分析边界
 
-Compact bundle 保持原 14 文件清单且总计 ≤60 MiB；request count 和 profiles count 均为 2。`result_analysis.md` 固定为 Score identity、两请求 panel、validator、joint evaluability、raw/confirmed response、interval duration、breadth、year、termination、Score endpoints、limitations、automated recommendation 十三节。
+Compact bundle 保持原 14 文件清单且总计 ≤60 MiB；request count 和 profiles count 均为 4。`result_analysis.md` 固定为 Score identity、四档 panel、validator、joint evaluability、raw/confirmed ladder、interval duration、breadth、year、termination、Score endpoints、limitations、automated recommendation 十三节。
 
 Recommendation 只能是 `continue_to_owner_result_review` 或 `blocked_evaluator_or_response_degeneracy`。不得写最佳 q、canonical q、交易信号、未来收益、回测或组合。
 
 ## 9. 停止点
 
-最终停止在 `R2A-T04 CA two-request formal authorization review`。Revision 4 保持 consumed/unaccepted；revision 5 仅 authorized_not_started，`DONE` absent，R2A-T05 false。
+最终停止在 `R2A-T04 CA four-q formal authorization review`。Revision 5 保持 valid-but-not-accepted 且不可重跑；revision 6 在本轮最终只能是 authorized_not_started，`DONE` absent，R2A-T05 false。

@@ -38,7 +38,7 @@ def _config() -> dict[str, object]:
     config.update(
         {
             "status": "authorized_not_started",
-            "authorization_revision": 5,
+            "authorization_revision": 6,
             "reviewed_harness_head": REPAIR_HEAD,
             "formal_run_authorized": True,
             "formal_run_started": False,
@@ -57,6 +57,16 @@ def _config() -> dict[str, object]:
             "implementation_quality": "1 / success",
         }
     )
+    config["q10_q20_benchmark"].update(
+        {
+            "status": "passed",
+            "receipt_sha256": "e" * 64,
+            "implementation_head": "d" * 40,
+            "implementation_quality": "2 / success",
+        }
+    )
+    config["q10_q20_benchmark_status"] = "passed"
+    config["q10_q20_benchmark_receipt_sha256"] = "e" * 64
     return config
 
 
@@ -169,6 +179,10 @@ def _optimized(config: dict[str, object]) -> dict[str, object]:
     return {"implementation_head": config["optimized_benchmark"]["implementation_head"]}
 
 
+def _supplemental(config: dict[str, object]) -> dict[str, object]:
+    return {"implementation_head": config["q10_q20_benchmark"]["implementation_head"]}
+
+
 def _gate(tmp_path: Path, **overrides: object) -> dict[str, object]:
     config = _config()
     panel = build_request_panel(config)
@@ -184,6 +198,7 @@ def _gate(tmp_path: Path, **overrides: object) -> dict[str, object]:
         "identity_verifier": _identity,
         "benchmark_validator": _benchmark,
         "optimized_benchmark_validator": _optimized,
+        "supplemental_benchmark_validator": _supplemental,
     }
     arguments.update(overrides)
     return validate_score_formal_execution_gate(**arguments)
@@ -193,13 +208,32 @@ def test_score_formal_gate_accepts_only_frozen_contract(tmp_path: Path) -> None:
     receipt = _gate(tmp_path)
     assert receipt["status"] == "passed"
     assert receipt["duckdb_thread_count"] == 4
-    assert receipt["request_count"] == 2
+    assert receipt["request_count"] == 4
+
+
+def test_revision_six_pending_and_revision_five_are_rejected(tmp_path: Path) -> None:
+    pending = _config()
+    pending["status"] = "ca_four_q_scope_expansion_pending_benchmark"
+    pending["formal_run_authorized"] = False
+    with pytest.raises(R2AT04ExecutionGateError, match="formal_config_status_mismatch"):
+        _gate(tmp_path, config=pending, panel=build_request_panel(pending))
+    revision_five = _config()
+    revision_five["authorization_revision"] = 5
+    with pytest.raises(
+        R2AT04ExecutionGateError,
+        match="formal_config_authorization_revision_mismatch",
+    ):
+        _gate(
+            tmp_path,
+            config=revision_five,
+            panel=build_request_panel(revision_five),
+        )
 
 
 @pytest.mark.parametrize(
     ("field", "value", "reason"),
     [
-        ("authorization_revision", 4, "formal_config_authorization_revision_mismatch"),
+        ("authorization_revision", 5, "formal_config_authorization_revision_mismatch"),
         (
             "formal_run_authorized",
             False,

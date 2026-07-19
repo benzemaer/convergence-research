@@ -23,11 +23,36 @@ THREAD_RECEIPT_SCHEMA = (
 OPTIMIZED_RECEIPT_SCHEMA = (
     ROOT / "schemas/r2a/r2a_t04_ca_set_based_benchmark_receipt.schema.json"
 )
-EXPECTED_CA_REQUESTS = (
+SUPPLEMENTAL_RECEIPT_SCHEMA = (
+    ROOT / "schemas/r2a/r2a_t04_ca_q10_q20_benchmark_receipt.schema.json"
+)
+EXPECTED_LEGACY_CA_REQUESTS = (
     (
         "CA_q15_k5",
         "pcavt-dynreq-v1-cf420e9c025374d1",
         "cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f",
+    ),
+    (
+        "CA_q25_k5",
+        "pcavt-dynreq-v1-b210f9e5211c46db",
+        "b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9",
+    ),
+)
+EXPECTED_CA_REQUESTS = (
+    (
+        "CA_q10_k5",
+        "pcavt-dynreq-v1-d07aae4bbbd98f88",
+        "d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f",
+    ),
+    (
+        "CA_q15_k5",
+        "pcavt-dynreq-v1-cf420e9c025374d1",
+        "cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f",
+    ),
+    (
+        "CA_q20_k5",
+        "pcavt-dynreq-v1-21bd144aaed98d9e",
+        "21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971",
     ),
     (
         "CA_q25_k5",
@@ -138,8 +163,8 @@ def validate_ca_set_based_benchmark_receipt(
         "status": "passed",
         "implementation_head": optimized["implementation_head"],
         "implementation_quality": optimized["implementation_quality"],
-        "scope_id": config["scope_id"],
-        "panel_id": config["panel_id"],
+        "scope_id": "r2a_t04_ca_q15_q25_k5_response_audit.v1",
+        "panel_id": "r2a_t04_ca_q15_q25_k5_panel.v1",
         "request_count": 2,
         "score_release_id": config["score_release"]["score_release_id"],
         "score_database_sha256": config["score_release"]["sha256"],
@@ -167,7 +192,7 @@ def validate_ca_set_based_benchmark_receipt(
     )
     _require_equal(
         actual=identities,
-        expected=EXPECTED_CA_REQUESTS,
+        expected=EXPECTED_LEGACY_CA_REQUESTS,
         reason_code="optimized_benchmark_request_identity_mismatch",
     )
     equivalence = receipt["equivalence"]
@@ -218,6 +243,68 @@ def validate_ca_set_based_benchmark_receipt(
     return receipt
 
 
+def validate_ca_q10_q20_benchmark_receipt(
+    config: Mapping[str, Any], receipt_path: Path | None = None
+) -> dict[str, Any]:
+    """Validate supplemental q10/q20 equivalence and performance evidence."""
+
+    metadata = config["q10_q20_benchmark"]
+    path = receipt_path or ROOT / str(metadata["receipt_path"])
+    if not path.is_file():
+        raise R2AT04ExecutionGateError("q10_q20_benchmark_receipt_missing")
+    _require_equal(
+        actual=sha256_file(path),
+        expected=metadata["receipt_sha256"],
+        reason_code="q10_q20_benchmark_receipt_sha256_mismatch",
+    )
+    receipt = _validated_json(path, SUPPLEMENTAL_RECEIPT_SCHEMA)
+    expected = {
+        "status": "passed",
+        "implementation_head": metadata["implementation_head"],
+        "implementation_quality": metadata["implementation_quality"],
+        "scope_id": config["scope_id"],
+        "panel_id": config["panel_id"],
+        "score_release_id": config["score_release"]["score_release_id"],
+        "score_database_sha256": config["score_release"]["sha256"],
+        "score_database_byte_size": config["score_release"]["byte_size"],
+        "existing_q15_q25_receipt_sha256": (
+            "59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76"
+        ),
+        "formal_run_started": False,
+        "formal_attempt_consumed": False,
+        "scientific_result_generated": False,
+        "source_database_modified": False,
+        "contains_absolute_paths": False,
+        "residual_output_count": 0,
+    }
+    for field, expected_value in expected.items():
+        _require_equal(
+            actual=receipt.get(field),
+            expected=expected_value,
+            reason_code=f"q10_q20_benchmark_receipt_{field}_mismatch",
+        )
+    identities = tuple(
+        (item["logical_request_name"], item["request_id"], item["request_hash"])
+        for item in receipt["requests"]
+    )
+    _require_equal(
+        actual=identities,
+        expected=(EXPECTED_CA_REQUESTS[0], EXPECTED_CA_REQUESTS[2]),
+        reason_code="q10_q20_benchmark_request_identity_mismatch",
+    )
+    if not receipt["equivalence"]["all_tables_logically_equal"]:
+        raise R2AT04ExecutionGateError("q10_q20_benchmark_equivalence_failed")
+    full = receipt["full_universe"]
+    if (
+        not full["performance_gate_passed"]
+        or not receipt["four_q_performance_gate_passed"]
+    ):
+        raise R2AT04ExecutionGateError("q10_q20_benchmark_performance_failed")
+    if float(receipt["four_q_combined_evaluator_seconds"]) > 2400:
+        raise R2AT04ExecutionGateError("four_q_combined_wall_failed")
+    return receipt
+
+
 def validate_score_formal_execution_gate(
     *,
     config: Mapping[str, Any],
@@ -233,19 +320,22 @@ def validate_score_formal_execution_gate(
     optimized_benchmark_validator: Callable[..., dict[str, Any]] = (
         validate_ca_set_based_benchmark_receipt
     ),
+    supplemental_benchmark_validator: Callable[..., dict[str, Any]] = (
+        validate_ca_q10_q20_benchmark_receipt
+    ),
 ) -> dict[str, Any]:
     """Validate all Score-only bindings before an output root may be created."""
 
     expected_config = {
-        "scope_id": "r2a_t04_ca_q15_q25_k5_response_audit.v1",
+        "scope_id": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1",
         "status": "authorized_not_started",
-        "authorization_revision": 5,
+        "authorization_revision": 6,
         "formal_run_authorized": True,
         "formal_run_started": False,
         "formal_run_consumed": False,
         "authorization_effective_only_after_exact_head_quality_success": True,
-        "panel_id": "r2a_t04_ca_q15_q25_k5_panel.v1",
-        "request_panel_count": 2,
+        "panel_id": "r2a_t04_ca_four_q_k5_panel.v1",
+        "request_panel_count": 4,
         "full_universe_request_concurrency": 1,
     }
     for field, expected in expected_config.items():
@@ -263,7 +353,7 @@ def validate_score_formal_execution_gate(
         raise R2AT04ExecutionGateError("authorization_head_invalid")
     if authorization_head == config.get("supersedes_authorization_head"):
         raise R2AT04ExecutionGateError("authorization_head_is_superseded")
-    if len(panel) != 2:
+    if len(panel) != 4:
         raise R2AT04ExecutionGateError("formal_panel_count_mismatch")
     logical_names = [str(item.get("logical_request_name")) for item in panel]
     if tuple(logical_names) != tuple(item[0] for item in EXPECTED_CA_REQUESTS):
@@ -284,11 +374,12 @@ def validate_score_formal_execution_gate(
     except R2AT04AuditError as error:
         raise R2AT04ExecutionGateError(error.reason_code) from error
     optimized_benchmark = optimized_benchmark_validator(config)
+    supplemental_benchmark = supplemental_benchmark_validator(config)
     return {
         "status": "passed",
         "authorization_head": authorization_head,
         "authorization_parent": authorization_parent,
-        "authorization_revision": 5,
+        "authorization_revision": 6,
         "scope_id": config["scope_id"],
         "score_identity": score_identity,
         "benchmark_receipt_sha256": preflight["thread_benchmark_receipt_sha256"],
@@ -297,9 +388,13 @@ def validate_score_formal_execution_gate(
             "receipt_sha256"
         ],
         "optimized_evaluator_head": optimized_benchmark["implementation_head"],
+        "q10_q20_benchmark_receipt_sha256": config["q10_q20_benchmark"][
+            "receipt_sha256"
+        ],
+        "q10_q20_implementation_head": supplemental_benchmark["implementation_head"],
         "duckdb_thread_count": 4,
         "panel_id": config["panel_id"],
-        "request_count": 2,
+        "request_count": 4,
         "full_universe_request_concurrency": 1,
         "formal_run_started": False,
         "formal_run_consumed": False,
