@@ -11,14 +11,14 @@ current_branch: codex/r2a-t04-real-data-response-audit
 remote_branch: origin/codex/r2a-t04-real-data-response-audit
 R2A-T04 PR: #113 / Open / Draft
 R2A-T04 scope_id: r2a_t04_score_parameter_response_interval_structure.v1
-R2A-T04 status: score_independent_review_repair_pending_review
+R2A-T04 status: authorization_revision_4_committed_pending_exact_head_quality
 R2A-T04 unique input: accepted R2A-T01 Score release
 R2A-T04 unique formal scope: 16-request Score parameter response and interval structure audit
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-authorization_revision: 3
-reviewed_harness_head: ceb460d0e8dd7c459e45ae19da1bbe5582417a1f
-reviewed_harness_Quality: 29669497735 / success
-formal_run_authorized: false
+authorization_revision: 4
+reviewed_harness_head: 3f548684bef00eda1b071c9f57043ae9e0cfe307
+reviewed_harness_Quality: 29679876030 / success
+formal_run_authorized: true
 authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_consumed: false
@@ -29,10 +29,10 @@ thread_benchmark_evidence_reused: true
 thread_benchmark_rerun_required: false
 R2A-T04_DONE: absent
 R2A-T05_allowed_to_start: false
-current_stop: R2A-T04 Score-only independent-review repair review
+current_stop: R2A-T04 Score-only revision 4 formal authorization review
 ```
 
-Authorization revision 3 HEAD `21837edddfcc298b8539bcf9f71a1b7e016b6d47` 已在 formal run 前被替代，未使用、未开始运行、未消费 attempt；原因是 `independent_review_cli_not_aligned_with_score_only_scope`。当前先修复独立审阅 CLI，并保持 formal authorization 关闭。本轮不读取 accepted Score 数据，不创建 formal output root，也不消费 formal attempt。
+Authorization revision 3 HEAD `21837edddfcc298b8539bcf9f71a1b7e016b6d47` 已在 formal run 前被替代，未使用、未开始运行、未消费 attempt；原因是 `independent_review_cli_not_aligned_with_score_only_scope`。独立审阅 repair HEAD `3f548684bef00eda1b071c9f57043ae9e0cfe307` 已通过 Quality `29679876030 / success`。Metadata-only revision 4 已绑定该 repair HEAD；其精确 authorization HEAD Quality 成功前不得开始正式运行。
 
 ## 1. 已接受的 R2A 基线
 
@@ -125,14 +125,14 @@ Revision 2 的 HEAD `9d3c2dab43a10b12931db921ef730db6e8552ff1` 与 revision 3 HE
 
 当前工作必须严格分两步：
 
-1. `fix: align R2A-T04 independent review with Score scope`：修复独立 review CLI，并将 revision 3 标记为未使用即被替代；formal authorization 保持关闭，等待精确 repair HEAD Quality success。
-2. `chore: reauthorize R2A-T04 after review repair`：仅在第一步 Quality 成功后创建 metadata-only revision 4，并把 `reviewed_harness_head` 绑定到精确 repair HEAD。
+1. `fix: align R2A-T04 independent review with Score scope`：已完成；repair HEAD `3f548684bef00eda1b071c9f57043ae9e0cfe307`，Quality `29679876030 / success`。
+2. `chore: reauthorize R2A-T04 after review repair`：metadata-only revision 4 已把 `reviewed_harness_head` 绑定到精确 repair HEAD；等待精确 authorization HEAD Quality success。
 
 最终停止点必须是：
 
 ```text
-R2A-T04 Score-only independent-review repair review
-formal_run_authorized: false
+R2A-T04 Score-only revision 4 formal authorization review
+formal_run_authorized: true
 formal_run_started: false
 formal_run_consumed: false
 full_universe_request_count: 0
