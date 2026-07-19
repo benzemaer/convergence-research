@@ -12,6 +12,8 @@
     "authorization_revision_2_head", "authorization_revision_2_status",
     "authorization_revision_2_used", "authorization_revision_2_formal_run_started",
     "authorization_revision_2_formal_attempt_consumed", "superseded_reason",
+    "supersedes_authorization_head", "superseded_authorization_used",
+    "superseded_authorization_formal_attempt_consumed",
     "full_universe_request_count", "R2A-T04_DONE", "R2A-T05_allowed_to_start",
     "score_release", "accepted_evaluator", "panel_id", "request_panel_count",
     "full_security_scope_required", "full_observation_history_required",
@@ -23,14 +25,14 @@
     "$schema": {"const": "../../schemas/r2a/r2a_t04_real_data_audit.schema.json"},
     "task_id": {"const": "R2A-T04"},
     "scope_id": {"const": "r2a_t04_score_parameter_response_interval_structure.v1"},
-    "status": {"enum": ["score_scope_repair_pending_review", "authorized_not_started"]},
+    "status": {"const": "authorized_not_started"},
     "formal_authorization_id": {"const": "R2A-T04-REAL-AUDIT-AUTH-20260719"},
-    "authorization_revision": {"enum": [2, 3]},
-    "reviewed_harness_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "formal_run_authorized": {"type": "boolean"},
+    "authorization_revision": {"const": 3},
+    "reviewed_harness_head": {"const": "ceb460d0e8dd7c459e45ae19da1bbe5582417a1f"},
+    "formal_run_authorized": {"const": true},
     "formal_run_started": {"const": false},
     "formal_run_consumed": {"const": false},
-    "authorization_effective_only_after_exact_head_quality_success": {"type": "boolean"},
+    "authorization_effective_only_after_exact_head_quality_success": {"const": true},
     "authorization_revision_2_head": {"const": "9d3c2dab43a10b12931db921ef730db6e8552ff1"},
     "authorization_revision_2_status": {"const": "superseded_before_formal_run"},
     "authorization_revision_2_used": {"const": false},
@@ -135,18 +137,5 @@
         }
       }
     }
-  },
-  "allOf": [
-    {
-      "if": {"properties": {"status": {"const": "score_scope_repair_pending_review"}}},
-      "then": {"properties": {"authorization_revision": {"const": 2}, "formal_run_authorized": {"const": false}, "authorization_effective_only_after_exact_head_quality_success": {"const": false}}}
-    },
-    {
-      "if": {"properties": {"status": {"const": "authorized_not_started"}}},
-      "then": {
-        "required": ["supersedes_authorization_head", "superseded_authorization_used", "superseded_authorization_formal_attempt_consumed"],
-        "properties": {"authorization_revision": {"const": 3}, "formal_run_authorized": {"const": true}, "authorization_effective_only_after_exact_head_quality_success": {"const": true}}
-      }
-    }
-  ]
+  }
 }

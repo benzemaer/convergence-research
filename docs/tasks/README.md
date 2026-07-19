@@ -191,14 +191,16 @@ R2A-T03_DONE: present
 R2A-T04_allowed_to_start: true
 R2A-T04_started: true
 R2A-T04_scope_id: r2a_t04_score_parameter_response_interval_structure.v1
-R2A-T04_status: score_scope_repair_pending_review
+R2A-T04_status: authorization_revision_3_committed_pending_exact_head_quality
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
 formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-authorization_revision: 2
-formal_run_authorized: false
-authorization_effective_only_after_exact_head_quality_success: false
+authorization_revision: 3
+reviewed_harness_head: ceb460d0e8dd7c459e45ae19da1bbe5582417a1f
+reviewed_harness_Quality: 29669497735 / success
+formal_run_authorized: true
+authorization_effective_only_after_exact_head_quality_success: true
 formal_run_started: false
 formal_run_consumed: false
 authorization_revision_2_head: 9d3c2dab43a10b12931db921ef730db6e8552ff1
@@ -239,8 +241,9 @@ R2A-T04 已从 PR #112 merge commit `a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a`
 Score 参数响应、区间结构与 Score 端点结构审核，不依赖其他数据产品。冻结 benchmark evidence 已证明
 4/8/16 输出逻辑一致并选择 threads=4，本轮直接复用且不重跑。Authorization revision 2 HEAD
 `9d3c2dab...` 已在 formal run 前被替代，未被使用或消费 attempt；替代理由只是将范围收敛为
-Score parameter response and interval structure。当前先等待 Score-only scope repair 的精确 Quality；
-成功后才允许创建 metadata-only revision 3 authorization。正式 full-universe run 尚未开始。
+Score parameter response and interval structure。Score-only repair HEAD `ceb460d0...` 已通过 Quality
+`29669497735`，metadata-only revision 3 authorization 已建立并等待其精确 HEAD Quality。正式
+full-universe run 尚未开始，也未消费 formal attempt。
 任务契约见
 [`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 
