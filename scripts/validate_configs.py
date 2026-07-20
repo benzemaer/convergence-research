@@ -338,6 +338,10 @@ CONFIGS = (
         ROOT / "configs/r2a/r2a_t05_ca_exit_decomposition.v1.json",
     ),
     (
+        ROOT / "schemas/r2a/r2a_t05_formal_execution.schema.json",
+        ROOT / "configs/r2a/r2a_t05_formal_execution.v1.json",
+    ),
+    (
         ROOT / "schemas/governance/r_formal_experiment_governance.schema.json",
         ROOT / "configs/governance/r_formal_experiment_governance.v1.json",
     ),
@@ -425,6 +429,7 @@ def standalone_r2a_schemas() -> tuple[Path, ...]:
         ROOT / "schemas/r2a/r2a_t01_score_release_manifest.schema.json",
         ROOT / "schemas/r2a/r2a_t01_validation_receipt.schema.json",
         ROOT / "schemas/r2a/r2a_t02_accepted_protocol_handoff.schema.json",
+        ROOT / "schemas/r2a/r2a_t05_formal_input_manifest.schema.json",
     )
 
 

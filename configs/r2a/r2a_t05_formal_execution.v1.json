@@ -1,0 +1,149 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t05_formal_execution.schema.json",
+  "task_id": "R2A-T05",
+  "stage_id": "R2A",
+  "status": "formal_execution_candidate_pending_owner_review",
+  "formal_scope_id": "r2a_t05_ca_exit_mechanism_formal_execution.v1",
+  "implementation_version": "r2a_t05_ca_exit_decomposition.v1",
+  "reviewed_implementation_sha": "55dceba70bc967caa75c597ce17acb93a2dac511",
+  "implementation_review_status": "approved",
+  "formal_execution_review_status": "pending_owner_review",
+  "research_anchor_q": 2000,
+  "q_selection_status": "not_selected",
+  "canonical_dynamic_request_selected": false,
+  "formal_run_allowed": false,
+  "formal_run_started": false,
+  "real_score_data_read": false,
+  "formal_artifacts_generated": false,
+  "R2A-T05_DONE": "absent",
+  "R2A-T06_allowed_to_start": false,
+  "PR_state": "Draft",
+  "formal_run_attempt_limit": 1,
+  "formal_run_attempts_consumed": 0,
+  "run_root_policy": {
+    "parent_relative_path": "data/generated/r2a/r2a_t05/formal-runs",
+    "run_id_format": "R2A-T05-<UTC_TIMESTAMP>",
+    "utc_timestamp_required": true,
+    "require_unique": true,
+    "allow_resume": false,
+    "allow_overwrite": false,
+    "allow_automatic_rerun": false,
+    "allow_skip": false,
+    "allow_partial_promotion": false
+  },
+  "input_authorization": {
+    "allowed_repository_roots": ["data/raw", "data/external", "data/interim", "data/generated"],
+    "retired_external_root_names": ["convergence-research-inputs"],
+    "reject_reparse_points": true,
+    "reject_compatibility_paths": true,
+    "score_database_relative_path": "data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/score-release/pcavt-score-w120-v1-c7e04f11a2cd09aa/score_data.duckdb",
+    "manifest_schema_version": "r2a_t05_formal_input_manifest.v1",
+    "request_identity_source": "accepted R2A-T04 handoff requests; request files are only independently revalidated envelopes"
+  },
+  "accepted_bindings": {
+    "score_release": {
+      "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+      "relative_path": "data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/score-release/pcavt-score-w120-v1-c7e04f11a2cd09aa/score_data.duckdb",
+      "sha256": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+      "byte_size": 4255395840,
+      "security_count": 800,
+      "date_min": "2016-01-04",
+      "date_max": "2026-06-30",
+      "accepted_t01_handoff_sha256": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"
+    },
+    "t01_handoff": {
+      "relative_path": "data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/r2a_t01_accepted_result_handoff.json",
+      "sha256": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"
+    },
+    "t03_handoff": {
+      "relative_path": "data/generated/r2a/r2a_t03/r2a_t03_dynamic_evaluator.v1/r2a_t03_accepted_implementation_handoff.json",
+      "sha256": "474a6721f0f8219b7ddb16cbddec2294d6b61c75db57f63e5f45ebfeb025b9b1"
+    },
+    "t03_config": {
+      "relative_path": "configs/r2a/r2a_t03_dynamic_evaluator.v1.json",
+      "sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"
+    },
+    "t04_handoff": {
+      "relative_path": "data/generated/r2a/r2a_t04/R2A-T04-20260720T002158508Z/r2a_t04_accepted_result_handoff.json",
+      "sha256": "ec4aa13d8b428adb03e6f7faff591741f2730c50cdc87d98f33c9e6ef9e20c5a",
+      "scope_id": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1",
+      "panel_id": "r2a_t04_ca_four_q_k5_panel.v1",
+      "accepted_run_id": "R2A-T04-20260720T002158508Z"
+    }
+  },
+  "request_order": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+  "request_sources": [
+    {"logical_request_name": "CA_q10_k5", "relative_path": "data/generated/r2a/r2a_t04/formal-runs/R2A-T04-20260720T002158508Z/requests/CA_q10_k5.json", "sha256": "db4e5ca8d498ee82c28106e69790679c614d218aa93fe72abd4c4044843c81c6", "byte_size": 557},
+    {"logical_request_name": "CA_q15_k5", "relative_path": "data/generated/r2a/r2a_t04/formal-runs/R2A-T04-20260720T002158508Z/requests/CA_q15_k5.json", "sha256": "c8205387351c0fb689e77022b0ec3f65fa632d8705dd20db54f648b5c2166406", "byte_size": 557},
+    {"logical_request_name": "CA_q20_k5", "relative_path": "data/generated/r2a/r2a_t04/formal-runs/R2A-T04-20260720T002158508Z/requests/CA_q20_k5.json", "sha256": "6e8614bcaab949234993e0286595586ce562328185b63adcec12488a1c526437", "byte_size": 557},
+    {"logical_request_name": "CA_q25_k5", "relative_path": "data/generated/r2a/r2a_t04/formal-runs/R2A-T04-20260720T002158508Z/requests/CA_q25_k5.json", "sha256": "786c406987633235c1e372eec21a92717296c4b913f67764526c9a2c74191f27", "byte_size": 557}
+  ],
+  "requests": [
+    {"logical_request_name": "CA_q10_k5", "request_id": "pcavt-dynreq-v1-d07aae4bbbd98f88", "request_hash": "d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 1000, "A": 1000}, "confirmation_k": 5, "selection_status": "evaluated_not_selected", "comparison_role": "cross_q_structure_comparison"},
+    {"logical_request_name": "CA_q15_k5", "request_id": "pcavt-dynreq-v1-cf420e9c025374d1", "request_hash": "cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 1500, "A": 1500}, "confirmation_k": 5, "selection_status": "evaluated_not_selected", "comparison_role": "cross_q_structure_comparison"},
+    {"logical_request_name": "CA_q20_k5", "request_id": "pcavt-dynreq-v1-21bd144aaed98d9e", "request_hash": "21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 2000, "A": 2000}, "confirmation_k": 5, "selection_status": "evaluated_not_selected", "comparison_role": "research_anchor_exit_mechanism_decomposition"},
+    {"logical_request_name": "CA_q25_k5", "request_id": "pcavt-dynreq-v1-b210f9e5211c46db", "request_hash": "b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9", "selected_dimensions": ["C", "A"], "q_by_dimension": {"C": 2500, "A": 2500}, "confirmation_k": 5, "selection_status": "evaluated_not_selected", "comparison_role": "cross_q_structure_comparison"}
+  ],
+  "accepted_t04_counts": {
+    "CA_q10_k5": {"raw_true": 20559, "confirmed_true": 1916, "intervals": 751, "securities_with_interval": 473},
+    "CA_q15_k5": {"raw_true": 46651, "confirmed_true": 7125, "intervals": 2426, "securities_with_interval": 734},
+    "CA_q20_k5": {"raw_true": 81535, "confirmed_true": 17642, "intervals": 5372, "securities_with_interval": 775},
+    "CA_q25_k5": {"raw_true": 124893, "confirmed_true": 35098, "intervals": 9107, "securities_with_interval": 788}
+  },
+  "accepted_t03_output_contract": {
+    "evaluator_version": "r2a_t03_dynamic_evaluator.v1",
+    "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1",
+    "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
+    "input_tables": ["security_observation_spine", "daily_dimension_scores"],
+    "output_tables": ["dynamic_request", "evaluation_scope", "daily_dimension_states", "daily_joint_states", "confirmed_intervals"],
+    "validator_function": "src.r2a.r2a_t03_output_contract.validate_dynamic_evaluation_output",
+    "fresh_output_required": true,
+    "serial_request_execution": true
+  },
+  "protected_implementation_files": [
+    {"path": "configs/r2a/r2a_t05_ca_exit_decomposition.v1.json", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "27152da4500742a987357aed30dde2a3aacd6205", "committed_byte_sha256": "7918d7b4150102a8ca3d30e6ce251d928e684bdb949c9b1ff1daa20c56cdc070", "normalized_text_sha256": "7918d7b4150102a8ca3d30e6ce251d928e684bdb949c9b1ff1daa20c56cdc070", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "schemas/r2a/r2a_t05_ca_exit_decomposition.schema.json", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "504f40b6e3eec8d5ccc37bac1876786208cb4230", "committed_byte_sha256": "0ac5816d2c4622c4db78f2a8cf32d2707f61fa4bce8ee93e6585b94a34af4c80", "normalized_text_sha256": "0ac5816d2c4622c4db78f2a8cf32d2707f61fa4bce8ee93e6585b94a34af4c80", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "schemas/r2a/r2a_t05_result_package.schema.json", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "1e829da2fbb42aed5869297f26e448024ea732d5", "committed_byte_sha256": "18275256512513076da259825c78d07fe4754fdda042e6f3146a5d9ce2b2d2bb", "normalized_text_sha256": "18275256512513076da259825c78d07fe4754fdda042e6f3146a5d9ce2b2d2bb", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_ca_exit_decomposition.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "560b7350678a972b28e715b2629ca8c57d82c3a4", "committed_byte_sha256": "58ae531974f9e53ec8f8ac553e2cef448468089aec4651d77d2118550eb78c03", "normalized_text_sha256": "58ae531974f9e53ec8f8ac553e2cef448468089aec4651d77d2118550eb78c03", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_validator.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "e882c87cb6c0966ece5a2b6d0f19a3217e1215b3", "committed_byte_sha256": "91a51f7abcac44a4569c5a1e6d326e4e1ecadd291f17410e20f4c00e18791c41", "normalized_text_sha256": "91a51f7abcac44a4569c5a1e6d326e4e1ecadd291f17410e20f4c00e18791c41", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_result_analysis.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "c2dabdf8455193370d2faea132d7a981746c0ce6", "committed_byte_sha256": "f8c157b8db0a5e7989442ffa1392091be297a3422794adee720eab176ed96cef", "normalized_text_sha256": "f8c157b8db0a5e7989442ffa1392091be297a3422794adee720eab176ed96cef", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "tests/r2a/test_r2a_t05_ca_exit_decomposition.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "3a66ef42490194911fb4127c02ba6573ae97354a", "committed_byte_sha256": "8c6b01208f6523304691f33fa322211ce1f79645a86c05b0b1f364cfb69f979f", "normalized_text_sha256": "8c6b01208f6523304691f33fa322211ce1f79645a86c05b0b1f364cfb69f979f", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "tests/r2a/test_r2a_t05_validator.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "6f46f8e2142a66c0eeaaca797aea12f040e536e9", "committed_byte_sha256": "e6d55c9db1504823397a7151c13411627799dcff6a04863409939310251447b5", "normalized_text_sha256": "e6d55c9db1504823397a7151c13411627799dcff6a04863409939310251447b5", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "tests/r2a/test_r2a_t05_result_package_schema.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "616ec3d7a5970b8ba34424cb2c6abe92aaf596e4", "committed_byte_sha256": "6782a0581ffd5528f899923f4f82c4a54045b889557810f8a8d10d727943e703", "normalized_text_sha256": "6782a0581ffd5528f899923f4f82c4a54045b889557810f8a8d10d727943e703", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1}
+  ],
+  "artifact_plan": {
+    "detail_relative_files": [
+      "input_manifest.json", "authorization.json", "execution_log.jsonl", "run_summary.json",
+      "request-results/CA_q10_k5.duckdb", "request-results/CA_q15_k5.duckdb", "request-results/CA_q20_k5.duckdb", "request-results/CA_q25_k5.duckdb",
+      "t05_detail.duckdb", "independent_validation_receipt.json", "anomaly_scan.json", "result_analysis.md", "result_package.json"
+    ],
+    "compact_review_files": [
+      "request_identity.json", "input_manifest.json", "run_summary.json", "validation_receipt.json", "result_analysis.md",
+      "request_reconciliation.csv", "termination_reason_profile.csv", "raw_false_exit_decomposition.csv", "threshold_margin_summary.csv", "quick_reentry_profile.csv",
+      "cross_q_structure_summary.csv", "cross_q_parent_structure_summary.csv", "cross_q_child_structure_summary.csv", "year_profile.csv", "security_profile.csv", "deterministic_interval_samples.csv"
+    ],
+    "cross_q_structure_alias": {"alias_file": "cross_q_structure_summary.csv", "role": "parent_structure_summary_alias", "source_file": "cross_q_parent_structure_summary.csv", "no_inconsistent_duplicate": true},
+    "local_only_detail_allowed": ["daily_level_identities", "cross_q_mapping", "termination_records", "request_results"]
+  },
+  "lifecycle_after_completion": {
+    "status": "formal_completed_pending_owner_review",
+    "formal_run_started": true,
+    "real_score_data_read": true,
+    "formal_artifacts_generated": true,
+    "R2A-T05_DONE": "absent",
+    "R2A-T06_allowed_to_start": false
+  },
+  "result_analysis_requirements": [
+    "independently read actual formal result artifacts immediately after generation",
+    "reconcile all four T04 raw_true confirmed_true intervals securities_with_interval counts",
+    "profile primary termination categories and all quality_or_availability reasons",
+    "profile raw false subclasses A_ONLY_FAIL C_ONLY_FAIL CA_BOTH_FAIL",
+    "retain signed endpoint margins and main/weak gate classes with observable denominators",
+    "report raw and confirmed threshold responses without selecting q",
+    "report quick reentry and quality/censoring observability by observation_sequence",
+    "report q25 parent structure q20 fragmentation and q25 shell conservation",
+    "report global daily identity conservation year profiles and security profiles",
+    "block on any zero NULL constant impossible hierarchy mapping or availability anomaly"
+  ],
+  "non_goals": ["formal execution in this preparation PR", "real Score read in this preparation PR", "release labels", "OHLC", "returns", "future path", "transaction outcome", "DONE", "R2A-T06"]
+}

@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t05_formal_input_manifest.schema.json",
+  "title": "R2A-T05 formal authorized input manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "manifest_version",
+    "manifest_type",
+    "task_id",
+    "formal_scope_id",
+    "source_mode",
+    "created_at",
+    "source_commit",
+    "reviewed_implementation_sha",
+    "score_database",
+    "score_coverage",
+    "accepted_handoffs",
+    "request_sources",
+    "requests",
+    "accepted_t04_counts",
+    "table_inventory",
+    "required_schema_fingerprints",
+    "authorization"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t05_formal_input_manifest.schema.json"},
+    "manifest_version": {"const": "r2a_t05_formal_input_manifest.v1"},
+    "manifest_type": {"const": "r2a_t05_formal_authorized_input"},
+    "task_id": {"const": "R2A-T05"},
+    "formal_scope_id": {"const": "r2a_t05_ca_exit_mechanism_formal_execution.v1"},
+    "source_mode": {"const": "formal_authorized_repository_local"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "reviewed_implementation_sha": {"const": "55dceba70bc967caa75c597ce17acb93a2dac511"},
+    "score_database": {"$ref": "#/$defs/score_database"},
+    "score_coverage": {"$ref": "#/$defs/coverage"},
+    "accepted_handoffs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t01", "t03", "t03_config", "t04"],
+      "properties": {
+        "t01": {"$ref": "#/$defs/file_identity"},
+        "t03": {"$ref": "#/$defs/file_identity"},
+        "t03_config": {"$ref": "#/$defs/file_identity"},
+        "t04": {"$ref": "#/$defs/file_identity"}
+      }
+    },
+    "request_sources": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/request_source"}
+    },
+    "requests": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/request"}
+    },
+    "accepted_t04_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+      "properties": {
+        "CA_q10_k5": {"const": {"raw_true": 20559, "confirmed_true": 1916, "intervals": 751, "securities_with_interval": 473}},
+        "CA_q15_k5": {"const": {"raw_true": 46651, "confirmed_true": 7125, "intervals": 2426, "securities_with_interval": 734}},
+        "CA_q20_k5": {"const": {"raw_true": 81535, "confirmed_true": 17642, "intervals": 5372, "securities_with_interval": 775}},
+        "CA_q25_k5": {"const": {"raw_true": 124893, "confirmed_true": 35098, "intervals": 9107, "securities_with_interval": 788}}
+      }
+    },
+    "table_inventory": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {"$ref": "#/$defs/table_inventory_item"}
+    },
+    "required_schema_fingerprints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "securities",
+        "trading_sessions",
+        "security_observation_spine",
+        "dimension_definitions",
+        "dimension_components",
+        "daily_component_scores",
+        "daily_dimension_scores"
+      ],
+      "properties": {
+        "securities": {"$ref": "#/$defs/hash"},
+        "trading_sessions": {"$ref": "#/$defs/hash"},
+        "security_observation_spine": {"$ref": "#/$defs/hash"},
+        "dimension_definitions": {"$ref": "#/$defs/hash"},
+        "dimension_components": {"$ref": "#/$defs/hash"},
+        "daily_component_scores": {"$ref": "#/$defs/hash"},
+        "daily_dimension_scores": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_repository_roots",
+        "retired_external_root_names",
+        "reject_reparse_points",
+        "reject_compatibility_paths",
+        "forbidden_data_fields_absent",
+        "forbidden_data_classes_absent"
+      ],
+      "properties": {
+        "allowed_repository_roots": {"const": ["data/raw", "data/external", "data/interim", "data/generated"]},
+        "retired_external_root_names": {"const": ["convergence-research-inputs"]},
+        "reject_reparse_points": {"const": true},
+        "reject_compatibility_paths": {"const": true},
+        "forbidden_data_fields_absent": {"const": true},
+        "forbidden_data_classes_absent": {"const": ["OHLC", "return", "future_path", "release_label", "P", "V", "T"]}
+      }
+    }
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(^|/)\\.\\.(?:/|$))(?!.*\\\\)"
+    },
+    "file_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "sha256", "byte_size"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/relative_path"},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "byte_size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "score_database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "score_release_id", "sha256", "byte_size"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/relative_path"},
+        "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "byte_size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["security_count", "date_min", "date_max"],
+      "properties": {
+        "security_count": {"type": "integer", "minimum": 0},
+        "date_min": {"type": "string", "format": "date"},
+        "date_max": {"type": "string", "format": "date"}
+      }
+    },
+    "request_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_request_name", "relative_path", "sha256", "byte_size"],
+      "properties": {
+        "logical_request_name": {"enum": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"]},
+        "relative_path": {"$ref": "#/$defs/relative_path"},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "byte_size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_request_name", "request_id", "request_hash", "selected_dimensions", "q_by_dimension", "confirmation_k", "selection_status"],
+      "properties": {
+        "logical_request_name": {"enum": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"]},
+        "request_id": {"type": "string", "pattern": "^pcavt-dynreq-v1-[0-9a-f]{16}$"},
+        "request_hash": {"$ref": "#/$defs/hash"},
+        "selected_dimensions": {"const": ["C", "A"]},
+        "q_by_dimension": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["C", "A"],
+          "properties": {"C": {"enum": [1000, 1500, 2000, 2500]}, "A": {"enum": [1000, 1500, 2000, 2500]}}
+        },
+        "confirmation_k": {"const": 5},
+        "selection_status": {"const": "evaluated_not_selected"}
+      }
+    },
+    "table_inventory_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table_name", "schema_fingerprint"],
+      "properties": {
+        "table_name": {"enum": ["securities", "trading_sessions", "security_observation_spine", "dimension_definitions", "dimension_components", "daily_component_scores", "daily_dimension_scores"]},
+        "schema_fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    }
+  }
+}
