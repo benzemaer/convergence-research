@@ -159,6 +159,10 @@
     "raw_rates": [1, 3, 5],
     "confirmed_rates": [5, 10],
     "no_reentry_statuses": ["not_reentered_within_window", "insufficient_followup_censored", "quality_interrupted"],
+    "termination_observability_fields": ["first_raw_true_lag", "first_confirmed_true_lag", "first_quality_interruption_lag", "max_observed_followup_lag", "followup_input_end_censored"],
+    "threshold_classification_rule": "event_at_or_before_threshold_before_first_quality; quality_at_or_before_threshold_without_prior_event; otherwise_complete_to_threshold_or_insufficient_followup_censored",
+    "profile_fields": ["total_non_right_censored_termination_count", "observable_denominator", "reentered_count", "clean_not_reentered_count", "insufficient_followup_censored_count", "quality_interrupted_count", "reentry_rate"],
+    "profile_main_denominator": "reentered_count + clean_not_reentered_count",
     "accepted_interval_mutation_allowed": false
   },
   "cross_q_definition": {
@@ -168,6 +172,11 @@
     "calendar_tolerance_allowed": false,
     "daily_identities": ["Q10_CORE", "Q15_NOT_Q10_CORE", "Q20_NOT_Q15_ANCHOR", "Q25_NOT_Q20_SHELL"],
     "identity_exhaustive_over": "q25_parent_confirmed_days",
+    "daily_identity_key": ["security_id", "observation_sequence", "q25_parent_interval_ordinal"],
+    "daily_identity_scope": "exactly_one_row_per_q25_confirmed_observation_key",
+    "parent_shell_rule": "q25_confirmed_days_minus_union_of_all_q20_confirmed_children",
+    "parent_summary_fields": ["q25_parent_confirmed_day_count", "q20_confirmed_day_count_inside_parent", "q25_only_shell_day_count", "q20_child_interval_count", "q20_fragmented_within_q25_parent"],
+    "child_local_shell_fields": ["q25_local_leading_shell_days", "q25_local_trailing_shell_days", "q25_local_adjacent_shell_days"],
     "q20_sibling_count_excludes_self": true
   },
   "result_package": {
@@ -184,6 +193,7 @@
       "threshold_margin_summary.csv",
       "quick_reentry_profile.csv",
       "cross_q_structure_summary.csv",
+      "cross_q_child_structure_summary.csv",
       "year_profile.csv",
       "security_profile.csv",
       "deterministic_interval_samples.csv"

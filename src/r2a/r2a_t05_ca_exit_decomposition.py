@@ -59,6 +59,8 @@ EPSILON = 1e-12
 WEAK_DELTA = 0.10
 RAW_REENTRY_WINDOW = 5
 CONFIRMED_REENTRY_WINDOW = 10
+RAW_REENTRY_THRESHOLDS = (1, 3, 5)
+CONFIRMED_REENTRY_THRESHOLDS = (5, 10)
 
 T03_OUTPUT_TABLES = {
     "dynamic_request",
@@ -796,49 +798,26 @@ def _raw_false_subclass(
     return "CA_BOTH_FAIL", c_active, a_active
 
 
-def _followup_status(
+def _quality_interruption(row: Mapping[str, Any]) -> bool:
+    return (
+        row["expected_observation_status"] != "present"
+        or row["joint_ready"] is not True
+        or row["joint_validity_status"] != "valid"
+    )
+
+
+def _compact_followup(
     rows: Sequence[Mapping[str, Any]],
     termination_sequence: int,
     max_lag: int,
-    event_field: str,
-) -> tuple[int | None, str, list[dict[str, Any]]]:
+) -> list[dict[str, Any]]:
     followup = [
         row
         for row in rows
         if 0 < int(row["observation_sequence"]) - termination_sequence <= max_lag
     ]
     followup.sort(key=lambda row: int(row["observation_sequence"]))
-    first = next(
-        (
-            int(row["observation_sequence"]) - termination_sequence
-            for row in followup
-            if row[event_field] is True
-        ),
-        None,
-    )
-    first_quality = next(
-        (
-            int(row["observation_sequence"]) - termination_sequence
-            for row in followup
-            if row["expected_observation_status"] != "present"
-            or row["joint_ready"] is not True
-            or row["joint_validity_status"] != "valid"
-        ),
-        None,
-    )
-    if first is not None and (first_quality is None or first < first_quality):
-        status = "reentered"
-    elif first_quality is not None:
-        first = None
-        status = "quality_interrupted"
-    elif (
-        not followup
-        or int(followup[-1]["observation_sequence"]) - termination_sequence < max_lag
-    ):
-        status = "insufficient_followup_censored"
-    else:
-        status = "not_reentered_within_window"
-    compact = [
+    return [
         {
             "observation_sequence": int(row["observation_sequence"]),
             "observation_lag": int(row["observation_sequence"]) - termination_sequence,
@@ -851,7 +830,96 @@ def _followup_status(
         }
         for row in followup
     ]
-    return first, status, compact
+
+
+def _threshold_outcome(
+    first_event_lag: int | None,
+    first_quality_lag: int | None,
+    max_observed_followup_lag: int | None,
+    threshold: int,
+) -> tuple[int | None, str]:
+    if (
+        first_event_lag is not None
+        and first_event_lag <= threshold
+        and (first_quality_lag is None or first_event_lag < first_quality_lag)
+    ):
+        return first_event_lag, "reentered"
+    if (
+        first_quality_lag is not None
+        and first_quality_lag <= threshold
+        and (first_event_lag is None or first_quality_lag <= first_event_lag)
+    ):
+        return None, "quality_interrupted"
+    if max_observed_followup_lag is None or max_observed_followup_lag < threshold:
+        return None, "insufficient_followup_censored"
+    return None, "not_reentered_within_window"
+
+
+def _followup_metrics(
+    rows: Sequence[Mapping[str, Any]],
+    termination_sequence: int,
+    max_lag: int,
+    event_field: str,
+    thresholds: Sequence[int],
+) -> dict[str, Any]:
+    followup = [
+        row
+        for row in rows
+        if 0 < int(row["observation_sequence"]) - termination_sequence <= max_lag
+    ]
+    followup.sort(key=lambda row: int(row["observation_sequence"]))
+    first_event_lag = next(
+        (
+            int(row["observation_sequence"]) - termination_sequence
+            for row in followup
+            if row[event_field] is True
+        ),
+        None,
+    )
+    first_quality_lag = next(
+        (
+            int(row["observation_sequence"]) - termination_sequence
+            for row in followup
+            if _quality_interruption(row)
+        ),
+        None,
+    )
+    max_observed_followup_lag = (
+        None
+        if not followup
+        else int(followup[-1]["observation_sequence"]) - termination_sequence
+    )
+    threshold_outcomes = {}
+    for threshold in thresholds:
+        lag, status = _threshold_outcome(
+            first_event_lag,
+            first_quality_lag,
+            max_observed_followup_lag,
+            int(threshold),
+        )
+        threshold_outcomes[str(threshold)] = {"lag": lag, "status": status}
+    return {
+        "first_event_lag": first_event_lag,
+        "first_quality_lag": first_quality_lag,
+        "max_observed_followup_lag": max_observed_followup_lag,
+        "thresholds": threshold_outcomes,
+        "compact": _compact_followup(rows, termination_sequence, max_lag),
+    }
+
+
+def _followup_status(
+    rows: Sequence[Mapping[str, Any]],
+    termination_sequence: int,
+    max_lag: int,
+    event_field: str,
+) -> tuple[int | None, str, list[dict[str, Any]]]:
+    """Compatibility wrapper for callers of the original max-window helper."""
+
+    metrics = _followup_metrics(
+        rows, termination_sequence, max_lag, event_field, (max_lag,)
+    )
+    outcome = metrics["thresholds"][str(max_lag)]
+    return outcome["lag"], outcome["status"], metrics["compact"]
 
 
 def _termination_records(
@@ -891,6 +959,25 @@ def _termination_records(
                 )
             last_sequence = int(interval["last_confirmed_end_observation_sequence"])
             reentry = {
+                "first_raw_true_lag": None,
+                "first_confirmed_true_lag": None,
+                "first_quality_interruption_lag": None,
+                "max_observed_followup_lag": None,
+                "followup_input_end_censored": None,
+                "raw_thresholds": {
+                    str(threshold): {
+                        "lag": None,
+                        "status": "not_applicable_right_censored",
+                    }
+                    for threshold in RAW_REENTRY_THRESHOLDS
+                },
+                "confirmed_thresholds": {
+                    str(threshold): {
+                        "lag": None,
+                        "status": "not_applicable_right_censored",
+                    }
+                    for threshold in CONFIRMED_REENTRY_THRESHOLDS
+                },
                 "next_raw_true_lag": None,
                 "next_raw_true_status": "not_applicable_right_censored",
                 "next_confirmed_true_lag": None,
@@ -898,29 +985,49 @@ def _termination_records(
                 "followup_observations": [],
             }
             if not right:
-                raw_lag, raw_status, raw_rows = _followup_status(
+                raw_metrics = _followup_metrics(
                     rows_by_security[security_id],
                     termination_sequence or 0,
                     RAW_REENTRY_WINDOW,
                     "raw_state",
+                    RAW_REENTRY_THRESHOLDS,
                 )
-                confirmed_lag, confirmed_status, confirmed_rows = _followup_status(
+                confirmed_metrics = _followup_metrics(
                     rows_by_security[security_id],
                     termination_sequence or 0,
                     CONFIRMED_REENTRY_WINDOW,
                     "confirmed_state",
+                    CONFIRMED_REENTRY_THRESHOLDS,
                 )
+                all_followup_rows = confirmed_metrics["compact"]
+                max_observed = confirmed_metrics["max_observed_followup_lag"]
+                first_quality = confirmed_metrics["first_quality_lag"]
+                raw_terminal = raw_metrics["thresholds"][str(RAW_REENTRY_WINDOW)]
+                confirmed_terminal = confirmed_metrics["thresholds"][
+                    str(CONFIRMED_REENTRY_WINDOW)
+                ]
                 reentry = {
-                    "next_raw_true_lag": raw_lag,
-                    "next_raw_true_status": raw_status,
-                    "next_confirmed_true_lag": confirmed_lag,
-                    "next_confirmed_true_status": confirmed_status,
-                    "followup_observations": confirmed_rows,
+                    "first_raw_true_lag": raw_metrics["first_event_lag"],
+                    "first_confirmed_true_lag": confirmed_metrics["first_event_lag"],
+                    "first_quality_interruption_lag": first_quality,
+                    "max_observed_followup_lag": max_observed,
+                    "followup_input_end_censored": (
+                        first_quality is None
+                        and raw_metrics["first_event_lag"] is None
+                        and confirmed_metrics["first_event_lag"] is None
+                        and (
+                            max_observed is None
+                            or max_observed < CONFIRMED_REENTRY_WINDOW
+                        )
+                    ),
+                    "raw_thresholds": raw_metrics["thresholds"],
+                    "confirmed_thresholds": confirmed_metrics["thresholds"],
+                    "next_raw_true_lag": raw_terminal["lag"],
+                    "next_raw_true_status": raw_terminal["status"],
+                    "next_confirmed_true_lag": confirmed_terminal["lag"],
+                    "next_confirmed_true_status": confirmed_terminal["status"],
+                    "followup_observations": all_followup_rows,
                 }
-                if raw_rows and len(raw_rows) > len(confirmed_rows):
-                    reentry["followup_observations"] = confirmed_rows + [
-                        row for row in raw_rows if row not in confirmed_rows
-                    ]
             record = {
                 "logical_request_name": name,
                 "request_id": snapshot.identity.request_id,
@@ -963,6 +1070,13 @@ def _termination_records(
                     "termination_observation",
                 ),
                 "reentry": reentry,
+                "first_raw_true_lag": reentry["first_raw_true_lag"],
+                "first_confirmed_true_lag": reentry["first_confirmed_true_lag"],
+                "first_quality_interruption_lag": reentry[
+                    "first_quality_interruption_lag"
+                ],
+                "max_observed_followup_lag": reentry["max_observed_followup_lag"],
+                "followup_input_end_censored": reentry["followup_input_end_censored"],
                 "confirmed_day_keys": sorted(
                     snapshot.interval_days[
                         (security_id, int(interval["interval_ordinal"]))
@@ -1000,7 +1114,13 @@ def _mapping(
 def _cross_q_structure(
     snapshots: Mapping[str, RequestSnapshot],
     termination_records: Sequence[Mapping[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
+    del termination_records
     for lower, upper in zip(REQUEST_ORDER, REQUEST_ORDER[1:]):
         if not snapshots[lower].raw_keys <= snapshots[upper].raw_keys:
             raise T05Error("cross_q_raw_subset_violation", f"{lower}->{upper}")
@@ -1018,7 +1138,8 @@ def _cross_q_structure(
     q10_by_q20: dict[tuple[str, int], list[tuple[str, int]]] = defaultdict(list)
     for q10_key, q15_key in q10_q15.items():
         q10_by_q20[q15_q20[q15_key]].append(q10_key)
-    summary_rows: list[dict[str, Any]] = []
+    parent_summary_rows: list[dict[str, Any]] = []
+    child_summary_rows: list[dict[str, Any]] = []
     daily_rows: list[dict[str, Any]] = []
     mappings: list[dict[str, Any]] = []
     for child_name, mapping in (
@@ -1040,97 +1161,189 @@ def _cross_q_structure(
                     "parent_interval_ordinal": parent_ordinal,
                 }
             )
+    q10 = snapshots["CA_q10_k5"]
+    q15 = snapshots["CA_q15_k5"]
+    q20 = snapshots["CA_q20_k5"]
     q25 = snapshots["CA_q25_k5"]
-    for q20_key, q25_key in sorted(q20_q25.items()):
-        security_id, q20_ordinal = q20_key
-        _q25_security, q25_ordinal = q25_key
-        q20_days = snapshots["CA_q20_k5"].interval_days[q20_key]
-        q25_days = q25.interval_days[q25_key]
-        q15_keys = q15_by_q20[q20_key]
-        q10_keys = q10_by_q20[q20_key]
-        q15_days = (
-            set().union(
-                *(snapshots["CA_q15_k5"].interval_days[key] for key in q15_keys)
-            )
-            if q15_keys
-            else set()
-        )
-        q10_days = (
-            set().union(
-                *(snapshots["CA_q10_k5"].interval_days[key] for key in q10_keys)
-            )
-            if q10_keys
-            else set()
-        )
-        if not q10_days <= q15_days <= q20_days <= q25_days:
-            raise T05Error("cross_q_interval_day_subset_violation", f"{q20_key}")
-        ordered_q25 = sorted(q25_days, key=lambda item: item[1])
-        q20_sequences = [item[1] for item in q20_days]
-        leading = sum(1 for item in ordered_q25 if item[1] < min(q20_sequences))
-        trailing = sum(1 for item in ordered_q25 if item[1] > max(q20_sequences))
-        q20_siblings = len(q20_by_q25[q25_key]) - 1
-        q20_interval = next(
-            item
-            for item in snapshots["CA_q20_k5"].intervals
-            if str(item["security_id"]) == security_id
-            and int(item["interval_ordinal"]) == q20_ordinal
-        )
-        summary = {
-            "logical_request_name": "CA_q20_k5",
-            "request_id": snapshots["CA_q20_k5"].identity.request_id,
-            "request_hash": snapshots["CA_q20_k5"].identity.request_hash,
-            "security_id": security_id,
-            "q20_interval_ordinal": q20_ordinal,
-            "q25_parent_interval_ordinal": q25_ordinal,
-            "q10_confirmed_day_count_inside_q20": len(q10_days),
-            "q15_confirmed_day_count_inside_q20": len(q15_days),
-            "q20_confirmed_day_count": len(q20_days),
-            "q25_parent_confirmed_day_count": len(q25_days),
-            "q10_core_share_of_q20": len(q10_days) / len(q20_days),
-            "q15_core_share_of_q20": len(q15_days) / len(q20_days),
-            "q25_leading_shell_days": leading,
-            "q25_trailing_shell_days": trailing,
-            "q25_total_shell_days": len(q25_days - q20_days),
-            "q10_child_interval_count": len(q10_keys),
-            "q15_child_interval_count": len(q15_keys),
-            "q20_sibling_count_within_q25_parent": q20_siblings,
-            "q20_fragmented_within_q25_parent": len(q20_by_q25[q25_key]) > 1,
-            "q20_equals_q25_parent": q20_days == q25_days,
-            "q20_open_right_censored": bool(q20_interval["right_censored"]),
+    q20_confirmed_global = set(q20.confirmed_keys)
+    q15_confirmed_global = set(q15.confirmed_keys)
+    q10_confirmed_global = set(q10.confirmed_keys)
+    q25_day_parent: dict[tuple[str, int], tuple[str, int]] = {}
+    for q25_key, q25_days in sorted(q25.interval_days.items()):
+        for security_day in q25_days:
+            if security_day in q25_day_parent:
+                raise T05Error(
+                    "cross_q_q25_parent_day_overlap",
+                    f"{security_day}:{q25_day_parent[security_day]}:{q25_key}",
+                )
+            q25_day_parent[security_day] = q25_key
+
+    q20_by_q25 = {key: sorted(value) for key, value in q20_by_q25.items()}
+    for q25_key, q25_days in sorted(q25.interval_days.items()):
+        security_id, q25_ordinal = q25_key
+        q20_children = q20_by_q25.get(q25_key, [])
+        q20_days = {
+            security_day
+            for child_key in q20_children
+            for security_day in q20.interval_days[child_key]
         }
-        summary_rows.append(summary)
-        for security_day in ordered_q25:
+        q15_days = {
+            security_day
+            for child_key in q20_children
+            for q15_key in q15_by_q20[child_key]
+            for security_day in q15.interval_days[q15_key]
+        }
+        q10_days = {
+            security_day
+            for child_key in q20_children
+            for q10_key in q10_by_q20[child_key]
+            for security_day in q10.interval_days[q10_key]
+        }
+        if not q10_days <= q15_days <= q20_days <= q25_days:
+            raise T05Error(
+                "cross_q_interval_day_subset_violation", f"{security_id}:{q25_ordinal}"
+            )
+        if q20_days != (q25_days & q20_confirmed_global):
+            raise T05Error(
+                "cross_q_q20_parent_union_mismatch", f"{security_id}:{q25_ordinal}"
+            )
+        q25_only_days = q25_days - q20_days
+        parent_summary_rows.append(
+            {
+                "logical_request_name": "CA_q25_k5",
+                "request_id": q25.identity.request_id,
+                "request_hash": q25.identity.request_hash,
+                "security_id": security_id,
+                "q25_parent_interval_ordinal": q25_ordinal,
+                "q25_parent_confirmed_day_count": len(q25_days),
+                "q20_confirmed_day_count_inside_parent": len(q20_days),
+                "q25_only_shell_day_count": len(q25_only_days),
+                "q20_child_interval_count": len(q20_children),
+                "q20_fragmented_within_q25_parent": len(q20_children) > 1,
+                "q20_equals_q25_parent": q20_days == q25_days,
+                "q10_confirmed_day_count_inside_parent": len(q10_days),
+                "q15_confirmed_day_count_inside_parent": len(q15_days),
+                "q25_only_shell_identity_day_count": sum(
+                    1 for day in q25_only_days if day not in q20_confirmed_global
+                ),
+            }
+        )
+        for security_day in sorted(q25_days, key=lambda item: item[1]):
             identity = (
                 "Q10_CORE"
-                if security_day in q10_days
+                if security_day in q10_confirmed_global
                 else "Q15_NOT_Q10_CORE"
-                if security_day in q15_days
+                if security_day in q15_confirmed_global
                 else "Q20_NOT_Q15_ANCHOR"
-                if security_day in q20_days
+                if security_day in q20_confirmed_global
                 else "Q25_NOT_Q20_SHELL"
             )
             daily_rows.append(
                 {
-                    "security_id": security_id,
+                    "security_id": security_day[0],
                     "observation_sequence": security_day[1],
-                    "q20_interval_ordinal": q20_ordinal,
                     "q25_parent_interval_ordinal": q25_ordinal,
                     "identity": identity,
                 }
             )
-        identity_counts = Counter(
-            row["identity"]
-            for row in daily_rows
-            if row["q20_interval_ordinal"] == q20_ordinal
-            and row["security_id"] == security_id
+
+    for q20_key, q25_key in sorted(q20_q25.items()):
+        security_id, q20_ordinal = q20_key
+        q25_days = q25.interval_days[q25_key]
+        q20_days = q20.interval_days[q20_key]
+        q20_only_shell = q25_days - q20_confirmed_global
+        ordered_q25_by_sequence = {
+            security_day[1]: security_day
+            for security_day in sorted(q25_days, key=lambda item: item[1])
+        }
+        q20_sequences = [sequence for _security, sequence in q20_days]
+        leading = 0
+        sequence = min(q20_sequences) - 1
+        while (
+            sequence in ordered_q25_by_sequence
+            and ordered_q25_by_sequence[sequence] in q20_only_shell
+        ):
+            leading += 1
+            sequence -= 1
+        trailing = 0
+        sequence = max(q20_sequences) + 1
+        while (
+            sequence in ordered_q25_by_sequence
+            and ordered_q25_by_sequence[sequence] in q20_only_shell
+        ):
+            trailing += 1
+            sequence += 1
+        q15_keys = q15_by_q20[q20_key]
+        q10_keys = q10_by_q20[q20_key]
+        q15_days = {
+            security_day
+            for q15_key in q15_keys
+            for security_day in q15.interval_days[q15_key]
+        }
+        q10_days = {
+            security_day
+            for q10_key in q10_keys
+            for security_day in q10.interval_days[q10_key]
+        }
+        child_summary_rows.append(
+            {
+                "logical_request_name": "CA_q20_k5",
+                "request_id": q20.identity.request_id,
+                "request_hash": q20.identity.request_hash,
+                "security_id": security_id,
+                "q20_interval_ordinal": q20_ordinal,
+                "q25_parent_interval_ordinal": q25_key[1],
+                "q10_confirmed_day_count_inside_q20": len(q10_days),
+                "q15_confirmed_day_count_inside_q20": len(q15_days),
+                "q20_confirmed_day_count": len(q20_days),
+                "q25_parent_confirmed_day_count": len(q25_days),
+                "q25_local_leading_shell_days": leading,
+                "q25_local_trailing_shell_days": trailing,
+                "q25_local_adjacent_shell_days": leading + trailing,
+                "q10_child_interval_count": len(q10_keys),
+                "q15_child_interval_count": len(q15_keys),
+                "q20_sibling_count_within_q25_parent": len(q20_by_q25[q25_key]) - 1,
+                "q20_open_right_censored": any(
+                    bool(item["right_censored"])
+                    for item in q20.intervals
+                    if str(item["security_id"]) == security_id
+                    and int(item["interval_ordinal"]) == q20_ordinal
+                ),
+            }
         )
-        if sum(identity_counts.values()) != len(q25_days) or not set(
-            identity_counts
-        ) <= set(IDENTITY_CLASSES):
-            raise T05Error(
-                "daily_identity_not_exhaustive", f"{security_id}:{q20_ordinal}"
-            )
-    return summary_rows, daily_rows, mappings
+
+    daily_key_counts = Counter(
+        (
+            row["security_id"],
+            row["observation_sequence"],
+            row["q25_parent_interval_ordinal"],
+        )
+        for row in daily_rows
+    )
+    if any(count != 1 for count in daily_key_counts.values()):
+        raise T05Error("daily_identity_key_not_unique")
+    if (
+        len(daily_rows) != len(q25.confirmed_keys)
+        or set((row["security_id"], row["observation_sequence"]) for row in daily_rows)
+        != q25.confirmed_keys
+    ):
+        raise T05Error("daily_identity_row_count_or_scope_mismatch")
+    identity_counts = Counter(row["identity"] for row in daily_rows)
+    if not set(identity_counts) <= set(IDENTITY_CLASSES):
+        raise T05Error("daily_identity_class_not_exhaustive")
+    for parent in parent_summary_rows:
+        parent_key = (
+            parent["security_id"],
+            parent["q25_parent_interval_ordinal"],
+        )
+        shell_count = sum(
+            row["identity"] == "Q25_NOT_Q20_SHELL"
+            and (row["security_id"], row["q25_parent_interval_ordinal"]) == parent_key
+            for row in daily_rows
+        )
+        if shell_count != parent["q25_only_shell_day_count"]:
+            raise T05Error("daily_identity_shell_difference_not_conserved", parent_key)
+    return parent_summary_rows, child_summary_rows, daily_rows, mappings
 
 
 def _summary_stats(values: Sequence[float | None]) -> dict[str, Any]:
@@ -1267,43 +1480,42 @@ def _profiles(
         reentry_groups[(record["logical_request_name"], "confirmed")].append(record)
     reentry_profile: list[dict[str, Any]] = []
     for (name, metric), group in sorted(reentry_groups.items()):
-        field = "next_raw_true_lag" if metric == "raw" else "next_confirmed_true_lag"
-        status_field = (
-            "next_raw_true_status" if metric == "raw" else "next_confirmed_true_status"
+        thresholds = (
+            RAW_REENTRY_THRESHOLDS if metric == "raw" else CONFIRMED_REENTRY_THRESHOLDS
         )
-        thresholds = (1, 3, 5) if metric == "raw" else (5, 10)
+        threshold_field = (
+            "raw_thresholds" if metric == "raw" else "confirmed_thresholds"
+        )
         for threshold in thresholds:
-            eligible = len(group)
-            hits = sum(
-                1
-                for row in group
-                if row["reentry"][status_field] == "reentered"
-                and row["reentry"][field] is not None
-                and int(row["reentry"][field]) <= threshold
+            outcomes = [
+                row["reentry"][threshold_field][str(threshold)] for row in group
+            ]
+            reentered = sum(outcome["status"] == "reentered" for outcome in outcomes)
+            clean = sum(
+                outcome["status"] == "not_reentered_within_window"
+                for outcome in outcomes
             )
+            insufficient = sum(
+                outcome["status"] == "insufficient_followup_censored"
+                for outcome in outcomes
+            )
+            quality = sum(
+                outcome["status"] == "quality_interrupted" for outcome in outcomes
+            )
+            observable = reentered + clean
             reentry_profile.append(
                 {
                     "logical_request_name": name,
                     "metric": metric,
                     "lag_threshold": threshold,
-                    "eligible_termination_count": eligible,
-                    "reentered_count": hits,
-                    "reentry_rate": None if eligible == 0 else hits / eligible,
-                    "not_reentered_within_window_count": sum(
-                        1
-                        for row in group
-                        if row["reentry"][status_field] == "not_reentered_within_window"
-                    ),
-                    "insufficient_followup_censored_count": sum(
-                        1
-                        for row in group
-                        if row["reentry"][status_field]
-                        == "insufficient_followup_censored"
-                    ),
-                    "quality_interrupted_count": sum(
-                        1
-                        for row in group
-                        if row["reentry"][status_field] == "quality_interrupted"
+                    "total_non_right_censored_termination_count": len(group),
+                    "observable_denominator": observable,
+                    "reentered_count": reentered,
+                    "clean_not_reentered_count": clean,
+                    "insufficient_followup_censored_count": insufficient,
+                    "quality_interrupted_count": quality,
+                    "reentry_rate": (
+                        None if observable == 0 else reentered / observable
                     ),
                 }
             )
@@ -1412,7 +1624,12 @@ def build_t05_candidate(
         for name in REQUEST_ORDER
     }
     records = _termination_records(snapshots, components)
-    cross_q_summary, daily_identities, mappings = _cross_q_structure(snapshots, records)
+    (
+        cross_q_summary,
+        cross_q_child_summary,
+        daily_identities,
+        mappings,
+    ) = _cross_q_structure(snapshots, records)
     reason_profile, raw_profile, margin_profile, reentry_profile, profiles = _profiles(
         records
     )
@@ -1448,7 +1665,7 @@ def build_t05_candidate(
     return {
         "task_id": TASK_ID,
         "implementation_version": IMPLEMENTATION_VERSION,
-        "status": "candidate",
+        "status": "implementation_candidate",
         "research_anchor_q": loaded["research_anchor_q"],
         "research_anchor_role": loaded["research_anchor_role"],
         "q_selection_status": loaded["q_selection_status"],
@@ -1470,6 +1687,7 @@ def build_t05_candidate(
         "threshold_margin_summary": margin_profile,
         "quick_reentry_profile": reentry_profile,
         "cross_q_structure_summary": cross_q_summary,
+        "cross_q_child_structure_summary": cross_q_child_summary,
         "cross_q_mapping": mappings,
         "daily_level_identities": daily_identities,
         "year_profile": year_profile,

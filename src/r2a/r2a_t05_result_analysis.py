@@ -37,22 +37,28 @@ def scan_candidate_results(candidate: Mapping[str, Any]) -> dict[str, Any]:
         issues.append("accepted_t04_count_mismatch")
     if candidate.get("cross_q_structure_summary"):
         for row in candidate["cross_q_structure_summary"]:
-            if int(row.get("q25_total_shell_days", 0)) != int(
+            if int(row.get("q25_only_shell_day_count", 0)) != int(
                 row.get("q25_parent_confirmed_day_count", 0)
-            ) - int(row.get("q20_confirmed_day_count", 0)):
+            ) - int(row.get("q20_confirmed_day_count_inside_parent", 0)):
                 issues.append("cross_q_shell_count_not_conserved")
-            if int(row.get("q10_confirmed_day_count_inside_q20", 0)) > int(
-                row.get("q15_confirmed_day_count_inside_q20", 0)
+            if int(row.get("q10_confirmed_day_count_inside_parent", 0)) > int(
+                row.get("q15_confirmed_day_count_inside_parent", 0)
             ):
                 issues.append("cross_q_q10_q15_day_order_reversed")
-            if int(row.get("q15_confirmed_day_count_inside_q20", 0)) > int(
-                row.get("q20_confirmed_day_count", 0)
+            if int(row.get("q15_confirmed_day_count_inside_parent", 0)) > int(
+                row.get("q20_confirmed_day_count_inside_parent", 0)
             ):
                 issues.append("cross_q_q15_q20_day_order_reversed")
-            if int(row.get("q20_confirmed_day_count", 0)) > int(
+            if int(row.get("q20_confirmed_day_count_inside_parent", 0)) > int(
                 row.get("q25_parent_confirmed_day_count", 0)
             ):
                 issues.append("cross_q_q20_q25_day_order_reversed")
+    if candidate.get("cross_q_child_structure_summary"):
+        for row in candidate["cross_q_child_structure_summary"]:
+            if int(row.get("q25_local_adjacent_shell_days", 0)) != int(
+                row.get("q25_local_leading_shell_days", 0)
+            ) + int(row.get("q25_local_trailing_shell_days", 0)):
+                issues.append("cross_q_child_shell_count_not_conserved")
     margins = list(candidate.get("threshold_margin_summary", []))
     finite_margins = [
         _finite(row.get("min"))
@@ -62,16 +68,29 @@ def scan_candidate_results(candidate: Mapping[str, Any]) -> dict[str, Any]:
     if any(abs(value) > 1.1 for value in finite_margins):
         issues.append("margin_magnitude_out_of_domain")
     if candidate.get("daily_level_identities"):
+        daily = candidate["daily_level_identities"]
+        daily_keys = {
+            (
+                row.get("security_id"),
+                row.get("observation_sequence"),
+                row.get("q25_parent_interval_ordinal"),
+            )
+            for row in daily
+        }
+        if len(daily_keys) != len(daily):
+            issues.append("daily_identity_key_not_unique")
+        if len(daily) != sum(
+            int(row.get("q25_parent_confirmed_day_count", 0))
+            for row in candidate.get("cross_q_structure_summary", [])
+        ):
+            issues.append("daily_identity_count_not_conserved")
         allowed = {
             "Q10_CORE",
             "Q15_NOT_Q10_CORE",
             "Q20_NOT_Q15_ANCHOR",
             "Q25_NOT_Q20_SHELL",
         }
-        if any(
-            row.get("identity") not in allowed
-            for row in candidate["daily_level_identities"]
-        ):
+        if any(row.get("identity") not in allowed for row in daily):
             issues.append("daily_identity_invalid")
     issues = sorted(set(issues))
     return {
@@ -124,7 +143,7 @@ def render_result_analysis(
             f"{len(candidate.get('termination_records', []))}"
         ),
         (
-            f"- Cross-q q20 summaries scanned: "
+            f"- Cross-q q25 parent summaries scanned: "
             f"{len(candidate.get('cross_q_structure_summary', []))}"
         ),
         (

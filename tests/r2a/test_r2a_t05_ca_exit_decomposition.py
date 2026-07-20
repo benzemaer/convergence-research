@@ -17,6 +17,7 @@ from src.r2a.r2a_t02_request_identity import (
 from src.r2a.r2a_t03_dynamic_evaluator import evaluate_dynamic_request
 from src.r2a.r2a_t05_ca_exit_decomposition import (
     T05Error,
+    _followup_metrics,
     build_t05_candidate,
     candidate_to_json,
     load_t05_config,
@@ -351,13 +352,64 @@ def test_candidate_covers_exit_reentry_margin_and_cross_q_structure(
         for row in candidate["termination_records"]
         if not row["right_censored"]
     )
-    q20_rows = candidate["cross_q_structure_summary"]
-    assert q20_rows
-    assert any(row["q20_fragmented_within_q25_parent"] for row in q20_rows)
+    q25_rows = candidate["cross_q_structure_summary"]
+    assert q25_rows
+    assert all(row["logical_request_name"] == "CA_q25_k5" for row in q25_rows)
+    assert any(row["q20_fragmented_within_q25_parent"] for row in q25_rows)
     assert all(
-        row["q25_total_shell_days"]
-        == row["q25_parent_confirmed_day_count"] - row["q20_confirmed_day_count"]
-        for row in q20_rows
+        row["q25_only_shell_day_count"]
+        == row["q25_parent_confirmed_day_count"]
+        - row["q20_confirmed_day_count_inside_parent"]
+        for row in q25_rows
+    )
+    assert len(candidate["daily_level_identities"]) == sum(
+        row["q25_parent_confirmed_day_count"] for row in q25_rows
+    )
+    daily_keys = {
+        (
+            row["security_id"],
+            row["observation_sequence"],
+            row["q25_parent_interval_ordinal"],
+        )
+        for row in candidate["daily_level_identities"]
+    }
+    assert len(daily_keys) == len(candidate["daily_level_identities"])
+    required_profile_fields = {
+        "total_non_right_censored_termination_count",
+        "observable_denominator",
+        "reentered_count",
+        "clean_not_reentered_count",
+        "insufficient_followup_censored_count",
+        "quality_interrupted_count",
+        "reentry_rate",
+    }
+    assert all(
+        required_profile_fields <= set(row)
+        for row in candidate["quick_reentry_profile"]
+    )
+    assert all(
+        row["observable_denominator"]
+        == row["reentered_count"] + row["clean_not_reentered_count"]
+        for row in candidate["quick_reentry_profile"]
+    )
+    child_rows = candidate["cross_q_child_structure_summary"]
+    s1_children = [row for row in child_rows if row["security_id"] == "S1"]
+    assert len(s1_children) == 2
+    s1_parent = next(row for row in q25_rows if row["security_id"] == "S1")
+    assert s1_parent["q25_parent_confirmed_day_count"] == 12
+    assert s1_parent["q20_confirmed_day_count_inside_parent"] == 7
+    assert s1_parent["q25_only_shell_day_count"] == 5
+    assert [
+        (
+            row["q25_local_leading_shell_days"],
+            row["q25_local_trailing_shell_days"],
+        )
+        for row in sorted(s1_children, key=lambda item: item["q20_interval_ordinal"])
+    ] == [(0, 5), (5, 0)]
+    assert all(
+        row["q25_local_adjacent_shell_days"]
+        == row["q25_local_leading_shell_days"] + row["q25_local_trailing_shell_days"]
+        for row in s1_children
     )
     identities = {row["identity"] for row in candidate["daily_level_identities"]}
     assert identities <= {
@@ -431,6 +483,99 @@ def test_validator_recomputes_and_blocks_mutations(tmp_path: Path) -> None:
         "independent_count_reconciliation_mismatch:CA_q10_k5"
         in blocked_count["blocking_reasons"]
     )
+
+    profile_mutation = copy.deepcopy(candidate)
+    profile_mutation["quick_reentry_profile"][0]["observable_denominator"] += 1
+    blocked_profile = validate_t05_candidate(
+        profile_mutation, request_sources=outputs, score_source=score, config=config
+    )
+    assert blocked_profile["status"] == "blocked"
+    assert any(
+        reason.startswith("quick_reentry_profile_count_mismatch")
+        for reason in blocked_profile["blocking_reasons"]
+    )
+
+    rate_mutation = copy.deepcopy(candidate)
+    rate_mutation["quick_reentry_profile"][0]["reentry_rate"] = 1.0
+    blocked_rate = validate_t05_candidate(
+        rate_mutation, request_sources=outputs, score_source=score, config=config
+    )
+    assert blocked_rate["status"] == "blocked"
+    assert any(
+        reason.startswith("quick_reentry_profile_rate_mismatch")
+        for reason in blocked_rate["blocking_reasons"]
+    )
+
+    status_mutation = copy.deepcopy(candidate)
+    non_right = next(
+        row
+        for row in status_mutation["termination_records"]
+        if row["right_censored"] is False
+    )
+    non_right["reentry"]["raw_thresholds"]["1"]["status"] = "reentered"
+    blocked_status = validate_t05_candidate(
+        status_mutation, request_sources=outputs, score_source=score, config=config
+    )
+    assert blocked_status["status"] == "blocked"
+    assert any(
+        reason.startswith("reentry_threshold_observation_mismatch")
+        for reason in blocked_status["blocking_reasons"]
+    )
+
+
+def _synthetic_followup_row(
+    lag: int,
+    *,
+    raw_state: bool = False,
+    confirmed_state: bool = False,
+    quality: bool = False,
+) -> dict[str, object]:
+    return {
+        "observation_sequence": lag,
+        "trading_date": f"2026-02-{lag + 1:02d}",
+        "raw_state": raw_state,
+        "confirmed_state": confirmed_state,
+        "expected_observation_status": "listing_pause" if quality else "present",
+        "joint_ready": False if quality else True,
+        "joint_validity_status": "blocked" if quality else "valid",
+    }
+
+
+def test_quick_reentry_thresholds_keep_observability_per_threshold() -> None:
+    only_lag3 = [_synthetic_followup_row(3)]
+    metrics = _followup_metrics(only_lag3, 0, 5, "raw_state", (1, 3, 5))
+    assert metrics["thresholds"]["1"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["3"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["5"]["status"] == "insufficient_followup_censored"
+
+    quality_lag4 = [_synthetic_followup_row(4, quality=True)]
+    metrics = _followup_metrics(quality_lag4, 0, 5, "raw_state", (1, 3, 5))
+    assert metrics["thresholds"]["1"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["3"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["5"]["status"] == "quality_interrupted"
+
+    event_lag2_quality_lag4 = [
+        _synthetic_followup_row(2, raw_state=True),
+        _synthetic_followup_row(4, quality=True),
+    ]
+    metrics = _followup_metrics(event_lag2_quality_lag4, 0, 5, "raw_state", (1, 3, 5))
+    assert metrics["thresholds"]["1"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["3"] == {"lag": 2, "status": "reentered"}
+    assert metrics["thresholds"]["5"] == {"lag": 2, "status": "reentered"}
+
+    quality_lag2_event_lag4 = [
+        _synthetic_followup_row(2, quality=True),
+        _synthetic_followup_row(4, raw_state=True),
+    ]
+    metrics = _followup_metrics(quality_lag2_event_lag4, 0, 5, "raw_state", (1, 3, 5))
+    assert metrics["thresholds"]["1"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["3"]["status"] == "quality_interrupted"
+    assert metrics["thresholds"]["5"]["status"] == "quality_interrupted"
+
+    confirmed_lag5 = [_synthetic_followup_row(lag) for lag in range(1, 6)]
+    metrics = _followup_metrics(confirmed_lag5, 0, 10, "confirmed_state", (5, 10))
+    assert metrics["thresholds"]["5"]["status"] == "not_reentered_within_window"
+    assert metrics["thresholds"]["10"]["status"] == "insufficient_followup_censored"
 
 
 def test_forbidden_input_field_injection_is_rejected(tmp_path: Path) -> None:

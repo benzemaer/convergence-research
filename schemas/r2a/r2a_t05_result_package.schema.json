@@ -11,21 +11,26 @@
     "formal_artifacts_generated", "R2A-T05_DONE", "R2A-T06_allowed_to_start",
     "request_identities", "files", "validation"
   ],
+  "oneOf": [
+    {"$ref": "#/$defs/implementation_candidate_lifecycle"},
+    {"$ref": "#/$defs/formal_pending_owner_review_lifecycle"},
+    {"$ref": "#/$defs/completed_accepted_lifecycle"}
+  ],
   "properties": {
     "$schema": {"const": "../../schemas/r2a/r2a_t05_result_package.schema.json"},
     "task_id": {"const": "R2A-T05"},
     "package_schema_version": {"const": "r2a_t05_result_package.v1"},
-    "status": {"enum": ["candidate", "validated", "frozen", "released"]},
+    "status": {"enum": ["implementation_candidate", "formal_completed_pending_owner_review", "completed_accepted"]},
     "scope_id": {"const": "r2a_t05_ca_exit_mechanism_decomposition.v1"},
     "research_anchor_q": {"const": 2000},
     "research_anchor_role": {"const": "exit_mechanism_decomposition"},
     "q_selection_status": {"const": "not_selected"},
     "canonical_dynamic_request_selected": {"const": false},
-    "formal_run_started": {"const": false},
-    "real_score_data_read": {"const": false},
-    "formal_artifacts_generated": {"const": false},
-    "R2A-T05_DONE": {"const": "absent"},
-    "R2A-T06_allowed_to_start": {"const": false},
+    "formal_run_started": {"type": "boolean"},
+    "real_score_data_read": {"type": "boolean"},
+    "formal_artifacts_generated": {"type": "boolean"},
+    "R2A-T05_DONE": {"enum": ["absent", "present"]},
+    "R2A-T06_allowed_to_start": {"type": "boolean"},
     "request_identities": {
       "type": "array", "minItems": 4, "maxItems": 4,
       "items": {
@@ -68,6 +73,53 @@
         "forbidden_input_fields_absent": {"type": "boolean"},
         "deterministic_output": {"type": "boolean"},
         "blocking_reasons": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  },
+  "$defs": {
+    "implementation_candidate_lifecycle": {
+      "type": "object",
+      "required": [
+        "status", "formal_run_started", "real_score_data_read",
+        "formal_artifacts_generated", "R2A-T05_DONE", "R2A-T06_allowed_to_start"
+      ],
+      "properties": {
+        "status": {"const": "implementation_candidate"},
+        "formal_run_started": {"const": false},
+        "real_score_data_read": {"const": false},
+        "formal_artifacts_generated": {"const": false},
+        "R2A-T05_DONE": {"const": "absent"},
+        "R2A-T06_allowed_to_start": {"const": false}
+      }
+    },
+    "formal_pending_owner_review_lifecycle": {
+      "type": "object",
+      "required": [
+        "status", "formal_run_started", "real_score_data_read",
+        "formal_artifacts_generated", "R2A-T05_DONE", "R2A-T06_allowed_to_start"
+      ],
+      "properties": {
+        "status": {"const": "formal_completed_pending_owner_review"},
+        "formal_run_started": {"const": true},
+        "real_score_data_read": {"const": true},
+        "formal_artifacts_generated": {"const": true},
+        "R2A-T05_DONE": {"const": "absent"},
+        "R2A-T06_allowed_to_start": {"const": false}
+      }
+    },
+    "completed_accepted_lifecycle": {
+      "type": "object",
+      "required": [
+        "status", "formal_run_started", "real_score_data_read",
+        "formal_artifacts_generated", "R2A-T05_DONE", "R2A-T06_allowed_to_start"
+      ],
+      "properties": {
+        "status": {"const": "completed_accepted"},
+        "formal_run_started": {"const": true},
+        "real_score_data_read": {"const": true},
+        "formal_artifacts_generated": {"const": true},
+        "R2A-T05_DONE": {"const": "present"},
+        "R2A-T06_allowed_to_start": {"const": true}
       }
     }
   }
