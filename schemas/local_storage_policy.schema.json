@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local_storage_policy.schema.json",
+  "title": "Repository-local data storage policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "policy_id",
+    "status",
+    "active_repository_roots",
+    "retired_external_root_names",
+    "external_root_for_new_tasks_allowed",
+    "compatibility_links_allowed"
+  ],
+  "properties": {
+    "$schema": {"type": "string", "const": "../schemas/local_storage_policy.schema.json"},
+    "policy_id": {"type": "string", "const": "local_storage_policy.v1"},
+    "status": {"type": "string", "const": "active"},
+    "active_repository_roots": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "data/raw"},
+        {"const": "data/external"},
+        {"const": "data/interim"},
+        {"const": "data/generated"}
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "retired_external_root_names": {
+      "type": "array",
+      "items": {"type": "string", "const": "convergence-research-inputs"},
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "external_root_for_new_tasks_allowed": {"type": "boolean", "const": false},
+    "compatibility_links_allowed": {"type": "boolean", "const": false}
+  }
+}

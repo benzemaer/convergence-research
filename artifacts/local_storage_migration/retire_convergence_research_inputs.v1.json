@@ -1,0 +1,43 @@
+{
+  "artifact_id": "retire_convergence_research_inputs.v1",
+  "task_id": "LOCAL-STORAGE-MIGRATION-01",
+  "status": "completed_verified",
+  "r2a_t04_merge_commit": "a4b6696f3c9cd32cb9bc0c29606e3121958bc26e",
+  "migration_id": "RETIRE-CONVERGENCE-RESEARCH-INPUTS-20260720",
+  "source_root_name": "convergence-research-inputs",
+  "target_roots": {
+    "r2a_t04": "data/generated/r2a/r2a_t04",
+    "legacy_external_archive": "data/generated/_legacy_external_archive"
+  },
+  "inventory": {
+    "file_count": 99,
+    "directory_count": 23,
+    "total_bytes": 302541533,
+    "r2a_t04_file_count": 99,
+    "legacy_file_count": 0,
+    "inventory_fingerprint": "9d0a744c53655af2e2b901ddcd0ba186074e827b98d50fd09d72a96c6aa4bcb6",
+    "directory_fingerprint": "2bd4605f52f922ace8dffcbff7bc806d52323866f97339c05a79a9617b6c7a2a"
+  },
+  "local_receipts": {
+    "receipt_directory": "data/generated/_migration_receipts/RETIRE-CONVERGENCE-RESEARCH-INPUTS-20260720",
+    "inventory_manifest_sha256": "e902749487725d833cf464cd3b611611dc98498a0af82e6ef8fefa52ba2f21d9",
+    "copy_verification_receipt_sha256": "d1698c8f2a37c896daec89c203719f6eac46f2a7bf660fc4ffc911088e162942",
+    "locator_reconciliation_sha256": "cd8546ecc2135263e9316c7c3acc989cd2f358807cb09457ed213af0439be371",
+    "post_delete_verification_sha256": "2ca4bf37449d15d8cf83dcd6467a98be21ebe7591e720143eb2ca3ab62f1cfa2"
+  },
+  "copy_verification_status": "passed",
+  "copy_mismatch_count": 0,
+  "locator_reconciliation_status": "passed",
+  "locator_mismatch_count": 0,
+  "accepted_handoff_sha256": "ec4aa13d8b428adb03e6f7faff591741f2730c50cdc87d98f33c9e6ef9e20c5a",
+  "authorization_commit": "31bae3a8b4ac16c2a576b7c6597c2d271f5f0e4b",
+  "authorization_quality_run": 29713096830,
+  "authorization_quality_status": "success",
+  "source_deleted": true,
+  "source_absent": true,
+  "backup_created": false,
+  "compatibility_link_created": false,
+  "post_delete_verification_status": "passed",
+  "old_root_runtime_reference_present": false,
+  "R2A_T05_allowed_to_start": "true_after_LOCAL-STORAGE-MIGRATION-01_merge"
+}
