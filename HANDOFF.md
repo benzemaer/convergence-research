@@ -7,7 +7,7 @@
 ```text
 repository: benzemaer/convergence-research
 branch: codex/r2a-t05-ca-exit-decomposition
-PR: Draft pending creation
+PR: #115
 PR state: Draft
 R2A-T04_merge_commit: a4b6696f3c9cd32cb9bc0c29606e3121958bc26e
 
