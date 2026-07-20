@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t05_result_package.schema.json",
+  "title": "R2A-T05 CA exit decomposition result package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "task_id", "package_schema_version", "status", "scope_id",
+    "research_anchor_q", "research_anchor_role", "q_selection_status",
+    "canonical_dynamic_request_selected", "formal_run_started", "real_score_data_read",
+    "formal_artifacts_generated", "R2A-T05_DONE", "R2A-T06_allowed_to_start",
+    "request_identities", "files", "validation"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t05_result_package.schema.json"},
+    "task_id": {"const": "R2A-T05"},
+    "package_schema_version": {"const": "r2a_t05_result_package.v1"},
+    "status": {"enum": ["candidate", "validated", "frozen", "released"]},
+    "scope_id": {"const": "r2a_t05_ca_exit_mechanism_decomposition.v1"},
+    "research_anchor_q": {"const": 2000},
+    "research_anchor_role": {"const": "exit_mechanism_decomposition"},
+    "q_selection_status": {"const": "not_selected"},
+    "canonical_dynamic_request_selected": {"const": false},
+    "formal_run_started": {"const": false},
+    "real_score_data_read": {"const": false},
+    "formal_artifacts_generated": {"const": false},
+    "R2A-T05_DONE": {"const": "absent"},
+    "R2A-T06_allowed_to_start": {"const": false},
+    "request_identities": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["logical_request_name", "request_id", "request_hash", "selected_dimensions", "q_by_dimension", "confirmation_k", "selection_status"],
+        "properties": {
+          "logical_request_name": {"enum": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"]},
+          "request_id": {"type": "string", "pattern": "^pcavt-dynreq-v1-[0-9a-f]{16}$"},
+          "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "selected_dimensions": {"const": ["C", "A"]},
+          "q_by_dimension": {"type": "object", "additionalProperties": false, "required": ["C", "A"], "properties": {"C": {"enum": [1000, 1500, 2000, 2500]}, "A": {"enum": [1000, 1500, 2000, 2500]}}},
+          "confirmation_k": {"const": 5},
+          "selection_status": {"const": "evaluated_not_selected"}
+        }
+      }
+    },
+    "files": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["relative_path", "sha256", "byte_size", "storage_class"],
+        "properties": {
+          "relative_path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?![A-Za-z]:).+"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "byte_size": {"type": "integer", "minimum": 0},
+          "storage_class": {"enum": ["repository_artifact", "repository_local_ignored", "compact_review_artifact"]}
+        }
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "independent_recalculation", "request_identity_match", "t04_reconciliation_match", "cross_q_mapping_unique", "daily_identity_conservation", "forbidden_input_fields_absent", "deterministic_output"],
+      "properties": {
+        "status": {"enum": ["pending", "passed", "blocked"]},
+        "independent_recalculation": {"type": "boolean"},
+        "request_identity_match": {"type": "boolean"},
+        "t04_reconciliation_match": {"type": "boolean"},
+        "cross_q_mapping_unique": {"type": "boolean"},
+        "daily_identity_conservation": {"type": "boolean"},
+        "forbidden_input_fields_absent": {"type": "boolean"},
+        "deterministic_output": {"type": "boolean"},
+        "blocking_reasons": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

@@ -1,14 +1,14 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。R2A-T04 revision 6 formal result 已接受并随 PR #113 合并；当前只执行 repository-local storage migration closure，R2A-T05 尚未启动。
+> 本文是无上下文新会话的当前入口。R2A-T04 revision 6 formal result 已接受并随 PR #113 合并，repository-local storage migration 已随 PR #114 合并；当前停在 R2A-T05 implementation review，未执行 formal run。
 
 ## 0. 当前状态
 
 ```text
 repository: benzemaer/convergence-research
-branch: codex/retire-external-input-root
-PR: #114
-PR state: Draft pending final Quality; then Ready for review
+branch: codex/r2a-t05-ca-exit-decomposition
+PR: Draft pending creation
+PR state: Draft
 R2A-T04_merge_commit: a4b6696f3c9cd32cb9bc0c29606e3121958bc26e
 
 R2A-T04_status: completed_accepted
@@ -40,7 +40,21 @@ local_storage_root: repository/data
 external_input_root: retired_absent
 old_root_runtime_reference_present: false
 R2A-T05_allowed_to_start: true_after_LOCAL-STORAGE-MIGRATION-01_merge
-current_stop: LOCAL-STORAGE-MIGRATION-01 closure review
+R2A-T05_status: implementation_candidate_pending_owner_review
+R2A-T05_scope_id: r2a_t05_ca_exit_mechanism_decomposition.v1
+R2A-T05_implementation_version: r2a_t05_ca_exit_decomposition.v1
+research_anchor_q: 2000
+research_anchor_role: exit_mechanism_decomposition
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+formal_run_allowed: false
+formal_run_started: false
+real_score_data_read: false
+formal_artifacts_generated: false
+R2A-T05_DONE: absent
+R2A-T06_started: false
+R2A-T06_allowed_to_start: false
+current_stop: R2A-T05 implementation review
 ```
 
 ## 1. 已接受基线与边界
@@ -90,4 +104,15 @@ Evidence：
 docs/evidence/r2a/R2A-T04_CA_four_q_formal_result_acceptance.md
 ```
 
-唯一 `DONE` 已存在且保持 byte-identical。Repository-local copy、locator reconciliation 和 post-delete verification 均已通过，旧 external input root 已永久退役且 absent，未建立备份或兼容链接。R2A-T05 仍须等待 PR #114 合并；本迁移不选择 q、不注册动态状态、不生成交易信号，也不执行回测。
+唯一 `DONE` 已存在且保持 byte-identical。Repository-local copy、locator reconciliation 和 post-delete verification 均已通过，旧 external input root 已永久退役且 absent，未建立备份或兼容链接。R2A-T05 implementation candidate 已在 PR #114 合并后的 `origin/main` 上启动；本轮不读取真实 Score，不执行 formal run，不生成正式 artifacts 或 DONE，不选择 q、不注册动态状态、不生成交易信号，也不执行回测。
+
+## 6. R2A-T05 路线与停止点
+
+```text
+R2A-T05: CA q20 退出原因、阈值距离、快速重入和跨 q 结构分解
+R2A-T06: 读取 point-in-time 价格未来路径，冻结 release onset、release recognition、方向和强度标签
+R2A-T07: 版本注册、消费者契约与冻结
+R2A-T08: 阶段验收与 R3 handoff
+```
+
+q20 仅是 `exit_mechanism_decomposition` research anchor，`q_selection_status=not_selected`。T06 的 no-lookahead/PIT 要求保留为未来 release 标签协议的强制验收组成部分；当前 T05 不实现 T06，不创建 T06 config/schema/runner，不读取价格数据。Owner 必须先审阅并明确批准精确 implementation HEAD，之后才可另行授权 formal execution；当前 `R2A-T06_allowed_to_start=false`。

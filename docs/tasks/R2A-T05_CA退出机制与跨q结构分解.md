@@ -1,0 +1,110 @@
+# R2A-T05 CA q20 退出机制与跨 q 结构分解
+
+## 当前状态与停止点
+
+```text
+task_id: R2A-T05
+status: implementation_candidate_pending_owner_review
+scope_id: r2a_t05_ca_exit_mechanism_decomposition.v1
+implementation_version: r2a_t05_ca_exit_decomposition.v1
+research_anchor_q: 2000
+research_anchor_role: exit_mechanism_decomposition
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+formal_run_allowed: false
+formal_run_started: false
+real_score_data_read: false
+formal_artifacts_generated: false
+R2A-T05_DONE: absent
+R2A-T06_started: false
+R2A-T06_allowed_to_start: false
+PR_state: Draft
+```
+
+本 PR 只提交 implementation candidate、任务契约、schema、synthetic runner、独立 validator、result analysis helper、测试和运行说明。runner 明确拒绝非 `synthetic_fixture` 输入；本 PR 不执行真实 formal run，不读取真实 Score，不生成正式结果包，不创建 DONE，也不启动 T06。完成本地验证后停止在 implementation review，等待 owner 明确批准精确 implementation HEAD。
+
+## 研究问题
+
+T05 只回答：已确认的 CA 区间为何终止，终止时 C/A 距离各自门槛多远，终止是否在同一 q 的后续状态中快速重入，以及 q20 在 q10/q15/q25 严格嵌套结构中的核心、外壳、边界和碎片结构。T05 不回答 release onset、recognition、方向、强度、未来路径、收益、回测、信号、组合或交易价值，也不比较哪一个 q 更优。
+
+## 锚点与请求身份
+
+T05 的研究锚点是 accepted T04 request `CA_q20_k5`，但它只是退出机制分解的研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择：
+
+```text
+request_id: pcavt-dynreq-v1-21bd144aaed98d9e
+request_hash: 21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971
+selected_dimensions: [C, A]
+q_by_dimension: {C: 2000, A: 2000}
+confirmation_k: 5
+selection_status: evaluated_not_selected
+```
+
+q10、q15、q25 只作为跨 q 结构比较。其完整 request ID、request hash、selected dimensions、q 和 K 必须从 accepted T04 handoff/config 读取，并由 validator 对账；实现不得根据简称手工重造身份。
+
+## 输入边界
+
+未来 formal T05 只允许绑定 accepted T01 canonical Score release、accepted T03 evaluator/protocol identity、accepted T04 handoff/config 及 repository-local `data/**`。实现只读上述状态和 Score 表；不读取价格、收益、未来路径或交易结果字段。当前 candidate 只能使用 synthetic fixture。T06 的 no-lookahead/PIT 要求保留为未来 release 标签协议的强制验收条件，但 T05 不实现 T06、不创建 T06 config/schema/runner、不读取价格数据。
+
+## 退出终点与一级分类
+
+分析单位是 accepted v1 evaluator 的每个 confirmed interval，区间定义和退出规则保持不变，不引入退出延迟、hysteresis、gap tolerance、自动合并或其他 d/g 变体。每个 interval 保留 confirmation date、last confirmed end、termination observation date、原始 primary reason 和 right-censored。
+
+一级分类固定为：
+
+```text
+raw_false
+quality_or_availability_termination
+input_end_open_right_censored
+```
+
+质量/可用性类必须继续保留 accepted protocol 的原始 primary reason：expected observation missing、listing pause、blocked、diagnostic required、unknown、not eligible、score non-finite。只有 `raw_false` 才按 termination observation 的 C/A active 状态划分为且仅为一个 `A_ONLY_FAIL`、`C_ONLY_FAIL` 或 `CA_BOTH_FAIL`；C/A 同时 active 而 joint raw=false 视为 evaluator/lineage mismatch 并阻塞，不产生 `raw_false_unclassified`。
+
+## 阈值距离
+
+对 D∈{C,A}，在 last confirmed end 和 termination observation 两个端点计算：
+
+```text
+main_threshold_D = 1 - q_D
+weak_threshold_D = 1 - q_D - 0.10
+mean_margin_D = score_dimension_D - main_threshold_D
+min_margin_D = score_dimension_min_D - weak_threshold_D
+active_margin_D = min(mean_margin_D, min_margin_D)
+```
+
+margin 保留有符号值，使用 accepted epsilon `1e-12`。gate failure 固定为 `MAIN_ONLY_FAIL`、`WEAK_ONLY_FAIL`、`MAIN_AND_WEAK_FAIL`、`NO_GATE_FAIL` 和 `NOT_EVALUABLE`。结果还必须保留 C/A 的 dimension mean、dimension min、两个 component Score、eligibility、validity 和 reason codes。报告会扫描 margin 的全 NULL、全零、常数列、全一和数量级异常，并报告端点变化、raw_false 子类分布、gate 构成、年度分布和证券分布。
+
+## 快速重入
+
+快速重入只使用同一 q request 的后续 CA 状态。连续性以同一证券的 `observation_sequence` 计算，不使用 calendar-day 差值，也不跳过 missing/listing pause。非 right-censored termination 最大搜索 raw true lag=5、confirmed true lag=10，找不到时区分 `not_reentered_within_window`、`insufficient_followup_censored` 和 `quality_interrupted`。报告固定给出 raw ≤1/3/5 observation 和 confirmed ≤5/10 observation 的比率。快速重入不会修改、删除、合并或追认原 accepted interval。
+
+## 跨 q 结构
+
+只使用 accepted daily confirmed-state 的严格嵌套关系 `q10 ⊆ q15 ⊆ q20 ⊆ q25`。每个 child 的全部 confirmed observation keys 必须唯一包含于一个 parent interval；child 横跨 parent 或找不到 parent 时 fail closed。以 q20 interval 为主单位输出四档 confirmed day count、q10/q15 core share、q25 leading/trailing/total shell、q10/q15 child interval count、q20 sibling count、fragmented/equal/open-right flags，并输出互斥、完备的逐日身份：`Q10_CORE`、`Q15_NOT_Q10_CORE`、`Q20_NOT_Q15_ANCHOR`、`Q25_NOT_Q20_SHELL`。四类身份计数必须与 q25 parent confirmed day count 守恒。
+
+## Accepted T04 对账事实
+
+未来 formal run 必须重新计算四个 request，并逐项对账 accepted T04：
+
+| Request | Raw true | Confirmed true | Intervals | Securities with interval |
+| --- | ---: | ---: | ---: | ---: |
+| CA_q10_k5 | 20,559 | 1,916 | 751 | 473 |
+| CA_q15_k5 | 46,651 | 7,125 | 2,426 | 734 |
+| CA_q20_k5 | 81,535 | 17,642 | 5,372 | 775 |
+| CA_q25_k5 | 124,893 | 35,098 | 9,107 | 788 |
+
+任一 request identity、Score identity、日期/证券覆盖、daily state、interval 或 count reconciliation 不一致，必须停止结果解释和下游推进。
+
+## Candidate package contract
+
+未来 formal package 的 compact review files 为 `request_identity.json`、`input_manifest.json`、`run_summary.json`、`validation_receipt.json`、`result_analysis.md`、`request_reconciliation.csv`、`termination_reason_profile.csv`、`raw_false_exit_decomposition.csv`、`threshold_margin_summary.csv`、`quick_reentry_profile.csv`、`cross_q_structure_summary.csv`、`year_profile.csv`、`security_profile.csv` 和 `deterministic_interval_samples.csv`。完整逐区间 inventory、逐日身份和 mapping 只能保存于 repository-local git-ignored DuckDB/Parquet；本 PR 不生成这些 formal artifacts。
+
+## Validator 与 result analysis
+
+validator 不接受 builder 自报 counts 作为充分证据。它必须独立复算四个 request identity、T04 counts、raw/confirmed subset、termination 分类、margin 公式、observation-sequence lag、follow-up censoring、唯一 parent mapping、daily identity 守恒、表间 reconciliation、输入字段白名单、排序确定性和退化输出。synthetic tests 覆盖正常分类、质量终止、right censoring、raw/confirmed 重入、follow-up 不足、多 child parent、跨 parent、subset violation、margin 符号翻转、calendar/observation lag 混淆、T04 count mismatch 和未授权字段注入。
+
+正式运行后必须立即读取实际结果包并提交独立 `result_analysis.md`。若出现全零、全 NULL、全一、参数无响应、层级关系异常、数量级突变、availability 不一致、T04 count mismatch、raw_false 无法分类、parent 不唯一或 re-entry 语义异常，必须阻塞并调查，不能标记 completed、创建 DONE、推进 README gate 或允许 T06。
+
+## 门禁与停止点
+
+本 PR 的停止点是 implementation review。Owner 审阅后如批准，只能批准精确 implementation SHA；formal run 仍需后续独立授权和新的 execution commit。T06 只有在 T05 formal 结果审阅、异常扫描和相应 gate 完成后才可重新立项，当前 `R2A-T06_allowed_to_start=false`。
