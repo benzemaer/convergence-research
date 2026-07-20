@@ -36,7 +36,6 @@ from src.r2a.r2a_t05_formal_input_manifest import (
     FORMAL_AUTHORIZATION_PATH,
     FORMAL_AUTHORIZATION_SCHEMA_PATH,
     FORMAL_SCOPE_ID,
-    REVIEWED_FORMAL_EXECUTION_SHA,
     ROOT,
     SCORE_DIMENSIONS,
     FormalInputManifestError,
@@ -139,10 +138,7 @@ def load_formal_authorization(
             "formal_authorization_schema_invalid", errors[0].message
         )
     if payload.get("authorization_status") == "not_authorized":
-        if (
-            payload.get("reviewed_formal_execution_sha")
-            != REVIEWED_FORMAL_EXECUTION_SHA
-        ):
+        if payload.get("reviewed_formal_execution_sha") is not None:
             raise FormalExecutionError("unauthorized_reviewed_execution_mismatch")
         if payload.get("formal_run_allowed") is not False:
             raise FormalExecutionError("unauthorized_metadata_allows_formal_run")
@@ -352,8 +348,14 @@ def inspect_git_preflight(
     status = _git(root, "status", "--porcelain", "--untracked-files=all")
     if status:
         raise FormalExecutionError("dirty_worktree", status)
-    if expected_source_commit is not None and head != expected_source_commit:
-        raise FormalExecutionError("manifest_source_commit_mismatch", head)
+    authorization_payload = dict(authorization or {})
+    authorized = (
+        authorization_payload.get("authorization_status")
+        == "authorized_pending_execution"
+    )
+    if expected_source_commit is not None and not authorized:
+        if head != expected_source_commit:
+            raise FormalExecutionError("manifest_source_commit_mismatch", head)
     if (
         tuple(item["path"] for item in config["protected_implementation_files"])
         != PROTECTED_CORE_PATHS
@@ -365,17 +367,12 @@ def inspect_git_preflight(
     ):
         raise FormalExecutionError("protected_execution_file_set_mismatch")
 
-    authorization_payload = dict(authorization or {})
-    execution_reviewed = str(
-        authorization_payload.get(
-            "reviewed_formal_execution_sha", config["reviewed_formal_execution_sha"]
-        )
-    )
-    if (
-        execution_reviewed != REVIEWED_FORMAL_EXECUTION_SHA
-        and not authorization_payload
-    ):
-        raise FormalExecutionError("reviewed_formal_execution_sha_mismatch")
+    if authorized:
+        execution_reviewed = authorization_payload.get("reviewed_formal_execution_sha")
+    else:
+        execution_reviewed = config.get("superseded_formal_execution_candidate_sha")
+    if not isinstance(execution_reviewed, str):
+        raise FormalExecutionError("reviewed_formal_execution_sha_missing")
     if not re.fullmatch(r"[0-9a-f]{40}", execution_reviewed):
         raise FormalExecutionError("reviewed_formal_execution_sha_invalid")
     _git(root, "merge-base", "--is-ancestor", execution_reviewed, head)
@@ -396,7 +393,7 @@ def inspect_git_preflight(
 
     execution_records = (
         authorization_payload.get("protected_execution_files")
-        if authorization_payload
+        if authorized
         else config["protected_execution_files"]
     )
     if not isinstance(execution_records, list):
@@ -461,11 +458,8 @@ def _validate_config_manifest_identity(
         != config["reviewed_implementation_sha"]
     ):
         raise FormalExecutionError("manifest_reviewed_sha_mismatch")
-    if (
-        manifest.get("reviewed_formal_execution_sha")
-        != config["reviewed_formal_execution_sha"]
-    ):
-        raise FormalExecutionError("manifest_reviewed_formal_execution_sha_mismatch")
+    if manifest.get("reviewed_formal_execution_sha") != manifest.get("source_commit"):
+        raise FormalExecutionError("manifest_execution_lineage_mismatch")
     if manifest.get("score_dimension_inventory") != list(SCORE_DIMENSIONS):
         raise FormalExecutionError("score_dimension_inventory_mismatch")
     if manifest.get("analysis_dimension_scope") != list(ANALYSIS_DIMENSIONS):
@@ -551,6 +545,12 @@ def preflight_formal_execution(
             ) from error
         if manifest.get("source_commit") != authorization.get("authorization_parent"):
             raise FormalExecutionError("authorized_manifest_source_commit_mismatch")
+        if authorization.get("reviewed_formal_execution_sha") != authorization.get(
+            "authorization_parent"
+        ) or authorization.get("reviewed_formal_execution_sha") != manifest.get(
+            "reviewed_formal_execution_sha"
+        ):
+            raise FormalExecutionError("authorized_execution_lineage_mismatch")
         if manifest_sha != authorization.get(
             "authorized_manifest_sha256"
         ) or manifest_size != authorization.get("authorized_manifest_byte_size"):
@@ -558,7 +558,12 @@ def preflight_formal_execution(
     git = inspect_git_preflight(
         repo_root=repo_root,
         config=config,
-        expected_source_commit=str(manifest["source_commit"]),
+        expected_source_commit=(
+            None
+            if authorization.get("authorization_status")
+            == "authorized_pending_execution"
+            else str(manifest["source_commit"])
+        ),
         authorization=authorization,
     )
     return {
@@ -567,7 +572,7 @@ def preflight_formal_execution(
         "formal_scope_id": FORMAL_SCOPE_ID,
         "current_head": git["head"],
         "reviewed_implementation_sha": config["reviewed_implementation_sha"],
-        "reviewed_formal_execution_sha": config["reviewed_formal_execution_sha"],
+        "reviewed_formal_execution_sha": manifest["reviewed_formal_execution_sha"],
         "request_order": list(REQUEST_ORDER),
         "manifest_path": str(Path(manifest_path)),
         "manifest_verified_files": verify_manifest_files,
@@ -685,14 +690,10 @@ _FORBIDDEN_OUTPUT_FIELD_NAMES = frozenset(
         "intensity_label",
     }
 )
-_DIMENSION_KEYS = frozenset(
-    {
-        "dimension_id",
-        "selected_dimensions",
-        "analysis_dimension_scope",
-        "component_dimension",
-    }
+_LIST_DIMENSION_KEYS = frozenset(
+    {"selected_dimensions", "analysis_dimension_scope", "selected_dimensions_required"}
 )
+_SCALAR_DIMENSION_KEYS = frozenset({"dimension_id", "component_dimension"})
 _COMPONENT_ID_KEY = "component_id"
 _UNSELECTED_COMPONENT_PATTERN = re.compile(r"^[PVT](?:\d+)?$")
 
@@ -746,7 +747,7 @@ def _scan_t05_output_dimensions(value: Any, path: str = "candidate") -> None:
                 raise FormalExecutionError(
                     "unselected_dimension_in_t05_output", f"{path}.{key_text}"
                 )
-            if lowered in _DIMENSION_KEYS:
+            if lowered in _LIST_DIMENSION_KEYS:
                 dimensions = _dimension_list(child)
                 if any(dimension in {"P", "V", "T"} for dimension in dimensions):
                     raise FormalExecutionError(
@@ -756,13 +757,17 @@ def _scan_t05_output_dimensions(value: Any, path: str = "candidate") -> None:
                     raise FormalExecutionError(
                         "t05_output_selected_dimensions_mismatch", f"{path}.{key_text}"
                     )
+            if lowered in _SCALAR_DIMENSION_KEYS:
+                if not isinstance(child, str) or child not in ANALYSIS_DIMENSIONS:
+                    reason = (
+                        "unselected_dimension_in_t05_output"
+                        if isinstance(child, str) and child.upper() in {"P", "V", "T"}
+                        else "t05_output_dimension_mismatch"
+                    )
+                    raise FormalExecutionError(reason, f"{path}.{key_text}")
             _scan_t05_output_dimensions(child, f"{path}.{key_text}")
     elif isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         for index, child in enumerate(value):
-            if isinstance(child, str) and child in {"P", "V", "T"}:
-                raise FormalExecutionError(
-                    "unselected_dimension_in_t05_output", f"{path}[{index}]"
-                )
             _scan_t05_output_dimensions(child, f"{path}[{index}]")
 
 

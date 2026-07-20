@@ -3,7 +3,7 @@
   "task_id": "R2A-T05",
   "formal_scope_id": "r2a_t05_ca_exit_mechanism_formal_execution.v1",
   "reviewed_implementation_sha": "55dceba70bc967caa75c597ce17acb93a2dac511",
-  "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+  "reviewed_formal_execution_sha": null,
   "authorization_revision": 0,
   "authorization_parent": null,
   "authorization_head": null,

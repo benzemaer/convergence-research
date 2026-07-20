@@ -43,7 +43,7 @@
     "created_at": {"type": "string", "format": "date-time"},
     "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "reviewed_implementation_sha": {"const": "55dceba70bc967caa75c597ce17acb93a2dac511"},
-    "reviewed_formal_execution_sha": {"const": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530"},
+    "reviewed_formal_execution_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "score_database": {"$ref": "#/$defs/score_database"},
     "score_coverage": {"$ref": "#/$defs/coverage"},
     "score_dimension_inventory": {"const": ["P", "C", "A", "V", "T"]},

@@ -33,7 +33,7 @@ MANIFEST_VERSION = "r2a_t05_formal_input_manifest.v1"
 FORMAL_SCOPE_ID = "r2a_t05_ca_exit_mechanism_formal_execution.v1"
 TASK_ID = "R2A-T05"
 REVIEWED_IMPLEMENTATION_SHA = "55dceba70bc967caa75c597ce17acb93a2dac511"
-REVIEWED_FORMAL_EXECUTION_SHA = "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530"
+SUPERSEDED_FORMAL_EXECUTION_CANDIDATE_SHA = "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530"
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
 SCORE_DIMENSIONS = ("P", "C", "A", "V", "T")
 ANALYSIS_DIMENSIONS = ("C", "A")
@@ -629,6 +629,8 @@ def _validate_manifest(payload: Mapping[str, Any]) -> None:
         raise FormalInputManifestError(
             "formal_input_manifest_schema_invalid", errors[0].message
         )
+    if payload.get("reviewed_formal_execution_sha") != payload.get("source_commit"):
+        raise FormalInputManifestError("manifest_execution_lineage_mismatch")
 
 
 def _scan_manifest_forbidden_fields(value: Any, path: str = "manifest") -> None:
@@ -659,6 +661,8 @@ def _revalidate_bound_manifest_content(
         raise FormalInputManifestError("selected_dimensions_required_mismatch")
     if payload.get("unselected_dimensions_must_not_affect_results") is not True:
         raise FormalInputManifestError("unselected_dimension_invariance_missing")
+    if payload.get("reviewed_formal_execution_sha") != payload.get("source_commit"):
+        raise FormalInputManifestError("manifest_execution_lineage_mismatch")
 
     handoffs = payload["accepted_handoffs"]
     t01_path, _ = _resolve_repository_path(root, handoffs["t01"]["relative_path"])
@@ -764,11 +768,9 @@ def build_formal_input_manifest(
     loaded_config = dict(config or load_formal_execution_config(config_path))
     if loaded_config.get("reviewed_implementation_sha") != REVIEWED_IMPLEMENTATION_SHA:
         raise FormalInputManifestError("reviewed_implementation_sha_mismatch")
-    if (
-        loaded_config.get("reviewed_formal_execution_sha")
-        != REVIEWED_FORMAL_EXECUTION_SHA
-    ):
-        raise FormalInputManifestError("reviewed_formal_execution_sha_mismatch")
+    actual_head = _git_head(root)
+    if source_commit is not None and source_commit != actual_head:
+        raise FormalInputManifestError("manifest_source_commit_mismatch")
     if tuple(loaded_config.get("request_order", ())) != REQUEST_ORDER:
         raise FormalInputManifestError("formal_request_order_mismatch")
     output, output_relative = _resolve_repository_path(
@@ -840,9 +842,9 @@ def build_formal_input_manifest(
         "source_mode": "formal_authorized_repository_local",
         "created_at": created_at
         or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "source_commit": source_commit or _git_head(root),
+        "source_commit": actual_head,
         "reviewed_implementation_sha": loaded_config["reviewed_implementation_sha"],
-        "reviewed_formal_execution_sha": loaded_config["reviewed_formal_execution_sha"],
+        "reviewed_formal_execution_sha": actual_head,
         "score_database": {
             **score_identity,
             "score_release_id": score_binding["score_release_id"],
@@ -958,7 +960,7 @@ __all__ = [
     "MANIFEST_VERSION",
     "ANALYSIS_DIMENSIONS",
     "REQUEST_ORDER",
-    "REVIEWED_FORMAL_EXECUTION_SHA",
+    "SUPERSEDED_FORMAL_EXECUTION_CANDIDATE_SHA",
     "ROOT",
     "SCORE_DIMENSIONS",
     "SCORE_TABLES",

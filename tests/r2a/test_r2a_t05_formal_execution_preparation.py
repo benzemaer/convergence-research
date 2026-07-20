@@ -8,11 +8,13 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import duckdb
 import pytest
 
 from src.r2a.r2a_t02_request_identity import build_canonical_request
+from src.r2a.r2a_t05_ca_exit_decomposition import build_t05_candidate
 from src.r2a.r2a_t05_formal_execution import (
     FormalExecutionError,
     build_determinism_receipt,
@@ -37,6 +39,7 @@ from src.r2a.r2a_t05_formal_result_analysis import (
     analyze_persisted_formal_artifacts,
     render_persisted_result_analysis,
 )
+from tests.r2a.test_r2a_t05_ca_exit_decomposition import _fixture as _ca_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_COUNTS = {
@@ -271,11 +274,18 @@ def _make_authorized_inputs(
     return config, score_path, output_path
 
 
+def _build_formal_manifest(**kwargs: Any) -> dict[str, Any]:
+    with patch(
+        "src.r2a.r2a_t05_formal_input_manifest._git_head", return_value="a" * 40
+    ):
+        return build_formal_input_manifest(**kwargs)
+
+
 def _build_manifest(
     tmp_path: Path, **kwargs: Any
 ) -> tuple[dict[str, Any], dict[str, Any], Path]:
     config, score_path, output_path = _make_authorized_inputs(tmp_path, **kwargs)
-    payload = build_formal_input_manifest(
+    payload = _build_formal_manifest(
         output_path=output_path,
         repo_root=tmp_path,
         config=config,
@@ -329,6 +339,42 @@ def test_formal_manifest_builder_reads_only_synthetic_score_and_binds_metadata(
     assert config["formal_run_attempts_consumed"] == 0
 
 
+def test_formal_manifest_binds_current_head_and_rejects_stale_source_commit(
+    tmp_path: Path,
+) -> None:
+    config, score_path, output_path = _make_authorized_inputs(tmp_path)
+    with patch(
+        "src.r2a.r2a_t05_formal_input_manifest._git_head", return_value="a" * 40
+    ):
+        with pytest.raises(
+            FormalInputManifestError, match="manifest_source_commit_mismatch"
+        ):
+            build_formal_input_manifest(
+                output_path=output_path,
+                repo_root=tmp_path,
+                config=config,
+                score_database_path=score_path,
+                source_commit="b" * 40,
+            )
+    _, payload, _ = _build_manifest(tmp_path / "valid")
+    assert payload["source_commit"] == "a" * 40
+    assert payload["reviewed_formal_execution_sha"] == "a" * 40
+
+
+def test_manifest_loader_rejects_reviewed_execution_lineage_mismatch(
+    tmp_path: Path,
+) -> None:
+    _, payload, output_path = _build_manifest(tmp_path)
+    payload["reviewed_formal_execution_sha"] = "b" * 40
+    _write_json(output_path, payload)
+    with pytest.raises(
+        FormalInputManifestError, match="manifest_execution_lineage_mismatch"
+    ):
+        load_authorized_input_manifest(
+            output_path, repo_root=tmp_path, verify_files=False
+        )
+
+
 @pytest.mark.parametrize(
     "mutator,reason",
     [
@@ -368,7 +414,7 @@ def test_formal_manifest_rejects_wrong_authorization_bindings(
     config, score_path, output_path = _make_authorized_inputs(tmp_path)
     mutator(config)
     with pytest.raises(FormalInputManifestError, match=reason):
-        build_formal_input_manifest(
+        _build_formal_manifest(
             output_path=output_path,
             repo_root=tmp_path,
             config=config,
@@ -384,7 +430,7 @@ def test_formal_manifest_rejects_request_identity_mismatch(tmp_path: Path) -> No
     with pytest.raises(
         FormalInputManifestError, match="formal_request_identity_mismatch"
     ):
-        build_formal_input_manifest(
+        _build_formal_manifest(
             output_path=output_path,
             repo_root=tmp_path,
             config=config,
@@ -398,7 +444,7 @@ def test_formal_manifest_rejects_forbidden_score_field(tmp_path: Path) -> None:
         tmp_path, forbidden_field=True
     )
     with pytest.raises(FormalInputManifestError, match="forbidden_score_field"):
-        build_formal_input_manifest(
+        _build_formal_manifest(
             output_path=output_path,
             repo_root=tmp_path,
             config=config,
@@ -422,6 +468,7 @@ def test_preflight_does_not_read_score_create_runroot_or_consume_attempt(
 ) -> None:
     manifest_config, payload, output_path = _build_manifest(tmp_path)
     payload["source_commit"] = "b" * 40
+    payload["reviewed_formal_execution_sha"] = "b" * 40
     _write_json(output_path, payload)
     monkeypatch.setattr(
         "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
@@ -456,6 +503,116 @@ def test_preflight_does_not_read_score_create_runroot_or_consume_attempt(
     assert result["formal_run_attempts_consumed"] == 0
     assert not score_opened
     assert not (tmp_path / "data/generated/r2a/r2a_t05/formal-runs").exists()
+
+
+def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    manifest_config, _, output_path = _build_manifest(tmp_path)
+    authorization = copy.deepcopy(load_formal_authorization())
+    authorization.update(
+        {
+            "authorization_status": "authorized_pending_execution",
+            "reviewed_formal_execution_sha": "a" * 40,
+            "authorization_revision": 1,
+            "authorization_parent": "a" * 40,
+            "authorization_head": "b" * 40,
+            "formal_run_allowed": True,
+            "authorized_manifest_sha256": sha256_file(output_path),
+            "authorized_manifest_byte_size": output_path.stat().st_size,
+        }
+    )
+    authorization["protected_execution_files"] = [
+        {**record, "source_commit": "a" * 40}
+        for record in authorization["protected_execution_files"]
+    ]
+    authorization_path = tmp_path / "authorization.json"
+    _write_json(authorization_path, authorization)
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
+        lambda _: manifest_config,
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.inspect_git_preflight",
+        lambda **_: {
+            "head": "b" * 40,
+            "worktree_status": "clean",
+            "protected_files": [],
+            "protected_execution_files": [],
+        },
+    )
+    result = preflight_formal_execution(
+        manifest_path=output_path,
+        repo_root=tmp_path,
+        authorization_path=authorization_path,
+        verify_manifest_files=False,
+    )
+    assert result["current_head"] == "b" * 40
+    assert result["reviewed_formal_execution_sha"] == "a" * 40
+
+
+def test_preflight_blocks_authorized_reviewed_parent_manifest_mismatch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    manifest_config, _, output_path = _build_manifest(tmp_path)
+    authorization = copy.deepcopy(load_formal_authorization())
+    authorization.update(
+        {
+            "authorization_status": "authorized_pending_execution",
+            "reviewed_formal_execution_sha": "c" * 40,
+            "authorization_revision": 1,
+            "authorization_parent": "a" * 40,
+            "authorization_head": "d" * 40,
+            "formal_run_allowed": True,
+            "authorized_manifest_sha256": sha256_file(output_path),
+            "authorized_manifest_byte_size": output_path.stat().st_size,
+        }
+    )
+    authorization["protected_execution_files"] = [
+        {**record, "source_commit": "c" * 40}
+        for record in authorization["protected_execution_files"]
+    ]
+    authorization_path = tmp_path / "authorization.json"
+    _write_json(authorization_path, authorization)
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
+        lambda _: manifest_config,
+    )
+    with pytest.raises(
+        FormalExecutionError, match="authorized_execution_lineage_mismatch"
+    ):
+        preflight_formal_execution(
+            manifest_path=output_path,
+            repo_root=tmp_path,
+            authorization_path=authorization_path,
+            verify_manifest_files=False,
+        )
+
+
+def test_git_preflight_uses_superseded_candidate_for_unauthorized_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_formal_execution_config()
+    authorization = load_formal_authorization()
+    head = "f" * 40
+
+    def fake_git(_: Path, *args: str) -> str:
+        if args[:2] == ("rev-parse", "HEAD"):
+            return head
+        if args[:1] in {("status",), ("merge-base",)}:
+            return ""
+        raise AssertionError(args)
+
+    monkeypatch.setattr("src.r2a.r2a_t05_formal_execution._git", fake_git)
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._protected_file_record",
+        lambda *_args, **_kwargs: {"path": "synthetic", "sha256": "0" * 64},
+    )
+    result = inspect_git_preflight(config=config, authorization=authorization)
+    assert (
+        result["reviewed_formal_execution_sha"]
+        == config["superseded_formal_execution_candidate_sha"]
+    )
 
 
 def test_git_preflight_rejects_dirty_worktree(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -698,7 +855,7 @@ def test_manifest_rejects_non_ca_request_selection(
     config["requests"][0]["selected_dimensions"] = selected_dimensions
 
     with pytest.raises(FormalInputManifestError):
-        build_formal_input_manifest(
+        _build_formal_manifest(
             output_path=output_path,
             repo_root=tmp_path,
             config=config,
@@ -756,6 +913,23 @@ def test_t05_output_scope_allows_ca_and_blocks_unselected_or_forbidden_fields(
         )
     with pytest.raises(FormalExecutionError, match="forbidden_t05_output_field"):
         validate_t05_output_scope(outputs, candidate={"future_return": 0.1})
+    validate_t05_output_scope(
+        outputs,
+        candidate={
+            "selected_dimensions": ["C", "A"],
+            "analysis_dimension_scope": ["C", "A"],
+            "selected_dimensions_required": ["C", "A"],
+            "dimension_id": "C",
+            "component_dimension": "A",
+            "component_id": ["C01", "A01"],
+        },
+    )
+
+
+def test_t05_output_scope_scans_real_builder_candidate(tmp_path: Path) -> None:
+    config, score, outputs = _ca_fixture(tmp_path)
+    candidate = build_t05_candidate(outputs, score, config=config)
+    validate_t05_output_scope(outputs, candidate=candidate)
 
 
 def test_formal_authorization_starts_without_a_future_head(tmp_path: Path) -> None:
@@ -834,7 +1008,7 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         name: {
             "raw_true": 10,
             "confirmed_true": 5,
-            "intervals": 3,
+            "intervals": 8,
             "securities_with_interval": 2,
         }
         for name in REQUEST_ORDER
@@ -849,25 +1023,77 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         }
         for name in REQUEST_ORDER
     ]
+
+    def _endpoint_metrics(endpoint: str, subclass: str, index: int) -> dict[str, Any]:
+        bases = {
+            "A_ONLY_FAIL": {"C": 0.12, "A": -0.18},
+            "C_ONLY_FAIL": {"C": -0.16, "A": 0.14},
+            "CA_BOTH_FAIL": {"C": -0.20, "A": -0.24},
+        }
+        gates = {
+            "A_ONLY_FAIL": {"C": "NO_GATE_FAIL", "A": "MAIN_AND_WEAK_FAIL"},
+            "C_ONLY_FAIL": {"C": "MAIN_AND_WEAK_FAIL", "A": "NO_GATE_FAIL"},
+            "CA_BOTH_FAIL": {
+                "C": "MAIN_AND_WEAK_FAIL",
+                "A": "MAIN_AND_WEAK_FAIL",
+            },
+        }
+        result = {}
+        for dimension in ("C", "A"):
+            mean = bases[subclass][dimension] + index * 0.03
+            if endpoint == "termination_observation_metrics":
+                mean += 0.01
+            minimum = mean - 0.04
+            result[dimension] = {
+                "endpoint": endpoint,
+                "dimension_id": dimension,
+                "mean_margin": mean,
+                "min_margin": minimum,
+                "active_margin": min(mean, minimum),
+                "gate_failure_class": gates[subclass][dimension],
+            }
+        return result
+
+    quality_reasons = {
+        "CA_q10_k5": "expected_observation_missing",
+        "CA_q15_k5": "expected_observation_listing_pause",
+        "CA_q20_k5": "selected_dimension_blocked",
+        "CA_q25_k5": "selected_dimension_diagnostic_required",
+    }
     termination_records = []
     for name in REQUEST_ORDER:
+        for subclass in ("A_ONLY_FAIL", "C_ONLY_FAIL", "CA_BOTH_FAIL"):
+            for index in (0, 1):
+                termination_records.append(
+                    {
+                        "logical_request_name": name,
+                        "primary_termination_reason": "raw_false",
+                        "original_primary_termination_reason": "raw_false",
+                        "raw_false_subclass": subclass,
+                        "right_censored": False,
+                        "last_confirmed_end_metrics": _endpoint_metrics(
+                            "last_confirmed_end_metrics", subclass, index
+                        ),
+                        "termination_observation_metrics": _endpoint_metrics(
+                            "termination_observation_metrics", subclass, index
+                        ),
+                    }
+                )
         termination_records.extend(
             [
                 {
                     "logical_request_name": name,
-                    "primary_termination_reason": "raw_false",
-                    "raw_false_subclass": "A_ONLY_FAIL",
-                    "right_censored": False,
-                },
-                {
-                    "logical_request_name": name,
                     "primary_termination_reason": "quality_or_availability_termination",
+                    "original_primary_termination_reason": quality_reasons[name],
                     "raw_false_subclass": None,
                     "right_censored": False,
                 },
                 {
                     "logical_request_name": name,
                     "primary_termination_reason": "input_end_open_right_censored",
+                    "original_primary_termination_reason": (
+                        "input_end_open_right_censored"
+                    ),
                     "raw_false_subclass": None,
                     "right_censored": True,
                 },
@@ -952,19 +1178,54 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         for index, name in enumerate(("CA_q10_k5", "CA_q15_k5", "CA_q20_k5"), start=1)
     ]
     year_rows = [
-        {"logical_request_name": name, "year": 2025, "interval_count": 1}
+        {"logical_request_name": name, "year": 2025, "interval_count": 4}
         for name in REQUEST_ORDER
     ] + [
-        {"logical_request_name": name, "year": 2026, "interval_count": 2}
+        {"logical_request_name": name, "year": 2026, "interval_count": 4}
         for name in REQUEST_ORDER
     ]
     security_rows = [
-        {"logical_request_name": name, "security_id": "S001", "interval_count": 2}
+        {"logical_request_name": name, "security_id": "S001", "interval_count": 4}
         for name in REQUEST_ORDER
     ] + [
-        {"logical_request_name": name, "security_id": "S002", "interval_count": 1}
+        {"logical_request_name": name, "security_id": "S002", "interval_count": 4}
         for name in REQUEST_ORDER
     ]
+    termination_reason_profile = []
+    raw_false_exit_decomposition = []
+    for name in REQUEST_ORDER:
+        raw_false_exit_decomposition.extend(
+            {
+                "logical_request_name": name,
+                "raw_false_subclass": subclass,
+                "interval_count": 2,
+            }
+            for subclass in ("A_ONLY_FAIL", "C_ONLY_FAIL", "CA_BOTH_FAIL")
+        )
+        termination_reason_profile.extend(
+            [
+                {
+                    "logical_request_name": name,
+                    "primary_termination_reason": "raw_false",
+                    "original_primary_termination_reason": "raw_false",
+                    "interval_count": 6,
+                },
+                {
+                    "logical_request_name": name,
+                    "primary_termination_reason": "quality_or_availability_termination",
+                    "original_primary_termination_reason": quality_reasons[name],
+                    "interval_count": 1,
+                },
+                {
+                    "logical_request_name": name,
+                    "primary_termination_reason": "input_end_open_right_censored",
+                    "original_primary_termination_reason": (
+                        "input_end_open_right_censored"
+                    ),
+                    "interval_count": 1,
+                },
+            ]
+        )
     candidate = {
         "request_reconciliation": reconciliation,
         "termination_records": termination_records,
@@ -976,8 +1237,8 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         "cross_q_mapping": mappings,
         "year_profile": year_rows,
         "security_profile": security_rows,
-        "termination_reason_profile": [],
-        "raw_false_exit_decomposition": [],
+        "termination_reason_profile": termination_reason_profile,
+        "raw_false_exit_decomposition": raw_false_exit_decomposition,
         "deterministic_interval_samples": [{"sample": "known"}],
     }
     with duckdb.connect(str(root / "t05_detail.duckdb")) as connection:
@@ -989,7 +1250,7 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         root / "input_manifest.json",
         {
             "source_commit": "a" * 40,
-            "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+            "reviewed_formal_execution_sha": "a" * 40,
         },
     )
     _write_json(
@@ -997,7 +1258,7 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         {
             "status": "formal_completed_pending_owner_review",
             "request_summaries": expected,
-            "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+            "reviewed_formal_execution_sha": "a" * 40,
             "authorization_head": "b" * 40,
             "authorization_parent": "a" * 40,
         },
@@ -1006,7 +1267,7 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
         root / "formal_authorization.json",
         {
             "authorization_status": "authorized_pending_execution",
-            "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+            "reviewed_formal_execution_sha": "a" * 40,
             "authorization_parent": "a" * 40,
             "authorization_head": "b" * 40,
             "authorized_manifest_sha256": sha256_file(root / "input_manifest.json"),
@@ -1035,8 +1296,8 @@ def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
     )
     csv_sources = {
         "request_reconciliation.csv": reconciliation,
-        "termination_reason_profile.csv": [],
-        "raw_false_exit_decomposition.csv": [],
+        "termination_reason_profile.csv": termination_reason_profile,
+        "raw_false_exit_decomposition.csv": raw_false_exit_decomposition,
         "threshold_margin_summary.csv": margin_rows,
         "quick_reentry_profile.csv": reentry_rows,
         "cross_q_structure_summary.csv": parent_rows,
@@ -1072,7 +1333,7 @@ def test_persisted_result_analysis_reports_actual_values_and_blocks_mutations(
         name: {
             "raw_true": 10,
             "confirmed_true": 5,
-            "intervals": 3,
+            "intervals": 8,
             "securities_with_interval": 2,
         }
         for name in REQUEST_ORDER
@@ -1085,6 +1346,17 @@ def test_persisted_result_analysis_reports_actual_values_and_blocks_mutations(
     assert "0.1" in report
     assert "q25_only_shell_days" in report
     assert "2026_partial_year_boundary" in report
+    quality_q20 = analysis["quality_availability_reasons"]["q20"]
+    assert sum(row["quality_termination_count"] for row in quality_q20) == 1
+    assert any(
+        row["original_quality_reason"] == "selected_dimension_blocked"
+        and row["quality_termination_count"] == 1
+        for row in quality_q20
+    )
+    raw_q20 = analysis["raw_false_margin_decomposition"]["q20_subclass_summary"]
+    assert [row["interval_count"] for row in raw_q20] == [2, 2, 2]
+    assert "q20 raw-false subclass decomposition" in report
+    assert "selected_dimension_blocked" in report
 
     _write_json(
         root / "anomaly_scan.json",
@@ -1121,7 +1393,7 @@ def test_persisted_authorization_and_execution_evidence_mutations_block(
         name: {
             "raw_true": 10,
             "confirmed_true": 5,
-            "intervals": 3,
+            "intervals": 8,
             "securities_with_interval": 2,
         }
         for name in REQUEST_ORDER

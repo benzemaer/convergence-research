@@ -7,7 +7,7 @@
   "implementation_version": "r2a_t05_ca_exit_decomposition.v1",
   "reviewed_implementation_sha": "55dceba70bc967caa75c597ce17acb93a2dac511",
   "implementation_review_status": "approved",
-  "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+  "superseded_formal_execution_candidate_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
   "formal_execution_review_status": "pending_owner_rereview",
   "research_anchor_q": 2000,
   "q_selection_status": "not_selected",

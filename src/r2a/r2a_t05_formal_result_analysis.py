@@ -26,6 +26,19 @@ PRIMARY_TERMINATION_CATEGORIES = (
     "quality_or_availability_termination",
     "input_end_open_right_censored",
 )
+QUALITY_AVAILABILITY_REASONS = (
+    "expected_observation_missing",
+    "expected_observation_listing_pause",
+    "selected_dimension_blocked",
+    "selected_dimension_diagnostic_required",
+    "selected_dimension_unknown",
+    "selected_dimension_not_eligible",
+    "selected_dimension_score_non_finite",
+)
+RAW_MARGIN_ENDPOINTS = ("last_confirmed_end_metrics", "termination_observation_metrics")
+RAW_MARGIN_DIMENSIONS = ("C", "A")
+RAW_MARGIN_NAMES = ("mean_margin", "min_margin", "active_margin")
+RAW_MARGIN_ABS_LIMIT = 2.0
 MARGIN_FIELDS = ("count", "null_count", "min", "p05", "p50", "p95", "max", "mean")
 CSV_TO_CANDIDATE = {
     "request_reconciliation.csv": "request_reconciliation",
@@ -275,6 +288,281 @@ def _termination_summary(
         for key, value in q20["raw_false_subclasses"].items()
     }
     return q20, q_sensitivity, anomalies
+
+
+def _quality_availability_analysis(
+    candidate: Mapping[str, Any], q_sensitivity: Mapping[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
+    """Count persisted original quality reasons and conserve their denominator."""
+
+    records = [
+        row
+        for row in candidate.get("termination_records", [])
+        if isinstance(row, Mapping)
+    ]
+    observed: Counter[tuple[str, str]] = Counter()
+    anomalies: list[str] = []
+    allowed = set(QUALITY_AVAILABILITY_REASONS)
+    for row in records:
+        if row.get("primary_termination_reason") != (
+            "quality_or_availability_termination"
+        ):
+            continue
+        name = str(row.get("logical_request_name"))
+        reason = row.get("original_primary_termination_reason")
+        if reason not in allowed:
+            anomalies.append(f"quality_reason_unknown:{name}:{reason}")
+            continue
+        observed[(name, str(reason))] += 1
+
+    profile_counts: Counter[tuple[str, str]] = Counter()
+    profile = candidate.get("termination_reason_profile")
+    if isinstance(profile, list):
+        for row in profile:
+            if not isinstance(row, Mapping):
+                continue
+            if row.get("primary_termination_reason") != (
+                "quality_or_availability_termination"
+            ):
+                continue
+            reason = row.get("original_primary_termination_reason")
+            if reason in allowed:
+                profile_counts[(str(row.get("logical_request_name")), str(reason))] += (
+                    _integer(row.get("interval_count", 0))
+                )
+    if observed and not profile_counts:
+        anomalies.append("quality_reason_profile_missing")
+    elif profile_counts != observed:
+        anomalies.append("quality_reason_profile_mismatch")
+
+    rows: list[dict[str, Any]] = []
+    for name in REQUEST_ORDER:
+        quality_total = _integer(
+            q_sensitivity.get(name, {}).get("quality_availability_termination", 0)
+        )
+        all_intervals = _integer(q_sensitivity.get(name, {}).get("all_intervals", 0))
+        reason_total = sum(observed[(name, reason)] for reason in allowed)
+        if reason_total != quality_total:
+            anomalies.append(f"quality_reason_count_not_conserved:{name}")
+        for reason in QUALITY_AVAILABILITY_REASONS:
+            count = observed[(name, reason)]
+            rows.append(
+                {
+                    "logical_request_name": name,
+                    "original_quality_reason": reason,
+                    "quality_termination_count": count,
+                    "share_of_quality_termination": (
+                        None if quality_total == 0 else count / quality_total
+                    ),
+                    "share_of_all_intervals": (
+                        None if all_intervals == 0 else count / all_intervals
+                    ),
+                }
+            )
+    return {
+        "reason_order": list(QUALITY_AVAILABILITY_REASONS),
+        "rows": rows,
+        "q20": [row for row in rows if row["logical_request_name"] == "CA_q20_k5"],
+        "four_q": {
+            name: [row for row in rows if row["logical_request_name"] == name]
+            for name in REQUEST_ORDER
+        },
+    }, sorted(set(anomalies))
+
+
+def _margin_stats(values: Sequence[float | None]) -> dict[str, Any]:
+    finite = [value for value in values if value is not None and math.isfinite(value)]
+    count = len(values)
+    if not finite:
+        return {
+            "count": count,
+            "finite_count": 0,
+            "null_count": count,
+            "min": None,
+            "p05": None,
+            "p50": None,
+            "p95": None,
+            "max": None,
+            "mean": None,
+            "all_null": count > 0,
+            "all_zero": False,
+            "constant": False,
+        }
+    ordered = sorted(finite)
+
+    def quantile(probability: float) -> float:
+        index = min(
+            len(ordered) - 1, max(0, int(round((len(ordered) - 1) * probability)))
+        )
+        return ordered[index]
+
+    return {
+        "count": count,
+        "finite_count": len(finite),
+        "null_count": count - len(finite),
+        "min": min(finite),
+        "p05": quantile(0.05),
+        "p50": quantile(0.50),
+        "p95": quantile(0.95),
+        "max": max(finite),
+        "mean": sum(finite) / len(finite),
+        "all_null": False,
+        "all_zero": all(abs(value) <= 1e-12 for value in finite),
+        "constant": len(set(finite)) == 1,
+    }
+
+
+def _raw_false_margin_analysis(
+    candidate: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Re-aggregate raw-false endpoint margins from persisted termination rows."""
+
+    records = [
+        row
+        for row in candidate.get("termination_records", [])
+        if isinstance(row, Mapping)
+        and row.get("primary_termination_reason") == "raw_false"
+    ]
+    anomalies: list[str] = []
+    observed_subclasses: Counter[tuple[str, str]] = Counter()
+    values: defaultdict[tuple[str, str, str, str, str], list[float | None]] = (
+        defaultdict(list)
+    )
+    gate_counts: Counter[tuple[str, str, str, str, str]] = Counter()
+    valid_gate_classes = {
+        "MAIN_ONLY_FAIL",
+        "WEAK_ONLY_FAIL",
+        "MAIN_AND_WEAK_FAIL",
+        "NO_GATE_FAIL",
+        "NOT_EVALUABLE",
+    }
+    for record in records:
+        name = str(record.get("logical_request_name"))
+        subclass = record.get("raw_false_subclass")
+        if subclass not in RAW_FALSE_SUBCLASSES:
+            anomalies.append(f"raw_false_unknown_subclass:{name}:{subclass}")
+            continue
+        subclass = str(subclass)
+        observed_subclasses[(name, subclass)] += 1
+        for endpoint_name in RAW_MARGIN_ENDPOINTS:
+            endpoint = record.get(endpoint_name)
+            if not isinstance(endpoint, Mapping):
+                anomalies.append(
+                    f"raw_false_margin_endpoint_missing:{name}:{endpoint_name}"
+                )
+                endpoint = {}
+            for dimension in RAW_MARGIN_DIMENSIONS:
+                metric = endpoint.get(dimension)
+                if not isinstance(metric, Mapping):
+                    anomalies.append(
+                        f"raw_false_margin_dimension_missing:{name}:{subclass}:{endpoint_name}:{dimension}"
+                    )
+                    metric = {}
+                gate = metric.get("gate_failure_class")
+                gate_name = str(gate) if gate is not None else "UNKNOWN"
+                if gate_name not in valid_gate_classes:
+                    anomalies.append(
+                        f"raw_false_gate_failure_class_unknown:{name}:{subclass}:{endpoint_name}:{dimension}:{gate_name}"
+                    )
+                gate_counts[(name, subclass, endpoint_name, dimension, gate_name)] += 1
+                for margin_name in RAW_MARGIN_NAMES:
+                    value = _number(metric.get(margin_name))
+                    values[
+                        (name, subclass, endpoint_name, dimension, margin_name)
+                    ].append(value)
+                    if value is not None and abs(value) > RAW_MARGIN_ABS_LIMIT:
+                        anomalies.append(
+                            f"raw_false_margin_out_of_range:{name}:{subclass}:{endpoint_name}:{dimension}:{margin_name}"
+                        )
+
+    profile = candidate.get("raw_false_exit_decomposition")
+    profile_counts: Counter[tuple[str, str]] = Counter()
+    if isinstance(profile, list):
+        for row in profile:
+            if not isinstance(row, Mapping):
+                continue
+            profile_counts[
+                (
+                    str(row.get("logical_request_name")),
+                    str(row.get("raw_false_subclass")),
+                )
+            ] += _integer(row.get("interval_count", 0))
+    if records and not profile_counts:
+        anomalies.append("raw_false_subclass_profile_missing")
+    elif profile_counts != observed_subclasses:
+        anomalies.append("raw_false_subclass_profile_mismatch")
+
+    rows: list[dict[str, Any]] = []
+    for name in REQUEST_ORDER:
+        for subclass in RAW_FALSE_SUBCLASSES:
+            for endpoint_name in RAW_MARGIN_ENDPOINTS:
+                for dimension in RAW_MARGIN_DIMENSIONS:
+                    failure_counts = {
+                        gate: count
+                        for (n, s, e, d, gate), count in sorted(gate_counts.items())
+                        if (n, s, e, d) == (name, subclass, endpoint_name, dimension)
+                    }
+                    for margin_name in RAW_MARGIN_NAMES:
+                        summary = _margin_stats(
+                            values[
+                                (name, subclass, endpoint_name, dimension, margin_name)
+                            ]
+                        )
+                        row = {
+                            "logical_request_name": name,
+                            "raw_false_subclass": subclass,
+                            "endpoint": endpoint_name,
+                            "dimension_id": dimension,
+                            "margin_name": margin_name,
+                            **summary,
+                            "gate_failure_counts": failure_counts,
+                        }
+                        rows.append(row)
+                        if (
+                            summary["finite_count"] + summary["null_count"]
+                            != summary["count"]
+                        ):
+                            anomalies.append(
+                                f"raw_false_margin_count_not_conserved:{name}:{subclass}:{endpoint_name}:{dimension}:{margin_name}"
+                            )
+                        if summary["count"] and (
+                            summary["all_null"]
+                            or summary["all_zero"]
+                            or summary["constant"]
+                        ):
+                            anomalies.append(
+                                f"degenerate_raw_false_margin:{name}:{subclass}:{endpoint_name}:{dimension}:{margin_name}"
+                            )
+    subclass_summary: list[dict[str, Any]] = []
+    for name in REQUEST_ORDER:
+        total = sum(
+            observed_subclasses[(name, subclass)] for subclass in RAW_FALSE_SUBCLASSES
+        )
+        for subclass in RAW_FALSE_SUBCLASSES:
+            count = observed_subclasses[(name, subclass)]
+            subclass_summary.append(
+                {
+                    "logical_request_name": name,
+                    "raw_false_subclass": subclass,
+                    "interval_count": count,
+                    "share_of_raw_false": None if total == 0 else count / total,
+                }
+            )
+    return {
+        "rows": rows,
+        "subclass_summary": subclass_summary,
+        "q20_subclass_summary": [
+            row
+            for row in subclass_summary
+            if row["logical_request_name"] == "CA_q20_k5"
+        ],
+        "q20_rows": [row for row in rows if row["logical_request_name"] == "CA_q20_k5"],
+        "four_q": {
+            name: [row for row in rows if row["logical_request_name"] == name]
+            for name in REQUEST_ORDER
+        },
+        "margin_abs_limit": RAW_MARGIN_ABS_LIMIT,
+    }, sorted(set(anomalies))
 
 
 def _threshold_analysis(
@@ -688,6 +976,12 @@ def analyze_persisted_formal_artifacts(
         candidate, reconciliation
     )
     anomalies.extend(termination_anomalies)
+    quality_availability, quality_anomalies = _quality_availability_analysis(
+        candidate, q_sensitivity
+    )
+    anomalies.extend(quality_anomalies)
+    raw_false_margins, raw_margin_anomalies = _raw_false_margin_analysis(candidate)
+    anomalies.extend(raw_margin_anomalies)
     threshold_distance, threshold_anomalies = _threshold_analysis(candidate)
     anomalies.extend(threshold_anomalies)
     quick_reentry, reentry_anomalies = _reentry_analysis(candidate)
@@ -733,6 +1027,15 @@ def analyze_persisted_formal_artifacts(
         "reviewed_formal_execution_sha"
     ):
         anomalies.append("authorization_execution_review_mismatch")
+    if manifest.get("reviewed_formal_execution_sha") != manifest.get("source_commit"):
+        anomalies.append("manifest_execution_lineage_mismatch")
+    if authorization.get("authorization_status") == "authorized_pending_execution":
+        if authorization.get("reviewed_formal_execution_sha") != authorization.get(
+            "authorization_parent"
+        ) or authorization.get("reviewed_formal_execution_sha") != manifest.get(
+            "reviewed_formal_execution_sha"
+        ):
+            anomalies.append("authorized_execution_lineage_mismatch")
     authorized_manifest_sha = authorization.get("authorized_manifest_sha256")
     if authorized_manifest_sha:
         manifest_identity = _file_identity(root, root / "input_manifest.json")
@@ -764,6 +1067,8 @@ def analyze_persisted_formal_artifacts(
         "upstream_request_reconciliation": reconciliation,
         "q20_exit_structure": q20_exit,
         "cross_q_sensitivity": q_sensitivity,
+        "quality_availability_reasons": quality_availability,
+        "raw_false_margin_decomposition": raw_false_margins,
         "threshold_distance": threshold_distance,
         "quick_reentry": quick_reentry,
         "cross_q_structure": cross_q,
@@ -835,6 +1140,95 @@ def render_persisted_result_analysis(analysis: Mapping[str, Any]) -> str:
             "Raw-false subclass shares use raw-false intervals as the "
             "classifiable denominator. They describe contemporaneous CA "
             "state failure, not up/down release direction.",
+        ]
+    )
+    lines.extend(
+        [
+            "",
+            "## Quality and availability termination reasons",
+            "",
+            "q20 reason decomposition:",
+            "",
+            "| original reason | count | share of quality terminations | "
+            "share of all intervals |",
+            "|---|---:|---:|---:|",
+        ]
+    )
+    for row in analysis.get("quality_availability_reasons", {}).get("q20", []):
+        lines.append(
+            f"| {row.get('original_quality_reason')} | "
+            f"{row.get('quality_termination_count')} | "
+            f"{row.get('share_of_quality_termination')} | "
+            f"{row.get('share_of_all_intervals')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "four-q sensitivity:",
+            "",
+            "| request | original reason | count | share of quality terminations | "
+            "share of all intervals |",
+            "|---|---|---:|---:|---:|",
+        ]
+    )
+    for row in analysis.get("quality_availability_reasons", {}).get("rows", []):
+        lines.append(
+            f"| {row.get('logical_request_name')} | "
+            f"{row.get('original_quality_reason')} | "
+            f"{row.get('quality_termination_count')} | "
+            f"{row.get('share_of_quality_termination')} | "
+            f"{row.get('share_of_all_intervals')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "The reason counts are read from persisted "
+            "`original_primary_termination_reason` values and must conserve each "
+            "request's quality/availability termination "
+            "count; these are data-quality and observability classifications, not "
+            "future release labels.",
+            "",
+            "## Raw-false subclass and endpoint margins",
+            "",
+            "q20 raw-false subclass decomposition:",
+            "",
+            "| subclass | interval count | share of raw-false intervals |",
+            "|---|---:|---:|",
+        ]
+    )
+    for row in analysis.get("raw_false_margin_decomposition", {}).get(
+        "q20_subclass_summary", []
+    ):
+        lines.append(
+            f"| {row.get('raw_false_subclass')} | {row.get('interval_count')} | "
+            f"{row.get('share_of_raw_false')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "q20 raw-false endpoint margin statistics:",
+            "",
+            "| subclass | endpoint | dimension | margin | count | finite | null | "
+            "min | p05 | p50 | p95 | max | mean | gate failures |",
+            "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        ]
+    )
+    for row in analysis.get("raw_false_margin_decomposition", {}).get("q20_rows", []):
+        lines.append(
+            f"| {row.get('raw_false_subclass')} | {row.get('endpoint')} | "
+            f"{row.get('dimension_id')} | {row.get('margin_name')} | "
+            f"{row.get('count')} | {row.get('finite_count')} | "
+            f"{row.get('null_count')} | {row.get('min')} | {row.get('p05')} | "
+            f"{row.get('p50')} | {row.get('p95')} | {row.get('max')} | "
+            f"{row.get('mean')} | `{_md_json(row.get('gate_failure_counts', {}))}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "The three subclasses identify which contemporaneous C/A state failed. "
+            "Endpoint margins are distances to the contemporaneous dimension gates; "
+            "they are not directional forecasts and contain no future-price "
+            "information.",
             "",
             "## Threshold distance",
             "",
