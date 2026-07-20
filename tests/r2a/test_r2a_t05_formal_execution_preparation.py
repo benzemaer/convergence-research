@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -13,12 +15,16 @@ import pytest
 from src.r2a.r2a_t02_request_identity import build_canonical_request
 from src.r2a.r2a_t05_formal_execution import (
     FormalExecutionError,
+    build_determinism_receipt,
+    compare_formal_builds,
     create_unique_run_root,
     execute_request_sequence,
     finalize_formal_candidate,
     inspect_git_preflight,
+    load_formal_authorization,
     preflight_formal_execution,
     validate_formal_completion_lifecycle,
+    validate_t05_output_scope,
 )
 from src.r2a.r2a_t05_formal_input_manifest import (
     FormalInputManifestError,
@@ -26,6 +32,10 @@ from src.r2a.r2a_t05_formal_input_manifest import (
     load_authorized_input_manifest,
     load_formal_execution_config,
     sha256_file,
+)
+from src.r2a.r2a_t05_formal_result_analysis import (
+    analyze_persisted_formal_artifacts,
+    render_persisted_result_analysis,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,14 +114,49 @@ def _make_score_database(path: Path, *, forbidden_field: bool = False) -> None:
             "INSERT INTO security_observation_spine VALUES "
             "('2016-01-04'), ('2026-06-30')"
         )
-        connection.execute("CREATE TABLE dimension_definitions (definition_id INTEGER)")
-        connection.execute("CREATE TABLE dimension_components (component_id INTEGER)")
-        connection.execute("CREATE TABLE daily_component_scores (score DOUBLE)")
+        connection.execute(
+            "CREATE TABLE dimension_definitions ("
+            "dimension_id VARCHAR, canonical_order INTEGER, dimension_name VARCHAR, "
+            "component_count INTEGER, definition_version VARCHAR)"
+        )
+        connection.executemany(
+            "INSERT INTO dimension_definitions VALUES (?, ?, ?, ?, ?)",
+            [
+                ("P", 1, "Price", 1, "fixture.v1"),
+                ("C", 2, "Reference", 1, "fixture.v1"),
+                ("A", 3, "Alignment", 1, "fixture.v1"),
+                ("V", 4, "Participation", 1, "fixture.v1"),
+                ("T", 5, "Trend", 1, "fixture.v1"),
+            ],
+        )
+        connection.execute(
+            "CREATE TABLE dimension_components ("
+            "dimension_id VARCHAR, component_id VARCHAR, component_order INTEGER)"
+        )
+        connection.executemany(
+            "INSERT INTO dimension_components VALUES (?, ?, ?)",
+            [
+                (dimension, f"{dimension}01", 1)
+                for dimension in ("P", "C", "A", "V", "T")
+            ],
+        )
+        connection.execute(
+            "CREATE TABLE daily_component_scores (dimension_id VARCHAR, score DOUBLE)"
+        )
+        connection.executemany(
+            "INSERT INTO daily_component_scores VALUES (?, ?)",
+            [(dimension, 0.5) for dimension in ("P", "C", "A", "V", "T")],
+        )
         if forbidden_field:
             connection.execute("CREATE TABLE daily_dimension_scores (return_1d DOUBLE)")
         else:
             connection.execute(
-                "CREATE TABLE daily_dimension_scores (score_dimension DOUBLE)"
+                "CREATE TABLE daily_dimension_scores ("
+                "dimension_id VARCHAR, score_dimension DOUBLE)"
+            )
+            connection.executemany(
+                "INSERT INTO daily_dimension_scores VALUES (?, ?)",
+                [(dimension, 0.5) for dimension in ("P", "C", "A", "V", "T")],
             )
 
 
@@ -268,6 +313,15 @@ def test_formal_manifest_builder_reads_only_synthetic_score_and_binds_metadata(
         "daily_component_scores",
         "daily_dimension_scores",
     }
+    assert payload["score_dimension_inventory"] == ["P", "C", "A", "V", "T"]
+    assert payload["analysis_dimension_scope"] == ["C", "A"]
+    assert payload["selected_dimensions_required"] == ["C", "A"]
+    assert payload["unselected_dimensions_must_not_affect_results"] is True
+    assert set(payload["component_inventory"]) == {"P", "C", "A", "V", "T"}
+    assert all(
+        payload["t05_request_selected_dimensions"][name] == ["C", "A"]
+        for name in REQUEST_ORDER
+    )
     verified = load_authorized_input_manifest(
         output_path, repo_root=tmp_path, verify_files=True
     )
@@ -618,3 +672,483 @@ def test_preparation_config_cannot_consume_formal_attempt(
         )
     assert called == {"manifest": False, "runroot": False}
     assert config["formal_run_attempts_consumed"] == 0
+
+
+def test_manifest_accepts_complete_pcavt_score_but_freezes_ca_consumption(
+    tmp_path: Path,
+) -> None:
+    _, payload, _ = _build_manifest(tmp_path)
+
+    assert payload["score_dimension_inventory"] == ["P", "C", "A", "V", "T"]
+    assert payload["component_inventory"]["C"] == ["C01"]
+    assert payload["component_inventory"]["A"] == ["A01"]
+    assert payload["score_dimension_rows"]["P"]["daily_dimension_score_rows"] == 1
+    assert payload["score_dimension_rows"]["V"]["daily_component_score_rows"] == 1
+    assert payload["analysis_dimension_scope"] == ["C", "A"]
+    assert payload["unselected_dimensions_must_not_affect_results"] is True
+
+
+@pytest.mark.parametrize(
+    "selected_dimensions", [["P", "C", "A"], ["C", "A", "V"], ["C", "A", "T"]]
+)
+def test_manifest_rejects_non_ca_request_selection(
+    tmp_path: Path, selected_dimensions: list[str]
+) -> None:
+    config, score_path, output_path = _make_authorized_inputs(tmp_path)
+    config["requests"][0]["selected_dimensions"] = selected_dimensions
+
+    with pytest.raises(FormalInputManifestError):
+        build_formal_input_manifest(
+            output_path=output_path,
+            repo_root=tmp_path,
+            config=config,
+            score_database_path=score_path,
+            source_commit="a" * 40,
+        )
+
+
+def _make_t03_scope_outputs(tmp_path: Path, *, dimension: str = "C") -> dict[str, Path]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    outputs: dict[str, Path] = {}
+    for name in REQUEST_ORDER:
+        path = tmp_path / f"{name}.duckdb"
+        with duckdb.connect(str(path)) as connection:
+            connection.execute(
+                "CREATE TABLE dynamic_request (selected_dimensions VARCHAR)"
+            )
+            connection.execute('INSERT INTO dynamic_request VALUES (\'["C","A"]\')')
+            connection.execute("CREATE TABLE evaluation_scope (scope_id VARCHAR)")
+            connection.execute(
+                "CREATE TABLE daily_dimension_states (dimension_id VARCHAR)"
+            )
+            connection.execute(
+                "INSERT INTO daily_dimension_states VALUES (?)", [dimension]
+            )
+            connection.execute("CREATE TABLE daily_joint_states (joint_state BOOLEAN)")
+            connection.execute("CREATE TABLE confirmed_intervals (interval_id INTEGER)")
+        outputs[name] = path
+    return outputs
+
+
+def test_t05_output_scope_allows_ca_and_blocks_unselected_or_forbidden_fields(
+    tmp_path: Path,
+) -> None:
+    outputs = _make_t03_scope_outputs(tmp_path)
+    validate_t05_output_scope(outputs)
+
+    p_outputs = _make_t03_scope_outputs(tmp_path / "p", dimension="P")
+    with pytest.raises(
+        FormalExecutionError, match="unselected_dimension_in_t05_output"
+    ):
+        validate_t05_output_scope(p_outputs)
+
+    with pytest.raises(
+        FormalExecutionError, match="unselected_dimension_in_t05_output"
+    ):
+        validate_t05_output_scope(
+            outputs, candidate={"component_output": {"dimension_id": "T"}}
+        )
+    with pytest.raises(
+        FormalExecutionError, match="unselected_dimension_in_t05_output"
+    ):
+        validate_t05_output_scope(
+            outputs, candidate={"component_output": {"component_id": "P01"}}
+        )
+    with pytest.raises(FormalExecutionError, match="forbidden_t05_output_field"):
+        validate_t05_output_scope(outputs, candidate={"future_return": 0.1})
+
+
+def test_formal_authorization_starts_without_a_future_head(tmp_path: Path) -> None:
+    authorization = load_formal_authorization()
+    assert authorization["authorization_status"] == "not_authorized"
+    assert authorization["formal_run_allowed"] is False
+    assert authorization["authorization_head"] is None
+
+    mutated = copy.deepcopy(authorization)
+    mutated["authorization_head"] = "b" * 40
+    path = tmp_path / "authorization.json"
+    _write_json(path, mutated)
+    with pytest.raises(
+        FormalExecutionError, match="unauthorized_future_head_fabricated"
+    ):
+        load_formal_authorization(path)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload["rows"][0].update(value=0.6),
+        lambda payload: payload["rows"].reverse(),
+        lambda payload: payload["rows"].pop(),
+        lambda payload: payload["rows"].append(copy.deepcopy(payload["rows"][0])),
+        lambda payload: payload.update(nullable=None),
+        lambda payload: payload.update(flag=False),
+        lambda payload: payload.update(float_value=0.6),
+    ],
+)
+def test_determinism_mutations_fail_closed(mutation: Any) -> None:
+    base = {
+        "rows": [{"key": "a", "value": 0.5}, {"key": "b", "value": 0.8}],
+        "nullable": "value",
+        "flag": True,
+        "float_value": 0.5,
+        "termination_reason_profile": [{"reason": "raw_false", "count": 2}],
+    }
+    calls = 0
+
+    def build() -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        payload = copy.deepcopy(base)
+        if calls == 2:
+            mutation(payload)
+        return payload
+
+    with pytest.raises(FormalExecutionError, match="determinism_mismatch"):
+        build_determinism_receipt(build)
+
+    receipt = compare_formal_builds(base, copy.deepcopy(base))
+    assert receipt["status"] == "passed"
+    assert receipt["build_count"] == 2
+    assert receipt["left_fingerprint"] == receipt["right_fingerprint"]
+
+
+def _write_csv_rows(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fields:
+                fields.append(key)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _make_persisted_analysis_fixture(tmp_path: Path) -> Path:
+    root = tmp_path / "R2A-T05-20260720T000000001Z"
+    compact = root / "compact-review"
+    compact.mkdir(parents=True)
+    expected = {
+        name: {
+            "raw_true": 10,
+            "confirmed_true": 5,
+            "intervals": 3,
+            "securities_with_interval": 2,
+        }
+        for name in REQUEST_ORDER
+    }
+    reconciliation = [
+        {
+            "logical_request_name": name,
+            "actual": dict(expected[name]),
+            "expected": dict(expected[name]),
+            "matches_accepted_t04": True,
+            "selected_dimensions": ["C", "A"],
+        }
+        for name in REQUEST_ORDER
+    ]
+    termination_records = []
+    for name in REQUEST_ORDER:
+        termination_records.extend(
+            [
+                {
+                    "logical_request_name": name,
+                    "primary_termination_reason": "raw_false",
+                    "raw_false_subclass": "A_ONLY_FAIL",
+                    "right_censored": False,
+                },
+                {
+                    "logical_request_name": name,
+                    "primary_termination_reason": "quality_or_availability_termination",
+                    "raw_false_subclass": None,
+                    "right_censored": False,
+                },
+                {
+                    "logical_request_name": name,
+                    "primary_termination_reason": "input_end_open_right_censored",
+                    "raw_false_subclass": None,
+                    "right_censored": True,
+                },
+            ]
+        )
+    margin_rows = [
+        {
+            "logical_request_name": name,
+            "endpoint": "last_confirmed_end",
+            "dimension_id": "C",
+            "margin_name": "mean_margin",
+            "count": 2,
+            "finite_count": 2,
+            "null_count": 0,
+            "min": 0.1,
+            "p05": 0.1,
+            "p50": 0.2,
+            "p95": 0.3,
+            "max": 0.3,
+            "mean": 0.2,
+            "all_null": False,
+            "all_zero": False,
+            "constant": False,
+            "gate_failure_counts": {"MAIN_ONLY_FAIL": 1},
+        }
+        for name in REQUEST_ORDER
+    ]
+    reentry_rows = [
+        {
+            "logical_request_name": name,
+            "metric": metric,
+            "lag_threshold": threshold,
+            "total_non_right_censored_termination_count": 2,
+            "observable_denominator": 1,
+            "reentered_count": 1,
+            "clean_not_reentered_count": 0,
+            "quality_interrupted_count": 1,
+            "insufficient_followup_censored_count": 0,
+            "reentry_rate": 1.0,
+        }
+        for name in REQUEST_ORDER
+        for metric, thresholds in (("raw", (1, 3, 5)), ("confirmed", (5, 10)))
+        for threshold in thresholds
+    ]
+    parent_rows = [
+        {
+            "security_id": "S001",
+            "q25_parent_interval_ordinal": 1,
+            "q25_parent_confirmed_day_count": 4,
+            "q20_confirmed_day_count_inside_parent": 3,
+            "q25_only_shell_day_count": 1,
+            "q20_fragmented_within_q25_parent": True,
+        }
+    ]
+    child_rows = [
+        {
+            "security_id": "S001",
+            "q20_interval_ordinal": 1,
+            "q25_parent_interval_ordinal": 1,
+            "q25_local_leading_shell_days": 1,
+            "q25_local_trailing_shell_days": 0,
+        }
+    ]
+    daily_rows = [
+        {
+            "security_id": "S001",
+            "observation_sequence": index,
+            "q25_parent_interval_ordinal": 1,
+            "identity": identity,
+        }
+        for index, identity in enumerate(
+            ("Q10_CORE", "Q15_NOT_Q10_CORE", "Q20_NOT_Q15_ANCHOR", "Q25_NOT_Q20_SHELL"),
+            start=1,
+        )
+    ]
+    mappings = [
+        {
+            "child_request_name": name,
+            "child_security_id": "S001",
+            "child_interval_ordinal": index,
+        }
+        for index, name in enumerate(("CA_q10_k5", "CA_q15_k5", "CA_q20_k5"), start=1)
+    ]
+    year_rows = [
+        {"logical_request_name": name, "year": 2025, "interval_count": 1}
+        for name in REQUEST_ORDER
+    ] + [
+        {"logical_request_name": name, "year": 2026, "interval_count": 2}
+        for name in REQUEST_ORDER
+    ]
+    security_rows = [
+        {"logical_request_name": name, "security_id": "S001", "interval_count": 2}
+        for name in REQUEST_ORDER
+    ] + [
+        {"logical_request_name": name, "security_id": "S002", "interval_count": 1}
+        for name in REQUEST_ORDER
+    ]
+    candidate = {
+        "request_reconciliation": reconciliation,
+        "termination_records": termination_records,
+        "threshold_margin_summary": margin_rows,
+        "quick_reentry_profile": reentry_rows,
+        "cross_q_structure_summary": parent_rows,
+        "cross_q_child_structure_summary": child_rows,
+        "daily_level_identities": daily_rows,
+        "cross_q_mapping": mappings,
+        "year_profile": year_rows,
+        "security_profile": security_rows,
+        "termination_reason_profile": [],
+        "raw_false_exit_decomposition": [],
+        "deterministic_interval_samples": [{"sample": "known"}],
+    }
+    with duckdb.connect(str(root / "t05_detail.duckdb")) as connection:
+        connection.execute("CREATE TABLE candidate_json (payload JSON NOT NULL)")
+        connection.execute(
+            "INSERT INTO candidate_json VALUES (?)", [json.dumps(candidate)]
+        )
+    _write_json(
+        root / "input_manifest.json",
+        {
+            "source_commit": "a" * 40,
+            "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+        },
+    )
+    _write_json(
+        root / "run_summary.json",
+        {
+            "status": "formal_completed_pending_owner_review",
+            "request_summaries": expected,
+            "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+            "authorization_head": "b" * 40,
+            "authorization_parent": "a" * 40,
+        },
+    )
+    _write_json(
+        root / "formal_authorization.json",
+        {
+            "authorization_status": "authorized_pending_execution",
+            "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+            "authorization_parent": "a" * 40,
+            "authorization_head": "b" * 40,
+            "authorized_manifest_sha256": sha256_file(root / "input_manifest.json"),
+            "authorized_manifest_byte_size": (root / "input_manifest.json")
+            .stat()
+            .st_size,
+        },
+    )
+    _write_json(root / "independent_validation_receipt.json", {"status": "passed"})
+    _write_json(
+        root / "formal_determinism_receipt.json",
+        {
+            "status": "passed",
+            "build_count": 2,
+            "left_fingerprint": "x",
+            "right_fingerprint": "x",
+        },
+    )
+    _write_json(
+        root / "anomaly_scan.json", {"status": "pending", "blocking_anomalies": []}
+    )
+    (root / "execution_log.jsonl").write_text(
+        json.dumps({"event": "formal_run_completed_pending_owner_review"}) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    csv_sources = {
+        "request_reconciliation.csv": reconciliation,
+        "termination_reason_profile.csv": [],
+        "raw_false_exit_decomposition.csv": [],
+        "threshold_margin_summary.csv": margin_rows,
+        "quick_reentry_profile.csv": reentry_rows,
+        "cross_q_structure_summary.csv": parent_rows,
+        "cross_q_parent_structure_summary.csv": parent_rows,
+        "cross_q_child_structure_summary.csv": child_rows,
+        "year_profile.csv": year_rows,
+        "security_profile.csv": security_rows,
+        "deterministic_interval_samples.csv": [{"sample": "known"}],
+    }
+    for filename, rows in csv_sources.items():
+        _write_csv_rows(compact / filename, rows)
+
+    identities = []
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and path.name != "artifact_manifest.json":
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            identities.append(
+                {
+                    "relative_path": path.relative_to(root).as_posix(),
+                    "sha256": digest,
+                    "byte_size": path.stat().st_size,
+                }
+            )
+    _write_json(root / "artifact_manifest.json", {"files": identities})
+    return root
+
+
+def test_persisted_result_analysis_reports_actual_values_and_blocks_mutations(
+    tmp_path: Path,
+) -> None:
+    root = _make_persisted_analysis_fixture(tmp_path)
+    expected = {
+        name: {
+            "raw_true": 10,
+            "confirmed_true": 5,
+            "intervals": 3,
+            "securities_with_interval": 2,
+        }
+        for name in REQUEST_ORDER
+    }
+    analysis = analyze_persisted_formal_artifacts(root, expected_counts=expected)
+    assert analysis["status"] == "passed_pending_owner_review"
+    report = render_persisted_result_analysis(analysis)
+    assert "10" in report
+    assert "1.0" in report
+    assert "0.1" in report
+    assert "q25_only_shell_days" in report
+    assert "2026_partial_year_boundary" in report
+
+    _write_json(
+        root / "anomaly_scan.json",
+        {"status": "blocked", "blocking_anomalies": ["daily_identity_not_conserved"]},
+    )
+    blocked = analyze_persisted_formal_artifacts(root, expected_counts=expected)
+    assert "daily_identity_not_conserved" in blocked["blocking_anomalies"]
+
+
+@pytest.mark.parametrize(
+    "mutation,expected_reason",
+    [
+        (
+            "authorization_parent",
+            "artifact_hash_readback_mismatch:formal_authorization.json",
+        ),
+        (
+            "authorization_head",
+            "artifact_hash_readback_mismatch:formal_authorization.json",
+        ),
+        (
+            "authorization_manifest_hash",
+            "artifact_hash_readback_mismatch:formal_authorization.json",
+        ),
+        ("execution_log", "artifact_hash_readback_mismatch:execution_log.jsonl"),
+        ("input_manifest", "artifact_hash_readback_mismatch:input_manifest.json"),
+    ],
+)
+def test_persisted_authorization_and_execution_evidence_mutations_block(
+    tmp_path: Path, mutation: str, expected_reason: str
+) -> None:
+    root = _make_persisted_analysis_fixture(tmp_path)
+    expected = {
+        name: {
+            "raw_true": 10,
+            "confirmed_true": 5,
+            "intervals": 3,
+            "securities_with_interval": 2,
+        }
+        for name in REQUEST_ORDER
+    }
+    if mutation.startswith("authorization_"):
+        authorization = json.loads(
+            (root / "formal_authorization.json").read_text(encoding="utf-8")
+        )
+        if mutation == "authorization_parent":
+            authorization["authorization_parent"] = "c" * 40
+        elif mutation == "authorization_head":
+            authorization["authorization_head"] = "d" * 40
+        else:
+            authorization["authorized_manifest_sha256"] = "e" * 64
+        _write_json(root / "formal_authorization.json", authorization)
+    elif mutation == "execution_log":
+        with (root / "execution_log.jsonl").open(
+            "a", encoding="utf-8", newline="\n"
+        ) as handle:
+            handle.write(json.dumps({"event": "tampered_after_terminal"}) + "\n")
+    else:
+        manifest = json.loads(
+            (root / "input_manifest.json").read_text(encoding="utf-8")
+        )
+        manifest["source_commit"] = "f" * 40
+        _write_json(root / "input_manifest.json", manifest)
+
+    analysis = analyze_persisted_formal_artifacts(root, expected_counts=expected)
+    assert analysis["status"] == "blocked"
+    assert expected_reason in analysis["blocking_anomalies"]

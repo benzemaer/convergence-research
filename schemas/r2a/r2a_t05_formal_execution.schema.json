@@ -13,6 +13,7 @@
     "implementation_version",
     "reviewed_implementation_sha",
     "implementation_review_status",
+    "reviewed_formal_execution_sha",
     "formal_execution_review_status",
     "research_anchor_q",
     "q_selection_status",
@@ -28,6 +29,7 @@
     "formal_run_attempts_consumed",
     "run_root_policy",
     "input_authorization",
+    "authorization_metadata",
     "accepted_bindings",
     "request_order",
     "request_sources",
@@ -35,6 +37,7 @@
     "accepted_t04_counts",
     "accepted_t03_output_contract",
     "protected_implementation_files",
+    "protected_execution_files",
     "artifact_plan",
     "lifecycle_after_completion",
     "result_analysis_requirements",
@@ -49,7 +52,8 @@
     "implementation_version": {"const": "r2a_t05_ca_exit_decomposition.v1"},
     "reviewed_implementation_sha": {"const": "55dceba70bc967caa75c597ce17acb93a2dac511"},
     "implementation_review_status": {"const": "approved"},
-    "formal_execution_review_status": {"const": "pending_owner_review"},
+    "reviewed_formal_execution_sha": {"const": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530"},
+    "formal_execution_review_status": {"const": "pending_owner_rereview"},
     "research_anchor_q": {"const": 2000},
     "q_selection_status": {"const": "not_selected"},
     "canonical_dynamic_request_selected": {"const": false},
@@ -90,6 +94,18 @@
         "score_database_relative_path": {"const": "data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/score-release/pcavt-score-w120-v1-c7e04f11a2cd09aa/score_data.duckdb"},
         "manifest_schema_version": {"const": "r2a_t05_formal_input_manifest.v1"},
         "request_identity_source": {"const": "accepted R2A-T04 handoff requests; request files are only independently revalidated envelopes"}
+      }
+    },
+    "authorization_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "schema_relative_path", "authorization_status", "formal_run_allowed", "authorization_revision"],
+      "properties": {
+        "relative_path": {"const": "configs/r2a/r2a_t05_formal_authorization.v1.json"},
+        "schema_relative_path": {"const": "schemas/r2a/r2a_t05_formal_authorization.schema.json"},
+        "authorization_status": {"const": "not_authorized"},
+        "formal_run_allowed": {"const": false},
+        "authorization_revision": {"const": 0}
       }
     },
     "accepted_bindings": {
@@ -153,6 +169,10 @@
     },
     "protected_implementation_files": {
       "type": "array", "minItems": 9, "maxItems": 9,
+      "items": {"$ref": "#/$defs/protected_file"}
+    },
+    "protected_execution_files": {
+      "type": "array", "minItems": 8, "maxItems": 8,
       "items": {"$ref": "#/$defs/protected_file"}
     },
     "artifact_plan": {

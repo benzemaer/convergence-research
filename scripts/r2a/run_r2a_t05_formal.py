@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.r2a.r2a_t05_formal_execution import (  # noqa: E402
+    AUTHORIZATION_CONFIG_PATH,
     FORMAL_CONFIG_PATH,
     FormalExecutionError,
     preflight_formal_execution,
@@ -25,6 +26,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--config", type=Path, default=FORMAL_CONFIG_PATH)
+    parser.add_argument("--authorization", type=Path, default=AUTHORIZATION_CONFIG_PATH)
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument(
         "--operator-authorized",
@@ -41,12 +43,14 @@ def main(argv: list[str] | None = None) -> int:
             result = preflight_formal_execution(
                 manifest_path=args.manifest,
                 config_path=args.config,
+                authorization_path=args.authorization,
                 verify_manifest_files=False,
             )
         else:
             result = run_formal_execution(
                 manifest_path=args.manifest,
                 config_path=args.config,
+                authorization_path=args.authorization,
                 operator_authorized=args.operator_authorized,
             )
     except FormalExecutionError as error:

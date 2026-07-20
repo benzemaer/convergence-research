@@ -7,7 +7,8 @@
   "implementation_version": "r2a_t05_ca_exit_decomposition.v1",
   "reviewed_implementation_sha": "55dceba70bc967caa75c597ce17acb93a2dac511",
   "implementation_review_status": "approved",
-  "formal_execution_review_status": "pending_owner_review",
+  "reviewed_formal_execution_sha": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530",
+  "formal_execution_review_status": "pending_owner_rereview",
   "research_anchor_q": 2000,
   "q_selection_status": "not_selected",
   "canonical_dynamic_request_selected": false,
@@ -39,6 +40,13 @@
     "score_database_relative_path": "data/generated/r2a/r2a_t01/R2A-T01-20260718T103110891Z/score-release/pcavt-score-w120-v1-c7e04f11a2cd09aa/score_data.duckdb",
     "manifest_schema_version": "r2a_t05_formal_input_manifest.v1",
     "request_identity_source": "accepted R2A-T04 handoff requests; request files are only independently revalidated envelopes"
+  },
+  "authorization_metadata": {
+    "relative_path": "configs/r2a/r2a_t05_formal_authorization.v1.json",
+    "schema_relative_path": "schemas/r2a/r2a_t05_formal_authorization.schema.json",
+    "authorization_status": "not_authorized",
+    "formal_run_allowed": false,
+    "authorization_revision": 0
   },
   "accepted_bindings": {
     "score_release": {
@@ -111,11 +119,21 @@
     {"path": "tests/r2a/test_r2a_t05_validator.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "6f46f8e2142a66c0eeaaca797aea12f040e536e9", "committed_byte_sha256": "e6d55c9db1504823397a7151c13411627799dcff6a04863409939310251447b5", "normalized_text_sha256": "e6d55c9db1504823397a7151c13411627799dcff6a04863409939310251447b5", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
     {"path": "tests/r2a/test_r2a_t05_result_package_schema.py", "source_commit": "55dceba70bc967caa75c597ce17acb93a2dac511", "git_blob_sha": "616ec3d7a5970b8ba34424cb2c6abe92aaf596e4", "committed_byte_sha256": "6782a0581ffd5528f899923f4f82c4a54045b889557810f8a8d10d727943e703", "normalized_text_sha256": "6782a0581ffd5528f899923f4f82c4a54045b889557810f8a8d10d727943e703", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1}
   ],
+  "protected_execution_files": [
+    {"path": "configs/r2a/r2a_t05_formal_execution.v1.json", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "c5f2846053c1dca1efbc35828b8775c8f430bcee", "committed_byte_sha256": "2bc134c59433cd5933f6aaf25d1b4534b285c698049b7794ab76046d3b1fc225", "normalized_text_sha256": "2bc134c59433cd5933f6aaf25d1b4534b285c698049b7794ab76046d3b1fc225", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "schemas/r2a/r2a_t05_formal_execution.schema.json", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "1e23782eca626f62c0e9efffd339765bac181d8c", "committed_byte_sha256": "02ec66ecb0474f65ed5354852b772eab0c41fa6d805820322ba7d44827a8197f", "normalized_text_sha256": "02ec66ecb0474f65ed5354852b772eab0c41fa6d805820322ba7d44827a8197f", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "schemas/r2a/r2a_t05_formal_input_manifest.schema.json", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "fda78c7ad356b12e78fd28ba166cf8bee52b58e4", "committed_byte_sha256": "5adf054e152aa2e01332d3ad9c06e99979da3a1dce851e810ec3b7273e0b26b1", "normalized_text_sha256": "5adf054e152aa2e01332d3ad9c06e99979da3a1dce851e810ec3b7273e0b26b1", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_formal_execution.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "d9fe46c4597fa81181c141e0e833c77de6b2b272", "committed_byte_sha256": "212c0d076ae59414d5fdbeb706ce8de612a227ad41bef01d436282dd7c609844", "normalized_text_sha256": "212c0d076ae59414d5fdbeb706ce8de612a227ad41bef01d436282dd7c609844", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_formal_input_manifest.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "22947eefa1fa38a142991ce995514c016ecb0d76", "committed_byte_sha256": "35d074fe95b884643f336c45687d40636822f423165f81b390fb0291e18ba876", "normalized_text_sha256": "35d074fe95b884643f336c45687d40636822f423165f81b390fb0291e18ba876", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "scripts/r2a/build_r2a_t05_formal_input_manifest.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "22eb2ff47263b0e4b9ea77e976e3421c00396f34", "committed_byte_sha256": "8b45cab31bfc36bfea56dd381e68c537e7108ef28b48dd2de43aa4c0582d3141", "normalized_text_sha256": "8b45cab31bfc36bfea56dd381e68c537e7108ef28b48dd2de43aa4c0582d3141", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "scripts/r2a/run_r2a_t05_formal.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "7c90d907f60f7e23dfd5ef13b2ec9c1ffb707441", "committed_byte_sha256": "5b5dee3c2d7cb7ca178059562569217e18f04412f1be18afcdb330ab4524266d", "normalized_text_sha256": "5b5dee3c2d7cb7ca178059562569217e18f04412f1be18afcdb330ab4524266d", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "tests/r2a/test_r2a_t05_formal_execution_preparation.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "6a548dad1a13dc51a09aa4d0469532b09c4cee0b", "committed_byte_sha256": "1207e5d4b9c971cd8245a2115f32913dda92f4fc9ea85f9883b6e94fecef3c69", "normalized_text_sha256": "1207e5d4b9c971cd8245a2115f32913dda92f4fc9ea85f9883b6e94fecef3c69", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1}
+  ],
   "artifact_plan": {
-    "detail_relative_files": [
-      "input_manifest.json", "authorization.json", "execution_log.jsonl", "run_summary.json",
+      "detail_relative_files": [
+      "formal_authorization.json", "input_manifest.json", "execution_log.jsonl", "run_summary.json",
       "request-results/CA_q10_k5.duckdb", "request-results/CA_q15_k5.duckdb", "request-results/CA_q20_k5.duckdb", "request-results/CA_q25_k5.duckdb",
-      "t05_detail.duckdb", "independent_validation_receipt.json", "anomaly_scan.json", "result_analysis.md", "result_package.json"
+      "t05_detail.duckdb", "independent_validation_receipt.json", "formal_determinism_receipt.json", "anomaly_scan.json", "result_analysis.md", "artifact_manifest.json", "result_package.json"
     ],
     "compact_review_files": [
       "request_identity.json", "input_manifest.json", "run_summary.json", "validation_receipt.json", "result_analysis.md",

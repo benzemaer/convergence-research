@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import subprocess
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,14 +31,24 @@ from src.r2a.r2a_t05_ca_exit_decomposition import (
     load_t05_config,
 )
 from src.r2a.r2a_t05_formal_input_manifest import (
+    ANALYSIS_DIMENSIONS,
     CONFIG_PATH,
+    FORMAL_AUTHORIZATION_PATH,
+    FORMAL_AUTHORIZATION_SCHEMA_PATH,
     FORMAL_SCOPE_ID,
+    REVIEWED_FORMAL_EXECUTION_SHA,
     ROOT,
+    SCORE_DIMENSIONS,
     FormalInputManifestError,
     _resolve_repository_path,
     load_authorized_input_manifest,
     load_formal_execution_config,
     sha256_file,
+)
+from src.r2a.r2a_t05_formal_result_analysis import (
+    FormalResultAnalysisError,
+    analyze_persisted_formal_artifacts,
+    render_persisted_result_analysis,
 )
 from src.r2a.r2a_t05_result_analysis import analyze_candidate
 from src.r2a.r2a_t05_validator import detect_result_anomalies, validate_t05_candidate
@@ -45,6 +56,8 @@ from src.r2a.r2a_t05_validator import detect_result_anomalies, validate_t05_cand
 FORMAL_CONFIG_PATH = CONFIG_PATH
 FORMAL_CONFIG_SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t05_formal_execution.schema.json"
 RESULT_PACKAGE_SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t05_result_package.schema.json"
+AUTHORIZATION_CONFIG_PATH = FORMAL_AUTHORIZATION_PATH
+AUTHORIZATION_SCHEMA_PATH = FORMAL_AUTHORIZATION_SCHEMA_PATH
 RUN_PARENT_RELATIVE = "data/generated/r2a/r2a_t05/formal-runs"
 RUN_ID_PATTERN = re.compile(r"^R2A-T05-\d{8}T\d{9}Z$")
 COMPACT_REVIEW_DIR = "compact-review"
@@ -67,6 +80,20 @@ PROTECTED_CORE_PATHS = (
     "tests/r2a/test_r2a_t05_validator.py",
     "tests/r2a/test_r2a_t05_result_package_schema.py",
 )
+PROTECTED_EXECUTION_PATHS = (
+    "configs/r2a/r2a_t05_formal_execution.v1.json",
+    "schemas/r2a/r2a_t05_formal_execution.schema.json",
+    "schemas/r2a/r2a_t05_formal_input_manifest.schema.json",
+    "src/r2a/r2a_t05_formal_execution.py",
+    "src/r2a/r2a_t05_formal_input_manifest.py",
+    "scripts/r2a/build_r2a_t05_formal_input_manifest.py",
+    "scripts/r2a/run_r2a_t05_formal.py",
+    "tests/r2a/test_r2a_t05_formal_execution_preparation.py",
+)
+AUTHORIZATION_WHITELIST = (
+    "configs/r2a/r2a_t05_formal_authorization.v1.json",
+    "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md",
+)
 
 
 class FormalExecutionError(RuntimeError):
@@ -86,6 +113,108 @@ def _json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise FormalExecutionError("json_object_required", str(path))
     return value
+
+
+def load_formal_authorization(
+    path: str | Path = AUTHORIZATION_CONFIG_PATH,
+) -> dict[str, Any]:
+    """Load the separate authorization metadata without inferring permission."""
+
+    authorization_path = Path(path)
+    payload = _json(authorization_path)
+    if (
+        payload.get("authorization_status") == "not_authorized"
+        and payload.get("authorization_head") is not None
+    ):
+        raise FormalExecutionError("unauthorized_future_head_fabricated")
+    schema = _json(AUTHORIZATION_SCHEMA_PATH)
+    errors = sorted(
+        Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(
+            payload
+        ),
+        key=str,
+    )
+    if errors:
+        raise FormalExecutionError(
+            "formal_authorization_schema_invalid", errors[0].message
+        )
+    if payload.get("authorization_status") == "not_authorized":
+        if (
+            payload.get("reviewed_formal_execution_sha")
+            != REVIEWED_FORMAL_EXECUTION_SHA
+        ):
+            raise FormalExecutionError("unauthorized_reviewed_execution_mismatch")
+        if payload.get("formal_run_allowed") is not False:
+            raise FormalExecutionError("unauthorized_metadata_allows_formal_run")
+        if payload.get("authorization_head") is not None:
+            raise FormalExecutionError("unauthorized_future_head_fabricated")
+    return payload
+
+
+def _authorization_diff_paths(
+    repo_root: Path, parent: str, head: str
+) -> tuple[str, ...]:
+    output = _git(repo_root, "diff", "--name-only", parent, head)
+    return tuple(line for line in output.splitlines() if line)
+
+
+def _validate_authorization_binding(
+    *,
+    repo_root: Path,
+    head: str,
+    authorization: Mapping[str, Any],
+) -> None:
+    if authorization.get("authorization_status") != "authorized_pending_execution":
+        return
+    parent = str(authorization.get("authorization_parent"))
+    authorization_head = str(authorization.get("authorization_head"))
+    reviewed_execution = str(authorization.get("reviewed_formal_execution_sha"))
+    if authorization_head != head:
+        raise FormalExecutionError("authorization_head_mismatch", authorization_head)
+    if parent != reviewed_execution:
+        raise FormalExecutionError("authorization_parent_mismatch")
+    parents = _git(repo_root, "rev-list", "--parents", "-n", "1", head).split()
+    if len(parents) != 2 or parents[1] != parent:
+        raise FormalExecutionError("authorization_parent_not_exact")
+    changed = _authorization_diff_paths(repo_root, parent, head)
+    whitelist = tuple(
+        str(path) for path in authorization["authorization_diff_whitelist"]
+    )
+    if whitelist != AUTHORIZATION_WHITELIST:
+        raise FormalExecutionError("authorization_diff_whitelist_mismatch")
+    if any(path not in whitelist for path in changed):
+        raise FormalExecutionError("authorization_diff_outside_whitelist", changed)
+    if "configs/r2a/r2a_t05_formal_authorization.v1.json" not in changed:
+        raise FormalExecutionError("authorization_metadata_not_changed")
+    if authorization.get("formal_run_allowed") is not True:
+        raise FormalExecutionError("authorized_metadata_does_not_allow_formal_run")
+    if authorization.get("authorized_manifest_sha256") is None:
+        raise FormalExecutionError("authorized_manifest_identity_missing")
+
+
+def _protected_file_record(
+    repo_root: Path,
+    revision: str,
+    protected: Mapping[str, Any],
+) -> dict[str, Any]:
+    relative = str(protected["path"])
+    actual_blob = _git(repo_root, "rev-parse", f"{revision}:{relative}")
+    if actual_blob != protected["git_blob_sha"]:
+        raise FormalExecutionError("protected_file_git_blob_mismatch", relative)
+    data = _git_blob_bytes(repo_root, revision, relative)
+    committed_sha, normalized_sha, bom, trailing_lf_count = _normalized_text_binding(
+        data, relative
+    )
+    if committed_sha != protected["committed_byte_sha256"]:
+        raise FormalExecutionError("protected_file_byte_hash_mismatch", relative)
+    if normalized_sha != protected["normalized_text_sha256"]:
+        raise FormalExecutionError("protected_file_normalized_hash_mismatch", relative)
+    if (
+        bom is not protected["bom"]
+        or trailing_lf_count != protected["trailing_lf_count"]
+    ):
+        raise FormalExecutionError("protected_file_text_contract_mismatch", relative)
+    return {"path": relative, "git_blob_sha": actual_blob, "sha256": committed_sha}
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
@@ -200,8 +329,16 @@ def inspect_git_preflight(
     repo_root: str | Path = ROOT,
     config: Mapping[str, Any],
     expected_source_commit: str | None = None,
+    authorization: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Validate HEAD, clean worktree and all protected committed blobs."""
+    """Validate HEAD, clean worktree and all protected committed blobs.
+
+    The current candidate checks execution bindings at the reviewed predecessor
+    ``0b7ef1a...`` because the repair itself changes the execution layer.  A
+    future authorization commit supplies the newly reviewed parent and must be
+    metadata-only; the runner then additionally compares that parent with the
+    authorization HEAD.
+    """
 
     root = Path(repo_root).resolve()
     head = _git(root, "rev-parse", "HEAD")
@@ -222,34 +359,78 @@ def inspect_git_preflight(
         != PROTECTED_CORE_PATHS
     ):
         raise FormalExecutionError("protected_file_set_mismatch")
+    if (
+        tuple(item["path"] for item in config["protected_execution_files"])
+        != PROTECTED_EXECUTION_PATHS
+    ):
+        raise FormalExecutionError("protected_execution_file_set_mismatch")
+
+    authorization_payload = dict(authorization or {})
+    execution_reviewed = str(
+        authorization_payload.get(
+            "reviewed_formal_execution_sha", config["reviewed_formal_execution_sha"]
+        )
+    )
+    if (
+        execution_reviewed != REVIEWED_FORMAL_EXECUTION_SHA
+        and not authorization_payload
+    ):
+        raise FormalExecutionError("reviewed_formal_execution_sha_mismatch")
+    if not re.fullmatch(r"[0-9a-f]{40}", execution_reviewed):
+        raise FormalExecutionError("reviewed_formal_execution_sha_invalid")
+    _git(root, "merge-base", "--is-ancestor", execution_reviewed, head)
+    if authorization_payload:
+        if authorization_payload.get("reviewed_implementation_sha") != reviewed:
+            raise FormalExecutionError("authorization_implementation_mismatch")
+        if authorization_payload.get("formal_run_attempt_limit") != config.get(
+            "formal_run_attempt_limit"
+        ):
+            raise FormalExecutionError("authorization_attempt_limit_mismatch")
+        _validate_authorization_binding(
+            repo_root=root, head=head, authorization=authorization_payload
+        )
 
     checked: list[dict[str, Any]] = []
     for protected in config["protected_implementation_files"]:
-        relative = str(protected["path"])
-        actual_blob = _git(root, "rev-parse", f"{head}:{relative}")
-        if actual_blob != protected["git_blob_sha"]:
-            raise FormalExecutionError("protected_file_git_blob_mismatch", relative)
-        data = _git_blob_bytes(root, head, relative)
-        committed_sha, normalized_sha, bom, trailing_lf_count = (
-            _normalized_text_binding(data, relative)
-        )
-        if committed_sha != protected["committed_byte_sha256"]:
-            raise FormalExecutionError("protected_file_byte_hash_mismatch", relative)
-        if normalized_sha != protected["normalized_text_sha256"]:
+        checked.append(_protected_file_record(root, head, protected))
+
+    execution_records = (
+        authorization_payload.get("protected_execution_files")
+        if authorization_payload
+        else config["protected_execution_files"]
+    )
+    if not isinstance(execution_records, list):
+        raise FormalExecutionError("protected_execution_bindings_missing")
+    execution_checked = []
+    for protected in execution_records:
+        if protected.get("source_commit") != execution_reviewed:
             raise FormalExecutionError(
-                "protected_file_normalized_hash_mismatch", relative
+                "protected_execution_source_commit_mismatch", protected.get("path")
             )
+        execution_checked.append(
+            _protected_file_record(root, execution_reviewed, protected)
+        )
         if (
-            bom is not protected["bom"]
-            or trailing_lf_count != protected["trailing_lf_count"]
+            authorization_payload.get("authorization_status")
+            == "authorized_pending_execution"
         ):
-            raise FormalExecutionError(
-                "protected_file_text_contract_mismatch", relative
-            )
-        checked.append(
-            {"path": relative, "git_blob_sha": actual_blob, "sha256": committed_sha}
-        )
-    return {"head": head, "worktree_status": "clean", "protected_files": checked}
+            relative = str(protected["path"])
+            parent_blob = _git(root, "rev-parse", f"{execution_reviewed}:{relative}")
+            current_blob = _git(root, "rev-parse", f"{head}:{relative}")
+            if parent_blob != current_blob:
+                raise FormalExecutionError(
+                    "authorization_execution_file_changed", relative
+                )
+    return {
+        "head": head,
+        "worktree_status": "clean",
+        "protected_files": checked,
+        "protected_execution_files": execution_checked,
+        "reviewed_formal_execution_sha": execution_reviewed,
+        "authorization_status": authorization_payload.get(
+            "authorization_status", "not_authorized"
+        ),
+    }
 
 
 def _manifest_request_map(manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -259,6 +440,11 @@ def _manifest_request_map(manifest: Mapping[str, Any]) -> dict[str, Mapping[str,
     names = tuple(str(item.get("logical_request_name")) for item in requests)
     if names != REQUEST_ORDER:
         raise FormalExecutionError("request_order_mutation", names)
+    if any(
+        item.get("selected_dimensions") != list(ANALYSIS_DIMENSIONS)
+        for item in requests
+    ):
+        raise FormalExecutionError("t05_selected_dimensions_mismatch")
     return {str(item["logical_request_name"]): item for item in requests}
 
 
@@ -275,6 +461,19 @@ def _validate_config_manifest_identity(
         != config["reviewed_implementation_sha"]
     ):
         raise FormalExecutionError("manifest_reviewed_sha_mismatch")
+    if (
+        manifest.get("reviewed_formal_execution_sha")
+        != config["reviewed_formal_execution_sha"]
+    ):
+        raise FormalExecutionError("manifest_reviewed_formal_execution_sha_mismatch")
+    if manifest.get("score_dimension_inventory") != list(SCORE_DIMENSIONS):
+        raise FormalExecutionError("score_dimension_inventory_mismatch")
+    if manifest.get("analysis_dimension_scope") != list(ANALYSIS_DIMENSIONS):
+        raise FormalExecutionError("analysis_dimension_scope_mismatch")
+    if manifest.get("selected_dimensions_required") != list(ANALYSIS_DIMENSIONS):
+        raise FormalExecutionError("selected_dimensions_required_mismatch")
+    if manifest.get("unselected_dimensions_must_not_affect_results") is not True:
+        raise FormalExecutionError("unselected_dimension_invariance_missing")
     if tuple(config["request_order"]) != REQUEST_ORDER:
         raise FormalExecutionError("config_request_order_mismatch")
     if (
@@ -297,6 +496,10 @@ def _validate_config_manifest_identity(
         ):
             if manifest_requests[name].get(key) != config_requests[name].get(key):
                 raise FormalExecutionError("request_identity_mismatch", name)
+        if manifest_requests[name].get("selected_dimensions") != list(
+            ANALYSIS_DIMENSIONS
+        ):
+            raise FormalExecutionError("t05_selected_dimensions_mismatch", name)
     if manifest.get("accepted_t04_counts") != config.get("accepted_t04_counts"):
         raise FormalExecutionError("accepted_t04_count_mismatch")
     score = manifest.get("score_database", {})
@@ -311,12 +514,14 @@ def preflight_formal_execution(
     manifest_path: str | Path,
     repo_root: str | Path = ROOT,
     config_path: str | Path = FORMAL_CONFIG_PATH,
+    authorization_path: str | Path = AUTHORIZATION_CONFIG_PATH,
     verify_manifest_files: bool = False,
 ) -> dict[str, Any]:
     """Run all non-mutating preparation gates and return an execution plan."""
 
     try:
         config = load_formal_execution_config(config_path)
+        authorization = load_formal_authorization(authorization_path)
         manifest = load_authorized_input_manifest(
             manifest_path,
             repo_root=repo_root,
@@ -327,10 +532,34 @@ def preflight_formal_execution(
             getattr(error, "reason_code", "formal_input_preflight_failed"), str(error)
         ) from error
     _validate_config_manifest_identity(config, manifest)
+    if authorization.get("reviewed_implementation_sha") != config.get(
+        "reviewed_implementation_sha"
+    ):
+        raise FormalExecutionError("authorization_implementation_mismatch")
+    if authorization.get("formal_run_attempt_limit") != config.get(
+        "formal_run_attempt_limit"
+    ):
+        raise FormalExecutionError("authorization_attempt_limit_mismatch")
+    if authorization.get("authorization_status") == "authorized_pending_execution":
+        try:
+            manifest_file, _ = _resolve_repository_path(repo_root, manifest_path)
+            manifest_size = manifest_file.stat().st_size
+            manifest_sha = sha256_file(manifest_file)
+        except (FormalInputManifestError, OSError) as error:
+            raise FormalExecutionError(
+                "authorized_manifest_identity_unreadable", str(manifest_path)
+            ) from error
+        if manifest.get("source_commit") != authorization.get("authorization_parent"):
+            raise FormalExecutionError("authorized_manifest_source_commit_mismatch")
+        if manifest_sha != authorization.get(
+            "authorized_manifest_sha256"
+        ) or manifest_size != authorization.get("authorized_manifest_byte_size"):
+            raise FormalExecutionError("authorized_manifest_identity_mismatch")
     git = inspect_git_preflight(
         repo_root=repo_root,
         config=config,
         expected_source_commit=str(manifest["source_commit"]),
+        authorization=authorization,
     )
     return {
         "status": "preflight_passed",
@@ -338,10 +567,13 @@ def preflight_formal_execution(
         "formal_scope_id": FORMAL_SCOPE_ID,
         "current_head": git["head"],
         "reviewed_implementation_sha": config["reviewed_implementation_sha"],
+        "reviewed_formal_execution_sha": config["reviewed_formal_execution_sha"],
         "request_order": list(REQUEST_ORDER),
         "manifest_path": str(Path(manifest_path)),
         "manifest_verified_files": verify_manifest_files,
         "formal_run_allowed": bool(config["formal_run_allowed"]),
+        "authorization_status": authorization["authorization_status"],
+        "authorization_head": authorization.get("authorization_head"),
         "formal_run_started": False,
         "real_score_data_read": False,
         "formal_artifacts_generated": False,
@@ -427,6 +659,337 @@ def _request_summary(output_path: Path) -> dict[str, int]:
         "intervals": intervals,
         "securities_with_interval": securities,
     }
+
+
+_FORBIDDEN_OUTPUT_FIELD_NAMES = frozenset(
+    {
+        "open",
+        "high",
+        "low",
+        "close",
+        "raw_open",
+        "raw_high",
+        "raw_low",
+        "raw_close",
+        "adj_open",
+        "adj_high",
+        "adj_low",
+        "adj_close",
+        "ohlc",
+        "return",
+        "returns",
+        "future_path",
+        "future_return",
+        "release_label",
+        "direction_label",
+        "intensity_label",
+    }
+)
+_DIMENSION_KEYS = frozenset(
+    {
+        "dimension_id",
+        "selected_dimensions",
+        "analysis_dimension_scope",
+        "component_dimension",
+    }
+)
+_COMPONENT_ID_KEY = "component_id"
+_UNSELECTED_COMPONENT_PATTERN = re.compile(r"^[PVT](?:\d+)?$")
+
+
+def _forbidden_output_field(name: str) -> bool:
+    lowered = name.strip().lower()
+    return (
+        lowered in _FORBIDDEN_OUTPUT_FIELD_NAMES
+        or "ohlc" in lowered
+        or lowered.startswith("return_")
+        or lowered.startswith("future_")
+        or lowered.endswith("_return")
+        or lowered.endswith("_label")
+    )
+
+
+def _dimension_list(value: Any) -> list[str]:
+    if isinstance(value, list | tuple):
+        return [str(item) for item in value]
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            decoded = [item.strip() for item in value.strip("[]").split(",") if item]
+        if isinstance(decoded, list | tuple):
+            return [str(item).strip(" '\"") for item in decoded]
+    return []
+
+
+def _has_unselected_component(value: Any) -> bool:
+    values = _dimension_list(value)
+    return any(
+        _UNSELECTED_COMPONENT_PATTERN.fullmatch(item.strip().upper()) for item in values
+    )
+
+
+def _scan_t05_output_dimensions(value: Any, path: str = "candidate") -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            key_text = str(key)
+            lowered = key_text.lower()
+            if _forbidden_output_field(key_text):
+                raise FormalExecutionError(
+                    "forbidden_t05_output_field", f"{path}.{key_text}"
+                )
+            if key_text in {"P", "V", "T"}:
+                raise FormalExecutionError(
+                    "unselected_dimension_in_t05_output", f"{path}.{key_text}"
+                )
+            if lowered == _COMPONENT_ID_KEY and _has_unselected_component(child):
+                raise FormalExecutionError(
+                    "unselected_dimension_in_t05_output", f"{path}.{key_text}"
+                )
+            if lowered in _DIMENSION_KEYS:
+                dimensions = _dimension_list(child)
+                if any(dimension in {"P", "V", "T"} for dimension in dimensions):
+                    raise FormalExecutionError(
+                        "unselected_dimension_in_t05_output", f"{path}.{key_text}"
+                    )
+                if dimensions != list(ANALYSIS_DIMENSIONS):
+                    raise FormalExecutionError(
+                        "t05_output_selected_dimensions_mismatch", f"{path}.{key_text}"
+                    )
+            _scan_t05_output_dimensions(child, f"{path}.{key_text}")
+    elif isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        for index, child in enumerate(value):
+            if isinstance(child, str) and child in {"P", "V", "T"}:
+                raise FormalExecutionError(
+                    "unselected_dimension_in_t05_output", f"{path}[{index}]"
+                )
+            _scan_t05_output_dimensions(child, f"{path}[{index}]")
+
+
+def validate_t05_output_scope(
+    outputs: Mapping[str, Path],
+    *,
+    candidate: Mapping[str, Any] | None = None,
+) -> None:
+    """Reject P/V/T or future/price fields at the T05 output boundary."""
+
+    if tuple(outputs) != REQUEST_ORDER:
+        raise FormalExecutionError("t05_output_request_order_mismatch")
+    for name in REQUEST_ORDER:
+        target = Path(outputs[name])
+        try:
+            with duckdb.connect(str(target), read_only=True) as connection:
+                tables = {
+                    str(row[0])
+                    for row in connection.execute(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema='main' AND table_type='BASE TABLE'"
+                    ).fetchall()
+                }
+                if tables != set(T03_OUTPUT_TABLES):
+                    raise FormalExecutionError(
+                        "t05_output_table_inventory_mismatch", name
+                    )
+                for table in tables:
+                    columns = [
+                        str(row[1])
+                        for row in connection.execute(
+                            f'PRAGMA table_info("{table}")'
+                        ).fetchall()
+                    ]
+                    if any(_forbidden_output_field(column) for column in columns):
+                        raise FormalExecutionError("forbidden_t05_output_field", name)
+                    for column in columns:
+                        if column.lower() != _COMPONENT_ID_KEY:
+                            continue
+                        values = connection.execute(
+                            f'SELECT DISTINCT "{column}" FROM "{table}"'
+                        ).fetchall()
+                        if any(_has_unselected_component(row[0]) for row in values):
+                            raise FormalExecutionError(
+                                "unselected_dimension_in_t05_output", name
+                            )
+                selected_rows = connection.execute(
+                    "SELECT selected_dimensions FROM dynamic_request"
+                ).fetchall()
+                if not selected_rows or any(
+                    _dimension_list(row[0]) != list(ANALYSIS_DIMENSIONS)
+                    for row in selected_rows
+                ):
+                    raise FormalExecutionError(
+                        "t05_output_selected_dimensions_mismatch", name
+                    )
+                dimensions = {
+                    str(row[0])
+                    for row in connection.execute(
+                        "SELECT DISTINCT dimension_id FROM daily_dimension_states"
+                    ).fetchall()
+                }
+                if dimensions - set(ANALYSIS_DIMENSIONS):
+                    raise FormalExecutionError(
+                        "unselected_dimension_in_t05_output", name
+                    )
+        except duckdb.Error as error:
+            raise FormalExecutionError("t05_output_scope_read_failed", name) from error
+    if candidate is not None:
+        _scan_t05_output_dimensions(candidate)
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+
+
+def _schema_inventory(
+    value: Any, path: str = "$"
+) -> list[tuple[str, str, tuple[str, ...]]]:
+    if isinstance(value, Mapping):
+        keys = tuple(sorted(str(key) for key in value))
+        inventory = [(path, "object", keys)]
+        for key, child in value.items():
+            inventory.extend(_schema_inventory(child, f"{path}.{key}"))
+        return inventory
+    if isinstance(value, list):
+        inventory = [(path, "array", ())]
+        for index, child in enumerate(value):
+            inventory.extend(_schema_inventory(child, f"{path}[{index}]"))
+        return inventory
+    if value is None:
+        return [(path, "null", ())]
+    if isinstance(value, bool):
+        return [(path, "boolean", ())]
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        return [(path, "number", ())]
+    return [(path, "string", ())]
+
+
+def _leaf_inventory(value: Any, path: str = "$") -> dict[str, bytes]:
+    if isinstance(value, Mapping):
+        result: dict[str, bytes] = {}
+        for key, child in value.items():
+            result.update(_leaf_inventory(child, f"{path}.{key}"))
+        return result
+    if isinstance(value, list):
+        result = {}
+        for index, child in enumerate(value):
+            result.update(_leaf_inventory(child, f"{path}[{index}]"))
+        return result
+    return {path: _canonical_json_bytes(value)}
+
+
+def _compact_row_lists(value: Mapping[str, Any]) -> dict[str, list[bytes]]:
+    return {
+        str(key): [_canonical_json_bytes(row) for row in child]
+        for key, child in value.items()
+        if isinstance(child, list)
+    }
+
+
+def compare_formal_builds(
+    left: Mapping[str, Any], right: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Compare two complete T05 builder payloads, including order and nulls."""
+
+    left_schema = _schema_inventory(left)
+    right_schema = _schema_inventory(right)
+    left_schema_set = set(left_schema)
+    right_schema_set = set(right_schema)
+    schema_mismatch_count = len(left_schema_set ^ right_schema_set)
+    left_keys = {(path, keys) for path, kind, keys in left_schema if kind == "object"}
+    right_keys = {(path, keys) for path, kind, keys in right_schema if kind == "object"}
+    key_mismatch_count = len(left_keys ^ right_keys)
+
+    left_leaves = _leaf_inventory(left)
+    right_leaves = _leaf_inventory(right)
+    leaf_paths = set(left_leaves) | set(right_leaves)
+    value_mismatch_count = sum(
+        left_leaves.get(path) != right_leaves.get(path) for path in leaf_paths
+    )
+
+    left_rows = _compact_row_lists(left)
+    right_rows = _compact_row_lists(right)
+    row_mismatch_count = 0
+    ordering_mismatch_count = 0
+    for key in set(left_rows) | set(right_rows):
+        left_values = left_rows.get(key, [])
+        right_values = right_rows.get(key, [])
+        row_mismatch_count += abs(len(left_values) - len(right_values))
+        row_mismatch_count += sum(
+            left_value != right_value
+            for left_value, right_value in zip(left_values, right_values, strict=False)
+        )
+        if left_values != right_values and Counter(left_values) == Counter(
+            right_values
+        ):
+            ordering_mismatch_count += 1
+
+    left_fingerprint = hashlib.sha256(_canonical_json_bytes(left)).hexdigest()
+    right_fingerprint = hashlib.sha256(_canonical_json_bytes(right)).hexdigest()
+    left_termination = hashlib.sha256(
+        _canonical_json_bytes(left.get("termination_reason_profile", []))
+    ).hexdigest()
+    right_termination = hashlib.sha256(
+        _canonical_json_bytes(right.get("termination_reason_profile", []))
+    ).hexdigest()
+    status = (
+        "passed"
+        if not any(
+            (
+                schema_mismatch_count,
+                key_mismatch_count,
+                row_mismatch_count,
+                value_mismatch_count,
+                ordering_mismatch_count,
+            )
+        )
+        else "blocked"
+    )
+    return {
+        "status": status,
+        "build_count": 2,
+        "left_fingerprint": left_fingerprint,
+        "right_fingerprint": right_fingerprint,
+        "schema_mismatch_count": schema_mismatch_count,
+        "key_mismatch_count": key_mismatch_count,
+        "row_mismatch_count": row_mismatch_count,
+        "value_mismatch_count": value_mismatch_count,
+        "ordering_mismatch_count": ordering_mismatch_count,
+        "termination_inventory": {
+            "left_fingerprint": left_termination,
+            "right_fingerprint": right_termination,
+            "match": left_termination == right_termination,
+        },
+        "compact_table_row_counts": {
+            "left": {key: len(rows) for key, rows in left_rows.items()},
+            "right": {key: len(rows) for key, rows in right_rows.items()},
+        },
+        "detail_payload_fingerprint": {
+            "left": left_fingerprint,
+            "right": right_fingerprint,
+            "match": left_fingerprint == right_fingerprint,
+        },
+    }
+
+
+def build_determinism_receipt(
+    build: Callable[[], Mapping[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build twice and return the first payload plus an independent receipt."""
+
+    try:
+        left = dict(build())
+        right = dict(build())
+    except Exception as error:
+        raise FormalExecutionError("deterministic_build_failed") from error
+    receipt = compare_formal_builds(left, right)
+    if receipt["status"] != "passed":
+        raise FormalExecutionError("determinism_mismatch")
+    return left, receipt
 
 
 def execute_request_sequence(
@@ -647,11 +1210,35 @@ def _artifact_identity(root: Path, path: Path, storage_class: str) -> dict[str, 
     }
 
 
+def _write_artifact_manifest(root: Path) -> dict[str, Any]:
+    """Write a non-recursive manifest of every currently persisted artifact."""
+
+    excluded = {"artifact_manifest.json", "result_package.json"}
+    identities: list[dict[str, Any]] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.name in excluded or path.name.startswith("."):
+            continue
+        storage_class = (
+            "compact_review_artifact"
+            if COMPACT_REVIEW_DIR in path.relative_to(root).parts
+            else "repository_local_ignored"
+        )
+        identities.append(_artifact_identity(root, path, storage_class))
+    payload = {
+        "manifest_version": "r2a_t05_formal_artifact_manifest.v1",
+        "self_excluded_files": sorted(excluded),
+        "files": identities,
+    }
+    _write_json(root / "artifact_manifest.json", payload)
+    return payload
+
+
 def _build_result_package(
     *,
     root: Path,
     manifest: Mapping[str, Any],
     validation: Mapping[str, Any],
+    determinism_receipt: Mapping[str, Any],
     artifacts: Sequence[dict[str, Any]],
 ) -> dict[str, Any]:
     request_identities = [
@@ -702,7 +1289,10 @@ def _build_result_package(
             "forbidden_input_fields_absent": bool(
                 validation.get("forbidden_input_fields_absent")
             ),
-            "deterministic_output": bool(validation.get("deterministic_output")),
+            "deterministic_output": determinism_receipt.get("status") == "passed"
+            and determinism_receipt.get("build_count") == 2
+            and determinism_receipt.get("left_fingerprint")
+            == determinism_receipt.get("right_fingerprint"),
             "blocking_reasons": list(validation.get("blocking_reasons", [])),
         },
     }
@@ -792,6 +1382,7 @@ def run_formal_execution(
     manifest_path: str | Path,
     repo_root: str | Path = ROOT,
     config_path: str | Path = FORMAL_CONFIG_PATH,
+    authorization_path: str | Path = AUTHORIZATION_CONFIG_PATH,
     operator_authorized: bool = False,
 ) -> dict[str, Any]:
     """Execute the future formal path only after all owner gates pass.
@@ -802,15 +1393,24 @@ def run_formal_execution(
     """
 
     config = load_formal_execution_config(config_path)
+    authorization = load_formal_authorization(authorization_path)
     preflight = preflight_formal_execution(
         manifest_path=manifest_path,
         repo_root=repo_root,
         config_path=config_path,
+        authorization_path=authorization_path,
         verify_manifest_files=False,
     )
-    if not operator_authorized or config["formal_run_allowed"] is not True:
+    if (
+        not operator_authorized
+        or authorization.get("authorization_status") != "authorized_pending_execution"
+        or authorization.get("formal_run_allowed") is not True
+    ):
         raise FormalExecutionError("formal_run_not_authorized")
-    if config["formal_run_attempts_consumed"] >= config["formal_run_attempt_limit"]:
+    if (
+        authorization["formal_run_attempts_consumed_before_start"]
+        >= authorization["formal_run_attempt_limit"]
+    ):
         raise FormalExecutionError("formal_run_attempt_limit_exhausted")
     if config["formal_run_started"] or config["formal_artifacts_generated"]:
         raise FormalExecutionError("formal_run_lifecycle_already_started")
@@ -821,6 +1421,12 @@ def run_formal_execution(
             repo_root=repo_root,
             verify_files=True,
         )
+        manifest_bytes = Path(manifest_path).stat().st_size
+        manifest_sha = sha256_file(manifest_path)
+        if manifest_sha != authorization.get(
+            "authorized_manifest_sha256"
+        ) or manifest_bytes != authorization.get("authorized_manifest_byte_size"):
+            raise FormalExecutionError("authorized_manifest_identity_mismatch")
         run_root, run_id = create_unique_run_root(repo_root=repo_root)
     except (FormalInputManifestError, FormalExecutionError) as error:
         raise FormalExecutionError(
@@ -830,22 +1436,10 @@ def run_formal_execution(
 
     log_path = run_root / "execution_log.jsonl"
     _log_event(log_path, "formal_run_started", run_id=run_id, preflight=preflight)
+    log_closed = False
     try:
         _write_json(run_root / "input_manifest.json", manifest)
-        _write_json(
-            run_root / "authorization.json",
-            {
-                "run_id": run_id,
-                "reviewed_implementation_sha": config["reviewed_implementation_sha"],
-                "current_head": preflight["current_head"],
-                "operator_authorized": True,
-                "formal_run_attempt_limit": config["formal_run_attempt_limit"],
-                "formal_run_attempts_consumed_before_start": config[
-                    "formal_run_attempts_consumed"
-                ],
-                "run_root_policy": config["run_root_policy"],
-            },
-        )
+        _write_json(run_root / "formal_authorization.json", authorization)
         request_map = {
             str(item["logical_request_name"]): item
             for item in config["request_sources"]
@@ -909,10 +1503,14 @@ def run_formal_execution(
             expected_counts=manifest["accepted_t04_counts"],
         )
         reconcile_t04_counts(summaries, manifest["accepted_t04_counts"])
+        validate_t05_output_scope(outputs)
         _log_event(log_path, "all_requests_validated", summaries=summaries)
 
         t05_config = load_t05_config()
-        candidate = build_t05_candidate(outputs, score_path, config=t05_config)
+        candidate, determinism_receipt = build_determinism_receipt(
+            lambda: build_t05_candidate(outputs, score_path, config=t05_config)
+        )
+        validate_t05_output_scope(outputs, candidate=candidate)
         independent_validation = validate_t05_candidate(
             candidate,
             request_sources=outputs,
@@ -922,16 +1520,11 @@ def run_formal_execution(
         detail_path = run_root / "t05_detail.duckdb"
         _write_detail_database(detail_path, candidate)
         candidate = _read_detail_database(detail_path)
-        analysis, result_analysis = finalize_formal_candidate(
-            candidate,
-            independent_validation,
-        )
+        _write_json(run_root / "formal_determinism_receipt.json", determinism_receipt)
 
         _write_json(
             run_root / "independent_validation_receipt.json", independent_validation
         )
-        _write_json(run_root / "anomaly_scan.json", analysis)
-        _write_text(run_root / "result_analysis.md", result_analysis)
 
         lifecycle = {
             "status": "formal_completed_pending_owner_review",
@@ -951,9 +1544,16 @@ def run_formal_execution(
             "request_summaries": summaries,
             "request_validation_receipts": request_receipts,
             "reviewed_implementation_sha": config["reviewed_implementation_sha"],
+            "reviewed_formal_execution_sha": authorization[
+                "reviewed_formal_execution_sha"
+            ],
             "formal_execution_head": preflight["current_head"],
-            "formal_run_attempt_limit": config["formal_run_attempt_limit"],
+            "authorization_head": authorization["authorization_head"],
+            "authorization_parent": authorization["authorization_parent"],
+            "authorization_revision": authorization["authorization_revision"],
+            "formal_run_attempt_limit": authorization["formal_run_attempt_limit"],
             "formal_run_attempts_consumed": 1,
+            "formal_determinism_receipt": determinism_receipt,
             **lifecycle,
         }
         _write_json(run_root / "run_summary.json", run_summary)
@@ -963,16 +1563,52 @@ def run_formal_execution(
             candidate=candidate,
             run_summary=run_summary,
             validation_receipt=independent_validation,
-            result_analysis=result_analysis,
+            result_analysis=(
+                "Persisted result analysis is generated after the terminal "
+                "execution-log event.\n"
+            ),
         )
+        _write_json(
+            run_root / "anomaly_scan.json",
+            {"status": "pending", "blocking_anomalies": []},
+        )
+        _log_event(log_path, "formal_run_completed_pending_owner_review", run_id=run_id)
+        log_closed = True
+        _write_artifact_manifest(run_root)
+
+        try:
+            analysis = analyze_persisted_formal_artifacts(
+                run_root,
+                expected_counts=manifest["accepted_t04_counts"],
+            )
+        except FormalResultAnalysisError as error:
+            raise FormalExecutionError(
+                "result_analysis_readback_failed", str(error)
+            ) from error
+        result_analysis = render_persisted_result_analysis(analysis)
+        _write_json(run_root / "anomaly_scan.json", analysis)
+        _write_text(run_root / "result_analysis.md", result_analysis)
+        _write_text(
+            run_root / COMPACT_REVIEW_DIR / "result_analysis.md", result_analysis
+        )
+        _write_artifact_manifest(run_root)
+        if analysis.get("status") == "blocked" or analysis.get("blocking_anomalies"):
+            raise FormalExecutionError("result_analysis_blocked")
+
         artifacts = [
             _artifact_identity(run_root, path, "repository_local_ignored")
             for path in (
                 *outputs.values(),
+                run_root / "formal_authorization.json",
+                run_root / "input_manifest.json",
+                run_root / "execution_log.jsonl",
+                run_root / "run_summary.json",
                 detail_path,
                 run_root / "independent_validation_receipt.json",
+                run_root / "formal_determinism_receipt.json",
                 run_root / "anomaly_scan.json",
                 run_root / "result_analysis.md",
+                run_root / "artifact_manifest.json",
             )
         ]
         artifacts.extend(
@@ -983,10 +1619,10 @@ def run_formal_execution(
             root=run_root,
             manifest=manifest,
             validation=independent_validation,
+            determinism_receipt=determinism_receipt,
             artifacts=artifacts,
         )
         _write_json(run_root / "result_package.json", package)
-        _log_event(log_path, "formal_run_completed_pending_owner_review", run_id=run_id)
         return {
             "run_root": str(run_root),
             "run_id": run_id,
@@ -994,30 +1630,37 @@ def run_formal_execution(
             "result_package": package,
         }
     except Exception as error:
-        _log_event(
-            log_path,
-            "formal_run_failed_closed",
-            reason_code=getattr(error, "reason_code", "formal_execution_failed"),
-            detail=str(error),
-            R2A_T05_DONE="absent",
-            R2A_T06_allowed_to_start=False,
-        )
+        if not log_closed:
+            _log_event(
+                log_path,
+                "formal_run_failed_closed",
+                reason_code=getattr(error, "reason_code", "formal_execution_failed"),
+                detail=str(error),
+                R2A_T05_DONE="absent",
+                R2A_T06_allowed_to_start=False,
+            )
         if isinstance(error, FormalExecutionError):
             raise
         raise FormalExecutionError("formal_execution_failed", str(error)) from error
 
 
 __all__ = [
+    "AUTHORIZATION_CONFIG_PATH",
     "FORMAL_CONFIG_PATH",
     "FormalExecutionError",
     "PROTECTED_CORE_PATHS",
+    "PROTECTED_EXECUTION_PATHS",
+    "build_determinism_receipt",
     "build_run_id",
+    "compare_formal_builds",
     "create_unique_run_root",
     "execute_request_sequence",
     "finalize_formal_candidate",
     "inspect_git_preflight",
+    "load_formal_authorization",
     "preflight_formal_execution",
     "reconcile_t04_counts",
     "run_formal_execution",
+    "validate_t05_output_scope",
     "validate_formal_completion_lifecycle",
 ]

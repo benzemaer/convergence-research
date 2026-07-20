@@ -25,11 +25,18 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs/r2a/r2a_t05_formal_execution.v1.json"
 SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t05_formal_input_manifest.schema.json"
 FORMAL_EXECUTION_SCHEMA_PATH = ROOT / "schemas/r2a/r2a_t05_formal_execution.schema.json"
+FORMAL_AUTHORIZATION_PATH = ROOT / "configs/r2a/r2a_t05_formal_authorization.v1.json"
+FORMAL_AUTHORIZATION_SCHEMA_PATH = (
+    ROOT / "schemas/r2a/r2a_t05_formal_authorization.schema.json"
+)
 MANIFEST_VERSION = "r2a_t05_formal_input_manifest.v1"
 FORMAL_SCOPE_ID = "r2a_t05_ca_exit_mechanism_formal_execution.v1"
 TASK_ID = "R2A-T05"
 REVIEWED_IMPLEMENTATION_SHA = "55dceba70bc967caa75c597ce17acb93a2dac511"
+REVIEWED_FORMAL_EXECUTION_SHA = "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530"
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
+SCORE_DIMENSIONS = ("P", "C", "A", "V", "T")
+ANALYSIS_DIMENSIONS = ("C", "A")
 ALLOWED_REPOSITORY_ROOTS = (
     "data/raw",
     "data/external",
@@ -396,6 +403,8 @@ def _load_and_bind_upstream(
         }
         if configured != handoff_identities[name]:
             raise FormalInputManifestError("formal_request_identity_mismatch", name)
+        if configured["selected_dimensions"] != list(ANALYSIS_DIMENSIONS):
+            raise FormalInputManifestError("t05_selected_dimensions_mismatch", name)
     if handoff_identities["CA_q20_k5"]["q_by_dimension"] != {"C": 2000, "A": 2000}:
         raise FormalInputManifestError("research_anchor_q_mismatch")
 
@@ -451,7 +460,9 @@ def _schema_fingerprint(
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _inspect_score_database(path: Path) -> tuple[dict[str, str], dict[str, Any]]:
+def _inspect_score_database(
+    path: Path,
+) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]]:
     try:
         connection = duckdb.connect(str(path), read_only=True)
     except duckdb.Error as error:
@@ -487,9 +498,79 @@ def _inspect_score_database(path: Path) -> tuple[dict[str, str], dict[str, Any]]
             "date_min": str(date_min),
             "date_max": str(date_max),
         }
+        try:
+            definition_rows = connection.execute(
+                "SELECT dimension_id, canonical_order, dimension_name, "
+                "component_count, definition_version "
+                "FROM dimension_definitions "
+                "ORDER BY canonical_order, dimension_id"
+            ).fetchall()
+            component_rows = connection.execute(
+                "SELECT dimension_id, component_id, component_order "
+                "FROM dimension_components "
+                "ORDER BY dimension_id, component_order, component_id"
+            ).fetchall()
+            row_counts: dict[str, dict[str, int]] = {
+                dimension: {
+                    "definition_rows": 0,
+                    "component_rows": 0,
+                    "daily_dimension_score_rows": 0,
+                    "daily_component_score_rows": 0,
+                }
+                for dimension in SCORE_DIMENSIONS
+            }
+            for dimension, count in connection.execute(
+                "SELECT dimension_id, count(*) FROM dimension_definitions "
+                "GROUP BY dimension_id"
+            ).fetchall():
+                row_counts[str(dimension)]["definition_rows"] = int(count)
+            for dimension, count in connection.execute(
+                "SELECT dimension_id, count(*) FROM dimension_components "
+                "GROUP BY dimension_id"
+            ).fetchall():
+                row_counts[str(dimension)]["component_rows"] = int(count)
+            for table, key in (
+                ("daily_dimension_scores", "daily_dimension_score_rows"),
+                ("daily_component_scores", "daily_component_score_rows"),
+            ):
+                for dimension, count in connection.execute(
+                    f'SELECT dimension_id, count(*) FROM "{table}" '
+                    "GROUP BY dimension_id"
+                ).fetchall():
+                    row_counts[str(dimension)][key] = int(count)
+        except (duckdb.Error, KeyError, TypeError, ValueError) as error:
+            raise FormalInputManifestError(
+                "score_dimension_inventory_query_failed"
+            ) from error
+
+        dimension_inventory = {
+            "score_dimension_inventory": [str(row[0]) for row in definition_rows],
+            "dimension_definition_inventory": [
+                {
+                    "dimension_id": str(row[0]),
+                    "canonical_order": int(row[1]),
+                    "dimension_name": str(row[2]),
+                    "component_count": int(row[3]),
+                    "definition_version": str(row[4]),
+                }
+                for row in definition_rows
+            ],
+            "component_inventory": {
+                dimension: [
+                    str(row[1]) for row in component_rows if str(row[0]) == dimension
+                ]
+                for dimension in SCORE_DIMENSIONS
+            },
+            "score_dimension_rows": row_counts,
+        }
+        if tuple(dimension_inventory["score_dimension_inventory"]) != SCORE_DIMENSIONS:
+            raise FormalInputManifestError(
+                "score_dimension_inventory_mismatch",
+                dimension_inventory["score_dimension_inventory"],
+            )
     finally:
         connection.close()
-    return fingerprints, coverage
+    return fingerprints, coverage, dimension_inventory
 
 
 def _load_request_source(
@@ -525,6 +606,10 @@ def _load_request_source(
         "confirmation_k": int(envelope.get("spec", {}).get("confirmation_k", -1)),
         "selection_status": "evaluated_not_selected",
     }
+    if actual["selected_dimensions"] != list(ANALYSIS_DIMENSIONS):
+        raise FormalInputManifestError(
+            "t05_selected_dimensions_mismatch", source["logical_request_name"]
+        )
     if actual != dict(expected):
         raise FormalInputManifestError(
             "request_source_identity_mismatch", source["logical_request_name"]
@@ -565,6 +650,15 @@ def _revalidate_bound_manifest_content(
     payload: Mapping[str, Any],
 ) -> None:
     """Re-read upstream JSON and request envelopes after file hashing."""
+
+    if payload.get("score_dimension_inventory") != list(SCORE_DIMENSIONS):
+        raise FormalInputManifestError("score_dimension_inventory_mismatch")
+    if payload.get("analysis_dimension_scope") != list(ANALYSIS_DIMENSIONS):
+        raise FormalInputManifestError("analysis_dimension_scope_mismatch")
+    if payload.get("selected_dimensions_required") != list(ANALYSIS_DIMENSIONS):
+        raise FormalInputManifestError("selected_dimensions_required_mismatch")
+    if payload.get("unselected_dimensions_must_not_affect_results") is not True:
+        raise FormalInputManifestError("unselected_dimension_invariance_missing")
 
     handoffs = payload["accepted_handoffs"]
     t01_path, _ = _resolve_repository_path(root, handoffs["t01"]["relative_path"])
@@ -629,6 +723,8 @@ def _manifest_request_map_for_input(
     result: dict[str, dict[str, Any]] = {}
     for item in requests:
         name = str(item["logical_request_name"])
+        if item.get("selected_dimensions") != list(ANALYSIS_DIMENSIONS):
+            raise FormalInputManifestError("t05_selected_dimensions_mismatch", name)
         result[name] = {
             key: item[key]
             for key in (
@@ -668,6 +764,11 @@ def build_formal_input_manifest(
     loaded_config = dict(config or load_formal_execution_config(config_path))
     if loaded_config.get("reviewed_implementation_sha") != REVIEWED_IMPLEMENTATION_SHA:
         raise FormalInputManifestError("reviewed_implementation_sha_mismatch")
+    if (
+        loaded_config.get("reviewed_formal_execution_sha")
+        != REVIEWED_FORMAL_EXECUTION_SHA
+    ):
+        raise FormalInputManifestError("reviewed_formal_execution_sha_mismatch")
     if tuple(loaded_config.get("request_order", ())) != REQUEST_ORDER:
         raise FormalInputManifestError("formal_request_order_mismatch")
     output, output_relative = _resolve_repository_path(
@@ -694,7 +795,7 @@ def build_formal_input_manifest(
         expected_byte_size=int(score_binding["byte_size"]),
         label="score_database",
     )
-    fingerprints, coverage = _inspect_score_database(score_path)
+    fingerprints, coverage, dimension_inventory = _inspect_score_database(score_path)
     expected_coverage = {
         key: score_binding[key] for key in ("security_count", "date_min", "date_max")
     }
@@ -741,11 +842,20 @@ def build_formal_input_manifest(
         or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "source_commit": source_commit or _git_head(root),
         "reviewed_implementation_sha": loaded_config["reviewed_implementation_sha"],
+        "reviewed_formal_execution_sha": loaded_config["reviewed_formal_execution_sha"],
         "score_database": {
             **score_identity,
             "score_release_id": score_binding["score_release_id"],
         },
         "score_coverage": coverage,
+        **dimension_inventory,
+        "analysis_dimension_scope": list(ANALYSIS_DIMENSIONS),
+        "selected_dimensions_required": list(ANALYSIS_DIMENSIONS),
+        "unselected_dimensions_must_not_affect_results": True,
+        "t05_request_selected_dimensions": {
+            name: list(identities[name]["selected_dimensions"])
+            for name in REQUEST_ORDER
+        },
         "accepted_handoffs": {
             "t01": t01,
             "t03": t03,
@@ -771,15 +881,6 @@ def build_formal_input_manifest(
             "reject_reparse_points": True,
             "reject_compatibility_paths": True,
             "forbidden_data_fields_absent": True,
-            "forbidden_data_classes_absent": [
-                "OHLC",
-                "return",
-                "future_path",
-                "release_label",
-                "P",
-                "V",
-                "T",
-            ],
         },
     }
     _scan_manifest_forbidden_fields(payload)
@@ -849,12 +950,17 @@ def load_authorized_input_manifest(
 __all__ = [
     "ALLOWED_REPOSITORY_ROOTS",
     "CONFIG_PATH",
+    "FORMAL_AUTHORIZATION_PATH",
+    "FORMAL_AUTHORIZATION_SCHEMA_PATH",
     "FORMAL_EXECUTION_SCHEMA_PATH",
     "FORMAL_SCOPE_ID",
     "FormalInputManifestError",
     "MANIFEST_VERSION",
+    "ANALYSIS_DIMENSIONS",
     "REQUEST_ORDER",
+    "REVIEWED_FORMAL_EXECUTION_SHA",
     "ROOT",
+    "SCORE_DIMENSIONS",
     "SCORE_TABLES",
     "build_formal_input_manifest",
     "load_authorized_input_manifest",

@@ -14,8 +14,17 @@
     "created_at",
     "source_commit",
     "reviewed_implementation_sha",
+    "reviewed_formal_execution_sha",
     "score_database",
     "score_coverage",
+    "score_dimension_inventory",
+    "analysis_dimension_scope",
+    "selected_dimensions_required",
+    "unselected_dimensions_must_not_affect_results",
+    "dimension_definition_inventory",
+    "component_inventory",
+    "score_dimension_rows",
+    "t05_request_selected_dimensions",
     "accepted_handoffs",
     "request_sources",
     "requests",
@@ -34,8 +43,31 @@
     "created_at": {"type": "string", "format": "date-time"},
     "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "reviewed_implementation_sha": {"const": "55dceba70bc967caa75c597ce17acb93a2dac511"},
+    "reviewed_formal_execution_sha": {"const": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530"},
     "score_database": {"$ref": "#/$defs/score_database"},
     "score_coverage": {"$ref": "#/$defs/coverage"},
+    "score_dimension_inventory": {"const": ["P", "C", "A", "V", "T"]},
+    "analysis_dimension_scope": {"const": ["C", "A"]},
+    "selected_dimensions_required": {"const": ["C", "A"]},
+    "unselected_dimensions_must_not_affect_results": {"const": true},
+    "dimension_definition_inventory": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"$ref": "#/$defs/dimension_definition"}
+    },
+    "component_inventory": {"$ref": "#/$defs/component_inventory"},
+    "score_dimension_rows": {"$ref": "#/$defs/score_dimension_rows"},
+    "t05_request_selected_dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+      "properties": {
+        "CA_q10_k5": {"const": ["C", "A"]},
+        "CA_q15_k5": {"const": ["C", "A"]},
+        "CA_q20_k5": {"const": ["C", "A"]},
+        "CA_q25_k5": {"const": ["C", "A"]}
+      }
+    },
     "accepted_handoffs": {
       "type": "object",
       "additionalProperties": false,
@@ -106,16 +138,14 @@
         "retired_external_root_names",
         "reject_reparse_points",
         "reject_compatibility_paths",
-        "forbidden_data_fields_absent",
-        "forbidden_data_classes_absent"
+        "forbidden_data_fields_absent"
       ],
       "properties": {
         "allowed_repository_roots": {"const": ["data/raw", "data/external", "data/interim", "data/generated"]},
         "retired_external_root_names": {"const": ["convergence-research-inputs"]},
         "reject_reparse_points": {"const": true},
         "reject_compatibility_paths": {"const": true},
-        "forbidden_data_fields_absent": {"const": true},
-        "forbidden_data_classes_absent": {"const": ["OHLC", "return", "future_path", "release_label", "P", "V", "T"]}
+        "forbidden_data_fields_absent": {"const": true}
       }
     }
   },
@@ -194,6 +224,53 @@
       "properties": {
         "table_name": {"enum": ["securities", "trading_sessions", "security_observation_spine", "dimension_definitions", "dimension_components", "daily_component_scores", "daily_dimension_scores"]},
         "schema_fingerprint": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "dimension_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension_id", "canonical_order", "dimension_name", "component_count", "definition_version"],
+      "properties": {
+        "dimension_id": {"enum": ["P", "C", "A", "V", "T"]},
+        "canonical_order": {"type": "integer"},
+        "dimension_name": {"type": "string"},
+        "component_count": {"type": "integer", "minimum": 0},
+        "definition_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "component_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P", "C", "A", "V", "T"],
+      "properties": {
+        "P": {"type": "array", "items": {"type": "string"}},
+        "C": {"type": "array", "items": {"type": "string"}},
+        "A": {"type": "array", "items": {"type": "string"}},
+        "V": {"type": "array", "items": {"type": "string"}},
+        "T": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "score_dimension_row_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definition_rows", "component_rows", "daily_dimension_score_rows", "daily_component_score_rows"],
+      "properties": {
+        "definition_rows": {"type": "integer", "minimum": 0},
+        "component_rows": {"type": "integer", "minimum": 0},
+        "daily_dimension_score_rows": {"type": "integer", "minimum": 0},
+        "daily_component_score_rows": {"type": "integer", "minimum": 0}
+      }
+    },
+    "score_dimension_rows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P", "C", "A", "V", "T"],
+      "properties": {
+        "P": {"$ref": "#/$defs/score_dimension_row_counts"},
+        "C": {"$ref": "#/$defs/score_dimension_row_counts"},
+        "A": {"$ref": "#/$defs/score_dimension_row_counts"},
+        "V": {"$ref": "#/$defs/score_dimension_row_counts"},
+        "T": {"$ref": "#/$defs/score_dimension_row_counts"}
       }
     }
   }
