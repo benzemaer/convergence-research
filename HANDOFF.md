@@ -1,13 +1,14 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。R2A-T04 revision 6 formal result 已由 owner 接受；任何后续动作仍受 PR #113 merge gate 约束。
+> 本文是无上下文新会话的当前入口。R2A-T04 revision 6 formal result 已接受并随 PR #113 合并；当前只执行 repository-local storage migration closure，R2A-T05 尚未启动。
 
 ## 0. 当前状态
 
 ```text
 repository: benzemaer/convergence-research
-branch: codex/r2a-t04-real-data-response-audit
-PR: #113
+branch: codex/retire-external-input-root
+PR: pending creation after migration closure
+R2A-T04_merge_commit: a4b6696f3c9cd32cb9bc0c29606e3121958bc26e
 
 R2A-T04_status: completed_accepted
 scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
@@ -29,8 +30,14 @@ selected_request_id: null
 selected_request_hash: null
 selected_q_by_dimension: null
 R2A-T04_DONE: present
-R2A-T05_allowed_to_start: true_after_PR_113_merge
-current_stop: R2A-T04 accepted closure review
+LOCAL-STORAGE-MIGRATION-01_status: copy_verified_pending_source_retirement
+copy_verification_status: passed
+locator_reconciliation_status: passed
+source_deleted: false
+local_storage_root: repository/data
+external_input_root: retirement_in_progress
+R2A-T05_allowed_to_start: false_pending_LOCAL-STORAGE-MIGRATION-01_merge
+current_stop: LOCAL-STORAGE-MIGRATION-01 authorization Quality gate
 ```
 
 ## 1. 已接受基线与边界
@@ -80,4 +87,4 @@ Evidence：
 docs/evidence/r2a/R2A-T04_CA_four_q_formal_result_acceptance.md
 ```
 
-唯一 `DONE` 已存在。R2A-T05 只能在 PR #113 merge 后启动；当前不得启动 T05、合并 PR、选择 q、注册动态状态、生成交易信号或执行回测。
+唯一 `DONE` 已存在且保持 byte-identical。PR #113 已合并；R2A-T05 仍被 `LOCAL-STORAGE-MIGRATION-01` 的合并门禁阻塞。本迁移只重定位本地 evidence，不选择 q、不注册动态状态、不生成交易信号，也不执行回测。

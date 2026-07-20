@@ -1,0 +1,16 @@
+{
+  "$schema": "../schemas/local_storage_policy.schema.json",
+  "policy_id": "local_storage_policy.v1",
+  "status": "active",
+  "active_repository_roots": [
+    "data/raw",
+    "data/external",
+    "data/interim",
+    "data/generated"
+  ],
+  "retired_external_root_names": [
+    "convergence-research-inputs"
+  ],
+  "external_root_for_new_tasks_allowed": false,
+  "compatibility_links_allowed": false
+}
