@@ -52,6 +52,12 @@ R2A_PAIRS = (
         / "data/generated/r2a/r2a_t03/r2a_t03_dynamic_evaluator.v1"
         / "r2a_t03_accepted_implementation_handoff.json",
     ),
+    (
+        ROOT / "schemas/r2a/r2a_t04_accepted_result_handoff.schema.json",
+        ROOT
+        / "data/generated/r2a/r2a_t04/R2A-T04-20260720T002158508Z"
+        / "r2a_t04_accepted_result_handoff.json",
+    ),
 )
 SCHEMA_ONLY = (
     ROOT / "schemas/r2a/r2a_t02_dynamic_request_spec.schema.json",

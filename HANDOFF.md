@@ -1,156 +1,83 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。Revision 5 正式结果有效且通过独立复核，但在 owner 接受前由四档 q scope 取代，不能作为 T04 最终关闭证据。
+> 本文是无上下文新会话的当前入口。R2A-T04 revision 6 formal result 已由 owner 接受；任何后续动作仍受 PR #113 merge gate 约束。
 
 ## 0. 当前状态
 
 ```text
 repository: benzemaer/convergence-research
 branch: codex/r2a-t04-real-data-response-audit
-PR: #113 / Open / Draft
+PR: #113
 
-R2A-T04 scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
+R2A-T04_status: completed_accepted
+scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
 panel_id: r2a_t04_ca_four_q_k5_panel.v1
-request_count: 4
-status: authorized_not_started
-authorization_revision: 6
+accepted_run_id: R2A-T04-20260720T002158508Z
+accepted_execution_head: 1d34cf49b9816aac92837213fa668356d5c7b45d
 formal_authorization_id: R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6
-reviewed_harness_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
-reviewed_harness_Quality: 29707568838 / success
-formal_run_authorized: true
-formal_run_started: false
-formal_run_consumed: false
-R2A-T04_DONE: absent
-R2A-T05_allowed_to_start: false
-current_stop: R2A-T04 CA four-q formal authorization review
+authorization_revision: 6
+formal_run_started: true
+formal_run_consumed: true
+formal_run_completed: true
+additional_formal_run_allowed: false
+formal_result_review_status: accepted
+owner_result_review: accepted
+independent_review_result: passed_after_owner_authorized_successor_review
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+selected_request_id: null
+selected_request_hash: null
+selected_q_by_dimension: null
+R2A-T04_DONE: present
+R2A-T05_allowed_to_start: true_after_PR_113_merge
+current_stop: R2A-T04 accepted closure review
 ```
 
-## 1. 已接受基线
+## 1. 已接受基线与边界
+
+R2A-T01、T02 和 T03 均已 `completed_accepted`。T04 唯一输入仍是 accepted Score release `pcavt-score-w120-v1-c7e04f11a2cd09aa`，SHA-256 为 `d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3`，byte size 为 4,255,395,840。
+
+长期架构仍是 immutable Score release → parameterized evaluator → request-scoped states/intervals。T04 接受的是 formal 参数响应证据，不是参数选择：没有选择最佳 q，没有注册 canonical dynamic request 或 dynamic state，没有生成交易信号，也没有执行回测。
+
+## 2. Revision 历史
+
+Revision 4 run `R2A-T04-20260719T090524491Z` 已消费但因性能终止，只完成 `D01_P_q15_k3`，状态固定为 `terminated_incomplete_performance / rejected_incomplete`。它不可恢复或重跑，产物不得修改。
+
+Revision 5 run `R2A-T04-20260719T212259066Z` 的自动验证和独立复核均 passed，但在 owner 接受前因扩展 q10/q20 scope 而成为 `valid_scope_superseded_before_owner_acceptance`。它没有失败，也不能作为 T04 accepted closure。
+
+Revision 6 run `R2A-T04-20260720T002158508Z` 按 q10、q15、q20、q25 严格串行完成，threads=4。四个 validator、formal validation、八项 response checks 和 benchmark profile reconciliation 均通过，所有 blocking/mismatch count 为 0。
+
+## 3. 四请求与接受事实
+
+四个请求均为 `selected_dimensions=[C,A]`、`confirmation_k=5`，且全部为 `evaluated_not_selected`。
+
+| Request | Request ID | q | Raw true | Confirmed true | Intervals | Securities with interval |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| CA_q10_k5 | `pcavt-dynreq-v1-d07aae4bbbd98f88` | 1000 | 20,559 | 1,916 | 751 | 473 |
+| CA_q15_k5 | `pcavt-dynreq-v1-cf420e9c025374d1` | 1500 | 46,651 | 7,125 | 2,426 | 734 |
+| CA_q20_k5 | `pcavt-dynreq-v1-21bd144aaed98d9e` | 2000 | 81,535 | 17,642 | 5,372 | 775 |
+| CA_q25_k5 | `pcavt-dynreq-v1-b210f9e5211c46db` | 2500 | 124,893 | 35,098 | 9,107 | 788 |
+
+允许结论仅为：在固定 C+A、K=5 和相同全市场 observation spine 下，q=1000→1500→2000→2500 形成严格、无违例的 raw-state 与 confirmed-state 嵌套扩张梯度；随 q 放宽，raw-state、confirmed-state、confirmed interval 和证券覆盖增加。不得将任何一档描述为最好或 canonical。
+
+## 4. Independent review
+
+首次 independent review 因 operator 提供不存在的 Score 路径而失败；failed receipt 保存在 `operator-logs/R2A-T04-20260720T002158508Z.independent.attempt1.failed.receipt.json`，SHA-256 为 `81da003835f045c1938ebc36f9d7dfc9d22a1b020c44a41a55ca00051b2c98b1`。它属于 operator invocation evidence，没有进入 immutable RunRoot，也没有使 formal result 失效。
+
+Owner 授权的 successor review 使用同一 formal package，未重跑 request，最终 receipt 位于 `formal-runs/R2A-T04-20260720T002158508Z/independent_review_receipt.json`，SHA-256 为 `8b698c68deb5053634cac9affcb1be7946c6f5b97dc66215a138105efe0eac16`，status passed、mismatch count 0。
+
+## 5. Accepted closure
+
+Accepted handoff：
 
 ```text
-R2A-T01: completed_accepted
-score_release_id: pcavt-score-w120-v1-c7e04f11a2cd09aa
-score_database_sha256: d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3
-score_database_byte_size: 4255395840
-
-R2A-T02: completed_accepted
-dynamic_protocol_version: pcavt_dynamic_state_protocol.v1
-
-R2A-T03: completed_accepted
-evaluator_version: r2a_t03_dynamic_evaluator.v1
-output_schema_version: r2a_t03_dynamic_evaluation_output.v1
+data/generated/r2a/r2a_t04/R2A-T04-20260720T002158508Z/r2a_t04_accepted_result_handoff.json
 ```
 
-长期架构仍是 immutable Score release → parameterized evaluator → request-scoped states/intervals。R2A-T04 不注册 canonical dynamic state。
-
-## 2. Revision 4 不可变失败历史
+Evidence：
 
 ```text
-revision_4_authorization_head: bd906df6b314352dccde75bc087709503d5e2262
-revision_4_run_id: R2A-T04-20260719T090524491Z
-revision_4_formal_authorization_id: R2A-T04-REAL-AUDIT-AUTH-20260719
-revision_4_formal_run_started: true
-revision_4_formal_run_consumed: true
-revision_4_formal_run_completed: false
-revision_4_result: terminated_incomplete_performance
-revision_4_completed_request_count: 1
-revision_4_completed_request: D01_P_q15_k3
-revision_4_interrupted_request: D02_PA_q15_k3
-revision_4_result_review_status: rejected_incomplete
+docs/evidence/r2a/R2A-T04_CA_four_q_formal_result_acceptance.md
 ```
 
-Revision 4 不可恢复、不可重跑，结果不得接受；旧 RunRoot 不得删除或修改。
-
-## 3. Revision 5 有效但未接受的历史
-
-```text
-revision_5_run_id: R2A-T04-20260719T212259066Z
-revision_5_formal_run_started: true
-revision_5_formal_run_consumed: true
-revision_5_formal_run_completed: true
-revision_5_automated_validation: passed
-revision_5_independent_review: passed
-revision_5_owner_result_review: not_accepted
-revision_5_result_status: valid_scope_superseded_before_owner_acceptance
-revision_5_superseded_reason: owner_requested_q10_q20_scope_extension
-```
-
-Revision 5 没有失败、不可重跑，本地 formal artifacts 不得修改或删除；它未被 owner 接受，不能作为 T04 最终 accepted closure。其 q15/q25 panel 与 benchmark evidence 继续作为不可变历史。
-
-## 4. Revision 6 四档 q active scope
-
-Panel 顺序固定为 q10、q15、q20、q25；新增 canonical identity 为：
-
-```text
-CA_q10_k5: pcavt-dynreq-v1-d07aae4bbbd98f88
-request_hash: d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f
-CA_q20_k5: pcavt-dynreq-v1-21bd144aaed98d9e
-request_hash: 21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971
-```
-
-四档只描述固定 C+A、K=5 下 q=1000/1500/2000/2500 的响应曲线，不选择 q。门禁恰有八项：四请求 joint-ready equality、三个相邻 raw subset、三个相邻 confirmed subset、整个 ladder 至少一次严格变化。相邻集合允许相同；区间数与持续期等只报告，不设单调硬门禁。
-
-## 5. Revision 5 冻结范围（历史）
-
-Panel 顺序与 canonical identity：
-
-```text
-CA_q15_k5
-selected_dimensions: [C, A]
-q_by_dimension: {C: 1500, A: 1500}
-confirmation_k: 5
-request_id: pcavt-dynreq-v1-cf420e9c025374d1
-request_hash: cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f
-
-CA_q25_k5
-selected_dimensions: [C, A]
-q_by_dimension: {C: 2500, A: 2500}
-confirmation_k: 5
-request_id: pcavt-dynreq-v1-b210f9e5211c46db
-request_hash: b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9
-```
-
-科学门禁只有四项：joint-ready equality、raw subset、confirmed subset，以及 raw/confirmed 至少一项 strict non-degeneracy。旧维度 ladder、K chain、PCAVT equal-q chain 和单维 marginal checks 已退出 active scope。
-
-每个 request 仍复用 accepted T03 的 dimension/joint/streak/confirmation/interval 公式、五表输出和 validator。五维/十组件 Score endpoint 只作为四类 interval anchor 的诊断上下文，不表示 P/V/T 参与 CA request。
-
-## 6. 性能修复与 benchmark 门禁
-
-T03 evaluator 和 output contract 不修改。T04-local evaluator 只将 Score 搬运从 Python `fetchmany/executemany` 替换为 DuckDB `ATTACH ... READ_ONLY` 与 `INSERT ... SELECT`；每个 request 仍使用独立临时 result DB，严格串行，threads=4。
-
-Revision 6 获得授权前必须依次完成 implementation Quality、q10/q20 supplemental equivalence/performance benchmark、evidence Quality 和 metadata-only authorization Quality。既有 q15/q25 receipt SHA-256 `59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76` 不得改写或重跑。Supplemental benchmark 必须满足 q10/q20 各 ≤600 秒、合计 ≤1200 秒、各 peak RSS ≤6442450944，且结合既有 q15/q25 结果的四档总时长 ≤2400 秒。
-
-历史 revision 5 获得授权前曾依次完成：
-
-1. implementation HEAD Quality success；
-2. 固定四证券、两个 request 的旧/新 evaluator 五表完全等价；
-3. 两个 full-800 request 各自 validator passed、各 ≤600 秒、合计 ≤1200 秒、各 peak RSS ≤6442450944；
-4. benchmark receipt 提交后的 evidence HEAD Quality success；
-5. metadata-only authorization commit 的精确 HEAD Quality success。
-
-旧 4/8/16 thread benchmark 不重跑，继续冻结 threads=4 与 T03 determinism evidence。Benchmark 不是 formal run，不消费 revision 5 attempt，不产生科学结论。
-
-Revision 5 历史 evidence 已完成：set-based implementation HEAD `cd41877a3423d7760eacc148049d6cbcbc8ed5c7` 的 Quality `29697311968` 成功；q15/q25 full-800 分别为 203.98 秒和 555.42 秒，receipt SHA-256 为 `59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76`。
-
-Revision 6 scope-expansion implementation HEAD `abd78af8c2fb10d3bd8257355a57df29c923632c` 的 Quality `29706820683` 成功。q10/q20 四证券旧/新五表完全等价；full-800 q10 为 115.8720 秒、q20 为 261.4273 秒，supplemental 合计 377.2993 秒，四档综合 1136.6940 秒；receipt SHA-256 为 `adf58b303e52f1f9e869e679532bf399a44d3ca8a19f740e14182f1a97b6bec6`。Evidence HEAD `277b5c3d6433caee05d3d0156318f9b386eb316a` 的 Quality `29707568838` 成功。当前 revision 6 metadata-only authorization 绑定该精确 parent，仍不得自动启动 formal。
-
-## 7. 禁止事项与最终停止点
-
-当前不得执行 revision 6 formal run，不得创建 `DONE`，不得允许 R2A-T05，不得选择最佳 q、产生交易信号、使用未来收益、回测或组合。
-
-本轮最终停止点：
-
-```text
-R2A-T04 CA four-q formal authorization review
-revision_4_consumed: true
-revision_4_result_accepted: false
-revision_5_formal_run_completed: true
-revision_5_owner_result_review: not_accepted
-revision_5_result_status: valid_scope_superseded_before_owner_acceptance
-revision_6_formal_run_authorized: true
-revision_6_formal_run_started: false
-revision_6_formal_run_consumed: false
-request_count: 4
-R2A-T04_DONE: absent
-R2A-T05_allowed_to_start: false
-```
+唯一 `DONE` 已存在。R2A-T05 只能在 PR #113 merge 后启动；当前不得启动 T05、合并 PR、选择 q、注册动态状态、生成交易信号或执行回测。

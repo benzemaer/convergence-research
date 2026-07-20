@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_accepted_result_handoff.schema.json",
+  "title": "R2A-T04 accepted CA four-q formal result handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "task_id",
+    "stage_id",
+    "status",
+    "scope_id",
+    "panel_id",
+    "request_count",
+    "accepted_run_id",
+    "accepted_execution_head",
+    "formal_authorization_id",
+    "authorization_revision",
+    "score_release",
+    "evidence_identities",
+    "formal_execution",
+    "independent_review",
+    "validation",
+    "response_checks",
+    "requests",
+    "accepted_conclusion",
+    "result_review",
+    "selection",
+    "research_boundary",
+    "closure"
+  ],
+  "properties": {
+    "$schema": {"const": "../../../../../schemas/r2a/r2a_t04_accepted_result_handoff.schema.json"},
+    "task_id": {"const": "R2A-T04"},
+    "stage_id": {"const": "R2A"},
+    "status": {"const": "completed_accepted"},
+    "scope_id": {"const": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1"},
+    "panel_id": {"const": "r2a_t04_ca_four_q_k5_panel.v1"},
+    "request_count": {"const": 4},
+    "accepted_run_id": {"const": "R2A-T04-20260720T002158508Z"},
+    "accepted_execution_head": {"const": "1d34cf49b9816aac92837213fa668356d5c7b45d"},
+    "formal_authorization_id": {"const": "R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6"},
+    "authorization_revision": {"const": 6},
+    "score_release": {
+      "const": {
+        "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+        "sha256": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+        "byte_size": 4255395840
+      }
+    },
+    "evidence_identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thread_benchmark_receipt",
+        "q15_q25_benchmark_receipt",
+        "q10_q20_benchmark_receipt",
+        "formal_run_manifest",
+        "formal_validation_receipt",
+        "compact_run_summary",
+        "formal_request_log",
+        "formal_operator_log"
+      ],
+      "properties": {
+        "thread_benchmark_receipt": {"$ref": "#/$defs/evidenceIdentity"},
+        "q15_q25_benchmark_receipt": {"$ref": "#/$defs/evidenceIdentity"},
+        "q10_q20_benchmark_receipt": {"$ref": "#/$defs/evidenceIdentity"},
+        "formal_run_manifest": {"$ref": "#/$defs/evidenceIdentity"},
+        "formal_validation_receipt": {"$ref": "#/$defs/evidenceIdentity"},
+        "compact_run_summary": {"$ref": "#/$defs/evidenceIdentity"},
+        "formal_request_log": {"$ref": "#/$defs/evidenceIdentity"},
+        "formal_operator_log": {"$ref": "#/$defs/evidenceIdentity"}
+      }
+    },
+    "formal_execution": {
+      "const": {
+        "status": "score_audit_completed_pending_result_review",
+        "formal_run_consumed": true,
+        "formal_run_completed": true,
+        "request_execution": "strictly_serial",
+        "duckdb_thread_count": 4,
+        "benchmark_profile_mismatch_count": 0,
+        "request_results_residual_count": 0
+      }
+    },
+    "independent_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_count", "formal_reexecution_between_attempts", "formal_package_modified_between_attempts", "attempts", "effective_result"],
+      "properties": {
+        "attempt_count": {"const": 2},
+        "formal_reexecution_between_attempts": {"const": false},
+        "formal_package_modified_between_attempts": {"const": false},
+        "attempts": {
+          "type": "array",
+          "prefixItems": [
+            {"$ref": "#/$defs/failedReviewAttempt"},
+            {"$ref": "#/$defs/passedReviewAttempt"}
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "effective_result": {"const": "passed_after_owner_authorized_successor_review"}
+      }
+    },
+    "validation": {
+      "const": {
+        "status": "passed",
+        "request_validator_failure_count": 0,
+        "response_violation_count": 0,
+        "scope_security_count_mismatch_count": 0,
+        "interval_reconciliation_failure_count": 0,
+        "score_endpoint_reconciliation_failure_count": 0,
+        "blocking_anomaly_count": 0
+      }
+    },
+    "response_checks": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {"$ref": "#/$defs/responseCheck"}
+    },
+    "requests": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/requestFact"},
+        {"$ref": "#/$defs/requestFact"},
+        {"$ref": "#/$defs/requestFact"},
+        {"$ref": "#/$defs/requestFact"}
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "accepted_conclusion": {
+      "const": {
+        "parameter_response_evidence_accepted": true,
+        "raw_state_nested_expansion_without_violation": true,
+        "confirmed_state_nested_expansion_without_violation": true,
+        "raw_state_count_increases_with_q": true,
+        "confirmed_state_count_increases_with_q": true,
+        "confirmed_interval_count_increases_with_q": true,
+        "security_coverage_increases_with_q": true
+      }
+    },
+    "result_review": {
+      "const": {
+        "owner_result_review": "accepted",
+        "formal_result_review_status": "accepted",
+        "result_review_status": "accepted"
+      }
+    },
+    "selection": {
+      "const": {
+        "q_selection_status": "not_selected",
+        "canonical_dynamic_request_selected": false,
+        "selected_request_id": null,
+        "selected_request_hash": null,
+        "selected_q_by_dimension": null
+      }
+    },
+    "research_boundary": {
+      "const": {
+        "dynamic_state_registered": false,
+        "trading_signal_generated": false,
+        "backtest_executed": false
+      }
+    },
+    "closure": {
+      "const": {
+        "R2A_T04_DONE": "present",
+        "R2A_T05_allowed_to_start": "true_after_PR_113_merge"
+      }
+    }
+  },
+  "$defs": {
+    "evidenceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_locator", "sha256", "byte_size"],
+      "properties": {
+        "storage_class": {"type": "string", "minLength": 1},
+        "relative_locator": {"type": "string", "minLength": 1, "pattern": "^(?![A-Za-z]:|/)(?!.*\\\\).+$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "byte_size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "failedReviewAttempt": {
+      "const": {
+        "attempt_ordinal": 1,
+        "status": "failed",
+        "classification": "operator_input_path_error",
+        "receipt_storage_class": "operator_log_archive",
+        "receipt_relative_locator": "operator-logs/R2A-T04-20260720T002158508Z.independent.attempt1.failed.receipt.json",
+        "receipt_sha256": "81da003835f045c1938ebc36f9d7dfc9d22a1b020c44a41a55ca00051b2c98b1",
+        "receipt_byte_size": 1516,
+        "failure_category": "score_file_identity",
+        "failure_cause": "operator_supplied_nonexistent_score_path",
+        "formal_result_invalidated": false
+      }
+    },
+    "passedReviewAttempt": {
+      "const": {
+        "attempt_ordinal": 2,
+        "status": "passed",
+        "classification": "owner_authorized_successor_review",
+        "receipt_storage_class": "formal_run_root",
+        "receipt_relative_locator": "formal-runs/R2A-T04-20260720T002158508Z/independent_review_receipt.json",
+        "receipt_sha256": "8b698c68deb5053634cac9affcb1be7946c6f5b97dc66215a138105efe0eac16",
+        "receipt_byte_size": 1086,
+        "score_identity_status": "passed",
+        "mismatch_count": 0,
+        "mismatch_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "responseCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check_id", "comparison", "left_count", "right_count", "right_only_count", "violation_count", "strict_change", "passed"],
+      "properties": {
+        "check_id": {"enum": ["ca_q_joint_ready_equality", "ca_q_raw_subset_q10_q15", "ca_q_raw_subset_q15_q20", "ca_q_raw_subset_q20_q25", "ca_q_confirmed_subset_q10_q15", "ca_q_confirmed_subset_q15_q20", "ca_q_confirmed_subset_q20_q25", "ca_q_ladder_non_degenerate"]},
+        "comparison": {"type": "string", "minLength": 1},
+        "left_count": {"type": ["integer", "null"], "minimum": 0},
+        "right_count": {"type": ["integer", "null"], "minimum": 0},
+        "right_only_count": {"type": ["integer", "null"], "minimum": 0},
+        "violation_count": {"const": 0},
+        "strict_change": {"type": "boolean"},
+        "passed": {"const": true}
+      }
+    },
+    "requestFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logical_request_name", "request_id", "request_hash", "selected_dimensions", "q_by_dimension", "confirmation_k", "selection_status", "joint_ready_count", "raw_true_count", "raw_true_rate_present", "confirmed_true_count", "confirmed_interval_count", "security_with_interval_count", "security_breadth_rate", "duration_median", "right_censored_rate"],
+      "properties": {
+        "logical_request_name": {"enum": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"]},
+        "request_id": {"pattern": "^pcavt-dynreq-v1-[0-9a-f]{16}$"},
+        "request_hash": {"pattern": "^[0-9a-f]{64}$"},
+        "selected_dimensions": {"const": ["C", "A"]},
+        "q_by_dimension": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["C", "A"],
+          "properties": {
+            "C": {"enum": [1000, 1500, 2000, 2500]},
+            "A": {"enum": [1000, 1500, 2000, 2500]}
+          }
+        },
+        "confirmation_k": {"const": 5},
+        "selection_status": {"const": "evaluated_not_selected"},
+        "joint_ready_count": {"const": 1492233},
+        "raw_true_count": {"type": "integer", "minimum": 1},
+        "raw_true_rate_present": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "confirmed_true_count": {"type": "integer", "minimum": 1},
+        "confirmed_interval_count": {"type": "integer", "minimum": 1},
+        "security_with_interval_count": {"type": "integer", "minimum": 1, "maximum": 800},
+        "security_breadth_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "duration_median": {"type": "number", "minimum": 1},
+        "right_censored_rate": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

@@ -192,7 +192,7 @@ R2A-T04_allowed_to_start: true
 R2A-T04_started: true
 R2A-T04_scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
 R2A-T04_panel_id: r2a_t04_ca_four_q_k5_panel.v1
-R2A-T04_status: authorized_not_started
+R2A-T04_status: completed_accepted
 R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
 benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
 benchmark_execution_Quality: 29658749232 / success
@@ -200,10 +200,23 @@ formal_authorization_id: R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6
 authorization_revision: 6
 reviewed_harness_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
 reviewed_harness_Quality: 29707568838 / success
-formal_run_authorized: true
+formal_run_authorized: false
 authorization_effective_only_after_exact_head_quality_success: true
-formal_run_started: false
-formal_run_consumed: false
+formal_run_started: true
+formal_run_consumed: true
+formal_run_completed: true
+formal_run_attempts: 1
+additional_formal_run_allowed: false
+accepted_run_id: R2A-T04-20260720T002158508Z
+accepted_execution_head: 1d34cf49b9816aac92837213fa668356d5c7b45d
+formal_result_candidate_status: passed
+formal_result_review_status: accepted
+owner_result_review: accepted
+result_review_status: accepted
+independent_review_attempt_count: 2
+independent_review_result: passed_after_owner_authorized_successor_review
+failed_independent_review_receipt_sha256: 81da003835f045c1938ebc36f9d7dfc9d22a1b020c44a41a55ca00051b2c98b1
+accepted_independent_review_receipt_sha256: 8b698c68deb5053634cac9affcb1be7946c6f5b97dc66215a138105efe0eac16
 revision_4_authorization_head: bd906df6b314352dccde75bc087709503d5e2262
 revision_4_run_id: R2A-T04-20260719T090524491Z
 revision_4_formal_run_started: true
@@ -243,7 +256,7 @@ thread_benchmark_evidence_reused: true
 reuse_basis: evaluator_request_output_and_fingerprint_core_byte_identical
 thread_benchmark_rerun_required: false
 full_universe_request_concurrency: 1
-full_universe_request_count: 0
+full_universe_request_count: 4
 duckdb_thread_count: 4
 optimized_evaluator_head: cd41877a3423d7760eacc148049d6cbcbc8ed5c7
 optimized_evaluator_Quality: 29697311968 / success
@@ -262,8 +275,8 @@ q10_full_800_wall_seconds: 115.87203370011412
 q20_full_800_wall_seconds: 261.42730220011435
 q10_q20_combined_wall_seconds: 377.29933590022847
 four_q_combined_evaluator_seconds: 1136.6940041005146
-R2A-T04_formal_full_universe_score_data_read: false
-R2A-T04_formal_dynamic_evaluation_executed: false
+R2A-T04_formal_full_universe_score_data_read: true
+R2A-T04_formal_dynamic_evaluation_executed: true
 R2A-T04_unique_input: accepted_R2A-T01_Score_release
 R2A-T04_unique_formal_scope: CA_q10_q15_q20_q25_k5_response_curve
 R2A-T04_request_count: 4
@@ -275,9 +288,17 @@ CA_q20_k5_request_id: pcavt-dynreq-v1-21bd144aaed98d9e
 CA_q20_k5_request_hash: 21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971
 CA_q25_k5_request_id: pcavt-dynreq-v1-b210f9e5211c46db
 CA_q25_k5_request_hash: b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9
-owner_result_review: not_started
-R2A-T04_DONE: absent
-R2A-T05_allowed_to_start: false
+CA_q10_k5_selection_status: evaluated_not_selected
+CA_q15_k5_selection_status: evaluated_not_selected
+CA_q20_k5_selection_status: evaluated_not_selected
+CA_q25_k5_selection_status: evaluated_not_selected
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+selected_request_id: null
+selected_request_hash: null
+selected_q_by_dimension: null
+R2A-T04_DONE: present
+R2A-T05_allowed_to_start: true_after_PR_113_merge
 independent_output_validator: full_persisted_table_recomputation_accepted
 implementation_review_blockers: 0
 per_dimension_q_properties: P_and_A_independent_verified
@@ -290,11 +311,12 @@ R2A-T03 的任务契约见
 运行真实 dynamic evaluation、选择最佳 q/K 或产生真实状态产物。PR #112 合并后
 R2A-T04 的唯一输入仍是 accepted R2A-T01 Score release。Revision 4 formal run
 `R2A-T04-20260719T090524491Z` 已消费但因性能终止，只完成一个 request，结果不可接受且不可重跑。
-Revision 5 将范围收缩为 `CA_q15_k5` 与 `CA_q25_k5` 两请求，只检查 joint-ready equality、raw/confirmed
-subset 与严格非退化。T04-local set-based evaluator 只优化 Score staging 搬运，不修改 T03 科学公式。
-Implementation Quality、四证券新旧等价、两个 full-800 性能 benchmark 及 evidence HEAD Quality 均已通过。
-Revision 5 metadata-only authorization 候选已形成，但只有精确 authorization HEAD Quality 成功后才生效；
-本轮仍不得执行新的 formal run。
+Revision 5 的 q15/q25 结果有效但在 owner 接受前被四档 q scope 取代。Revision 6 run
+`R2A-T04-20260720T002158508Z` 已严格串行完成 q10/q15/q20/q25；四个 validator、formal validation、
+八项 response checks、benchmark profile reconciliation 和 owner-authorized successor independent review
+全部通过，所有 blocking/mismatch count 为 0。Owner 已接受该 formal 参数响应证据，但未选择任何 q，
+也未注册 canonical dynamic request 或 dynamic state。Accepted handoff 与唯一 `DONE` 已建立。
+R2A-T05 只能在 PR #113 merge 后启动；本 closure 不定义或启动 T05 implementation。
 任务契约见
 [`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 
