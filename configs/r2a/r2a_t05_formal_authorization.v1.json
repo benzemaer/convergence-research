@@ -6,7 +6,6 @@
   "reviewed_formal_execution_sha": null,
   "authorization_revision": 0,
   "authorization_parent": null,
-  "authorization_head": null,
   "formal_run_allowed": false,
   "formal_run_attempt_limit": 1,
   "formal_run_attempts_consumed_before_start": 0,

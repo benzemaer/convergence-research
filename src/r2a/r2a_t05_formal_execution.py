@@ -121,11 +121,6 @@ def load_formal_authorization(
 
     authorization_path = Path(path)
     payload = _json(authorization_path)
-    if (
-        payload.get("authorization_status") == "not_authorized"
-        and payload.get("authorization_head") is not None
-    ):
-        raise FormalExecutionError("unauthorized_future_head_fabricated")
     schema = _json(AUTHORIZATION_SCHEMA_PATH)
     errors = sorted(
         Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(
@@ -142,9 +137,15 @@ def load_formal_authorization(
             raise FormalExecutionError("unauthorized_reviewed_execution_mismatch")
         if payload.get("formal_run_allowed") is not False:
             raise FormalExecutionError("unauthorized_metadata_allows_formal_run")
-        if payload.get("authorization_head") is not None:
-            raise FormalExecutionError("unauthorized_future_head_fabricated")
     return payload
+
+
+def build_formal_authorization_evidence(
+    authorization_payload: Mapping[str, Any], *, current_head: str
+) -> dict[str, Any]:
+    """Add the runtime-derived Git head to persisted authorization evidence."""
+
+    return {**authorization_payload, "authorization_head": current_head}
 
 
 def _authorization_diff_paths(
@@ -163,14 +164,11 @@ def _validate_authorization_binding(
     if authorization.get("authorization_status") != "authorized_pending_execution":
         return
     parent = str(authorization.get("authorization_parent"))
-    authorization_head = str(authorization.get("authorization_head"))
     reviewed_execution = str(authorization.get("reviewed_formal_execution_sha"))
-    if authorization_head != head:
-        raise FormalExecutionError("authorization_head_mismatch", authorization_head)
     if parent != reviewed_execution:
         raise FormalExecutionError("authorization_parent_mismatch")
     parents = _git(repo_root, "rev-list", "--parents", "-n", "1", head).split()
-    if len(parents) != 2 or parents[1] != parent:
+    if len(parents) != 2 or parents[0] != head or parents[1] != parent:
         raise FormalExecutionError("authorization_parent_not_exact")
     changed = _authorization_diff_paths(repo_root, parent, head)
     whitelist = tuple(
@@ -578,7 +576,12 @@ def preflight_formal_execution(
         "manifest_verified_files": verify_manifest_files,
         "formal_run_allowed": bool(config["formal_run_allowed"]),
         "authorization_status": authorization["authorization_status"],
-        "authorization_head": authorization.get("authorization_head"),
+        "authorization_head": (
+            git["head"]
+            if authorization.get("authorization_status")
+            == "authorized_pending_execution"
+            else None
+        ),
         "formal_run_started": False,
         "real_score_data_read": False,
         "formal_artifacts_generated": False,
@@ -1444,7 +1447,11 @@ def run_formal_execution(
     log_closed = False
     try:
         _write_json(run_root / "input_manifest.json", manifest)
-        _write_json(run_root / "formal_authorization.json", authorization)
+        authorization_evidence = build_formal_authorization_evidence(
+            authorization,
+            current_head=preflight["current_head"],
+        )
+        _write_json(run_root / "formal_authorization.json", authorization_evidence)
         request_map = {
             str(item["logical_request_name"]): item
             for item in config["request_sources"]
@@ -1553,7 +1560,7 @@ def run_formal_execution(
                 "reviewed_formal_execution_sha"
             ],
             "formal_execution_head": preflight["current_head"],
-            "authorization_head": authorization["authorization_head"],
+            "authorization_head": authorization_evidence["authorization_head"],
             "authorization_parent": authorization["authorization_parent"],
             "authorization_revision": authorization["authorization_revision"],
             "formal_run_attempt_limit": authorization["formal_run_attempt_limit"],

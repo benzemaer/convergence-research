@@ -18,6 +18,7 @@ from src.r2a.r2a_t05_ca_exit_decomposition import build_t05_candidate
 from src.r2a.r2a_t05_formal_execution import (
     FormalExecutionError,
     build_determinism_receipt,
+    build_formal_authorization_evidence,
     compare_formal_builds,
     create_unique_run_root,
     execute_request_sequence,
@@ -516,7 +517,6 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
             "reviewed_formal_execution_sha": "a" * 40,
             "authorization_revision": 1,
             "authorization_parent": "a" * 40,
-            "authorization_head": "b" * 40,
             "formal_run_allowed": True,
             "authorized_manifest_sha256": sha256_file(output_path),
             "authorized_manifest_byte_size": output_path.stat().st_size,
@@ -532,14 +532,31 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
         "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
         lambda _: manifest_config,
     )
+
+    def fake_git(_: Path, *args: str) -> str:
+        if args[:2] == ("rev-parse", "HEAD"):
+            return "b" * 40
+        if args[:1] == ("status",):
+            return ""
+        if args[:2] == ("merge-base", "--is-ancestor"):
+            return ""
+        if args[:4] == ("rev-list", "--parents", "-n", "1"):
+            return f"{'b' * 40} {'a' * 40}"
+        if args[:2] == ("diff", "--name-only"):
+            return "\n".join(
+                (
+                    "configs/r2a/r2a_t05_formal_authorization.v1.json",
+                    "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md",
+                )
+            )
+        if args[:1] == ("rev-parse",) and len(args) == 2 and ":" in args[1]:
+            return "0" * 40
+        raise AssertionError(args)
+
+    monkeypatch.setattr("src.r2a.r2a_t05_formal_execution._git", fake_git)
     monkeypatch.setattr(
-        "src.r2a.r2a_t05_formal_execution.inspect_git_preflight",
-        lambda **_: {
-            "head": "b" * 40,
-            "worktree_status": "clean",
-            "protected_files": [],
-            "protected_execution_files": [],
-        },
+        "src.r2a.r2a_t05_formal_execution._protected_file_record",
+        lambda *_args, **_kwargs: {"path": "synthetic", "sha256": "0" * 64},
     )
     result = preflight_formal_execution(
         manifest_path=output_path,
@@ -548,7 +565,9 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
         verify_manifest_files=False,
     )
     assert result["current_head"] == "b" * 40
+    assert result["authorization_head"] == "b" * 40
     assert result["reviewed_formal_execution_sha"] == "a" * 40
+    assert "authorization_head" not in authorization
 
 
 def test_preflight_blocks_authorized_reviewed_parent_manifest_mismatch(
@@ -562,7 +581,6 @@ def test_preflight_blocks_authorized_reviewed_parent_manifest_mismatch(
             "reviewed_formal_execution_sha": "c" * 40,
             "authorization_revision": 1,
             "authorization_parent": "a" * 40,
-            "authorization_head": "d" * 40,
             "formal_run_allowed": True,
             "authorized_manifest_sha256": sha256_file(output_path),
             "authorized_manifest_byte_size": output_path.stat().st_size,
@@ -580,6 +598,46 @@ def test_preflight_blocks_authorized_reviewed_parent_manifest_mismatch(
     )
     with pytest.raises(
         FormalExecutionError, match="authorized_execution_lineage_mismatch"
+    ):
+        preflight_formal_execution(
+            manifest_path=output_path,
+            repo_root=tmp_path,
+            authorization_path=authorization_path,
+            verify_manifest_files=False,
+        )
+
+
+def test_preflight_blocks_authorized_manifest_source_parent_mismatch(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    manifest_config, manifest, output_path = _build_manifest(tmp_path)
+    manifest["source_commit"] = "b" * 40
+    manifest["reviewed_formal_execution_sha"] = "b" * 40
+    _write_json(output_path, manifest)
+    authorization = copy.deepcopy(load_formal_authorization())
+    authorization.update(
+        {
+            "authorization_status": "authorized_pending_execution",
+            "reviewed_formal_execution_sha": "a" * 40,
+            "authorization_revision": 1,
+            "authorization_parent": "a" * 40,
+            "formal_run_allowed": True,
+            "authorized_manifest_sha256": sha256_file(output_path),
+            "authorized_manifest_byte_size": output_path.stat().st_size,
+        }
+    )
+    authorization["protected_execution_files"] = [
+        {**record, "source_commit": "a" * 40}
+        for record in authorization["protected_execution_files"]
+    ]
+    authorization_path = tmp_path / "authorization.json"
+    _write_json(authorization_path, authorization)
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
+        lambda _: manifest_config,
+    )
+    with pytest.raises(
+        FormalExecutionError, match="authorized_manifest_source_commit_mismatch"
     ):
         preflight_formal_execution(
             manifest_path=output_path,
@@ -935,17 +993,112 @@ def test_t05_output_scope_scans_real_builder_candidate(tmp_path: Path) -> None:
 def test_formal_authorization_starts_without_a_future_head(tmp_path: Path) -> None:
     authorization = load_formal_authorization()
     assert authorization["authorization_status"] == "not_authorized"
+    assert authorization["authorization_parent"] is None
+    assert authorization["reviewed_formal_execution_sha"] is None
+    assert "authorization_head" not in authorization
     assert authorization["formal_run_allowed"] is False
-    assert authorization["authorization_head"] is None
 
     mutated = copy.deepcopy(authorization)
     mutated["authorization_head"] = "b" * 40
     path = tmp_path / "authorization.json"
     _write_json(path, mutated)
     with pytest.raises(
-        FormalExecutionError, match="unauthorized_future_head_fabricated"
+        FormalExecutionError, match="formal_authorization_schema_invalid"
     ):
         load_formal_authorization(path)
+
+
+def _authorized_git_payload() -> dict[str, Any]:
+    authorization = copy.deepcopy(load_formal_authorization())
+    authorization.update(
+        {
+            "authorization_status": "authorized_pending_execution",
+            "reviewed_formal_execution_sha": "a" * 40,
+            "authorization_revision": 1,
+            "authorization_parent": "a" * 40,
+            "formal_run_allowed": True,
+            "authorized_manifest_sha256": "e" * 64,
+            "authorized_manifest_byte_size": 1,
+        }
+    )
+    authorization["protected_execution_files"] = [
+        {**record, "source_commit": "a" * 40}
+        for record in authorization["protected_execution_files"]
+    ]
+    return authorization
+
+
+def _patch_authorized_git(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    parent_output: str = "b" * 40 + " " + "a" * 40,
+    diff_output: str = (
+        "configs/r2a/r2a_t05_formal_authorization.v1.json\n"
+        "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md"
+    ),
+) -> None:
+    def fake_git(_: Path, *args: str) -> str:
+        if args[:2] == ("rev-parse", "HEAD"):
+            return "b" * 40
+        if args[:1] == ("status",):
+            return ""
+        if args[:2] == ("merge-base", "--is-ancestor"):
+            return ""
+        if args[:4] == ("rev-list", "--parents", "-n", "1"):
+            return parent_output
+        if args[:2] == ("diff", "--name-only"):
+            return diff_output
+        if args[:1] == ("rev-parse",) and len(args) == 2 and ":" in args[1]:
+            return "0" * 40
+        raise AssertionError(args)
+
+    monkeypatch.setattr("src.r2a.r2a_t05_formal_execution._git", fake_git)
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._protected_file_record",
+        lambda *_args, **_kwargs: {"path": "synthetic", "sha256": "0" * 64},
+    )
+
+
+@pytest.mark.parametrize(
+    "parent_output",
+    [
+        "b" * 40 + " " + "c" * 40 + " " + "a" * 40,
+        "b" * 40 + " " + "a" * 40 + " " + "c" * 40,
+        "b" * 40,
+        "b" * 40 + " c" * 40,
+    ],
+)
+def test_authorized_git_preflight_requires_exact_single_parent(
+    monkeypatch: pytest.MonkeyPatch, parent_output: str
+) -> None:
+    config = load_formal_execution_config()
+    authorization = _authorized_git_payload()
+    _patch_authorized_git(monkeypatch, parent_output=parent_output)
+    with pytest.raises(FormalExecutionError, match="authorization_parent_not_exact"):
+        inspect_git_preflight(config=config, authorization=authorization)
+
+
+def test_authorized_git_preflight_rejects_diff_outside_whitelist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = load_formal_execution_config()
+    authorization = _authorized_git_payload()
+    _patch_authorized_git(monkeypatch, diff_output="outside.py")
+    with pytest.raises(
+        FormalExecutionError, match="authorization_diff_outside_whitelist"
+    ):
+        inspect_git_preflight(config=config, authorization=authorization)
+
+
+def test_formal_authorization_evidence_adds_only_runtime_head(tmp_path: Path) -> None:
+    authorization = load_formal_authorization()
+    evidence = build_formal_authorization_evidence(authorization, current_head="b" * 40)
+    evidence_path = tmp_path / "formal-runs/synthetic/formal_authorization.json"
+    _write_json(evidence_path, evidence)
+    persisted = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "authorization_head" not in authorization
+    assert persisted["authorization_head"] == "b" * 40
+    assert persisted["authorization_status"] == "not_authorized"
 
 
 @pytest.mark.parametrize(
