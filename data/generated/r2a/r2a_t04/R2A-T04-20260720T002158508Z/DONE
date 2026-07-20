@@ -1,0 +1,19 @@
+{
+  "task_id": "R2A-T04",
+  "status": "completed_accepted",
+  "scope_id": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1",
+  "accepted_run_id": "R2A-T04-20260720T002158508Z",
+  "accepted_handoff_filename": "r2a_t04_accepted_result_handoff.json",
+  "accepted_handoff_sha256": "ec4aa13d8b428adb03e6f7faff591741f2730c50cdc87d98f33c9e6ef9e20c5a",
+  "formal_result_review_status": "accepted",
+  "independent_review_result": "passed_after_owner_authorized_successor_review",
+  "q_selection_status": "not_selected",
+  "canonical_dynamic_request_selected": false,
+  "selected_request_id": null,
+  "selected_request_hash": null,
+  "selected_q_by_dimension": null,
+  "dynamic_state_registered": false,
+  "trading_signal_generated": false,
+  "backtest_executed": false,
+  "R2A_T05_allowed_to_start": "true_after_PR_113_merge"
+}

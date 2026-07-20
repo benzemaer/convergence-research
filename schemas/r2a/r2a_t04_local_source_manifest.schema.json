@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_local_source_manifest.schema.json",
+  "title": "R2A-T04 local-only diagnostic market context source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_id","database_basename","database_sha256","database_byte_size","source_snapshot_id","source_query","column_mapping","unit_mapping","date_coverage","security_coverage"],
+  "properties": {
+    "source_id": {"type":"string","minLength":1},
+    "database_basename": {"type":"string","pattern":"^[^/\\\\]+\\.duckdb$"},
+    "database_sha256": {"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "database_byte_size": {"type":"integer","minimum":1},
+    "source_snapshot_id": {"type":"string","minLength":1},
+    "source_query": {"type":"string","minLength":1,"not":{"pattern":"(?i)select\\s+\\*"}},
+    "column_mapping": {"type":"object","minProperties":15,"additionalProperties":{"type":"string","minLength":1}},
+    "unit_mapping": {"type":"object","required":["price","volume_shares","amount_yuan","turnover_float"],"additionalProperties":false,"properties":{"price":{"const":"CNY_per_share"},"volume_shares":{"const":"shares"},"amount_yuan":{"const":"CNY"},"turnover_float":{"enum":["ratio","unavailable"]}}},
+    "date_coverage": {"type":"object","additionalProperties":false,"required":["date_min","date_max"],"properties":{"date_min":{"type":"string","format":"date"},"date_max":{"type":"string","format":"date"}}},
+    "security_coverage": {"type":"object","additionalProperties":false,"required":["security_count","scope"],"properties":{"security_count":{"type":"integer","minimum":800},"scope":{"const":"accepted_score_spine_present_keys"}}}
+  }
+}

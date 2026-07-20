@@ -52,11 +52,23 @@ R2A_PAIRS = (
         / "data/generated/r2a/r2a_t03/r2a_t03_dynamic_evaluator.v1"
         / "r2a_t03_accepted_implementation_handoff.json",
     ),
+    (
+        ROOT / "schemas/r2a/r2a_t04_accepted_result_handoff.schema.json",
+        ROOT
+        / "data/generated/r2a/r2a_t04/R2A-T04-20260720T002158508Z"
+        / "r2a_t04_accepted_result_handoff.json",
+    ),
 )
 SCHEMA_ONLY = (
     ROOT / "schemas/r2a/r2a_t02_dynamic_request_spec.schema.json",
     ROOT / "schemas/r2a/r2a_t02_dynamic_request.schema.json",
     ROOT / "schemas/r2a/r2a_t03_dynamic_evaluator.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_local_source_manifest.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_real_input_smoke_receipt.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_review_bundle.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_thread_benchmark_receipt.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_ca_set_based_benchmark_receipt.schema.json",
+    ROOT / "schemas/r2a/r2a_t04_ca_q10_q20_benchmark_receipt.schema.json",
     ROOT / "schemas/sidecar/exp_a02_authorized_input_manifest.schema.json",
     ROOT / "schemas/sidecar/exp_a02_raw_domain_availability_validity.schema.json",
     ROOT / "schemas/sidecar/exp_a02_accepted_result_handoff.schema.json",

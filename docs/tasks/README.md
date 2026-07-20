@@ -188,8 +188,117 @@ real_score_data_read: false
 real_dynamic_evaluation_executed: false
 dynamic_state_artifact_committed: false
 R2A-T03_DONE: present
-R2A-T04_allowed_to_start: true_after_PR_112_merge
-R2A-T04_started: false
+R2A-T04_allowed_to_start: true
+R2A-T04_started: true
+R2A-T04_scope_id: r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1
+R2A-T04_panel_id: r2a_t04_ca_four_q_k5_panel.v1
+R2A-T04_status: completed_accepted
+R2A-T04_base_main_sha: a2c2ee0a7857fad86e4b8b14f6bf82f0d24a639a
+benchmark_execution_head: 01bf7e12f0cb19a31c71689ada32f7a78f8aec75
+benchmark_execution_Quality: 29658749232 / success
+formal_authorization_id: R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6
+authorization_revision: 6
+reviewed_harness_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
+reviewed_harness_Quality: 29707568838 / success
+formal_run_authorized: false
+authorization_effective_only_after_exact_head_quality_success: true
+formal_run_started: true
+formal_run_consumed: true
+formal_run_completed: true
+formal_run_attempts: 1
+additional_formal_run_allowed: false
+accepted_run_id: R2A-T04-20260720T002158508Z
+accepted_execution_head: 1d34cf49b9816aac92837213fa668356d5c7b45d
+formal_result_candidate_status: passed
+formal_result_review_status: accepted
+owner_result_review: accepted
+result_review_status: accepted
+independent_review_attempt_count: 2
+independent_review_result: passed_after_owner_authorized_successor_review
+failed_independent_review_receipt_sha256: 81da003835f045c1938ebc36f9d7dfc9d22a1b020c44a41a55ca00051b2c98b1
+accepted_independent_review_receipt_sha256: 8b698c68deb5053634cac9affcb1be7946c6f5b97dc66215a138105efe0eac16
+revision_4_authorization_head: bd906df6b314352dccde75bc087709503d5e2262
+revision_4_run_id: R2A-T04-20260719T090524491Z
+revision_4_formal_run_started: true
+revision_4_formal_run_consumed: true
+revision_4_formal_run_completed: false
+revision_4_result: terminated_incomplete_performance
+revision_4_completed_request_count: 1
+revision_4_completed_request: D01_P_q15_k3
+revision_4_interrupted_request: D02_PA_q15_k3
+revision_4_result_review_status: rejected_incomplete
+revision_5_run_id: R2A-T04-20260719T212259066Z
+revision_5_formal_run_started: true
+revision_5_formal_run_consumed: true
+revision_5_formal_run_completed: true
+revision_5_automated_validation: passed
+revision_5_independent_review: passed
+revision_5_owner_result_review: not_accepted
+revision_5_result_status: valid_scope_superseded_before_owner_acceptance
+revision_5_superseded_reason: owner_requested_q10_q20_scope_extension
+authorization_revision_2_head: 9d3c2dab43a10b12931db921ef730db6e8552ff1
+authorization_revision_2_status: superseded_before_formal_run
+authorization_revision_2_used: false
+authorization_revision_2_formal_run_started: false
+authorization_revision_2_formal_attempt_consumed: false
+authorization_revision_2_superseded_reason: scope_corrected_to_score_parameter_response_and_interval_structure
+authorization_revision_3_head: 21837edddfcc298b8539bcf9f71a1b7e016b6d47
+authorization_revision_3_status: superseded_before_formal_run
+authorization_revision_3_used: false
+authorization_revision_3_formal_run_started: false
+authorization_revision_3_formal_attempt_consumed: false
+superseded_reason: independent_review_cli_not_aligned_with_score_only_scope
+thread_benchmark_status: passed
+thread_benchmark_receipt_sha256: c0fa81d08138cc0e2d5121be9affa52db11c3df36b0227fe420ca0c78ff6d369
+thread_benchmark_receipt_byte_size: 97485
+thread_benchmark_fingerprint: 049eeca525592e9a3d9659b3d0a3ce1eccc322f0289f283d0e9d8fe647e82231
+thread_benchmark_evidence_reused: true
+reuse_basis: evaluator_request_output_and_fingerprint_core_byte_identical
+thread_benchmark_rerun_required: false
+full_universe_request_concurrency: 1
+full_universe_request_count: 4
+duckdb_thread_count: 4
+optimized_evaluator_head: cd41877a3423d7760eacc148049d6cbcbc8ed5c7
+optimized_evaluator_Quality: 29697311968 / success
+optimized_benchmark_status: passed
+optimized_benchmark_receipt_sha256: 59e87d0124e52411a47242d017facfd91f98659c205539364cd187a09005dd76
+optimized_benchmark_CA_q15_wall_seconds: 203.97563770017587
+optimized_benchmark_CA_q25_wall_seconds: 555.4190305001102
+optimized_benchmark_combined_wall_seconds: 759.3946682002861
+q10_q20_benchmark_status: passed
+q10_q20_benchmark_receipt_sha256: adf58b303e52f1f9e869e679532bf399a44d3ca8a19f740e14182f1a97b6bec6
+scope_expansion_implementation_head: abd78af8c2fb10d3bd8257355a57df29c923632c
+scope_expansion_implementation_Quality: 29706820683 / success
+q10_q20_benchmark_evidence_head: 277b5c3d6433caee05d3d0156318f9b386eb316a
+q10_q20_benchmark_evidence_Quality: 29707568838 / success
+q10_full_800_wall_seconds: 115.87203370011412
+q20_full_800_wall_seconds: 261.42730220011435
+q10_q20_combined_wall_seconds: 377.29933590022847
+four_q_combined_evaluator_seconds: 1136.6940041005146
+R2A-T04_formal_full_universe_score_data_read: true
+R2A-T04_formal_dynamic_evaluation_executed: true
+R2A-T04_unique_input: accepted_R2A-T01_Score_release
+R2A-T04_unique_formal_scope: CA_q10_q15_q20_q25_k5_response_curve
+R2A-T04_request_count: 4
+CA_q10_k5_request_id: pcavt-dynreq-v1-d07aae4bbbd98f88
+CA_q10_k5_request_hash: d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f
+CA_q15_k5_request_id: pcavt-dynreq-v1-cf420e9c025374d1
+CA_q15_k5_request_hash: cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f
+CA_q20_k5_request_id: pcavt-dynreq-v1-21bd144aaed98d9e
+CA_q20_k5_request_hash: 21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971
+CA_q25_k5_request_id: pcavt-dynreq-v1-b210f9e5211c46db
+CA_q25_k5_request_hash: b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9
+CA_q10_k5_selection_status: evaluated_not_selected
+CA_q15_k5_selection_status: evaluated_not_selected
+CA_q20_k5_selection_status: evaluated_not_selected
+CA_q25_k5_selection_status: evaluated_not_selected
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+selected_request_id: null
+selected_request_hash: null
+selected_q_by_dimension: null
+R2A-T04_DONE: present
+R2A-T05_allowed_to_start: true_after_PR_113_merge
 independent_output_validator: full_persisted_table_recomputation_accepted
 implementation_review_blockers: 0
 per_dimension_q_properties: P_and_A_independent_verified
@@ -199,8 +308,17 @@ R2A-T03 的任务契约见
 [`R2A-T03_Dynamic_evaluator实现.md`](R2A-T03_Dynamic_evaluator实现.md)。Reviewed implementation
 `73b9b54ef76191fdbb44ffd7e4ae335601016466` 已接受，accepted handoff 与唯一 `DONE` 已建立。
 接受范围仅覆盖 evaluator、开发期输出契约与 synthetic/property evidence；尚未读取真实 Score release、
-运行真实 dynamic evaluation、选择最佳 q/K、完成价格图审核或产生真实状态产物。PR #112 合并后
-R2A-T04 获得启动资格，但仍保持未启动。
+运行真实 dynamic evaluation、选择最佳 q/K 或产生真实状态产物。PR #112 合并后
+R2A-T04 的唯一输入仍是 accepted R2A-T01 Score release。Revision 4 formal run
+`R2A-T04-20260719T090524491Z` 已消费但因性能终止，只完成一个 request，结果不可接受且不可重跑。
+Revision 5 的 q15/q25 结果有效但在 owner 接受前被四档 q scope 取代。Revision 6 run
+`R2A-T04-20260720T002158508Z` 已严格串行完成 q10/q15/q20/q25；四个 validator、formal validation、
+八项 response checks、benchmark profile reconciliation 和 owner-authorized successor independent review
+全部通过，所有 blocking/mismatch count 为 0。Owner 已接受该 formal 参数响应证据，但未选择任何 q，
+也未注册 canonical dynamic request 或 dynamic state。Accepted handoff 与唯一 `DONE` 已建立。
+R2A-T05 只能在 PR #113 merge 后启动；本 closure 不定义或启动 T05 implementation。
+任务契约见
+[`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 
 ## 命名与路径规则
 

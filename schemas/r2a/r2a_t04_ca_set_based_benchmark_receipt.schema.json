@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_ca_set_based_benchmark_receipt.schema.json",
+  "title": "R2A-T04 CA set-based evaluator benchmark receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version", "task_id", "status", "reason_codes", "generated_at",
+    "implementation_head", "implementation_quality", "scope_id", "panel_id",
+    "request_count", "score_release_id", "score_database_sha256",
+    "score_database_byte_size", "requests", "equivalence", "full_universe",
+    "formal_run_started", "formal_attempt_consumed", "scientific_result_generated",
+    "contains_absolute_paths", "source_database_modified", "residual_output_count"
+  ],
+  "properties": {
+    "receipt_version": {"const": "r2a_t04_ca_set_based_benchmark_receipt.v1"},
+    "task_id": {"const": "R2A-T04"},
+    "status": {"enum": ["passed", "blocked"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "implementation_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "implementation_quality": {"type": "string", "minLength": 1},
+    "scope_id": {"const": "r2a_t04_ca_q15_q25_k5_response_audit.v1"},
+    "panel_id": {"const": "r2a_t04_ca_q15_q25_k5_panel.v1"},
+    "request_count": {"const": 2},
+    "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"},
+    "score_database_sha256": {"const": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"},
+    "score_database_byte_size": {"const": 4255395840},
+    "requests": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["logical_request_name", "request_id", "request_hash", "canonical_spec"],
+        "properties": {
+          "logical_request_name": {"enum": ["CA_q15_k5", "CA_q25_k5"]},
+          "request_id": {"type": "string", "pattern": "^pcavt-dynreq-v1-[0-9a-f]{16}$"},
+          "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "canonical_spec": {"type": "object"}
+        }
+      }
+    },
+    "equivalence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["security_ids", "duckdb_thread_count", "request_results", "all_tables_logically_equal", "canonical_profiles_equal"],
+      "properties": {
+        "security_ids": {"const": ["603345.SH", "603233.SH", "688220.SH", "300316.SZ"]},
+        "duckdb_thread_count": {"const": 4},
+        "request_results": {"type": "array", "minItems": 0, "maxItems": 2, "items": {"type": "object"}},
+        "all_tables_logically_equal": {"type": "boolean"},
+        "canonical_profiles_equal": {"type": "boolean"}
+      }
+    },
+    "full_universe": {
+      "type": "object", "additionalProperties": false,
+      "required": ["duckdb_thread_count", "security_count", "request_results", "combined_wall_seconds", "performance_gate_passed"],
+      "properties": {
+        "duckdb_thread_count": {"const": 4},
+        "security_count": {"const": 800},
+        "request_results": {"type": "array", "minItems": 0, "maxItems": 2, "items": {"type": "object"}},
+        "combined_wall_seconds": {"type": "number", "minimum": 0},
+        "performance_gate_passed": {"type": "boolean"}
+      }
+    },
+    "formal_run_started": {"const": false},
+    "formal_attempt_consumed": {"const": false},
+    "scientific_result_generated": {"const": false},
+    "contains_absolute_paths": {"const": false},
+    "source_database_modified": {"const": false},
+    "residual_output_count": {"type": "integer", "minimum": 0}
+  }
+}

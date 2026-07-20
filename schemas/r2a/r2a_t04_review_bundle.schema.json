@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t04_review_bundle.schema.json",
+  "title": "R2A-T04 Score-only compact formal-review bundle summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "bundle_mode", "scope_id", "status", "formal_run_id", "formal_authorization_id", "authorization_revision", "panel_id", "request_count", "score_source", "execution", "validation", "review_boundary", "files"],
+  "properties": {
+    "task_id": {"const": "R2A-T04"},
+    "bundle_mode": {"const": "formal_review"},
+    "scope_id": {"const": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1"},
+    "status": {"enum": ["score_audit_completed_pending_result_review", "formal_run_blocked"]},
+    "formal_run_id": {"type": "string", "pattern": "^R2A-T04-[0-9]{8}T[0-9]{9}Z$"},
+    "formal_authorization_id": {"const": "R2A-T04-CA-FOUR-Q-AUDIT-AUTH-20260720-R6"},
+    "authorization_revision": {"const": 6},
+    "panel_id": {"const": "r2a_t04_ca_four_q_k5_panel.v1"},
+    "request_count": {"const": 4},
+    "score_source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["score_release_id", "sha256", "byte_size"],
+      "properties": {
+        "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"},
+        "sha256": {"const": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3"},
+        "byte_size": {"const": 4255395840}
+      }
+    },
+    "execution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["full_universe_request_concurrency", "duckdb_thread_count", "formal_run_consumed"],
+      "properties": {
+        "full_universe_request_concurrency": {"const": 1},
+        "duckdb_thread_count": {"const": 4},
+        "formal_run_consumed": {"const": true}
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request_validator_failure_count", "response_violation_count", "scope_security_count_mismatch_count", "interval_reconciliation_failure_count", "score_endpoint_reconciliation_failure_count", "blocking_anomaly_count", "status"],
+      "properties": {
+        "request_validator_failure_count": {"type": "integer", "minimum": 0},
+        "response_violation_count": {"type": "integer", "minimum": 0},
+        "scope_security_count_mismatch_count": {"type": "integer", "minimum": 0},
+        "interval_reconciliation_failure_count": {"type": "integer", "minimum": 0},
+        "score_endpoint_reconciliation_failure_count": {"type": "integer", "minimum": 0},
+        "blocking_anomaly_count": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["passed", "failed"]}
+      }
+    },
+    "review_boundary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["automated_recommendation", "owner_result_review", "R2A_T04_DONE", "R2A_T05_allowed_to_start"],
+      "properties": {
+        "automated_recommendation": {"enum": ["continue_to_owner_result_review", "blocked_evaluator_or_response_degeneracy"]},
+        "owner_result_review": {"const": "pending"},
+        "R2A_T04_DONE": {"const": "absent"},
+        "R2A_T05_allowed_to_start": {"const": false}
+      }
+    },
+    "files": {
+      "type": "array", "minItems": 13, "maxItems": 13,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["relative_path", "sha256", "byte_size"],
+        "properties": {
+          "relative_path": {"type": "string", "minLength": 1, "not": {"pattern": "^[A-Za-z]:[\\\\/]"}},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "byte_size": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"validation": {"properties": {"status": {"const": "passed"}}}}},
+      "then": {"properties": {"validation": {"properties": {"request_validator_failure_count": {"const": 0}, "response_violation_count": {"const": 0}, "scope_security_count_mismatch_count": {"const": 0}, "interval_reconciliation_failure_count": {"const": 0}, "score_endpoint_reconciliation_failure_count": {"const": 0}, "blocking_anomaly_count": {"const": 0}}}}}
+    }
+  ]
+}
