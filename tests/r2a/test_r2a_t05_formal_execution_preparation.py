@@ -6,6 +6,8 @@ import copy
 import csv
 import hashlib
 import json
+import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -79,6 +81,71 @@ def _write_json(path: Path, value: Any) -> None:
         encoding="utf-8",
         newline="\n",
     )
+
+
+def _authorization_base_payload() -> dict[str, Any]:
+    config = load_formal_execution_config()
+    return {
+        "$schema": "../../schemas/r2a/r2a_t05_formal_authorization.schema.json",
+        "task_id": "R2A-T05",
+        "formal_scope_id": "r2a_t05_ca_exit_mechanism_formal_execution.v1",
+        "reviewed_implementation_sha": config["reviewed_implementation_sha"],
+        "formal_run_attempt_limit": config["formal_run_attempt_limit"],
+        "authorization_diff_whitelist": [
+            "configs/r2a/r2a_t05_formal_authorization.v1.json",
+            "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md",
+        ],
+        "protected_execution_files": copy.deepcopy(config["protected_execution_files"]),
+    }
+
+
+def _unauthorized_authorization_payload() -> dict[str, Any]:
+    payload = _authorization_base_payload()
+    payload.update(
+        {
+            "reviewed_formal_execution_sha": None,
+            "authorization_revision": 0,
+            "authorization_parent": None,
+            "formal_run_allowed": False,
+            "formal_run_attempts_consumed_before_start": 0,
+            "authorized_manifest_sha256": None,
+            "authorized_manifest_byte_size": None,
+            "authorization_status": "not_authorized",
+        }
+    )
+    return payload
+
+
+def _authorized_authorization_payload(
+    *,
+    reviewed_formal_execution_sha: str = "a" * 40,
+    authorized_manifest_sha256: str = "e" * 64,
+    authorized_manifest_byte_size: int = 1,
+) -> dict[str, Any]:
+    payload = _authorization_base_payload()
+    payload.update(
+        {
+            "reviewed_formal_execution_sha": reviewed_formal_execution_sha,
+            "authorization_revision": 1,
+            "authorization_parent": reviewed_formal_execution_sha,
+            "formal_run_allowed": True,
+            "formal_run_attempts_consumed_before_start": 0,
+            "authorized_manifest_sha256": authorized_manifest_sha256,
+            "authorized_manifest_byte_size": authorized_manifest_byte_size,
+            "authorization_status": "authorized_pending_execution",
+        }
+    )
+    payload["protected_execution_files"] = [
+        {**record, "source_commit": reviewed_formal_execution_sha}
+        for record in payload["protected_execution_files"]
+    ]
+    return payload
+
+
+def _write_authorization_fixture(tmp_path: Path, payload: Mapping[str, Any]) -> Path:
+    path = tmp_path / "authorization.json"
+    _write_json(path, payload)
+    return path
 
 
 def _request_envelopes(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -468,6 +535,9 @@ def test_preflight_does_not_read_score_create_runroot_or_consume_attempt(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     manifest_config, payload, output_path = _build_manifest(tmp_path)
+    authorization_path = _write_authorization_fixture(
+        tmp_path, _unauthorized_authorization_payload()
+    )
     payload["source_commit"] = "b" * 40
     payload["reviewed_formal_execution_sha"] = "b" * 40
     _write_json(output_path, payload)
@@ -496,6 +566,7 @@ def test_preflight_does_not_read_score_create_runroot_or_consume_attempt(
     result = preflight_formal_execution(
         manifest_path=output_path,
         repo_root=tmp_path,
+        authorization_path=authorization_path,
         verify_manifest_files=False,
     )
     assert result["status"] == "preflight_passed"
@@ -510,7 +581,7 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     manifest_config, _, output_path = _build_manifest(tmp_path)
-    authorization = copy.deepcopy(load_formal_authorization())
+    authorization = _authorized_authorization_payload()
     authorization.update(
         {
             "authorization_status": "authorized_pending_execution",
@@ -574,7 +645,7 @@ def test_preflight_blocks_authorized_reviewed_parent_manifest_mismatch(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     manifest_config, _, output_path = _build_manifest(tmp_path)
-    authorization = copy.deepcopy(load_formal_authorization())
+    authorization = _authorized_authorization_payload()
     authorization.update(
         {
             "authorization_status": "authorized_pending_execution",
@@ -614,7 +685,7 @@ def test_preflight_blocks_authorized_manifest_source_parent_mismatch(
     manifest["source_commit"] = "b" * 40
     manifest["reviewed_formal_execution_sha"] = "b" * 40
     _write_json(output_path, manifest)
-    authorization = copy.deepcopy(load_formal_authorization())
+    authorization = _authorized_authorization_payload()
     authorization.update(
         {
             "authorization_status": "authorized_pending_execution",
@@ -651,7 +722,7 @@ def test_git_preflight_uses_superseded_candidate_for_unauthorized_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = load_formal_execution_config()
-    authorization = load_formal_authorization()
+    authorization = _unauthorized_authorization_payload()
     head = "f" * 40
 
     def fake_git(_: Path, *args: str) -> str:
@@ -846,10 +917,13 @@ def test_formal_completion_lifecycle_mismatch_is_blocked() -> None:
 
 
 def test_preparation_config_cannot_consume_formal_attempt(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     called = {"manifest": False, "runroot": False}
     config = load_formal_execution_config()
+    authorization_path = _write_authorization_fixture(
+        tmp_path, _unauthorized_authorization_payload()
+    )
     monkeypatch.setattr(
         "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
         lambda _: config,
@@ -883,7 +957,9 @@ def test_preparation_config_cannot_consume_formal_attempt(
         from src.r2a.r2a_t05_formal_execution import run_formal_execution
 
         run_formal_execution(
-            manifest_path=Path("unused.json"), operator_authorized=True
+            manifest_path=Path("unused.json"),
+            authorization_path=authorization_path,
+            operator_authorized=True,
         )
     assert called == {"manifest": False, "runroot": False}
     assert config["formal_run_attempts_consumed"] == 0
@@ -992,11 +1068,30 @@ def test_t05_output_scope_scans_real_builder_candidate(tmp_path: Path) -> None:
 
 def test_formal_authorization_starts_without_a_future_head(tmp_path: Path) -> None:
     authorization = load_formal_authorization()
-    assert authorization["authorization_status"] == "not_authorized"
-    assert authorization["authorization_parent"] is None
-    assert authorization["reviewed_formal_execution_sha"] is None
     assert "authorization_head" not in authorization
-    assert authorization["formal_run_allowed"] is False
+    assert authorization["authorization_status"] in {
+        "not_authorized",
+        "authorized_pending_execution",
+    }
+    if authorization["authorization_status"] == "not_authorized":
+        assert authorization["authorization_parent"] is None
+        assert authorization["reviewed_formal_execution_sha"] is None
+        assert authorization["formal_run_allowed"] is False
+        assert authorization["authorization_revision"] == 0
+        assert authorization["authorized_manifest_sha256"] is None
+        assert authorization["authorized_manifest_byte_size"] is None
+    else:
+        assert re.fullmatch(r"[0-9a-f]{40}", str(authorization["authorization_parent"]))
+        assert re.fullmatch(
+            r"[0-9a-f]{40}", str(authorization["reviewed_formal_execution_sha"])
+        )
+        assert authorization["authorization_revision"] >= 1
+        assert authorization["formal_run_allowed"] is True
+        assert re.fullmatch(
+            r"[0-9a-f]{64}", str(authorization["authorized_manifest_sha256"])
+        )
+        assert authorization["authorized_manifest_byte_size"] >= 1
+    assert authorization["formal_run_attempts_consumed_before_start"] == 0
 
     mutated = copy.deepcopy(authorization)
     mutated["authorization_head"] = "b" * 40
@@ -1009,23 +1104,7 @@ def test_formal_authorization_starts_without_a_future_head(tmp_path: Path) -> No
 
 
 def _authorized_git_payload() -> dict[str, Any]:
-    authorization = copy.deepcopy(load_formal_authorization())
-    authorization.update(
-        {
-            "authorization_status": "authorized_pending_execution",
-            "reviewed_formal_execution_sha": "a" * 40,
-            "authorization_revision": 1,
-            "authorization_parent": "a" * 40,
-            "formal_run_allowed": True,
-            "authorized_manifest_sha256": "e" * 64,
-            "authorized_manifest_byte_size": 1,
-        }
-    )
-    authorization["protected_execution_files"] = [
-        {**record, "source_commit": "a" * 40}
-        for record in authorization["protected_execution_files"]
-    ]
-    return authorization
+    return _authorized_authorization_payload()
 
 
 def _patch_authorized_git(
@@ -1090,15 +1169,26 @@ def test_authorized_git_preflight_rejects_diff_outside_whitelist(
         inspect_git_preflight(config=config, authorization=authorization)
 
 
-def test_formal_authorization_evidence_adds_only_runtime_head(tmp_path: Path) -> None:
-    authorization = load_formal_authorization()
+@pytest.mark.parametrize(
+    "authorization_factory",
+    [_unauthorized_authorization_payload, _authorized_authorization_payload],
+)
+def test_formal_authorization_evidence_adds_only_runtime_head(
+    tmp_path: Path, authorization_factory: Any
+) -> None:
+    authorization = authorization_factory()
+    original = copy.deepcopy(authorization)
     evidence = build_formal_authorization_evidence(authorization, current_head="b" * 40)
     evidence_path = tmp_path / "formal-runs/synthetic/formal_authorization.json"
     _write_json(evidence_path, evidence)
     persisted = json.loads(evidence_path.read_text(encoding="utf-8"))
-    assert "authorization_head" not in authorization
-    assert persisted["authorization_head"] == "b" * 40
-    assert persisted["authorization_status"] == "not_authorized"
+    assert authorization == original
+    assert "authorization_head" not in original
+    assert set(evidence) == {*original, "authorization_head"}
+    assert persisted == evidence
+    assert evidence["authorization_head"] == "b" * 40
+    for key, value in original.items():
+        assert evidence[key] == value
 
 
 @pytest.mark.parametrize(
