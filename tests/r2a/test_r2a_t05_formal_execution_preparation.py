@@ -6,6 +6,7 @@ import copy
 import csv
 import hashlib
 import json
+import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -18,8 +19,14 @@ import pytest
 from src.r2a.r2a_t02_request_identity import build_canonical_request
 from src.r2a.r2a_t05_ca_exit_decomposition import build_t05_candidate
 from src.r2a.r2a_t05_formal_execution import (
+    HISTORICAL_FAILED_RUN_ID,
+    HISTORICAL_FAILED_RUN_INVENTORY_SHA256,
     FormalExecutionError,
     _authorization_diff_paths,
+    _formal_attempt_lifecycle_fields,
+    _run_root_inventory_sha256,
+    _validate_historical_run_roots,
+    _validate_retry_binding,
     build_determinism_receipt,
     build_formal_authorization_evidence,
     compare_formal_builds,
@@ -29,6 +36,7 @@ from src.r2a.r2a_t05_formal_execution import (
     inspect_git_preflight,
     load_formal_authorization,
     preflight_formal_execution,
+    run_formal_execution,
     validate_formal_completion_lifecycle,
     validate_t05_output_scope,
 )
@@ -73,7 +81,7 @@ EXPECTED_COUNTS = {
     },
 }
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
-PARENT_HEAD = "307dab1f2189aaf8d3c4268b54d42c6f4a3fa96d"
+PARENT_HEAD = "5843c59abf219d1c92b0de69ebbad9bdd18ee946"
 EXPECTED_PROTECTED_EXECUTION_PATHS = (
     "configs/r2a/r2a_t05_formal_execution.v1.json",
     "schemas/r2a/r2a_t05_formal_execution.schema.json",
@@ -99,12 +107,18 @@ def _write_json(path: Path, value: Any) -> None:
 
 def _authorization_base_payload() -> dict[str, Any]:
     config = load_formal_execution_config()
+    policy = config["run_root_policy"]
     return {
         "$schema": "../../schemas/r2a/r2a_t05_formal_authorization.schema.json",
         "task_id": "R2A-T05",
         "formal_scope_id": "r2a_t05_ca_exit_mechanism_formal_execution.v1",
         "reviewed_implementation_sha": config["reviewed_implementation_sha"],
         "formal_run_attempt_limit": config["formal_run_attempt_limit"],
+        "retry_of_run_id": policy["historical_consumed_run_ids"][0],
+        "retry_of_run_inventory_sha256": policy[
+            "historical_failed_run_inventory_sha256"
+        ],
+        "authorized_attempt_number": policy["next_attempt_number"],
         "authorization_diff_whitelist": [
             "configs/r2a/r2a_t05_formal_authorization.v1.json",
             "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md",
@@ -121,7 +135,7 @@ def _unauthorized_authorization_payload() -> dict[str, Any]:
             "authorization_revision": 0,
             "authorization_parent": None,
             "formal_run_allowed": False,
-            "formal_run_attempts_consumed_before_start": 0,
+            "formal_run_attempts_consumed_before_start": 1,
             "authorized_manifest_sha256": None,
             "authorized_manifest_byte_size": None,
             "authorization_status": "not_authorized",
@@ -143,7 +157,7 @@ def _authorized_authorization_payload(
             "authorization_revision": 1,
             "authorization_parent": reviewed_formal_execution_sha,
             "formal_run_allowed": True,
-            "formal_run_attempts_consumed_before_start": 0,
+            "formal_run_attempts_consumed_before_start": 1,
             "authorized_manifest_sha256": authorized_manifest_sha256,
             "authorized_manifest_byte_size": authorized_manifest_byte_size,
             "authorization_status": "authorized_pending_execution",
@@ -418,7 +432,7 @@ def test_formal_manifest_builder_reads_only_synthetic_score_and_binds_metadata(
         output_path, repo_root=tmp_path, verify_files=True
     )
     assert verified["requests"] == payload["requests"]
-    assert config["formal_run_attempts_consumed"] == 0
+    assert config["formal_run_attempts_consumed"] == 1
 
 
 def test_formal_manifest_binds_current_head_and_rejects_stale_source_commit(
@@ -586,7 +600,7 @@ def test_preflight_does_not_read_score_create_runroot_or_consume_attempt(
     assert result["status"] == "preflight_passed"
     assert result["real_score_data_read"] is False
     assert result["formal_artifacts_generated"] is False
-    assert result["formal_run_attempts_consumed"] == 0
+    assert result["formal_run_attempts_consumed"] == 1
     assert not score_opened
     assert not (tmp_path / "data/generated/r2a/r2a_t05/formal-runs").exists()
 
@@ -643,6 +657,19 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
         "src.r2a.r2a_t05_formal_execution._protected_file_record",
         lambda *_args, **_kwargs: {"path": "synthetic", "sha256": "0" * 64},
     )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._run_root_inventory_sha256",
+        lambda _: HISTORICAL_FAILED_RUN_INVENTORY_SHA256,
+    )
+    historical_root = (
+        tmp_path
+        / manifest_config["run_root_policy"]["parent_relative_path"]
+        / HISTORICAL_FAILED_RUN_ID
+    )
+    historical_root.mkdir(parents=True)
+    historical_file = historical_root / "execution_log.jsonl"
+    historical_file.write_text("historical\n", encoding="utf-8", newline="\n")
+    historical_before = historical_file.read_bytes()
     result = preflight_formal_execution(
         manifest_path=output_path,
         repo_root=tmp_path,
@@ -652,6 +679,16 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
     assert result["current_head"] == "b" * 40
     assert result["authorization_head"] == "b" * 40
     assert result["reviewed_formal_execution_sha"] == "a" * 40
+    assert result["formal_run_attempt_limit"] == 2
+    assert result["formal_run_attempts_consumed_before_start"] == 1
+    assert result["formal_run_attempts_consumed"] == 1
+    assert result["next_formal_attempt_number"] == 2
+    assert result["retry_of_run_id"] == HISTORICAL_FAILED_RUN_ID
+    assert result["historical_run_root_verified"] is True
+    assert historical_file.read_bytes() == historical_before
+    assert sorted(path.name for path in historical_root.parent.iterdir()) == [
+        HISTORICAL_FAILED_RUN_ID
+    ]
     assert "authorization_head" not in authorization
 
 
@@ -680,6 +717,10 @@ def test_preflight_blocks_authorized_reviewed_parent_manifest_mismatch(
     monkeypatch.setattr(
         "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
         lambda _: manifest_config,
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._validate_historical_run_roots",
+        lambda **_: (),
     )
     with pytest.raises(
         FormalExecutionError, match="authorized_execution_lineage_mismatch"
@@ -720,6 +761,10 @@ def test_preflight_blocks_authorized_manifest_source_parent_mismatch(
     monkeypatch.setattr(
         "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
         lambda _: manifest_config,
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._validate_historical_run_roots",
+        lambda **_: (),
     )
     with pytest.raises(
         FormalExecutionError, match="authorized_manifest_source_commit_mismatch"
@@ -874,13 +919,315 @@ def test_git_preflight_rejects_changed_protected_file(
         inspect_git_preflight(config=config)
 
 
-def test_runroot_rejects_existing_root_and_does_not_resume(tmp_path: Path) -> None:
-    first, run_id = create_unique_run_root(
-        repo_root=tmp_path, run_id="R2A-T05-20260720T000000001Z"
+def test_retry_runroot_allows_one_fresh_attempt_and_blocks_second_retry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = copy.deepcopy(load_formal_execution_config())
+    authorization = _unauthorized_authorization_payload()
+    historical_root = (
+        tmp_path
+        / config["run_root_policy"]["parent_relative_path"]
+        / HISTORICAL_FAILED_RUN_ID
+    )
+    historical_root.mkdir(parents=True)
+    (historical_root / "execution_log.jsonl").write_text(
+        "historical\n", encoding="utf-8", newline="\n"
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._run_root_inventory_sha256",
+        lambda _: HISTORICAL_FAILED_RUN_INVENTORY_SHA256,
+    )
+    first, run_id, attempt_number = create_unique_run_root(
+        repo_root=tmp_path,
+        run_id="R2A-T05-20260721T020000001Z",
+        config=config,
+        authorization=authorization,
     )
     assert first.is_dir()
-    with pytest.raises(FormalExecutionError, match="run_root_already_exists"):
-        create_unique_run_root(repo_root=tmp_path, run_id=run_id)
+    assert attempt_number == 2
+    with pytest.raises(FormalExecutionError, match="historical_run_root_set_mismatch"):
+        create_unique_run_root(
+            repo_root=tmp_path,
+            run_id="R2A-T05-20260721T020000002Z",
+            config=config,
+            authorization=authorization,
+        )
+    assert historical_root.is_dir()
+    assert (historical_root / "execution_log.jsonl").read_text(encoding="utf-8") == (
+        "historical\n"
+    )
+    assert run_id == "R2A-T05-20260721T020000001Z"
+
+
+def _retry_history_context(
+    tmp_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], Path, Path]:
+    config = copy.deepcopy(load_formal_execution_config())
+    authorization = _unauthorized_authorization_payload()
+    parent = tmp_path / config["run_root_policy"]["parent_relative_path"]
+    historical_root = parent / HISTORICAL_FAILED_RUN_ID
+    historical_root.mkdir(parents=True)
+    (historical_root / "execution_log.jsonl").write_text(
+        "historical\n", encoding="utf-8", newline="\n"
+    )
+    authorization["retry_of_run_inventory_sha256"] = _run_root_inventory_sha256(
+        historical_root
+    )
+    return config, authorization, parent, historical_root
+
+
+def test_accepted_historical_run_root_inventory_matches_exact_binding() -> None:
+    historical_root = (
+        ROOT / "data/generated/r2a/r2a_t05/formal-runs" / HISTORICAL_FAILED_RUN_ID
+    )
+    assert _run_root_inventory_sha256(historical_root) == (
+        HISTORICAL_FAILED_RUN_INVENTORY_SHA256
+    )
+
+
+def test_historical_retry_validation_rejects_missing_history(tmp_path: Path) -> None:
+    config = load_formal_execution_config()
+    authorization = _unauthorized_authorization_payload()
+    with pytest.raises(FormalExecutionError, match="historical_run_root_missing"):
+        _validate_historical_run_roots(
+            repo_root=tmp_path, config=config, authorization=authorization
+        )
+
+
+def test_historical_retry_validation_rejects_extra_history(tmp_path: Path) -> None:
+    config, authorization, parent, _ = _retry_history_context(tmp_path)
+    (parent / "R2A-T05-20260721T020000001Z").mkdir()
+    with pytest.raises(FormalExecutionError, match="historical_run_root_set_mismatch"):
+        _validate_historical_run_roots(
+            repo_root=tmp_path, config=config, authorization=authorization
+        )
+
+
+def test_historical_retry_validation_rejects_mutated_history(tmp_path: Path) -> None:
+    config, authorization, _, historical_root = _retry_history_context(tmp_path)
+    accepted_inventory = _run_root_inventory_sha256(historical_root)
+    authorization["retry_of_run_inventory_sha256"] = accepted_inventory
+    _validate_historical_run_roots(
+        repo_root=tmp_path, config=config, authorization=authorization
+    )
+    (historical_root / "execution_log.jsonl").write_text(
+        "mutated\n", encoding="utf-8", newline="\n"
+    )
+    with pytest.raises(
+        FormalExecutionError, match="historical_run_root_inventory_mismatch"
+    ):
+        _validate_historical_run_roots(
+            repo_root=tmp_path, config=config, authorization=authorization
+        )
+
+
+def test_historical_retry_validation_is_read_only(tmp_path: Path) -> None:
+    config, authorization, parent, historical_root = _retry_history_context(tmp_path)
+    before = {
+        path.relative_to(parent).as_posix(): path.read_bytes()
+        for path in historical_root.rglob("*")
+        if path.is_file()
+    }
+    _validate_historical_run_roots(
+        repo_root=tmp_path, config=config, authorization=authorization
+    )
+    after = {
+        path.relative_to(parent).as_posix(): path.read_bytes()
+        for path in historical_root.rglob("*")
+        if path.is_file()
+    }
+    assert before == after
+    assert sorted(path.name for path in parent.iterdir()) == [HISTORICAL_FAILED_RUN_ID]
+
+
+def test_historical_retry_validation_rejects_reparse_history(
+    tmp_path: Path,
+) -> None:
+    config = copy.deepcopy(load_formal_execution_config())
+    authorization = _unauthorized_authorization_payload()
+    parent = tmp_path / config["run_root_policy"]["parent_relative_path"]
+    parent.mkdir(parents=True)
+    target = tmp_path / "reparse-target"
+    target.mkdir()
+    historical_root = parent / HISTORICAL_FAILED_RUN_ID
+    try:
+        os.symlink(target, historical_root, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        pytest.skip(f"platform cannot create a directory symlink: {error}")
+    with pytest.raises(FormalExecutionError, match="historical_run_root_reparse_point"):
+        _validate_historical_run_roots(
+            repo_root=tmp_path, config=config, authorization=authorization
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "reason_code"),
+    [
+        ("limit", "retry_attempt_limit_mismatch"),
+        ("consumed", "retry_attempts_consumed_mismatch"),
+        ("exhausted", "formal_run_attempt_limit_exhausted"),
+        ("attempt", "retry_attempt_number_mismatch"),
+        ("authorized_attempt", "retry_attempt_number_mismatch"),
+        ("run_id", "retry_run_id_mismatch"),
+        ("inventory", "retry_run_inventory_binding_mismatch"),
+    ],
+)
+def test_retry_binding_rejects_attempt_mismatch(
+    mutation: str, reason_code: str
+) -> None:
+    config = copy.deepcopy(load_formal_execution_config())
+    authorization = _unauthorized_authorization_payload()
+    if mutation == "limit":
+        authorization["formal_run_attempt_limit"] = 3
+    elif mutation == "consumed":
+        config["formal_run_attempts_consumed"] = 0
+    elif mutation == "exhausted":
+        config["formal_run_attempts_consumed"] = 2
+    elif mutation == "attempt":
+        config["run_root_policy"]["next_attempt_number"] = 3
+    elif mutation == "authorized_attempt":
+        authorization["authorized_attempt_number"] = 1
+    elif mutation == "run_id":
+        authorization["retry_of_run_id"] = "R2A-T05-20260721T000000000Z"
+    elif mutation == "inventory":
+        authorization["retry_of_run_inventory_sha256"] = "0" * 64
+    else:
+        raise AssertionError(mutation)
+    with pytest.raises(FormalExecutionError, match=reason_code):
+        _validate_retry_binding(config=config, authorization=authorization)
+
+
+@pytest.mark.parametrize("policy_key", ["allow_resume", "allow_overwrite"])
+def test_retry_binding_rejects_resume_or_overwrite_policy(policy_key: str) -> None:
+    config = copy.deepcopy(load_formal_execution_config())
+    authorization = _unauthorized_authorization_payload()
+    config["run_root_policy"][policy_key] = True
+    with pytest.raises(FormalExecutionError, match="retry_policy_invalid"):
+        _validate_retry_binding(config=config, authorization=authorization)
+
+
+def test_retry_run_summary_lifecycle_fields_use_cumulative_attempt_two() -> None:
+    config = load_formal_execution_config()
+    authorization = _unauthorized_authorization_payload()
+    assert _formal_attempt_lifecycle_fields(
+        config=config, authorization=authorization, attempt_number=2
+    ) == {
+        "formal_run_attempt_limit": 2,
+        "formal_run_attempts_consumed_before_start": 1,
+        "formal_run_attempts_consumed": 2,
+        "formal_run_attempts_consumed_after_runroot": 2,
+        "formal_run_attempt_number": 2,
+        "retry_of_run_id": HISTORICAL_FAILED_RUN_ID,
+    }
+
+
+def test_failed_retry_lifecycle_logs_attempt_two_after_runroot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = copy.deepcopy(load_formal_execution_config())
+    authorization = _authorized_authorization_payload()
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text("{}\n", encoding="utf-8", newline="\n")
+    authorization["authorized_manifest_sha256"] = sha256_file(manifest_path)
+    authorization["authorized_manifest_byte_size"] = manifest_path.stat().st_size
+    _, _, parent, historical_root = _retry_history_context(tmp_path)
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.load_formal_execution_config",
+        lambda _: config,
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.load_formal_authorization",
+        lambda _: authorization,
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.preflight_formal_execution",
+        lambda **_: {"current_head": "b" * 40},
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.load_authorized_input_manifest",
+        lambda *_, **__: {
+            "score_database": {"relative_path": "data/raw/score.duckdb"},
+            "accepted_t04_counts": config["accepted_t04_counts"],
+        },
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._resolve_repository_path",
+        lambda _repo_root, relative: (tmp_path / "placeholder", str(relative)),
+    )
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._validate_historical_run_roots",
+        lambda **_: (historical_root,),
+    )
+
+    def fail_sequence(*args: Any, **kwargs: Any) -> None:
+        raise FormalExecutionError("synthetic_retry_failure")
+
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.execute_request_sequence",
+        fail_sequence,
+    )
+    with pytest.raises(FormalExecutionError, match="synthetic_retry_failure"):
+        run_formal_execution(
+            manifest_path=manifest_path,
+            repo_root=tmp_path,
+            operator_authorized=True,
+        )
+    retry_roots = [
+        path for path in parent.iterdir() if path.name != HISTORICAL_FAILED_RUN_ID
+    ]
+    assert len(retry_roots) == 1
+    events = [
+        json.loads(line)
+        for line in (retry_roots[0] / "execution_log.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    failure = events[-1]
+    assert failure["event"] == "formal_run_failed_closed"
+    assert failure["formal_run_attempt_number"] == 2
+    assert failure["formal_run_attempts_consumed_after_runroot"] == 2
+    assert failure["formal_run_attempts_consumed_before_start"] == 1
+    assert failure["formal_run_attempts_consumed"] == 2
+    assert failure["retry_of_run_id"] == HISTORICAL_FAILED_RUN_ID
+
+
+def test_task_document_has_one_authoritative_current_state_block() -> None:
+    document = (ROOT / "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Current formal authorization" not in document
+    match = re.search(
+        r"## 当前状态与停止点\s+```text\n(?P<block>.*?)\n```",
+        document,
+        flags=re.DOTALL,
+    )
+    assert match is not None
+    block = match.group("block")
+    expected = {
+        "task_id": "R2A-T05",
+        "status": "formal_execution_candidate_pending_owner_rereview",
+        "candidate_parent_sha": PARENT_HEAD,
+        "authorization_status": "not_authorized",
+        "formal_run_allowed": "false",
+        "historical_formal_attempts_consumed": "1",
+        "formal_run_attempt_limit": "2",
+        "next_formal_attempt_number": "2",
+        "formal_retry_authorized": "false",
+        "historical_failed_run_id": HISTORICAL_FAILED_RUN_ID,
+        "historical_failed_run_inventory_sha256": (
+            HISTORICAL_FAILED_RUN_INVENTORY_SHA256
+        ),
+        "new_formal_run_started": "false",
+        "new_RunRoot": "absent",
+        "R2A-T05_DONE": "absent",
+        "R2A-T06_allowed_to_start": "false",
+        "PR_state": "Draft",
+    }
+    for key, value in expected.items():
+        assert re.findall(rf"(?m)^{re.escape(key)}:.*$", document) == [
+            f"{key}: {value}"
+        ]
+        assert f"{key}: {value}" in block
 
 
 def _sequence_callbacks(
@@ -1018,7 +1365,7 @@ def test_preparation_config_cannot_consume_formal_attempt(
         "src.r2a.r2a_t05_formal_execution.preflight_formal_execution",
         lambda **_: {
             "current_head": config["reviewed_implementation_sha"],
-            "formal_run_attempts_consumed": 0,
+            "formal_run_attempts_consumed": 1,
         },
     )
 
@@ -1048,7 +1395,7 @@ def test_preparation_config_cannot_consume_formal_attempt(
             operator_authorized=True,
         )
     assert called == {"manifest": False, "runroot": False}
-    assert config["formal_run_attempts_consumed"] == 0
+    assert config["formal_run_attempts_consumed"] == 1
 
 
 def test_manifest_accepts_complete_pcavt_score_but_freezes_ca_consumption(
@@ -1177,7 +1524,7 @@ def test_formal_authorization_starts_without_a_future_head(tmp_path: Path) -> No
             r"[0-9a-f]{64}", str(authorization["authorized_manifest_sha256"])
         )
         assert authorization["authorized_manifest_byte_size"] >= 1
-    assert authorization["formal_run_attempts_consumed_before_start"] == 0
+    assert authorization["formal_run_attempts_consumed_before_start"] == 1
 
     mutated = copy.deepcopy(authorization)
     mutated["authorization_head"] = "b" * 40

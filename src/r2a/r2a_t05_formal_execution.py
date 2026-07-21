@@ -59,6 +59,10 @@ AUTHORIZATION_CONFIG_PATH = FORMAL_AUTHORIZATION_PATH
 AUTHORIZATION_SCHEMA_PATH = FORMAL_AUTHORIZATION_SCHEMA_PATH
 RUN_PARENT_RELATIVE = "data/generated/r2a/r2a_t05/formal-runs"
 RUN_ID_PATTERN = re.compile(r"^R2A-T05-\d{8}T\d{9}Z$")
+HISTORICAL_FAILED_RUN_ID = "R2A-T05-20260721T013805600Z"
+HISTORICAL_FAILED_RUN_INVENTORY_SHA256 = (
+    "9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770"
+)
 COMPACT_REVIEW_DIR = "compact-review"
 REQUEST_OUTPUT_DIR = "request-results"
 T03_OUTPUT_TABLES = (
@@ -328,6 +332,210 @@ def _normalized_text_binding(
     )
 
 
+def _run_root_inventory_sha256(run_root: Path) -> str:
+    """Reproduce the accepted diagnostic inventory fingerprint read-only.
+
+    The accepted inventory was generated from a sorted recursive file listing,
+    with each record binding the relative path, absolute path, byte size, UTC
+    mtime and bounded-chunk SHA-256.  Its Windows diagnostic JSON used CRLF
+    canonical bytes; that detail is part of the historical binding.
+    """
+
+    root = Path(run_root).resolve()
+    if not root.is_dir():
+        raise FormalExecutionError("historical_run_root_missing", str(root))
+    files: list[dict[str, Any]] = []
+    try:
+        paths = sorted(
+            (path for path in root.rglob("*") if path.is_file()),
+            key=lambda path: path.resolve().relative_to(root).as_posix(),
+        )
+        for path in paths:
+            resolved = path.resolve()
+            stat = resolved.stat()
+            files.append(
+                {
+                    "absolute_path": str(resolved),
+                    "byte_size": stat.st_size,
+                    "last_write_time_utc": datetime.fromtimestamp(stat.st_mtime, UTC)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
+                    "relative_path": resolved.relative_to(root).as_posix(),
+                    "sha256": sha256_file(resolved),
+                }
+            )
+    except (FormalInputManifestError, OSError, ValueError) as error:
+        raise FormalExecutionError(
+            "historical_run_root_inventory_unreadable", str(root)
+        ) from error
+    payload = {
+        "diagnostic_only": True,
+        "failed_run_id": root.name,
+        "failed_run_root": str(root),
+        "failed_run_root_modified": False,
+        "files": files,
+    }
+    canonical = (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").replace(
+        "\n", "\r\n"
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _validate_retry_binding(
+    *,
+    config: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+) -> None:
+    """Validate the cumulative attempt-2 retry contract fail-closed."""
+
+    policy = config.get("run_root_policy")
+    if not isinstance(policy, Mapping):
+        raise FormalExecutionError("retry_policy_invalid")
+    config_limit = config.get("formal_run_attempt_limit")
+    authorization_limit = authorization.get("formal_run_attempt_limit")
+    if config_limit != authorization_limit or config_limit != 2:
+        raise FormalExecutionError("retry_attempt_limit_mismatch")
+    config_consumed = config.get("formal_run_attempts_consumed")
+    authorization_consumed = authorization.get(
+        "formal_run_attempts_consumed_before_start"
+    )
+    if config_consumed == config_limit or (
+        isinstance(config_consumed, int)
+        and isinstance(config_limit, int)
+        and config_consumed > config_limit
+    ):
+        raise FormalExecutionError("formal_run_attempt_limit_exhausted")
+    if config_consumed != authorization_consumed or config_consumed != 1:
+        raise FormalExecutionError("retry_attempts_consumed_mismatch")
+    if (
+        policy.get("next_attempt_number")
+        != authorization.get("authorized_attempt_number")
+        or policy.get("next_attempt_number") != 2
+    ):
+        raise FormalExecutionError("retry_attempt_number_mismatch")
+    retry_run_id = authorization.get("retry_of_run_id")
+    if retry_run_id != HISTORICAL_FAILED_RUN_ID or policy.get(
+        "historical_consumed_run_ids"
+    ) != [retry_run_id]:
+        raise FormalExecutionError("retry_run_id_mismatch")
+    retry_inventory = authorization.get("retry_of_run_inventory_sha256")
+    if (
+        retry_inventory != HISTORICAL_FAILED_RUN_INVENTORY_SHA256
+        or policy.get("historical_failed_run_inventory_sha256") != retry_inventory
+    ):
+        raise FormalExecutionError("retry_run_inventory_binding_mismatch")
+    if (
+        policy.get("additional_attempts_authorizable") != 1
+        or policy.get("owner_authorized_retry_required") is not True
+        or policy.get("require_unique") is not True
+        or any(
+            policy.get(key) is not False
+            for key in (
+                "allow_resume",
+                "allow_overwrite",
+                "allow_automatic_rerun",
+                "allow_partial_promotion",
+            )
+        )
+    ):
+        raise FormalExecutionError("retry_policy_invalid")
+
+
+def _is_reparse_or_symlink(path: Path) -> bool:
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError as error:
+        raise FormalExecutionError(
+            "historical_run_root_reparse_point", str(path)
+        ) from error
+    file_attributes = getattr(info, "st_file_attributes", 0)
+    return bool(path.is_symlink() or file_attributes & 0x400)
+
+
+def _validate_historical_run_roots(
+    *,
+    repo_root: str | Path,
+    config: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+) -> tuple[Path, ...]:
+    """Verify the exact immutable history before an authorized retry."""
+
+    root = Path(repo_root).resolve()
+    policy = config["run_root_policy"]
+    parent = root / str(policy["parent_relative_path"])
+    cursor = root
+    for part in Path(str(policy["parent_relative_path"])).parts:
+        cursor /= part
+        if _is_reparse_or_symlink(cursor):
+            raise FormalExecutionError("historical_run_root_reparse_point", str(cursor))
+    if not parent.is_dir():
+        raise FormalExecutionError("historical_run_root_missing", str(parent))
+    try:
+        historical = []
+        for child in parent.iterdir():
+            if not RUN_ID_PATTERN.fullmatch(child.name):
+                continue
+            if _is_reparse_or_symlink(child):
+                raise FormalExecutionError(
+                    "historical_run_root_reparse_point", str(child)
+                )
+            if child.is_dir():
+                historical.append(child)
+    except OSError as error:
+        raise FormalExecutionError(
+            "historical_run_root_missing", str(parent)
+        ) from error
+    historical.sort(key=lambda path: path.name)
+    expected_names = tuple(str(item) for item in policy["historical_consumed_run_ids"])
+    actual_names = tuple(path.name for path in historical)
+    if not historical:
+        raise FormalExecutionError(
+            "historical_run_root_missing", ",".join(expected_names)
+        )
+    if actual_names != tuple(sorted(expected_names)):
+        raise FormalExecutionError(
+            "historical_run_root_set_mismatch",
+            f"expected={expected_names}; actual={actual_names}",
+        )
+    for historical_root in historical:
+        try:
+            for path in historical_root.rglob("*"):
+                if _is_reparse_or_symlink(path):
+                    raise FormalExecutionError(
+                        "historical_run_root_reparse_point", str(path)
+                    )
+        except OSError as error:
+            raise FormalExecutionError(
+                "historical_run_root_reparse_point", str(historical_root)
+            ) from error
+        actual_inventory = _run_root_inventory_sha256(historical_root)
+        if actual_inventory != authorization.get("retry_of_run_inventory_sha256"):
+            raise FormalExecutionError(
+                "historical_run_root_inventory_mismatch", historical_root.name
+            )
+    return tuple(historical)
+
+
+def _formal_attempt_lifecycle_fields(
+    *,
+    config: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+    attempt_number: int,
+) -> dict[str, Any]:
+    return {
+        "formal_run_attempt_limit": int(config["formal_run_attempt_limit"]),
+        "formal_run_attempts_consumed_before_start": int(
+            authorization["formal_run_attempts_consumed_before_start"]
+        ),
+        "formal_run_attempts_consumed": int(attempt_number),
+        "formal_run_attempts_consumed_after_runroot": int(attempt_number),
+        "formal_run_attempt_number": int(attempt_number),
+        "retry_of_run_id": authorization["retry_of_run_id"],
+    }
+
+
 def inspect_git_preflight(
     *,
     repo_root: str | Path = ROOT,
@@ -337,11 +545,10 @@ def inspect_git_preflight(
 ) -> dict[str, Any]:
     """Validate HEAD, clean worktree and all protected committed blobs.
 
-    The current candidate checks execution bindings at the reviewed predecessor
-    ``0b7ef1a...`` because the repair itself changes the execution layer.  A
-    future authorization commit supplies the newly reviewed parent and must be
-    metadata-only; the runner then additionally compares that parent with the
-    authorization HEAD.
+    The current candidate binds the protected execution records to the exact
+    committed parent. A future authorization commit must remain metadata-only;
+    the runner then additionally compares that parent with the authorization
+    HEAD.
     """
 
     root = Path(repo_root).resolve()
@@ -378,7 +585,12 @@ def inspect_git_preflight(
     if authorized:
         execution_reviewed = authorization_payload.get("reviewed_formal_execution_sha")
     else:
-        execution_reviewed = config.get("superseded_formal_execution_candidate_sha")
+        execution_records = config.get("protected_execution_files")
+        execution_reviewed = (
+            execution_records[0].get("source_commit")
+            if isinstance(execution_records, list) and execution_records
+            else config.get("superseded_formal_execution_candidate_sha")
+        )
     if not isinstance(execution_reviewed, str):
         raise FormalExecutionError("reviewed_formal_execution_sha_missing")
     if not re.fullmatch(r"[0-9a-f]{40}", execution_reviewed):
@@ -534,6 +746,7 @@ def preflight_formal_execution(
             getattr(error, "reason_code", "formal_input_preflight_failed"), str(error)
         ) from error
     _validate_config_manifest_identity(config, manifest)
+    _validate_retry_binding(config=config, authorization=authorization)
     if authorization.get("reviewed_implementation_sha") != config.get(
         "reviewed_implementation_sha"
     ):
@@ -543,6 +756,11 @@ def preflight_formal_execution(
     ):
         raise FormalExecutionError("authorization_attempt_limit_mismatch")
     if authorization.get("authorization_status") == "authorized_pending_execution":
+        _validate_historical_run_roots(
+            repo_root=repo_root,
+            config=config,
+            authorization=authorization,
+        )
         try:
             manifest_file, _ = _resolve_repository_path(repo_root, manifest_path)
             manifest_size = manifest_file.stat().st_size
@@ -595,7 +813,17 @@ def preflight_formal_execution(
         "formal_run_started": False,
         "real_score_data_read": False,
         "formal_artifacts_generated": False,
+        "formal_run_attempt_limit": int(config["formal_run_attempt_limit"]),
+        "formal_run_attempts_consumed_before_start": int(
+            authorization["formal_run_attempts_consumed_before_start"]
+        ),
         "formal_run_attempts_consumed": int(config["formal_run_attempts_consumed"]),
+        "next_formal_attempt_number": int(
+            config["run_root_policy"]["next_attempt_number"]
+        ),
+        "retry_of_run_id": authorization["retry_of_run_id"],
+        "historical_run_root_verified": authorization.get("authorization_status")
+        == "authorized_pending_execution",
         "R2A-T05_DONE": "absent",
         "R2A-T06_allowed_to_start": False,
     }
@@ -615,32 +843,35 @@ def create_unique_run_root(
     *,
     repo_root: str | Path = ROOT,
     run_id: str | None = None,
-) -> tuple[Path, str]:
-    """Create exactly one new RunRoot; never resume or overwrite one."""
+    config: Mapping[str, Any],
+    authorization: Mapping[str, Any],
+) -> tuple[Path, str, int]:
+    """Create exactly one cumulative-attempt retry RunRoot."""
 
     root = Path(repo_root).resolve()
-    parent, _ = _resolve_repository_path(root, RUN_PARENT_RELATIVE, require_file=False)
-    if parent.exists() and parent.is_symlink():
-        raise FormalExecutionError("run_parent_reparse_point")
-    parent.mkdir(parents=True, exist_ok=True)
+    _validate_retry_binding(config=config, authorization=authorization)
+    historical_roots = _validate_historical_run_roots(
+        repo_root=root,
+        config=config,
+        authorization=authorization,
+    )
+    if len(historical_roots) != 1:
+        raise FormalExecutionError("historical_run_root_set_mismatch")
+    parent = root / str(config["run_root_policy"]["parent_relative_path"])
     selected = run_id or build_run_id()
     if not RUN_ID_PATTERN.fullmatch(selected):
         raise FormalExecutionError("run_id_format_invalid", selected)
     run_root = parent / selected
     if run_root.exists():
         raise FormalExecutionError("run_root_already_exists", str(run_root))
-    prior_runs = [
-        child
-        for child in parent.iterdir()
-        if child.is_dir() and RUN_ID_PATTERN.fullmatch(child.name)
-    ]
-    if prior_runs:
-        raise FormalExecutionError("formal_run_attempt_already_consumed")
+    attempt_number = int(config["run_root_policy"]["next_attempt_number"])
+    if attempt_number != 2:
+        raise FormalExecutionError("retry_attempt_number_mismatch")
     try:
         run_root.mkdir()
     except FileExistsError as error:
         raise FormalExecutionError("run_root_already_exists", str(run_root)) from error
-    return run_root, selected
+    return run_root, selected, attempt_number
 
 
 def _request_summary(output_path: Path) -> dict[str, int]:
@@ -1433,6 +1664,7 @@ def run_formal_execution(
     if config["formal_run_started"] or config["formal_artifacts_generated"]:
         raise FormalExecutionError("formal_run_lifecycle_already_started")
 
+    attempt_number: int | None = None
     try:
         manifest = load_authorized_input_manifest(
             manifest_path,
@@ -1445,7 +1677,12 @@ def run_formal_execution(
             "authorized_manifest_sha256"
         ) or manifest_bytes != authorization.get("authorized_manifest_byte_size"):
             raise FormalExecutionError("authorized_manifest_identity_mismatch")
-        run_root, run_id = create_unique_run_root(repo_root=repo_root)
+        run_root, run_id, attempt_number = create_unique_run_root(
+            repo_root=repo_root,
+            config=config,
+            authorization=authorization,
+        )
+        assert attempt_number is not None
     except (FormalInputManifestError, FormalExecutionError) as error:
         raise FormalExecutionError(
             getattr(error, "reason_code", "formal_run_input_preflight_failed"),
@@ -1453,7 +1690,17 @@ def run_formal_execution(
         ) from error
 
     log_path = run_root / "execution_log.jsonl"
-    _log_event(log_path, "formal_run_started", run_id=run_id, preflight=preflight)
+    _log_event(
+        log_path,
+        "formal_run_started",
+        run_id=run_id,
+        preflight=preflight,
+        **_formal_attempt_lifecycle_fields(
+            config=config,
+            authorization=authorization,
+            attempt_number=attempt_number,
+        ),
+    )
     log_closed = False
     try:
         _write_json(run_root / "input_manifest.json", manifest)
@@ -1573,8 +1820,11 @@ def run_formal_execution(
             "authorization_head": authorization_evidence["authorization_head"],
             "authorization_parent": authorization["authorization_parent"],
             "authorization_revision": authorization["authorization_revision"],
-            "formal_run_attempt_limit": authorization["formal_run_attempt_limit"],
-            "formal_run_attempts_consumed": 1,
+            **_formal_attempt_lifecycle_fields(
+                config=config,
+                authorization=authorization,
+                attempt_number=attempt_number,
+            ),
             "formal_determinism_receipt": determinism_receipt,
             **lifecycle,
         }
@@ -1653,6 +1903,29 @@ def run_formal_execution(
         }
     except Exception as error:
         if not log_closed:
+            failure_lifecycle = {
+                "formal_run_attempts_consumed": int(
+                    attempt_number
+                    if attempt_number is not None
+                    else config["formal_run_attempts_consumed"]
+                )
+            }
+            if attempt_number is not None:
+                failure_lifecycle.update(
+                    {
+                        "formal_run_attempt_number": int(attempt_number),
+                        "formal_run_attempts_consumed_after_runroot": int(
+                            attempt_number
+                        ),
+                        "formal_run_attempt_limit": int(
+                            config["formal_run_attempt_limit"]
+                        ),
+                        "formal_run_attempts_consumed_before_start": int(
+                            authorization["formal_run_attempts_consumed_before_start"]
+                        ),
+                        "retry_of_run_id": authorization["retry_of_run_id"],
+                    }
+                )
             _log_event(
                 log_path,
                 "formal_run_failed_closed",
@@ -1660,6 +1933,7 @@ def run_formal_execution(
                 detail=str(error),
                 R2A_T05_DONE="absent",
                 R2A_T06_allowed_to_start=False,
+                **failure_lifecycle,
             )
         if isinstance(error, FormalExecutionError):
             raise

@@ -64,12 +64,12 @@
     "R2A-T05_DONE": {"const": "absent"},
     "R2A-T06_allowed_to_start": {"const": false},
     "PR_state": {"const": "Draft"},
-    "formal_run_attempt_limit": {"const": 1},
-    "formal_run_attempts_consumed": {"const": 0},
+    "formal_run_attempt_limit": {"const": 2},
+    "formal_run_attempts_consumed": {"const": 1},
     "run_root_policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["parent_relative_path", "run_id_format", "utc_timestamp_required", "require_unique", "allow_resume", "allow_overwrite", "allow_automatic_rerun", "allow_skip", "allow_partial_promotion"],
+      "required": ["parent_relative_path", "run_id_format", "utc_timestamp_required", "require_unique", "allow_resume", "allow_overwrite", "allow_automatic_rerun", "allow_skip", "allow_partial_promotion", "historical_consumed_run_ids", "historical_failed_run_inventory_sha256", "next_attempt_number", "additional_attempts_authorizable", "owner_authorized_retry_required"],
       "properties": {
         "parent_relative_path": {"const": "data/generated/r2a/r2a_t05/formal-runs"},
         "run_id_format": {"const": "R2A-T05-<UTC_TIMESTAMP>"},
@@ -79,7 +79,12 @@
         "allow_overwrite": {"const": false},
         "allow_automatic_rerun": {"const": false},
         "allow_skip": {"const": false},
-        "allow_partial_promotion": {"const": false}
+        "allow_partial_promotion": {"const": false},
+        "historical_consumed_run_ids": {"const": ["R2A-T05-20260721T013805600Z"]},
+        "historical_failed_run_inventory_sha256": {"const": "9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770"},
+        "next_attempt_number": {"const": 2},
+        "additional_attempts_authorizable": {"const": 1},
+        "owner_authorized_retry_required": {"const": true}
       }
     },
     "input_authorization": {

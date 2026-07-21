@@ -15,6 +15,9 @@
     "formal_run_allowed",
     "formal_run_attempt_limit",
     "formal_run_attempts_consumed_before_start",
+    "retry_of_run_id",
+    "retry_of_run_inventory_sha256",
+    "authorized_attempt_number",
     "authorized_manifest_sha256",
     "authorized_manifest_byte_size",
     "authorization_status",
@@ -30,8 +33,11 @@
     "authorization_revision": {"type": "integer", "minimum": 0},
     "authorization_parent": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/commit"}]},
     "formal_run_allowed": {"type": "boolean"},
-    "formal_run_attempt_limit": {"type": "integer", "minimum": 1},
-    "formal_run_attempts_consumed_before_start": {"type": "integer", "minimum": 0},
+    "formal_run_attempt_limit": {"const": 2},
+    "formal_run_attempts_consumed_before_start": {"const": 1},
+    "retry_of_run_id": {"const": "R2A-T05-20260721T013805600Z"},
+    "retry_of_run_inventory_sha256": {"const": "9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770"},
+    "authorized_attempt_number": {"const": 2},
     "authorized_manifest_sha256": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/hash"}]},
     "authorized_manifest_byte_size": {"anyOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]},
     "authorization_status": {"enum": ["not_authorized", "authorized_pending_execution"]},
@@ -55,7 +61,8 @@
         "authorization_revision": {"const": 0},
         "authorization_parent": {"const": null},
         "formal_run_allowed": {"const": false},
-        "formal_run_attempts_consumed_before_start": {"const": 0},
+        "formal_run_attempts_consumed_before_start": {"const": 1},
+        "authorized_attempt_number": {"const": 2},
         "authorized_manifest_sha256": {"const": null},
         "authorized_manifest_byte_size": {"const": null}
       }
@@ -67,7 +74,8 @@
         "authorization_revision": {"type": "integer", "minimum": 1},
         "authorization_parent": {"$ref": "#/$defs/commit"},
         "formal_run_allowed": {"const": true},
-        "formal_run_attempts_consumed_before_start": {"const": 0},
+        "formal_run_attempts_consumed_before_start": {"const": 1},
+        "authorized_attempt_number": {"const": 2},
         "authorized_manifest_sha256": {"$ref": "#/$defs/hash"},
         "authorized_manifest_byte_size": {"type": "integer", "minimum": 1}
       }
