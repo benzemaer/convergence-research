@@ -6,9 +6,10 @@
 task_id: R2A-T05
 status: formal_execution_candidate_pending_owner_rereview
 candidate_identity_source: exact Git HEAD of Draft PR #115
-candidate_parent_sha: 5843c59abf219d1c92b0de69ebbad9bdd18ee946
+candidate_parent_sha: 1cbcf64cd2e2340f1ce7cbd2e74847fb7bb0d3ee
 bulk_copy_candidate_review: technically_passed
-retry_lifecycle_review: pending_owner_rereview
+retry_lifecycle_review: technically_passed_local
+ci_portability_review: pending_owner_rereview
 authorization_status: not_authorized
 formal_run_allowed: false
 historical_formal_attempts_consumed: 1
@@ -25,6 +26,19 @@ PR_state: Draft
 ```
 
 当前候选只建模历史唯一失败 formal attempt 之后的一个、且仅一个 attempt-2 retry 生命周期。候选提交不改变 bulk-copy 实现、研究请求、q/K、Score、日期或科学 validator；owner 重新审核和后续授权仍是前置条件。
+
+## CI-portability candidate history
+
+```text
+historical_ci_failed_candidate: 1cbcf64cd2e2340f1ce7cbd2e74847fb7bb0d3ee
+historical_ci_quality_run: 29831600529
+historical_ci_failure_reason: environment-coupled pytest required a git-ignored local RunRoot
+production historical inventory validation: unchanged and mandatory during authorized preflight and immediately before creating attempt-2 RunRoot
+generic CI inventory tests: synthetic only
+local exact inventory gate: passed before candidate commit
+```
+
+The generic pytest no longer reads the real git-ignored historical formal evidence. The production `_validate_historical_run_roots()` inventory comparison remains strict and mandatory; the exact local historical inventory check is an operator gate on the machine that retains the evidence, not a GitHub Actions dependency.
 
 ## 研究问题
 

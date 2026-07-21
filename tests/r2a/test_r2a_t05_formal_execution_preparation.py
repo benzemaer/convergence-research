@@ -81,7 +81,7 @@ EXPECTED_COUNTS = {
     },
 }
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
-PARENT_HEAD = "5843c59abf219d1c92b0de69ebbad9bdd18ee946"
+PARENT_HEAD = "1cbcf64cd2e2340f1ce7cbd2e74847fb7bb0d3ee"
 EXPECTED_PROTECTED_EXECUTION_PATHS = (
     "configs/r2a/r2a_t05_formal_execution.v1.json",
     "schemas/r2a/r2a_t05_formal_execution.schema.json",
@@ -976,13 +976,98 @@ def _retry_history_context(
     return config, authorization, parent, historical_root
 
 
-def test_accepted_historical_run_root_inventory_matches_exact_binding() -> None:
-    historical_root = (
-        ROOT / "data/generated/r2a/r2a_t05/formal-runs" / HISTORICAL_FAILED_RUN_ID
+def _make_synthetic_inventory_tree(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
+    root = tmp_path / HISTORICAL_FAILED_RUN_ID
+    request_results = root / "request-results"
+    request_results.mkdir(parents=True)
+    files = {
+        "formal_authorization.json": root / "formal_authorization.json",
+        "input_manifest.json": root / "input_manifest.json",
+        "execution_log.jsonl": root / "execution_log.jsonl",
+        ".CA_q10_k5.duckdb.synthetic.tmp.duckdb": (
+            request_results / ".CA_q10_k5.duckdb.synthetic.tmp.duckdb"
+        ),
+        ".CA_q10_k5.duckdb.synthetic.tmp.duckdb.wal": (
+            request_results / ".CA_q10_k5.duckdb.synthetic.tmp.duckdb.wal"
+        ),
+    }
+    contents = {
+        "formal_authorization.json": b'{"authorization_status":"synthetic"}\n',
+        "input_manifest.json": b'{"manifest":"synthetic"}\n',
+        "execution_log.jsonl": b'{"event":"synthetic"}\n',
+        ".CA_q10_k5.duckdb.synthetic.tmp.duckdb": b"synthetic duckdb bytes\n",
+        ".CA_q10_k5.duckdb.synthetic.tmp.duckdb.wal": b"synthetic wal bytes\n",
+    }
+    for name, content in contents.items():
+        files[name].write_bytes(content)
+    mtime_ns = 1_700_000_000_123_456_789
+    for path in files.values():
+        os.utime(path, ns=(mtime_ns, mtime_ns))
+    return root, files
+
+
+def test_run_root_inventory_is_deterministic_for_unchanged_tree(
+    tmp_path: Path,
+) -> None:
+    historical_root, _ = _make_synthetic_inventory_tree(tmp_path)
+    first = _run_root_inventory_sha256(historical_root)
+    second = _run_root_inventory_sha256(historical_root)
+    assert first == second
+
+
+def test_run_root_inventory_changes_when_file_content_changes(
+    tmp_path: Path,
+) -> None:
+    historical_root, files = _make_synthetic_inventory_tree(tmp_path)
+    baseline = _run_root_inventory_sha256(historical_root)
+    execution_log = files["execution_log.jsonl"]
+    mtime_ns = execution_log.stat().st_mtime_ns
+    execution_log.write_bytes(b'{"event":"synthetic","changed":true}\n')
+    os.utime(execution_log, ns=(mtime_ns, mtime_ns))
+    changed = _run_root_inventory_sha256(historical_root)
+    assert changed != baseline
+
+
+def test_run_root_inventory_includes_hidden_duckdb_and_wal(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    historical_root, files = _make_synthetic_inventory_tree(tmp_path)
+    original_sha256_file = sha256_file
+    read_paths: list[Path] = []
+
+    def recording_sha256_file(path: str | Path) -> str:
+        resolved = Path(path).resolve()
+        read_paths.append(resolved)
+        return original_sha256_file(resolved)
+
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution.sha256_file",
+        recording_sha256_file,
     )
-    assert _run_root_inventory_sha256(historical_root) == (
-        HISTORICAL_FAILED_RUN_INVENTORY_SHA256
-    )
+    _run_root_inventory_sha256(historical_root)
+    assert files[".CA_q10_k5.duckdb.synthetic.tmp.duckdb"].resolve() in read_paths
+    assert files[".CA_q10_k5.duckdb.synthetic.tmp.duckdb.wal"].resolve() in read_paths
+
+
+def test_run_root_inventory_is_read_only(tmp_path: Path) -> None:
+    historical_root, _ = _make_synthetic_inventory_tree(tmp_path)
+
+    def snapshot() -> dict[str, tuple[bytes, int, int]]:
+        return {
+            path.relative_to(historical_root).as_posix(): (
+                path.read_bytes(),
+                path.stat().st_size,
+                path.stat().st_mtime_ns,
+            )
+            for path in historical_root.rglob("*")
+            if path.is_file()
+        }
+
+    before = snapshot()
+    _run_root_inventory_sha256(historical_root)
+    after = snapshot()
+    assert after == before
 
 
 def test_historical_retry_validation_rejects_missing_history(tmp_path: Path) -> None:
