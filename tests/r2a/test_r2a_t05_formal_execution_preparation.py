@@ -73,6 +73,19 @@ EXPECTED_COUNTS = {
     },
 }
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
+PARENT_HEAD = "307dab1f2189aaf8d3c4268b54d42c6f4a3fa96d"
+EXPECTED_PROTECTED_EXECUTION_PATHS = (
+    "configs/r2a/r2a_t05_formal_execution.v1.json",
+    "schemas/r2a/r2a_t05_formal_execution.schema.json",
+    "schemas/r2a/r2a_t05_formal_input_manifest.schema.json",
+    "src/r2a/r2a_t03_dynamic_evaluator.py",
+    "src/r2a/r2a_t05_formal_execution.py",
+    "src/r2a/r2a_t05_formal_input_manifest.py",
+    "scripts/r2a/build_r2a_t05_formal_input_manifest.py",
+    "scripts/r2a/run_r2a_t05_formal.py",
+    "tests/r2a/test_r2a_t03_dynamic_evaluator.py",
+    "tests/r2a/test_r2a_t05_formal_execution_preparation.py",
+)
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -722,7 +735,11 @@ def test_preflight_blocks_authorized_manifest_source_parent_mismatch(
 def test_git_preflight_uses_superseded_candidate_for_unauthorized_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = load_formal_execution_config()
+    config = copy.deepcopy(load_formal_execution_config())
+    config["protected_execution_files"] = [
+        {**record, "source_commit": config["superseded_formal_execution_candidate_sha"]}
+        for record in config["protected_execution_files"]
+    ]
     authorization = _unauthorized_authorization_payload()
     head = "f" * 40
 
@@ -743,6 +760,39 @@ def test_git_preflight_uses_superseded_candidate_for_unauthorized_metadata(
         result["reviewed_formal_execution_sha"]
         == config["superseded_formal_execution_candidate_sha"]
     )
+
+
+def test_protected_execution_bindings_are_exact_parent_bound() -> None:
+    config = load_formal_execution_config()
+    records = config["protected_execution_files"]
+    assert tuple(item["path"] for item in records) == (
+        EXPECTED_PROTECTED_EXECUTION_PATHS
+    )
+    assert len(records) == 10
+    assert all(item["source_commit"] == PARENT_HEAD for item in records)
+    assert all(item["encoding"] == "utf-8" for item in records)
+    assert all(item["line_ending"] == "LF" for item in records)
+    assert all(item["bom"] is False for item in records)
+    assert all(item["trailing_lf_count"] == 1 for item in records)
+
+
+@pytest.mark.parametrize("mutation", ["reorder", "remove", "add"])
+def test_protected_execution_set_mutations_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    config = copy.deepcopy(load_formal_execution_config())
+    records = config["protected_execution_files"]
+    if mutation == "reorder":
+        records.reverse()
+    elif mutation == "remove":
+        records.pop()
+    else:
+        records.append(copy.deepcopy(records[0]))
+    _patch_authorized_git(monkeypatch)
+    with pytest.raises(
+        FormalExecutionError, match="protected_execution_file_set_mismatch"
+    ):
+        inspect_git_preflight(config=config)
 
 
 def test_authorization_diff_paths_disable_git_path_quoting(

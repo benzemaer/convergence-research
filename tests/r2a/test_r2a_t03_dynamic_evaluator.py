@@ -1,23 +1,103 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from pathlib import Path
 
 import duckdb
 import pytest
 
+from src.r2a import r2a_t03_dynamic_evaluator as evaluator_module
 from src.r2a.r2a_t02_request_identity import DynamicRequestError
 from src.r2a.r2a_t03_dynamic_evaluator import (
     DynamicEvaluationError,
+    _duckdb_string_literal,
     evaluate_confirmation_sequence,
     evaluate_dynamic_request,
     evaluate_dynamic_request_connections,
 )
+from src.r2a.r2a_t03_output_contract import validate_dynamic_evaluation_output
 from tests.r2a.r2a_t03_test_support import (
     canonical_request,
     create_source,
     evaluate,
 )
+
+PERSISTENT_OUTPUT_TABLES = (
+    "dynamic_request",
+    "evaluation_scope",
+    "daily_dimension_states",
+    "daily_joint_states",
+    "confirmed_intervals",
+)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _assert_legacy_and_bulk_outputs_equal(
+    source_path: Path,
+    request: dict[str, object],
+    security_ids: list[str] | None,
+    tmp_path: Path,
+) -> None:
+    source_before = _sha256(source_path)
+    legacy_path = tmp_path / "legacy.duckdb"
+    bulk_path = tmp_path / "bulk.duckdb"
+    with duckdb.connect(str(source_path), read_only=True) as source:
+        with duckdb.connect(str(legacy_path)) as legacy:
+            legacy_summary = evaluate_dynamic_request_connections(
+                source=source,
+                output=legacy,
+                canonical_request=request,
+                security_ids=security_ids,
+            )
+    bulk_summary = evaluate_dynamic_request(
+        score_database=source_path,
+        canonical_request=request,
+        output_database=bulk_path,
+        security_ids=security_ids,
+    )
+    assert _sha256(source_path) == source_before
+    with duckdb.connect(str(legacy_path), read_only=True) as legacy:
+        legacy_validator = validate_dynamic_evaluation_output(legacy)
+        legacy.execute(
+            f"ATTACH {_duckdb_string_literal(str(bulk_path.resolve()))} "
+            "AS bulk_compare (READ_ONLY)"
+        )
+        try:
+            for table in PERSISTENT_OUTPUT_TABLES:
+                assert (
+                    legacy.execute(f"PRAGMA table_info('{table}')").fetchall()
+                    == legacy.execute(
+                        f"PRAGMA table_info('bulk_compare.{table}')"
+                    ).fetchall()
+                )
+                assert (
+                    legacy.execute(f"SELECT count(*) FROM {table}").fetchone()
+                    == legacy.execute(
+                        f"SELECT count(*) FROM bulk_compare.{table}"
+                    ).fetchone()
+                )
+                assert legacy.execute(
+                    f"SELECT count(*) FROM (SELECT * FROM {table} EXCEPT ALL "
+                    f"SELECT * FROM bulk_compare.{table})"
+                ).fetchone() == (0,)
+                assert legacy.execute(
+                    f"SELECT count(*) FROM (SELECT * FROM bulk_compare.{table} "
+                    f"EXCEPT ALL SELECT * FROM {table})"
+                ).fetchone() == (0,)
+        finally:
+            legacy.execute("DETACH bulk_compare")
+    with duckdb.connect(str(bulk_path), read_only=True) as bulk:
+        bulk_validator = validate_dynamic_evaluation_output(bulk)
+    assert legacy_summary == bulk_summary
+    assert legacy_validator == bulk_validator == legacy_summary
 
 
 def test_streak_confirmation_intervals_and_no_backfill() -> None:
@@ -357,3 +437,55 @@ def test_failure_leaves_no_output_database(tmp_path: Path) -> None:
         )
     assert not output_path.exists()
     assert not list(tmp_path.glob(".must_not_exist.duckdb.*.tmp.duckdb"))
+
+
+@pytest.mark.parametrize("security_ids", [None, ["S3", "S1"]])
+def test_legacy_and_bulk_file_evaluation_are_fully_equivalent(
+    tmp_path: Path, security_ids: list[str] | None
+) -> None:
+    source_path = tmp_path / "score'fixture.duckdb"
+    create_source(str(source_path)).close()
+    _assert_legacy_and_bulk_outputs_equal(
+        source_path, canonical_request(), security_ids, tmp_path
+    )
+
+
+def test_bulk_path_escapes_quotes_and_rejects_nul() -> None:
+    quoted = r"C:\score's\score.duckdb"
+    assert _duckdb_string_literal(quoted) == "'C:\\score''s\\score.duckdb'"
+    with pytest.raises(DynamicEvaluationError, match="source_database_path_invalid"):
+        _duckdb_string_literal("bad\x00path")
+
+
+def test_file_entrypoint_uses_bulk_copy_without_streaming(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source_path = tmp_path / "source.duckdb"
+    create_source(str(source_path)).close()
+
+    def fail_stream(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("file entrypoint must not use streaming copy")
+
+    monkeypatch.setattr(evaluator_module, "_stream_query", fail_stream)
+    evaluate_dynamic_request(
+        score_database=source_path,
+        canonical_request=canonical_request(),
+        output_database=tmp_path / "bulk.duckdb",
+    )
+
+
+def test_connection_entrypoint_retains_legacy_oracle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = create_source()
+    output = duckdb.connect(":memory:")
+
+    def fail_bulk(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("connection entrypoint must retain legacy copy")
+
+    monkeypatch.setattr(evaluator_module, "_copy_selected_source_bulk", fail_bulk)
+    evaluate_dynamic_request_connections(
+        source=source,
+        output=output,
+        canonical_request=canonical_request(),
+    )

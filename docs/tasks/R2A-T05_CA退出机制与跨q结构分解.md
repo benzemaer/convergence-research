@@ -157,4 +157,28 @@ formal_run_started: false
 formal_run_attempts_consumed: 0
 R2A-T05_DONE: absent
 R2A-T06_allowed_to_start: false
+
+## DuckDB bulk-copy repair candidate rerun
+
+failed_authorization_commit: 307dab1f2189aaf8d3c4268b54d42c6f4a3fa96d
+failed_formal_run_id: R2A-T05-20260721T013805600Z
+historical_formal_attempts_consumed: 1
+accepted_copy_diagnosis: copy_path_dominant
+accepted_validator_diagnosis: driver_cumulative_timeout
+latest_promotion_driver_failure: output_parent_missing
+repair_scope: DuckDB-native bulk source staging
+q_level_parallelism: false
+candidate_authorization_status: not_authorized
+formal_retry_authorized: false
+R2A-T05_DONE: absent
+R2A-T06_allowed_to_start: false
+
+The rerun restores the previously locally tested DuckDB ATTACH READ_ONLY plus
+INSERT SELECT source-staging implementation. The connection entrypoint remains
+the legacy Python streaming oracle, while the path entrypoint uses bulk staging.
+The non-formal promotion driver must pre-create the four-request serial output
+root and each request output parent, verify that the parent exists before the
+evaluator child starts, and flush an output_parent_verified event. No formal
+manifest, authorization, preflight, formal run, DONE marker, or T06 transition
+is permitted in this rerun.
 ```

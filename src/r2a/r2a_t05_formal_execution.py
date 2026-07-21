@@ -83,10 +83,12 @@ PROTECTED_EXECUTION_PATHS = (
     "configs/r2a/r2a_t05_formal_execution.v1.json",
     "schemas/r2a/r2a_t05_formal_execution.schema.json",
     "schemas/r2a/r2a_t05_formal_input_manifest.schema.json",
+    "src/r2a/r2a_t03_dynamic_evaluator.py",
     "src/r2a/r2a_t05_formal_execution.py",
     "src/r2a/r2a_t05_formal_input_manifest.py",
     "scripts/r2a/build_r2a_t05_formal_input_manifest.py",
     "scripts/r2a/run_r2a_t05_formal.py",
+    "tests/r2a/test_r2a_t03_dynamic_evaluator.py",
     "tests/r2a/test_r2a_t05_formal_execution_preparation.py",
 )
 AUTHORIZATION_WHITELIST = (

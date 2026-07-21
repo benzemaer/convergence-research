@@ -172,7 +172,7 @@
       "items": {"$ref": "#/$defs/protected_file"}
     },
     "protected_execution_files": {
-      "type": "array", "minItems": 8, "maxItems": 8,
+      "type": "array", "minItems": 10, "maxItems": 10,
       "items": {"$ref": "#/$defs/protected_file"}
     },
     "artifact_plan": {

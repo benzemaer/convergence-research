@@ -42,8 +42,8 @@
     },
     "protected_execution_files": {
       "type": "array",
-      "minItems": 8,
-      "maxItems": 8,
+      "minItems": 10,
+      "maxItems": 10,
       "items": {"$ref": "#/$defs/protected_file"}
     }
   },
