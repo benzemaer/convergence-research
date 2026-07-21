@@ -4,23 +4,25 @@
 
 ```text
 task_id: R2A-T05
-status: implementation_candidate_pending_owner_rereview
+status: authorized_pending_execution
 scope_id: r2a_t05_ca_exit_mechanism_decomposition.v1
 implementation_version: r2a_t05_ca_exit_decomposition.v1
 research_anchor_q: 2000
 research_anchor_role: exit_mechanism_decomposition
 q_selection_status: not_selected
 canonical_dynamic_request_selected: false
-formal_execution_review_status: pending_owner_rereview
+formal_execution_review_status: owner_approved
+approved_formal_execution_sha: b72e53fc571e2b3eb55dfd0c0499982b276371c6
 superseded_formal_execution_sha: 6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a
 failed_authorization_commit: b798fd044f37fbe6b8174c65b9746362097c20c4
-authorization_revision: 0
-authorization_parent: null
-authorization_status: not_authorized
-formal_run_allowed: false
+authorization_revision: 1
+authorization_parent: b72e53fc571e2b3eb55dfd0c0499982b276371c6
+authorization_status: authorized_pending_execution
+formal_run_allowed: true
 formal_run_started: false
 formal_run_attempts_consumed: 0
 real_score_data_read: false
+real_score_metadata_read_for_manifest: true
 formal_artifacts_generated: false
 R2A-T05_DONE: absent
 R2A-T06_started: false
@@ -28,7 +30,7 @@ R2A-T06_allowed_to_start: false
 PR_state: Draft
 ```
 
-上一轮对精确 candidate `6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a` 的 authorization commit `b798fd044f37fbe6b8174c65b9746362097c20c4` 已因 Git 非 ASCII 路径 quoting 在 preflight 前失败并停止。本轮只修复该路径输出问题；两份既有 manifest 均标记为 superseded，不修改、不复用、不生成第三份，不读取真实 Score，不执行 preflight 或 formal，不创建 RunRoot、DONE 或 T06。
+上一轮对精确 candidate `6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a` 的 authorization commit `b798fd044f37fbe6b8174c65b9746362097c20c4` 已因 Git 非 ASCII 路径 quoting 在 preflight 前失败并停止。修复提交 `b72e53fc571e2b3eb55dfd0c0499982b276371c6` 已通过对应 Quality；owner 已批准该精确 formal-execution candidate，本轮已生成其唯一新 manifest 并进入 metadata-only authorization，尚未执行 preflight 或 formal。
 
 ## 研究问题
 
@@ -138,4 +140,21 @@ R2A-T05_DONE: absent
 R2A-T06_allowed_to_start: false
 ```
 
-本轮 repair 只允许改变 Git path output、对应回归测试、未授权 authorization config 和本失败记录。repair commit 完成并通过 Quality 后，等待 owner 对新的精确 formal-execution candidate SHA 重新审阅；本轮不执行任何 preflight 或 formal。T06 只有在 T05 formal 结果审阅、异常扫描和相应 gate 完成后才可重新立项，当前 `R2A-T06_allowed_to_start=false`。
+本轮 repair 的历史停止点保持不变。当前 owner 授权只允许一个 metadata-only authorization commit；该 commit 完成并通过精确关联的 Quality 后，才执行一次 preflight 和一次 formal run。T06 只有在 T05 formal 结果审阅、异常扫描和相应 gate 完成后才可重新立项，当前 `R2A-T06_allowed_to_start=false`。
+
+## Current formal authorization
+
+```text
+approved_formal_execution_sha: b72e53fc571e2b3eb55dfd0c0499982b276371c6
+authorization_revision: 1
+authorization_parent: b72e53fc571e2b3eb55dfd0c0499982b276371c6
+authorization_status: authorized_pending_execution
+formal_manifest_relative_path: data/generated/r2a/r2a_t05/formal-authorization/b72e53fc571e2b3eb55dfd0c0499982b276371c6/r2a_t05_formal_input_manifest.v1.json
+formal_manifest_sha256: d4f9c83dc198003d55bc3d32d0ae50a4603ccc0b601107b42111f23d313ca13b
+formal_manifest_byte_size: 10449
+real_score_metadata_read_for_manifest: true
+formal_run_started: false
+formal_run_attempts_consumed: 0
+R2A-T05_DONE: absent
+R2A-T06_allowed_to_start: false
+```
