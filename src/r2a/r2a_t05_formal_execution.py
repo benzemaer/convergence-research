@@ -151,7 +151,15 @@ def build_formal_authorization_evidence(
 def _authorization_diff_paths(
     repo_root: Path, parent: str, head: str
 ) -> tuple[str, ...]:
-    output = _git(repo_root, "diff", "--name-only", parent, head)
+    output = _git(
+        repo_root,
+        "-c",
+        "core.quotepath=false",
+        "diff",
+        "--name-only",
+        parent,
+        head,
+    )
     return tuple(line for line in output.splitlines() if line)
 
 

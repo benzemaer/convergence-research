@@ -3,27 +3,27 @@
   "task_id": "R2A-T05",
   "formal_scope_id": "r2a_t05_ca_exit_mechanism_formal_execution.v1",
   "reviewed_implementation_sha": "55dceba70bc967caa75c597ce17acb93a2dac511",
-  "reviewed_formal_execution_sha": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a",
-  "authorization_revision": 1,
-  "authorization_parent": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a",
-  "formal_run_allowed": true,
+  "reviewed_formal_execution_sha": null,
+  "authorization_revision": 0,
+  "authorization_parent": null,
+  "formal_run_allowed": false,
   "formal_run_attempt_limit": 1,
   "formal_run_attempts_consumed_before_start": 0,
-  "authorized_manifest_sha256": "f11f87b7490a0d89133437a62eb657fad7c86b4c5bbf3fc10808706ffe42219a",
-  "authorized_manifest_byte_size": 10449,
-  "authorization_status": "authorized_pending_execution",
+  "authorized_manifest_sha256": null,
+  "authorized_manifest_byte_size": null,
+  "authorization_status": "not_authorized",
   "authorization_diff_whitelist": [
     "configs/r2a/r2a_t05_formal_authorization.v1.json",
     "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md"
   ],
   "protected_execution_files": [
-    {"path": "configs/r2a/r2a_t05_formal_execution.v1.json", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "78db6fe3ab31156dde77ac4657a24e1e39f01bf6", "committed_byte_sha256": "43127e82a9eab1f1ebf80e78eaca9d18aa8115b6e5edd473ad9fbc2b362a7b7c", "normalized_text_sha256": "43127e82a9eab1f1ebf80e78eaca9d18aa8115b6e5edd473ad9fbc2b362a7b7c", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "schemas/r2a/r2a_t05_formal_execution.schema.json", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "c8c0000b5fba4fcc4f89ac9b2f4be2066d08c65a", "committed_byte_sha256": "6b6fcca9cf85aeca9f93a3bed112e4b707bd5e9c6381da6838135a96ecb0ee28", "normalized_text_sha256": "6b6fcca9cf85aeca9f93a3bed112e4b707bd5e9c6381da6838135a96ecb0ee28", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "schemas/r2a/r2a_t05_formal_input_manifest.schema.json", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "a4a970f52f78b6db71e6b10b3b08d5bcd20db5a6", "committed_byte_sha256": "aff0133a9b30b5c1e9b1c561f1e432fdc73e3191891d0806ae08f6ad328f6824", "normalized_text_sha256": "aff0133a9b30b5c1e9b1c561f1e432fdc73e3191891d0806ae08f6ad328f6824", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "src/r2a/r2a_t05_formal_execution.py", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "d9fe4c5ba3de8fe96fbcfc32cfc437f94e63a5d4", "committed_byte_sha256": "e98cdb7770c2415bfe41f91c6aea897d7d08ebc92305af5c0096df8a09b54f1c", "normalized_text_sha256": "e98cdb7770c2415bfe41f91c6aea897d7d08ebc92305af5c0096df8a09b54f1c", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "src/r2a/r2a_t05_formal_input_manifest.py", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "7fa714e0b190b9113e0e6e539449253f0182c603", "committed_byte_sha256": "4761310642904a78b646a58989e0ff4a12d4ab67c699c829d7256528397eb7e0", "normalized_text_sha256": "4761310642904a78b646a58989e0ff4a12d4ab67c699c829d7256528397eb7e0", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "scripts/r2a/build_r2a_t05_formal_input_manifest.py", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "22eb2ff47263b0e4b9ea77e976e3421c00396f34", "committed_byte_sha256": "8b45cab31bfc36bfea56dd381e68c537e7108ef28b48dd2de43aa4c0582d3141", "normalized_text_sha256": "8b45cab31bfc36bfea56dd381e68c537e7108ef28b48dd2de43aa4c0582d3141", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "scripts/r2a/run_r2a_t05_formal.py", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "e773e90c7c506b23997041c6c2188fc7ec265672", "committed_byte_sha256": "5e727707776fcf15700961696affa4ad1d50892ce57f988f164c90d97bc79604", "normalized_text_sha256": "5e727707776fcf15700961696affa4ad1d50892ce57f988f164c90d97bc79604", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
-    {"path": "tests/r2a/test_r2a_t05_formal_execution_preparation.py", "source_commit": "6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a", "git_blob_sha": "b6a4bbb07c20b19a7433b1f63570af860427a3af", "committed_byte_sha256": "c44372eb3144a9fe41abf36c51db365871dbbe8edb87b66e0360556d8bdd2582", "normalized_text_sha256": "c44372eb3144a9fe41abf36c51db365871dbbe8edb87b66e0360556d8bdd2582", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1}
+    {"path": "configs/r2a/r2a_t05_formal_execution.v1.json", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "c5f2846053c1dca1efbc35828b8775c8f430bcee", "committed_byte_sha256": "2bc134c59433cd5933f6aaf25d1b4534b285c698049b7794ab76046d3b1fc225", "normalized_text_sha256": "2bc134c59433cd5933f6aaf25d1b4534b285c698049b7794ab76046d3b1fc225", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "schemas/r2a/r2a_t05_formal_execution.schema.json", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "1e23782eca626f62c0e9efffd339765bac181d8c", "committed_byte_sha256": "02ec66ecb0474f65ed5354852b772eab0c41fa6d805820322ba7d44827a8197f", "normalized_text_sha256": "02ec66ecb0474f65ed5354852b772eab0c41fa6d805820322ba7d44827a8197f", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "schemas/r2a/r2a_t05_formal_input_manifest.schema.json", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "fda78c7ad356b12e78fd28ba166cf8bee52b58e4", "committed_byte_sha256": "5adf054e152aa2e01332d3ad9c06e99979da3a1dce851e810ec3b7273e0b26b1", "normalized_text_sha256": "5adf054e152aa2e01332d3ad9c06e99979da3a1dce851e810ec3b7273e0b26b1", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_formal_execution.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "d9fe46c4597fa81181c141e0e833c77de6b2b272", "committed_byte_sha256": "212c0d076ae59414d5fdbeb706ce8de612a227ad41bef01d436282dd7c609844", "normalized_text_sha256": "212c0d076ae59414d5fdbeb706ce8de612a227ad41bef01d436282dd7c609844", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "src/r2a/r2a_t05_formal_input_manifest.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "22947eefa1fa38a142991ce995514c016ecb0d76", "committed_byte_sha256": "35d074fe95b884643f336c45687d40636822f423165f81b390fb0291e18ba876", "normalized_text_sha256": "35d074fe95b884643f336c45687d40636822f423165f81b390fb0291e18ba876", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "scripts/r2a/build_r2a_t05_formal_input_manifest.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "22eb2ff47263b0e4b9ea77e976e3421c00396f34", "committed_byte_sha256": "8b45cab31bfc36bfea56dd381e68c537e7108ef28b48dd2de43aa4c0582d3141", "normalized_text_sha256": "8b45cab31bfc36bfea56dd381e68c537e7108ef28b48dd2de43aa4c0582d3141", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "scripts/r2a/run_r2a_t05_formal.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "7c90d907f60f7e23dfd5ef13b2ec9c1ffb707441", "committed_byte_sha256": "5b5dee3c2d7cb7ca178059562569217e18f04412f1be18afcdb330ab4524266d", "normalized_text_sha256": "5b5dee3c2d7cb7ca178059562569217e18f04412f1be18afcdb330ab4524266d", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1},
+    {"path": "tests/r2a/test_r2a_t05_formal_execution_preparation.py", "source_commit": "0b7ef1a4e64cc760b248916c13aa89cb9f7a2530", "git_blob_sha": "6a548dad1a13dc51a09aa4d0469532b09c4cee0b", "committed_byte_sha256": "1207e5d4b9c971cd8245a2115f32913dda92f4fc9ea85f9883b6e94fecef3c69", "normalized_text_sha256": "1207e5d4b9c971cd8245a2115f32913dda92f4fc9ea85f9883b6e94fecef3c69", "encoding": "utf-8", "line_ending": "LF", "bom": false, "trailing_lf_count": 1}
   ]
 }

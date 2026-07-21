@@ -19,6 +19,7 @@ from src.r2a.r2a_t02_request_identity import build_canonical_request
 from src.r2a.r2a_t05_ca_exit_decomposition import build_t05_candidate
 from src.r2a.r2a_t05_formal_execution import (
     FormalExecutionError,
+    _authorization_diff_paths,
     build_determinism_receipt,
     build_formal_authorization_evidence,
     compare_formal_builds,
@@ -613,7 +614,7 @@ def test_preflight_accepts_authorized_child_head_with_parent_manifest_lineage(
             return ""
         if args[:4] == ("rev-list", "--parents", "-n", "1"):
             return f"{'b' * 40} {'a' * 40}"
-        if args[:2] == ("diff", "--name-only"):
+        if args[:4] == ("-c", "core.quotepath=false", "diff", "--name-only"):
             return "\n".join(
                 (
                     "configs/r2a/r2a_t05_formal_authorization.v1.json",
@@ -741,6 +742,41 @@ def test_git_preflight_uses_superseded_candidate_for_unauthorized_metadata(
     assert (
         result["reviewed_formal_execution_sha"]
         == config["superseded_formal_execution_candidate_sha"]
+    )
+
+
+def test_authorization_diff_paths_disable_git_path_quoting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(_repo_root: Path, *args: str) -> str:
+        calls.append(args)
+        return (
+            "configs/r2a/r2a_t05_formal_authorization.v1.json\n"
+            "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md"
+        )
+
+    monkeypatch.setattr(
+        "src.r2a.r2a_t05_formal_execution._git",
+        fake_git,
+    )
+
+    paths = _authorization_diff_paths(Path("."), "a" * 40, "b" * 40)
+
+    assert calls == [
+        (
+            "-c",
+            "core.quotepath=false",
+            "diff",
+            "--name-only",
+            "a" * 40,
+            "b" * 40,
+        )
+    ]
+    assert paths == (
+        "configs/r2a/r2a_t05_formal_authorization.v1.json",
+        "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md",
     )
 
 
@@ -1125,7 +1161,7 @@ def _patch_authorized_git(
             return ""
         if args[:4] == ("rev-list", "--parents", "-n", "1"):
             return parent_output
-        if args[:2] == ("diff", "--name-only"):
+        if args[:4] == ("-c", "core.quotepath=false", "diff", "--name-only"):
             return diff_output
         if args[:1] == ("rev-parse",) and len(args) == 2 and ":" in args[1]:
             return "0" * 40
