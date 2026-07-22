@@ -5,11 +5,8 @@
 ```text
 task_id: R2A-T05
 status: formal_execution_candidate_pending_owner_rereview
-candidate_identity_source: exact Git HEAD of Draft PR #115
-candidate_parent_sha: 1cbcf64cd2e2340f1ce7cbd2e74847fb7bb0d3ee
-bulk_copy_candidate_review: technically_passed
-retry_lifecycle_review: technically_passed_local
-ci_portability_review: pending_owner_rereview
+candidate_parent_sha: 8bb024f8fb840b69ed565b0d9da3a78f71c27210
+governance_contract_repair: pending_owner_rereview
 authorization_status: not_authorized
 formal_run_allowed: false
 historical_formal_attempts_consumed: 1
@@ -25,7 +22,18 @@ R2A-T06_allowed_to_start: false
 PR_state: Draft
 ```
 
-当前候选只建模历史唯一失败 formal attempt 之后的一个、且仅一个 attempt-2 retry 生命周期。候选提交不改变 bulk-copy 实现、研究请求、q/K、Score、日期或科学 validator；owner 重新审核和后续授权仍是前置条件。
+当前 successor candidate 只修复 task-document lifecycle 测试契约，使唯一当前状态可按 committed authorization config 在 `not_authorized` 与 `authorized_pending_execution` 两个封闭分支间验证。候选不改变 bulk-copy 实现、研究请求、q/K、Score、日期、validator 或 formal runner；owner 条件式审核、独立 manifest 核验和后续 metadata-only 授权仍是前置条件。
+
+## Governance contract repair history
+
+```text
+historical_goal_blocked_stage: metadata_only_authorization_local_gate
+historical_goal_blocked_test: test_task_document_has_one_authoritative_current_state_block
+historical_goal_blocked_reason: task document was required to become authorized while the protected test hard-coded the prior not-authorized state
+historical_goal_blocked_resolution: create an authorization-aware successor candidate before generating a successor-bound manifest
+historical_superseded_parent_candidate: 8bb024f8fb840b69ed565b0d9da3a78f71c27210
+historical_superseded_parent_manifest_sha256: 1d37acb4676444f72384aa457992d70a71d173210480595bc6ba3b0b8f905dd2
+```
 
 ## CI-portability candidate history
 

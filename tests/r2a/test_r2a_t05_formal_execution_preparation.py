@@ -81,7 +81,7 @@ EXPECTED_COUNTS = {
     },
 }
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
-PARENT_HEAD = "1cbcf64cd2e2340f1ce7cbd2e74847fb7bb0d3ee"
+PARENT_HEAD = "8bb024f8fb840b69ed565b0d9da3a78f71c27210"
 EXPECTED_PROTECTED_EXECUTION_PATHS = (
     "configs/r2a/r2a_t05_formal_execution.v1.json",
     "schemas/r2a/r2a_t05_formal_execution.schema.json",
@@ -1276,28 +1276,122 @@ def test_failed_retry_lifecycle_logs_attempt_two_after_runroot(
     assert failure["retry_of_run_id"] == HISTORICAL_FAILED_RUN_ID
 
 
-def test_task_document_has_one_authoritative_current_state_block() -> None:
-    document = (ROOT / "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md").read_text(
-        encoding="utf-8"
+def _parse_authoritative_task_state(document: str) -> dict[str, str]:
+    headings = re.findall(r"(?m)^## 当前状态与停止点[ \t]*$", document)
+    if len(headings) != 1:
+        raise AssertionError(
+            "task document must have exactly one current state heading"
+        )
+    matches = list(
+        re.finditer(
+            r"(?ms)^## 当前状态与停止点[ \t]*$\n\n"
+            r"^```text[ \t]*$\n(?P<block>.*?)\n^```[ \t]*$",
+            document,
+        )
     )
-    assert "## Current formal authorization" not in document
-    match = re.search(
-        r"## 当前状态与停止点\s+```text\n(?P<block>.*?)\n```",
-        document,
-        flags=re.DOTALL,
-    )
-    assert match is not None
-    block = match.group("block")
-    expected = {
+    if len(matches) != 1:
+        raise AssertionError(
+            "task document must have exactly one current task state block"
+        )
+
+    state: dict[str, str] = {}
+    for line in matches[0].group("block").splitlines():
+        parsed = re.fullmatch(
+            r"(?P<key>[A-Za-z0-9_-]+): (?P<value>.+)",
+            line,
+        )
+        if parsed is None:
+            raise AssertionError(f"invalid task state line: {line!r}")
+        key = parsed.group("key")
+        if key in state:
+            raise AssertionError(f"duplicate task state key: {key}")
+        state[key] = parsed.group("value")
+    return state
+
+
+def _expected_task_state(authorization: Mapping[str, Any]) -> dict[str, str]:
+    authorization_common = {
+        "formal_run_attempt_limit": 2,
+        "formal_run_attempts_consumed_before_start": 1,
+        "authorized_attempt_number": 2,
+        "retry_of_run_id": HISTORICAL_FAILED_RUN_ID,
+        "retry_of_run_inventory_sha256": HISTORICAL_FAILED_RUN_INVENTORY_SHA256,
+    }
+    for key, expected in authorization_common.items():
+        if authorization.get(key) != expected:
+            raise AssertionError(f"authorization lifecycle mismatch: {key}")
+
+    status = authorization.get("authorization_status")
+    if status == "not_authorized":
+        unauthorized = {
+            "reviewed_formal_execution_sha": None,
+            "authorization_revision": 0,
+            "authorization_parent": None,
+            "formal_run_allowed": False,
+            "authorized_manifest_sha256": None,
+            "authorized_manifest_byte_size": None,
+        }
+        for key, expected in unauthorized.items():
+            if authorization.get(key) != expected:
+                raise AssertionError(f"invalid not-authorized lifecycle: {key}")
+        return {
+            "task_id": "R2A-T05",
+            "status": "formal_execution_candidate_pending_owner_rereview",
+            "candidate_parent_sha": PARENT_HEAD,
+            "governance_contract_repair": "pending_owner_rereview",
+            "authorization_status": "not_authorized",
+            "formal_run_allowed": "false",
+            "historical_formal_attempts_consumed": "1",
+            "formal_run_attempt_limit": "2",
+            "next_formal_attempt_number": "2",
+            "formal_retry_authorized": "false",
+            "historical_failed_run_id": HISTORICAL_FAILED_RUN_ID,
+            "historical_failed_run_inventory_sha256": (
+                HISTORICAL_FAILED_RUN_INVENTORY_SHA256
+            ),
+            "new_formal_run_started": "false",
+            "new_RunRoot": "absent",
+            "R2A-T05_DONE": "absent",
+            "R2A-T06_allowed_to_start": "false",
+            "PR_state": "Draft",
+        }
+
+    if status != "authorized_pending_execution":
+        raise AssertionError(f"unsupported authorization lifecycle: {status!r}")
+    reviewed = authorization.get("reviewed_formal_execution_sha")
+    manifest_sha = authorization.get("authorized_manifest_sha256")
+    manifest_size = authorization.get("authorized_manifest_byte_size")
+    if not isinstance(reviewed, str) or re.fullmatch(r"[0-9a-f]{40}", reviewed) is None:
+        raise AssertionError("invalid authorized candidate SHA")
+    if authorization.get("authorization_parent") != reviewed:
+        raise AssertionError("authorized parent does not match reviewed candidate")
+    if authorization.get("authorization_revision") != 1:
+        raise AssertionError("authorized revision must be one")
+    if authorization.get("formal_run_allowed") is not True:
+        raise AssertionError("authorized lifecycle must allow the formal run")
+    if (
+        not isinstance(manifest_sha, str)
+        or re.fullmatch(r"[0-9a-f]{64}", manifest_sha) is None
+    ):
+        raise AssertionError("invalid authorized manifest SHA")
+    if not isinstance(manifest_size, int) or isinstance(manifest_size, bool):
+        raise AssertionError("invalid authorized manifest byte size")
+    if manifest_size <= 0:
+        raise AssertionError("authorized manifest byte size must be positive")
+    return {
         "task_id": "R2A-T05",
-        "status": "formal_execution_candidate_pending_owner_rereview",
-        "candidate_parent_sha": PARENT_HEAD,
-        "authorization_status": "not_authorized",
-        "formal_run_allowed": "false",
+        "status": "authorized_pending_execution",
+        "formal_execution_review_status": "owner_approved",
+        "approved_formal_execution_sha": reviewed,
+        "formal_manifest_status": "owner_accepted",
+        "formal_manifest_sha256": manifest_sha,
+        "formal_manifest_byte_size": str(manifest_size),
+        "authorization_status": "authorized_pending_execution",
+        "formal_run_allowed": "true",
         "historical_formal_attempts_consumed": "1",
         "formal_run_attempt_limit": "2",
         "next_formal_attempt_number": "2",
-        "formal_retry_authorized": "false",
+        "formal_retry_authorized": "true",
         "historical_failed_run_id": HISTORICAL_FAILED_RUN_ID,
         "historical_failed_run_inventory_sha256": (
             HISTORICAL_FAILED_RUN_INVENTORY_SHA256
@@ -1308,11 +1402,135 @@ def test_task_document_has_one_authoritative_current_state_block() -> None:
         "R2A-T06_allowed_to_start": "false",
         "PR_state": "Draft",
     }
-    for key, value in expected.items():
-        assert re.findall(rf"(?m)^{re.escape(key)}:.*$", document) == [
-            f"{key}: {value}"
+
+
+def _render_synthetic_task_document(state: Mapping[str, str]) -> str:
+    block = "\n".join(f"{key}: {value}" for key, value in state.items())
+    return f"# Synthetic R2A-T05 task\n\n## 当前状态与停止点\n\n```text\n{block}\n```\n"
+
+
+def _validate_task_document_lifecycle(
+    document: str,
+    authorization: Mapping[str, Any],
+) -> dict[str, str]:
+    if "## Current formal authorization" in document:
+        raise AssertionError("legacy current authorization heading is forbidden")
+    state = _parse_authoritative_task_state(document)
+    expected = _expected_task_state(authorization)
+    if state != expected:
+        raise AssertionError(
+            "task document state does not match authorization lifecycle"
+        )
+
+    lifecycle_keys = set(_expected_task_state(_unauthorized_authorization_payload()))
+    lifecycle_keys.update(_expected_task_state(_authorized_authorization_payload()))
+    for key in lifecycle_keys:
+        occurrences = re.findall(rf"(?m)^{re.escape(key)}:.*$", document)
+        expected_occurrences = [f"{key}: {state[key]}"] if key in state else []
+        if occurrences != expected_occurrences:
+            raise AssertionError(f"lifecycle key is not unique to current state: {key}")
+    return state
+
+
+def test_task_document_has_one_authoritative_current_state_block() -> None:
+    document = (ROOT / "docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md").read_text(
+        encoding="utf-8"
+    )
+    authorization = json.loads(
+        (ROOT / "configs/r2a/r2a_t05_formal_authorization.v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    _validate_task_document_lifecycle(document, authorization)
+
+
+def test_task_document_contract_accepts_not_authorized_state() -> None:
+    authorization = _unauthorized_authorization_payload()
+    document = _render_synthetic_task_document(_expected_task_state(authorization))
+    assert (
+        _validate_task_document_lifecycle(document, authorization)[
+            "authorization_status"
         ]
-        assert f"{key}: {value}" in block
+        == "not_authorized"
+    )
+
+
+def test_task_document_contract_accepts_authorized_state() -> None:
+    authorization = _authorized_authorization_payload()
+    document = _render_synthetic_task_document(_expected_task_state(authorization))
+    assert (
+        _validate_task_document_lifecycle(document, authorization)[
+            "authorization_status"
+        ]
+        == "authorized_pending_execution"
+    )
+
+
+def test_task_document_contract_rejects_authorized_document_before_authorization() -> (
+    None
+):
+    unauthorized = _unauthorized_authorization_payload()
+    authorized = _authorized_authorization_payload()
+    document = _render_synthetic_task_document(_expected_task_state(authorized))
+    with pytest.raises(AssertionError, match="does not match authorization lifecycle"):
+        _validate_task_document_lifecycle(document, unauthorized)
+
+
+def test_task_document_contract_rejects_unauthorized_document_after_authorization() -> (
+    None
+):
+    unauthorized = _unauthorized_authorization_payload()
+    authorized = _authorized_authorization_payload()
+    document = _render_synthetic_task_document(_expected_task_state(unauthorized))
+    with pytest.raises(AssertionError, match="does not match authorization lifecycle"):
+        _validate_task_document_lifecycle(document, authorized)
+
+
+def test_task_document_contract_rejects_manifest_identity_mismatch() -> None:
+    authorization = _authorized_authorization_payload()
+    state = _expected_task_state(authorization)
+    state["formal_manifest_sha256"] = "f" * 64
+    document = _render_synthetic_task_document(state)
+    with pytest.raises(AssertionError, match="does not match authorization lifecycle"):
+        _validate_task_document_lifecycle(document, authorization)
+
+
+def test_task_document_contract_rejects_manifest_size_mismatch() -> None:
+    authorization = _authorized_authorization_payload()
+    state = _expected_task_state(authorization)
+    state["formal_manifest_byte_size"] = "2"
+    document = _render_synthetic_task_document(state)
+    with pytest.raises(AssertionError, match="does not match authorization lifecycle"):
+        _validate_task_document_lifecycle(document, authorization)
+
+
+def test_task_document_contract_rejects_approved_candidate_mismatch() -> None:
+    authorization = _authorized_authorization_payload()
+    state = _expected_task_state(authorization)
+    state["approved_formal_execution_sha"] = "b" * 40
+    document = _render_synthetic_task_document(state)
+    with pytest.raises(AssertionError, match="does not match authorization lifecycle"):
+        _validate_task_document_lifecycle(document, authorization)
+
+
+def test_task_document_contract_rejects_duplicate_lifecycle_key() -> None:
+    authorization = _unauthorized_authorization_payload()
+    document = _render_synthetic_task_document(_expected_task_state(authorization))
+    document = document.replace(
+        "authorization_status: not_authorized\n",
+        "authorization_status: not_authorized\nauthorization_status: not_authorized\n",
+        1,
+    )
+    with pytest.raises(AssertionError, match="duplicate task state key"):
+        _validate_task_document_lifecycle(document, authorization)
+
+
+def test_task_document_contract_rejects_lifecycle_key_outside_current_block() -> None:
+    authorization = _unauthorized_authorization_payload()
+    document = _render_synthetic_task_document(_expected_task_state(authorization))
+    document += "\nauthorization_status: not_authorized\n"
+    with pytest.raises(AssertionError, match="not unique to current state"):
+        _validate_task_document_lifecycle(document, authorization)
 
 
 def _sequence_callbacks(
