@@ -225,6 +225,12 @@ def _placeholders(values: Sequence[object]) -> str:
     return ",".join("?" for _ in values)
 
 
+def _duckdb_string_literal(value: str) -> str:
+    if "\x00" in value:
+        raise DynamicEvaluationError("source_database_path_invalid")
+    return "'" + value.replace("'", "''") + "'"
+
+
 def _scope_predicate(security_ids: Sequence[str]) -> tuple[str, list[object]]:
     return (
         f"security_id IN ({_placeholders(security_ids)})",
@@ -471,6 +477,74 @@ def _copy_selected_source(
         "INSERT INTO staging_dimensions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     return spine_count
+
+
+def _copy_selected_source_bulk(
+    *,
+    source_database_path: Path,
+    output: duckdb.DuckDBPyConnection,
+    securities: tuple[str, ...],
+    dimensions: tuple[str, ...],
+) -> int:
+    source_path = source_database_path.resolve()
+    attached = False
+    try:
+        output.execute(
+            f"ATTACH {_duckdb_string_literal(str(source_path))} "
+            "AS score_source (READ_ONLY)"
+        )
+        attached = True
+        output.execute(
+            "CREATE TEMP TABLE selected_security_ids (security_id VARCHAR PRIMARY KEY)"
+        )
+        output.execute(
+            "INSERT INTO selected_security_ids SELECT unnest(?)",
+            [list(securities)],
+        )
+        output.execute(
+            "INSERT INTO staging_spine "
+            "SELECT s.score_release_id, s.security_id, s.trading_date, "
+            "s.observation_sequence, s.expected_observation_status, "
+            "s.observation_available_time "
+            "FROM score_source.security_observation_spine AS s "
+            "JOIN selected_security_ids AS scope USING (security_id) "
+            "ORDER BY s.security_id, s.observation_sequence"
+        )
+        dimension_placeholders = _placeholders(dimensions)
+        output.execute(
+            "INSERT INTO staging_dimensions "
+            "SELECT d.score_release_id, d.security_id, d.trading_date, "
+            "d.observation_sequence, d.dimension_id, d.score_dimension, "
+            "d.score_dimension_min, d.eligible_dimension, d.validity_status, "
+            "d.reason_codes, d.available_time "
+            "FROM score_source.daily_dimension_scores AS d "
+            "JOIN selected_security_ids AS scope USING (security_id) "
+            f"WHERE d.dimension_id IN ({dimension_placeholders}) "
+            "ORDER BY d.security_id, d.observation_sequence, d.dimension_id",
+            list(dimensions),
+        )
+        spine_count = _count(output, "SELECT count(*) FROM staging_spine")
+        dimension_count = _count(output, "SELECT count(*) FROM staging_dimensions")
+        if dimension_count != spine_count * len(dimensions):
+            raise DynamicEvaluationError(
+                "bulk_source_copy_cardinality_mismatch",
+                f"spine={spine_count};dimensions={dimension_count};"
+                f"selected_dimensions={len(dimensions)}",
+            )
+        return spine_count
+    except DynamicEvaluationError:
+        raise
+    except duckdb.Error as error:
+        raise DynamicEvaluationError("bulk_source_copy_failed") from error
+    finally:
+        try:
+            output.execute("DROP TABLE IF EXISTS selected_security_ids")
+        finally:
+            if attached:
+                try:
+                    output.execute("DETACH score_source")
+                except duckdb.Error as error:
+                    raise DynamicEvaluationError("bulk_source_copy_failed") from error
 
 
 def _dimension_reason_expression() -> str:
@@ -743,14 +817,15 @@ def _drop_temporary_tables(output: duckdb.DuckDBPyConnection) -> None:
         output.execute(f"DROP TABLE IF EXISTS {table}")
 
 
-def evaluate_dynamic_request_connections(
+def _evaluate_dynamic_request_connections(
     *,
     source: duckdb.DuckDBPyConnection,
     output: duckdb.DuckDBPyConnection,
     canonical_request: Mapping[str, object],
     security_ids: Sequence[str] | None = None,
+    source_database_path: Path | None = None,
 ) -> DynamicEvaluationSummary:
-    """Evaluate one request using bounded streaming plus deterministic DuckDB SQL."""
+    """Evaluate one request using deterministic DuckDB SQL."""
 
     if source is output:
         raise DynamicEvaluationError("source_output_connection_same")
@@ -773,9 +848,17 @@ def evaluate_dynamic_request_connections(
         str(spec["score_release_id"]),
     )
     _create_output_tables(output)
-    spine_count = _copy_selected_source(
-        source, output, evaluated_ids, selected_dimensions
-    )
+    if source_database_path is None:
+        spine_count = _copy_selected_source(
+            source, output, evaluated_ids, selected_dimensions
+        )
+    else:
+        spine_count = _copy_selected_source_bulk(
+            source_database_path=source_database_path,
+            output=output,
+            securities=evaluated_ids,
+            dimensions=selected_dimensions,
+        )
     q_json = json.dumps(
         q_by_dimension,
         ensure_ascii=False,
@@ -834,6 +917,24 @@ def evaluate_dynamic_request_connections(
     return validate_dynamic_evaluation_output(output)
 
 
+def evaluate_dynamic_request_connections(
+    *,
+    source: duckdb.DuckDBPyConnection,
+    output: duckdb.DuckDBPyConnection,
+    canonical_request: Mapping[str, object],
+    security_ids: Sequence[str] | None = None,
+) -> DynamicEvaluationSummary:
+    """Evaluate one request through the legacy streaming connection oracle."""
+
+    return _evaluate_dynamic_request_connections(
+        source=source,
+        output=output,
+        canonical_request=canonical_request,
+        security_ids=security_ids,
+        source_database_path=None,
+    )
+
+
 def evaluate_dynamic_request(
     *,
     score_database: Path,
@@ -865,11 +966,12 @@ def evaluate_dynamic_request(
             duckdb.connect(str(source_path), read_only=True) as source,
             duckdb.connect(str(temporary)) as output,
         ):
-            summary = evaluate_dynamic_request_connections(
+            summary = _evaluate_dynamic_request_connections(
                 source=source,
                 output=output,
                 canonical_request=canonical_request,
                 security_ids=security_ids,
+                source_database_path=source_path.resolve(),
             )
             output.execute("CHECKPOINT")
         try:

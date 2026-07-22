@@ -1,14 +1,14 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。R2A-T04 revision 6 formal result 已接受并随 PR #113 合并；当前只执行 repository-local storage migration closure，R2A-T05 尚未启动。
+> 本文是无上下文新会话的当前入口。R2A-T05 formal result、post-run remediation、技术验收、科学审阅和 owner review 已接受。Accepted handoff 与 canonical `DONE` 已建立。PR #115 合并后 R2A-T06 获得启动资格，但尚未启动。
 
 ## 0. 当前状态
 
 ```text
 repository: benzemaer/convergence-research
-branch: codex/retire-external-input-root
-PR: #114
-PR state: Draft pending final Quality; then Ready for review
+branch: codex/r2a-t05-ca-exit-decomposition
+PR: #115
+PR state: Draft
 R2A-T04_merge_commit: a4b6696f3c9cd32cb9bc0c29606e3121958bc26e
 
 R2A-T04_status: completed_accepted
@@ -40,7 +40,26 @@ local_storage_root: repository/data
 external_input_root: retired_absent
 old_root_runtime_reference_present: false
 R2A-T05_allowed_to_start: true_after_LOCAL-STORAGE-MIGRATION-01_merge
-current_stop: LOCAL-STORAGE-MIGRATION-01 closure review
+R2A-T05_status: completed_accepted
+R2A-T05_accepted_run_id: R2A-T05-20260722T012719685Z
+R2A-T05_accepted_execution_head: 260c3e1fe040eb9a44ee64f54a01142e6c3d8efa
+R2A-T05_formal_result_review_status: accepted
+R2A-T05_scientific_review_status: passed
+R2A-T05_owner_result_review: accepted
+R2A-T05_post_run_artifact_remediation: owner_authorized_completed
+R2A-T05_formal_attempts_consumed: 2
+R2A-T05_additional_formal_run_allowed: false
+R2A-T05_scope_id: r2a_t05_ca_exit_mechanism_decomposition.v1
+R2A-T05_implementation_version: r2a_t05_ca_exit_decomposition.v1
+research_anchor_q: 2000
+research_anchor_role: exit_mechanism_decomposition
+R2A-T05_q_selection_status: not_selected
+R2A-T05_canonical_dynamic_request_selected: false
+R2A-T05_DONE: present
+R2A-T06_started: false
+pre_merge_R2A-T06_allowed_to_start: false
+R2A-T06_allowed_to_start: true_after_PR_115_merge
+current_stop: R2A-T05 accepted closure pending PR #115 merge
 ```
 
 ## 1. 已接受基线与边界
@@ -90,4 +109,17 @@ Evidence：
 docs/evidence/r2a/R2A-T04_CA_four_q_formal_result_acceptance.md
 ```
 
-唯一 `DONE` 已存在且保持 byte-identical。Repository-local copy、locator reconciliation 和 post-delete verification 均已通过，旧 external input root 已永久退役且 absent，未建立备份或兼容链接。R2A-T05 仍须等待 PR #114 合并；本迁移不选择 q、不注册动态状态、不生成交易信号，也不执行回测。
+R2A-T04 的唯一 `DONE` 已存在且保持 byte-identical。Repository-local copy、locator reconciliation 和 post-delete verification 均已通过，旧 external input root 已永久退役且 absent，未建立备份或兼容链接。R2A-T05 的 accepted handoff 与 canonical `DONE` 现已建立；其 formal result、post-run remediation、技术验收、科学审阅和 owner review 均已接受。
+
+## 6. R2A-T05 路线与停止点
+
+```text
+R2A-T05: CA q20 退出原因、阈值距离、快速重入和跨 q 结构分解
+R2A-T06: 读取 point-in-time 价格未来路径，冻结 release onset、release recognition、方向和强度标签
+R2A-T07: 版本注册、消费者契约与冻结
+R2A-T08: 阶段验收与 R3 handoff
+```
+
+q20 仅是 `exit_mechanism_decomposition` research anchor，`q_selection_status=not_selected`。Accepted q20 的 5,372 个 confirmed intervals 包含 5,363 个 raw-false termination、8 个 quality/availability termination 和 1 个 right-censored interval；raw-false 分解为 A_ONLY_FAIL 5,244、C_ONLY_FAIL 46、CA_BOTH_FAIL 73。该结果不读取未来价格路径或收益，不生成 release、方向、强度、交易信号或回测结论，也不支持 q 最优性。T06 的 no-lookahead/PIT 要求保留为未来 release 标签协议的强制验收组成部分；PR #115 合并后 T06 才获得启动资格，本轮未创建或启动 T06 implementation、task artifact、formal authorization 或 PR。
+
+R2A-T05 accepted handoff 位于 `data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json`，acceptance evidence 位于 `docs/evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md`。

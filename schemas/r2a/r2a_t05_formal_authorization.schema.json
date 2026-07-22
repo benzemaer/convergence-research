@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://benzemaer.local/schemas/r2a/r2a_t05_formal_authorization.schema.json",
+  "title": "R2A-T05 formal execution authorization metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "task_id",
+    "formal_scope_id",
+    "reviewed_implementation_sha",
+    "reviewed_formal_execution_sha",
+    "authorization_revision",
+    "authorization_parent",
+    "formal_run_allowed",
+    "formal_run_attempt_limit",
+    "formal_run_attempts_consumed_before_start",
+    "retry_of_run_id",
+    "retry_of_run_inventory_sha256",
+    "authorized_attempt_number",
+    "authorized_manifest_sha256",
+    "authorized_manifest_byte_size",
+    "authorization_status",
+    "authorization_diff_whitelist",
+    "protected_execution_files"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t05_formal_authorization.schema.json"},
+    "task_id": {"const": "R2A-T05"},
+    "formal_scope_id": {"const": "r2a_t05_ca_exit_mechanism_formal_execution.v1"},
+    "reviewed_implementation_sha": {"const": "55dceba70bc967caa75c597ce17acb93a2dac511"},
+    "reviewed_formal_execution_sha": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/commit"}]},
+    "authorization_revision": {"type": "integer", "minimum": 0},
+    "authorization_parent": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/commit"}]},
+    "formal_run_allowed": {"type": "boolean"},
+    "formal_run_attempt_limit": {"const": 2},
+    "formal_run_attempts_consumed_before_start": {"const": 1},
+    "retry_of_run_id": {"const": "R2A-T05-20260721T013805600Z"},
+    "retry_of_run_inventory_sha256": {"const": "9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770"},
+    "authorized_attempt_number": {"const": 2},
+    "authorized_manifest_sha256": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/hash"}]},
+    "authorized_manifest_byte_size": {"anyOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]},
+    "authorization_status": {"enum": ["not_authorized", "authorized_pending_execution"]},
+    "authorization_diff_whitelist": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "protected_execution_files": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/protected_file"}
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "authorization_status": {"const": "not_authorized"},
+        "reviewed_formal_execution_sha": {"const": null},
+        "authorization_revision": {"const": 0},
+        "authorization_parent": {"const": null},
+        "formal_run_allowed": {"const": false},
+        "formal_run_attempts_consumed_before_start": {"const": 1},
+        "authorized_attempt_number": {"const": 2},
+        "authorized_manifest_sha256": {"const": null},
+        "authorized_manifest_byte_size": {"const": null}
+      }
+    },
+    {
+      "properties": {
+        "authorization_status": {"const": "authorized_pending_execution"},
+        "reviewed_formal_execution_sha": {"$ref": "#/$defs/commit"},
+        "authorization_revision": {"type": "integer", "minimum": 1},
+        "authorization_parent": {"$ref": "#/$defs/commit"},
+        "formal_run_allowed": {"const": true},
+        "formal_run_attempts_consumed_before_start": {"const": 1},
+        "authorized_attempt_number": {"const": 2},
+        "authorized_manifest_sha256": {"$ref": "#/$defs/hash"},
+        "authorized_manifest_byte_size": {"type": "integer", "minimum": 1}
+      }
+    }
+  ],
+  "$defs": {
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "protected_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "source_commit",
+        "git_blob_sha",
+        "committed_byte_sha256",
+        "normalized_text_sha256",
+        "encoding",
+        "line_ending",
+        "bom",
+        "trailing_lf_count"
+      ],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "source_commit": {"$ref": "#/$defs/commit"},
+        "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "committed_byte_sha256": {"$ref": "#/$defs/hash"},
+        "normalized_text_sha256": {"$ref": "#/$defs/hash"},
+        "encoding": {"const": "utf-8"},
+        "line_ending": {"const": "LF"},
+        "bom": {"const": false},
+        "trailing_lf_count": {"const": 1}
+      }
+    }
+  }
+}

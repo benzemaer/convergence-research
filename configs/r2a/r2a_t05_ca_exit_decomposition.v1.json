@@ -1,0 +1,226 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t05_ca_exit_decomposition.schema.json",
+  "task_id": "R2A-T05",
+  "stage_id": "R2A",
+  "status": "implementation_candidate_pending_owner_review",
+  "scope_id": "r2a_t05_ca_exit_mechanism_decomposition.v1",
+  "implementation_version": "r2a_t05_ca_exit_decomposition.v1",
+  "research_anchor_q": 2000,
+  "research_anchor_role": "exit_mechanism_decomposition",
+  "q_selection_status": "not_selected",
+  "canonical_dynamic_request_selected": false,
+  "formal_run_allowed": false,
+  "formal_run_started": false,
+  "real_score_data_read": false,
+  "formal_artifacts_generated": false,
+  "R2A-T05_DONE": "absent",
+  "R2A-T06_started": false,
+  "R2A-T06_allowed_to_start": false,
+  "PR_state": "Draft",
+  "accepted_bindings": {
+    "score_release": {
+      "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
+      "sha256": "d1ee60ef854a5fe18042c61175febd837db43d76c5c104462ce61c3f176403a3",
+      "byte_size": 4255395840,
+      "accepted_t01_handoff_sha256": "142fa9f022025c6097a2651013a1434dae2eb153dc42da8d6450523571c192ad"
+    },
+    "evaluator": {
+      "evaluator_version": "r2a_t03_dynamic_evaluator.v1",
+      "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1",
+      "dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1",
+      "accepted_t03_handoff_sha256": "474a6721f0f8219b7ddb16cbddec2294d6b61c75db57f63e5f45ebfeb025b9b1",
+      "accepted_t03_config_sha256": "b738caf972b778d5b063b283dc6be8537b1074f77675e3e89f7693b3dc7c5a02"
+    },
+    "t04_handoff": {
+      "relative_path": "data/generated/r2a/r2a_t04/R2A-T04-20260720T002158508Z/r2a_t04_accepted_result_handoff.json",
+      "sha256": "ec4aa13d8b428adb03e6f7faff591741f2730c50cdc87d98f33c9e6ef9e20c5a",
+      "scope_id": "r2a_t04_ca_q10_q15_q20_q25_k5_response_audit.v1",
+      "panel_id": "r2a_t04_ca_four_q_k5_panel.v1",
+      "accepted_run_id": "R2A-T04-20260720T002158508Z"
+    }
+  },
+  "requests": [
+    {
+      "logical_request_name": "CA_q10_k5",
+      "request_id": "pcavt-dynreq-v1-d07aae4bbbd98f88",
+      "request_hash": "d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f",
+      "selected_dimensions": ["C", "A"],
+      "q_by_dimension": {"C": 1000, "A": 1000},
+      "confirmation_k": 5,
+      "selection_status": "evaluated_not_selected",
+      "comparison_role": "cross_q_structure_comparison"
+    },
+    {
+      "logical_request_name": "CA_q15_k5",
+      "request_id": "pcavt-dynreq-v1-cf420e9c025374d1",
+      "request_hash": "cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f",
+      "selected_dimensions": ["C", "A"],
+      "q_by_dimension": {"C": 1500, "A": 1500},
+      "confirmation_k": 5,
+      "selection_status": "evaluated_not_selected",
+      "comparison_role": "cross_q_structure_comparison"
+    },
+    {
+      "logical_request_name": "CA_q20_k5",
+      "request_id": "pcavt-dynreq-v1-21bd144aaed98d9e",
+      "request_hash": "21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971",
+      "selected_dimensions": ["C", "A"],
+      "q_by_dimension": {"C": 2000, "A": 2000},
+      "confirmation_k": 5,
+      "selection_status": "evaluated_not_selected",
+      "comparison_role": "research_anchor_exit_mechanism_decomposition"
+    },
+    {
+      "logical_request_name": "CA_q25_k5",
+      "request_id": "pcavt-dynreq-v1-b210f9e5211c46db",
+      "request_hash": "b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9",
+      "selected_dimensions": ["C", "A"],
+      "q_by_dimension": {"C": 2500, "A": 2500},
+      "confirmation_k": 5,
+      "selection_status": "evaluated_not_selected",
+      "comparison_role": "cross_q_structure_comparison"
+    }
+  ],
+  "accepted_t04_counts": {
+    "CA_q10_k5": {"raw_true": 20559, "confirmed_true": 1916, "intervals": 751, "securities_with_interval": 473},
+    "CA_q15_k5": {"raw_true": 46651, "confirmed_true": 7125, "intervals": 2426, "securities_with_interval": 734},
+    "CA_q20_k5": {"raw_true": 81535, "confirmed_true": 17642, "intervals": 5372, "securities_with_interval": 775},
+    "CA_q25_k5": {"raw_true": 124893, "confirmed_true": 35098, "intervals": 9107, "securities_with_interval": 788}
+  },
+  "input_contract": {
+    "formal_allowed_sources": [
+      "accepted R2A-T01 canonical Score release",
+      "accepted R2A-T03 evaluator and output protocol identity",
+      "accepted R2A-T04 handoff, request identities and accepted count facts",
+      "repository-local data/**"
+    ],
+    "candidate_source_mode": "synthetic_fixture_only",
+    "allowed_score_tables": [
+      "securities",
+      "trading_sessions",
+      "security_observation_spine",
+      "dimension_definitions",
+      "dimension_components",
+      "daily_component_scores",
+      "daily_dimension_scores"
+    ],
+    "allowed_evaluator_tables": [
+      "dynamic_request",
+      "evaluation_scope",
+      "daily_dimension_states",
+      "daily_joint_states",
+      "confirmed_intervals"
+    ],
+    "requires_observation_sequence": true,
+    "requires_same_q_follow_up": true,
+    "future_path_and_transaction_data_allowed": false,
+    "price_and_return_data_allowed": false,
+    "formal_run_reads_real_score": false
+  },
+  "termination_definition": {
+    "interval_unit": "accepted_v1_confirmed_interval",
+    "interval_semantics_modified": false,
+    "termination_rule_modified": false,
+    "primary_categories": [
+      "raw_false",
+      "quality_or_availability_termination",
+      "input_end_open_right_censored"
+    ],
+    "quality_primary_reasons": [
+      "expected_observation_missing",
+      "expected_observation_listing_pause",
+      "selected_dimension_blocked",
+      "selected_dimension_diagnostic_required",
+      "selected_dimension_unknown",
+      "selected_dimension_not_eligible",
+      "selected_dimension_score_non_finite"
+    ],
+    "raw_false_subclasses": ["A_ONLY_FAIL", "C_ONLY_FAIL", "CA_BOTH_FAIL"],
+    "raw_false_unclassified_allowed": false,
+    "unsupported_changes": ["d", "g", "exit_delay", "hysteresis", "gap_tolerance", "interval_merge"]
+  },
+  "threshold_margin_definition": {
+    "q_by_dimension": "request_q_bp / 10000",
+    "main_threshold": "1 - q_D",
+    "weak_threshold": "1 - q_D - 0.10",
+    "mean_margin": "score_dimension_D - main_threshold_D",
+    "min_margin": "score_dimension_min_D - weak_threshold_D",
+    "active_margin": "min(mean_margin_D, min_margin_D)",
+    "epsilon": 1e-12,
+    "gate_failure_classes": ["MAIN_ONLY_FAIL", "WEAK_ONLY_FAIL", "MAIN_AND_WEAK_FAIL", "NO_GATE_FAIL", "NOT_EVALUABLE"],
+    "signed_margin_preserved": true,
+    "component_scores_retained": true
+  },
+  "quick_reentry_definition": {
+    "sequence_field": "observation_sequence",
+    "calendar_difference_allowed": false,
+    "raw_true_max_lag": 5,
+    "confirmed_true_max_lag": 10,
+    "raw_rates": [1, 3, 5],
+    "confirmed_rates": [5, 10],
+    "no_reentry_statuses": ["not_reentered_within_window", "insufficient_followup_censored", "quality_interrupted"],
+    "termination_observability_fields": ["first_raw_true_lag", "first_confirmed_true_lag", "first_quality_interruption_lag", "max_observed_followup_lag", "followup_input_end_censored"],
+    "threshold_classification_rule": "event_at_or_before_threshold_before_first_quality; quality_at_or_before_threshold_without_prior_event; otherwise_complete_to_threshold_or_insufficient_followup_censored",
+    "profile_fields": ["total_non_right_censored_termination_count", "observable_denominator", "reentered_count", "clean_not_reentered_count", "insufficient_followup_censored_count", "quality_interrupted_count", "reentry_rate"],
+    "profile_main_denominator": "reentered_count + clean_not_reentered_count",
+    "accepted_interval_mutation_allowed": false
+  },
+  "cross_q_definition": {
+    "confirmed_nested_order": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+    "mapping_rule": "all_child_confirmed_observation_keys_must_be_uniquely_contained_in_one_parent_interval",
+    "nearest_date_matching_allowed": false,
+    "calendar_tolerance_allowed": false,
+    "daily_identities": ["Q10_CORE", "Q15_NOT_Q10_CORE", "Q20_NOT_Q15_ANCHOR", "Q25_NOT_Q20_SHELL"],
+    "identity_exhaustive_over": "q25_parent_confirmed_days",
+    "daily_identity_key": ["security_id", "observation_sequence", "q25_parent_interval_ordinal"],
+    "daily_identity_scope": "exactly_one_row_per_q25_confirmed_observation_key",
+    "parent_shell_rule": "q25_confirmed_days_minus_union_of_all_q20_confirmed_children",
+    "parent_summary_fields": ["q25_parent_confirmed_day_count", "q20_confirmed_day_count_inside_parent", "q25_only_shell_day_count", "q20_child_interval_count", "q20_fragmented_within_q25_parent"],
+    "child_local_shell_fields": ["q25_local_leading_shell_days", "q25_local_trailing_shell_days", "q25_local_adjacent_shell_days"],
+    "q20_sibling_count_excludes_self": true
+  },
+  "result_package": {
+    "schema_version": "r2a_t05_result_package.v1",
+    "required_files": [
+      "request_identity.json",
+      "input_manifest.json",
+      "run_summary.json",
+      "validation_receipt.json",
+      "result_analysis.md",
+      "request_reconciliation.csv",
+      "termination_reason_profile.csv",
+      "raw_false_exit_decomposition.csv",
+      "threshold_margin_summary.csv",
+      "quick_reentry_profile.csv",
+      "cross_q_structure_summary.csv",
+      "cross_q_child_structure_summary.csv",
+      "year_profile.csv",
+      "security_profile.csv",
+      "deterministic_interval_samples.csv"
+    ],
+    "large_detail_storage": ["repository-local git-ignored DuckDB", "repository-local git-ignored Parquet"],
+    "formal_artifacts_generated_in_this_pr": false
+  },
+  "t06_boundary": {
+    "research_goal": "read point-in-time observation data to freeze release onset, recognition, direction and intensity labels",
+    "inputs": ["accepted Score release", "point-in-time availability metadata", "future observation protocol"],
+    "outputs": ["release onset label", "release recognition label", "direction label", "intensity label"],
+    "current_pr_implements": false,
+    "current_pr_creates_config": false,
+    "current_pr_reads_price_data": false,
+    "mandatory_acceptance_requirements": ["no-lookahead", "point-in-time availability", "replay equals batch", "missing observation is not skipped"]
+  },
+  "non_goals": [
+    "release_onset",
+    "release_recognition",
+    "release_direction",
+    "release_intensity",
+    "best_q_or_optimal_q",
+    "canonical_q_selection",
+    "P_V_T_incremental_prediction",
+    "future_price_path",
+    "return_or_backtest",
+    "signal_or_portfolio",
+    "trading_value"
+  ]
+}

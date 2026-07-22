@@ -1,0 +1,214 @@
+# R2A-T05 CA q20 退出机制与跨 q 结构分解
+
+## 当前状态与停止点
+
+```text
+task_id: R2A-T05
+status: completed_accepted
+accepted_run_id: R2A-T05-20260722T012719685Z
+reviewed_implementation_sha: 55dceba70bc967caa75c597ce17acb93a2dac511
+reviewed_formal_execution_sha: 99013f57eb9835f57ec7d253b35689f2ffc123e7
+accepted_execution_head: 260c3e1fe040eb9a44ee64f54a01142e6c3d8efa
+formal_result_review_status: accepted
+scientific_review_status: passed
+owner_result_review: accepted
+post_run_artifact_remediation: owner_authorized_completed
+formal_run_attempt_limit: 2
+formal_run_attempts_consumed: 2
+additional_formal_run_allowed: false
+accepted_handoff_sha256: 6d69a6526d14f4844fdc1f5b888bb87768c7eedb58b65ea76445eede3d1a6881
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+R2A-T05_DONE: present
+R2A-T06_allowed_to_start: true_after_PR_115_merge
+R2A-T06_started: false
+PR_state: Draft
+```
+
+R2A-T05 formal result、post-run artifact remediation、技术验收、科学审阅与 owner result review 已接受。Accepted handoff 与 canonical `DONE` 已建立；PR #115 合并后 R2A-T06 才获得启动资格，本轮没有启动 T06。
+
+## Successor manifest authorization evidence
+
+```text
+successor_candidate_sha: 99013f57eb9835f57ec7d253b35689f2ffc123e7
+successor_quality_run_id: 29882028158
+successor_quality_status: completed
+successor_quality_conclusion: success
+successor_manifest_sha256: 368626145f0d1ba78a8d4b8577b4fbbf53a5832da313068445d7984973958c44
+successor_manifest_byte_size: 10449
+successor_manifest_verification_root: data/generated/r2a/r2a_t05/formal-manifest-verifications/99013f57eb9835f57ec7d253b35689f2ffc123e7/R2A-T05-MANIFEST-VERIFY-20260722T011159011Z
+successor_manifest_verification_status: passed
+successor_verification_manifest_sha256: a880f4b8704e73dc855da3a804ecbe1a780ccdebb8944499dda3fb702a98df6b
+successor_verification_manifest_byte_size: 3171
+```
+
+## Governance contract repair history
+
+```text
+historical_goal_blocked_stage: metadata_only_authorization_local_gate
+historical_goal_blocked_test: test_task_document_has_one_authoritative_current_state_block
+historical_goal_blocked_reason: task document was required to become authorized while the protected test hard-coded the prior not-authorized state
+historical_goal_blocked_resolution: create an authorization-aware successor candidate before generating a successor-bound manifest
+historical_superseded_parent_candidate: 8bb024f8fb840b69ed565b0d9da3a78f71c27210
+historical_superseded_parent_manifest_sha256: 1d37acb4676444f72384aa457992d70a71d173210480595bc6ba3b0b8f905dd2
+```
+
+## CI-portability candidate history
+
+```text
+historical_ci_failed_candidate: 1cbcf64cd2e2340f1ce7cbd2e74847fb7bb0d3ee
+historical_ci_quality_run: 29831600529
+historical_ci_failure_reason: environment-coupled pytest required a git-ignored local RunRoot
+production historical inventory validation: unchanged and mandatory during authorized preflight and immediately before creating attempt-2 RunRoot
+generic CI inventory tests: synthetic only
+local exact inventory gate: passed before candidate commit
+```
+
+The generic pytest no longer reads the real git-ignored historical formal evidence. The production `_validate_historical_run_roots()` inventory comparison remains strict and mandatory; the exact local historical inventory check is an operator gate on the machine that retains the evidence, not a GitHub Actions dependency.
+
+## 研究问题
+
+T05 只回答：已确认的 CA 区间为何终止，终止时 C/A 距离各自门槛多远，终止是否在同一 q 的后续状态中快速重入，以及 q20 在 q10/q15/q25 严格嵌套结构中的核心、外壳、边界和碎片结构。T05 不回答 release onset、recognition、方向、强度、未来路径、收益、回测、信号、组合或交易价值，也不比较哪一个 q 更优。
+
+## 锚点与请求身份
+
+T05 的研究锚点是 accepted T04 request `CA_q20_k5`，但它只是退出机制分解的研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择：
+
+```text
+request_id: pcavt-dynreq-v1-21bd144aaed98d9e
+request_hash: 21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971
+selected_dimensions: [C, A]
+q_by_dimension: {C: 2000, A: 2000}
+confirmation_k: 5
+selection_status: evaluated_not_selected
+```
+
+q10、q15、q25 只作为跨 q 结构比较。其完整 request ID、request hash、selected dimensions、q 和 K 必须从 accepted T04 handoff/config 读取，并由 validator 对账；实现不得根据简称手工重造身份。
+
+## 输入边界
+
+未来 formal T05 只允许绑定 accepted T01 canonical Score release、accepted T03 evaluator/protocol identity、accepted T04 handoff/config 及 repository-local `data/**`。实现只读上述状态和 Score 表；不读取价格、收益、未来路径或交易结果字段。当前 candidate 只能使用 synthetic fixture。T06 的 no-lookahead/PIT 要求保留为未来 release 标签协议的强制验收条件，但 T05 不实现 T06、不创建 T06 config/schema/runner、不读取价格数据。
+
+## 退出终点与一级分类
+
+分析单位是 accepted v1 evaluator 的每个 confirmed interval，区间定义和退出规则保持不变，不引入退出延迟、hysteresis、gap tolerance、自动合并或其他 d/g 变体。每个 interval 保留 confirmation date、last confirmed end、termination observation date、原始 primary reason 和 right-censored。
+
+一级分类固定为：
+
+```text
+raw_false
+quality_or_availability_termination
+input_end_open_right_censored
+```
+
+质量/可用性类必须继续保留 accepted protocol 的原始 primary reason：expected observation missing、listing pause、blocked、diagnostic required、unknown、not eligible、score non-finite。只有 `raw_false` 才按 termination observation 的 C/A active 状态划分为且仅为一个 `A_ONLY_FAIL`、`C_ONLY_FAIL` 或 `CA_BOTH_FAIL`；C/A 同时 active 而 joint raw=false 视为 evaluator/lineage mismatch 并阻塞，不产生 `raw_false_unclassified`。
+
+## 阈值距离
+
+对 D∈{C,A}，在 last confirmed end 和 termination observation 两个端点计算：
+
+```text
+main_threshold_D = 1 - q_D
+weak_threshold_D = 1 - q_D - 0.10
+mean_margin_D = score_dimension_D - main_threshold_D
+min_margin_D = score_dimension_min_D - weak_threshold_D
+active_margin_D = min(mean_margin_D, min_margin_D)
+```
+
+margin 保留有符号值，使用 accepted epsilon `1e-12`。gate failure 固定为 `MAIN_ONLY_FAIL`、`WEAK_ONLY_FAIL`、`MAIN_AND_WEAK_FAIL`、`NO_GATE_FAIL` 和 `NOT_EVALUABLE`。结果还必须保留 C/A 的 dimension mean、dimension min、两个 component Score、eligibility、validity 和 reason codes。报告会扫描 margin 的全 NULL、全零、常数列、全一和数量级异常，并报告端点变化、raw_false 子类分布、gate 构成、年度分布和证券分布。
+
+## 快速重入
+
+快速重入只使用同一 q request 的后续 CA 状态。连续性以同一证券的 `observation_sequence` 计算，不使用 calendar-day 差值，也不跳过 missing/listing pause。每个非 right-censored termination record 都保留 `first_raw_true_lag`、`first_confirmed_true_lag`、`first_quality_interruption_lag`、`max_observed_followup_lag` 和 `followup_input_end_censored`；raw 的 1/3/5 与 confirmed 的 5/10 各自独立分类。若 event 在阈值内且早于首个 quality interruption，则为 `reentered`；若首个 quality interruption 在阈值内且此前没有 event，则为 `quality_interrupted`；没有 event/quality 且观测不足阈值才是 `insufficient_followup_censored`，完整观测到阈值而无 event 才是 `not_reentered_within_window`。profile 的主分母固定为 `reentered_count + clean_not_reentered_count`，不把 quality 或 input-end censored 放入主分母；`reentry_rate` 在分母为零时为 NULL。快速重入不会修改、删除、合并或追认原 accepted interval。
+
+## 跨 q 结构
+
+只使用 accepted daily confirmed-state 的严格嵌套关系 `q10 ⊆ q15 ⊆ q20 ⊆ q25`。每个 child 的全部 confirmed observation keys 必须唯一包含于一个 parent interval；child 横跨 parent 或找不到 parent 时 fail closed。日级身份的全局主键至少为 `(security_id, observation_sequence, q25_parent_interval_ordinal)`，每个 q25 parent confirmed 日恰好一行，不能按 q20 sibling 重复展开。身份按全局 confirmed sets 严格派生：先 `Q10_CORE`，否则 `Q15_NOT_Q10_CORE`，否则 `Q20_NOT_Q15_ANCHOR`，否则 `Q25_NOT_Q20_SHELL`；唯一性、全覆盖、行数和差分守恒都必须通过。`cross_q_structure_summary` 以 q25 parent 为一行，至少输出 `q25_parent_confirmed_day_count`、所有 q20 child 的并集 `q20_confirmed_day_count_inside_parent`、`q25_only_shell_day_count`、`q20_child_interval_count` 和 `q20_fragmented_within_q25_parent`，其中 parent shell 必须是 q25 confirmed days 减去所有 q20 sibling 的并集。child 另行输出 `q25_local_leading_shell_days`、`q25_local_trailing_shell_days` 和 `q25_local_adjacent_shell_days`；这些只统计 child 两端与 parent 边界/另一个 q20 confirmed day 之间的连续 q25-only observations，中间 q25-only gap 可分别计入前一 child 的 trailing 和后一 child 的 leading。
+
+## Accepted T04 对账事实
+
+未来 formal run 必须重新计算四个 request，并逐项对账 accepted T04：
+
+| Request | Raw true | Confirmed true | Intervals | Securities with interval |
+| --- | ---: | ---: | ---: | ---: |
+| CA_q10_k5 | 20,559 | 1,916 | 751 | 473 |
+| CA_q15_k5 | 46,651 | 7,125 | 2,426 | 734 |
+| CA_q20_k5 | 81,535 | 17,642 | 5,372 | 775 |
+| CA_q25_k5 | 124,893 | 35,098 | 9,107 | 788 |
+
+任一 request identity、Score identity、日期/证券覆盖、daily state、interval 或 count reconciliation 不一致，必须停止结果解释和下游推进。
+
+## Candidate package contract
+
+未来 formal package 的 compact review files 为 `request_identity.json`、`input_manifest.json`、`run_summary.json`、`validation_receipt.json`、`result_analysis.md`、`request_reconciliation.csv`、`termination_reason_profile.csv`、`raw_false_exit_decomposition.csv`、`threshold_margin_summary.csv`、`quick_reentry_profile.csv`、`cross_q_structure_summary.csv`、`cross_q_child_structure_summary.csv`、`year_profile.csv`、`security_profile.csv` 和 `deterministic_interval_samples.csv`。完整逐区间 inventory、逐日身份和 mapping 只能保存于 repository-local git-ignored DuckDB/Parquet；本 PR 不生成这些 formal artifacts。
+
+## Validator 与 result analysis
+
+validator 不接受 builder 自报 counts 作为充分证据。它必须独立复算四个 request identity、T04 counts、raw/confirmed subset、termination 分类、margin 公式、observation-sequence lag、follow-up censoring、唯一 parent mapping、daily identity 守恒、表间 reconciliation、输入字段白名单、排序确定性和退化输出。synthetic tests 覆盖正常分类、质量终止、right censoring、raw/confirmed 重入、follow-up 不足、多 child parent、跨 parent、subset violation、margin 符号翻转、calendar/observation lag 混淆、T04 count mismatch 和未授权字段注入。
+
+正式运行后必须立即读取实际结果包并提交独立 `result_analysis.md`。若出现全零、全 NULL、全一、参数无响应、层级关系异常、数量级突变、availability 不一致、T04 count mismatch、raw_false 无法分类、parent 不唯一或 re-entry 语义异常，必须阻塞并调查，不能标记 completed、创建 DONE、推进 README gate 或允许 T06。
+
+## 历史失败 formal attempt
+
+```text
+historical_superseded_formal_execution_sha: 6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a
+historical_failed_authorization_commit: b798fd044f37fbe6b8174c65b9746362097c20c4
+historical_authorization_parent: 6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a
+historical_failed_authorization_quality_run_id: 29772023752
+historical_failed_authorization_quality_status: completed
+historical_failed_authorization_quality_conclusion: success
+historical_failed_preflight_reason: authorization_diff_outside_whitelist
+historical_failed_preflight_cause: Git path quoting for non-ASCII task-document path
+historical_authorization_status: not_authorized
+historical_formal_run_allowed: false
+historical_formal_run_started: false
+historical_authorization_attempts_consumed_before_start: 0
+historical_authorization_RunRoot: absent
+historical_superseded_manifest_1_path: data/generated/r2a/r2a_t05/formal-authorization/r2a_t05_formal_input_manifest.v1.json
+historical_superseded_manifest_1_sha256: 6c6a916423f949183941010e0cc2d77df1fa9f91e2a913edaa7d8eb08e197cd4
+historical_superseded_manifest_1_byte_size: 10449
+historical_superseded_manifest_2_path: data/generated/r2a/r2a_t05/formal-authorization/6c7b64adc4fe2afa97a3fe41291bd4e8ee8ce28a/r2a_t05_formal_input_manifest.v1.json
+historical_superseded_manifest_2_sha256: f11f87b7490a0d89133437a62eb657fad7c86b4c5bbf3fc10808706ffe42219a
+historical_superseded_manifest_2_byte_size: 10449
+historical_authorization_R2A-T05_DONE: absent
+historical_authorization_R2A-T06_allowed_to_start: false
+```
+
+历史授权失败只记录为 lineage 背景，不构成当前 authorization，也不消耗本轮候选之外的 retry 名额。历史 manifest（包括 `d4f9c83dc198003d55bc3d32d0ae50a4603ccc0b601107b42111f23d313ca13b`）均保持 superseded，不得作为当前 formal input。
+
+## 历史 bulk-copy candidate context
+
+此前 bulk-copy candidate 的工程诊断和 promotion driver 失败保留如下，当前候选不重新运行这些路径：
+
+```text
+historical_bulk_copy_failed_authorization_commit: 307dab1f2189aaf8d3c4268b54d42c6f4a3fa96d
+historical_failed_formal_run_id: R2A-T05-20260721T013805600Z
+historical_bulk_copy_attempts_consumed: 1
+historical_accepted_copy_diagnosis: copy_path_dominant
+historical_accepted_validator_diagnosis: driver_cumulative_timeout
+historical_latest_promotion_driver_failure: output_parent_missing
+historical_repair_scope: DuckDB-native bulk source staging
+historical_q_level_parallelism: false
+historical_candidate_authorization_status: not_authorized
+historical_formal_retry_authorized: false
+historical_R2A-T05_DONE: absent
+historical_R2A-T06_allowed_to_start: false
+historical_superseded_manifest_3_path: data/generated/r2a/r2a_t05/formal-authorization/b72e53fc571e2b3eb55dfd0c0499982b276371c6/r2a_t05_formal_input_manifest.v1.json
+historical_superseded_manifest_3_sha256: d4f9c83dc198003d55bc3d32d0ae50a4603ccc0b601107b42111f23d313ca13b
+historical_superseded_manifest_3_byte_size: 10449
+```
+
+该工程诊断不改变 T05 的科学定义，也不授权新的 formal 输入。当前候选仅补足 retry 的历史 RunRoot 校验、累计 attempt 字段、失败闭环和测试；它不生成 manifest、authorization、preflight、formal run 或新的 RunRoot。
+
+## Accepted closure
+
+R2A-T05 的权威 completed lifecycle 由以下 committed closure artifacts 建立，历史 formal execution config 与 authorization config 继续作为执行契约保留，但不再是当前任务状态的唯一来源：
+
+```text
+accepted_handoff: data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json
+accepted_handoff_identity: 6d69a6526d14f4844fdc1f5b888bb87768c7eedb58b65ea76445eede3d1a6881 / 10657 bytes
+DONE: data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/DONE
+acceptance_evidence: docs/evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md
+```
+
+接受结果保留 q20 为退出机制分解的 research anchor，不选择 canonical q。q20 的 5,372 个 confirmed intervals 分解为 5,363 个 raw-false termination、8 个 quality/availability termination 与 1 个 right-censored interval；raw-false 进一步分为 A_ONLY_FAIL 5,244、C_ONLY_FAIL 46、CA_BOTH_FAIL 73。该结果不读取未来价格路径或收益，不生成 release、方向、强度、交易信号或回测结论，也不支持 q 最优性。

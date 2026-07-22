@@ -382,36 +382,38 @@ K response
 
 该阶段不是寻找唯一最佳参数，而是确认动态协议在允许参数域内响应合理、不发生退化。
 
-### R2A-T05：正式动态 evaluation package
+### R2A-T05：CA q20 退出机制与跨 q 结构分解
 
-建立正式请求的不可变输出结构：
+T05 的唯一问题是：已确认 CA 区间为何终止、终止时 C/A 距离门槛多远、是否在同一 q 的后续状态中快速重入，以及 q20 在 q10/q15/q25 严格嵌套梯度中的核心、外壳、边界和碎片结构。q20 固定为研究锚点 `q=0.20`，但 `q_selection_status=not_selected`，不注册 canonical dynamic request，不选择最佳 q。
+
+T05 必须在 accepted v1 interval 语义上工作，不增加 d/g、退出延迟、hysteresis、gap tolerance 或自动合并。输出包括：
 
 ```text
-request.json
-result.duckdb
-manifest.json
-validation_receipt.json
-result_analysis.md
-DONE
+raw_false / quality_or_availability_termination / input_end_open_right_censored
+C-only / A-only / CA-both raw-false decomposition
+signed C/A endpoint threshold margins and gate-failure classes
+observation_sequence-based raw/confirmed quick re-entry
+q10 -> q15 -> q20 -> q25 unique parent-child interval mapping
+mutually exclusive daily Q10/Q15/Q20/Q25 hierarchy identities
 ```
 
-普通 Web 请求仍可即时计算，不要求保存。
+正式 T05 将来可以生成 request identity、input manifest、run summary、validation receipt、result analysis 和 compact review tables；逐区间 inventory、逐日身份和 mapping 只能保存在 repository-local git-ignored detail storage。本 implementation PR 只包含 candidate code、contract、schema、synthetic tests 和 runner，不能执行真实 formal run、读取真实 Score 或创建 DONE。
 
-初期不建设缓存；只有真实延迟证明需要后，再加入可删除、可重建且不进入 canonical lineage 的缓存层。
+### R2A-T06：PIT/no-lookahead release 标签协议
 
-### R2A-T06：无前视回放
-
-验证：
+T06 才读取 point-in-time 价格未来路径，冻结 release onset、release recognition、方向和强度标签。T06 的强制验收包括：
 
 ```text
-strict-past Score
+strict-past / point-in-time availability
 available_time <= evaluation_as_of
 逐日 replay 与批量计算一致
 缺失 observation 不被跳过
 不同执行并行度结果一致
 ```
 
-### R2A-T07：版本注册与冻结
+T06 的 no-lookahead/PIT 要求是 release 标签协议的组成部分，不能删除或降级为一般说明。当前 T05 PR 不实现 T06，不创建 T06 config/schema/runner，不读取价格数据。
+
+### R2A-T07：版本注册与消费者契约冻结
 
 注册：
 
@@ -426,6 +428,8 @@ artifact hashes
 
 不注册唯一 canonical state version，也不把某个 q/K 请求提升为全局状态结论。
 
+注册 accepted Score release、T03 evaluator/protocol identity、T05 result package schema、版本和消费者契约；不把 q20 提升为 canonical，也不在未完成 T05/T06 验收前发布冻结状态。
+
 ### R2A-T08：阶段验收与 R3 handoff
 
 只有在：
@@ -434,7 +438,7 @@ artifact hashes
 Score release 通过
 动态协议通过
 真实参数响应合理
-无前视回放通过
+T05 exit decomposition、T06 PIT/no-lookahead release labels、独立结果分析和交易约束边界均通过
 独立结果分析通过
 ```
 
@@ -479,9 +483,9 @@ score domain 和组件数量异常
 
 R2A-T01 不执行也不要求 q response、K response、streak、interval 或集合层级分析。
 
-### 3. Dynamic evaluation formal，包括 R2A-T04/T05/T06
+### 3. Dynamic evaluation formal，包括 R2A-T04、R2A-T05 与 R2A-T06
 
-除共同要求外，还必须完成：
+除共同要求外，T04/T05 必须完成：
 
 ```text
 q response
@@ -492,5 +496,7 @@ invalid interruption
 zero-event 合理性
 未选维度隔离
 ```
+
+T06 另需完成 point-in-time、strict no-lookahead、逐日 replay 与 batch 等价和未来路径标签的独立复算。T05 的 exit decomposition 结果不能替代 T06 的 release label 验收，T06 也不能反向修改 T05 的 accepted interval 或退出语义。
 
 如果发生全零、全一、全 NULL、数量级突变、与上游 availability 不一致，或属于当前任务验收范围的复算/响应/集合关系异常，必须停止下游推进。异常未解释前，不得标记 completed，不得推进 README gate，不得发布数据。
