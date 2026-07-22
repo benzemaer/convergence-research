@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 import duckdb
 import pytest
+from jsonschema import Draft202012Validator, FormatChecker
 
 from src.r2a.r2a_t02_request_identity import build_canonical_request
 from src.r2a.r2a_t05_ca_exit_decomposition import build_t05_candidate
@@ -54,6 +55,13 @@ from src.r2a.r2a_t05_formal_result_analysis import (
 from tests.r2a.test_r2a_t05_ca_exit_decomposition import _fixture as _ca_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
+ACCEPTED_RUN_ID = "R2A-T05-20260722T012719685Z"
+ACCEPTED_CLOSURE_ROOT = ROOT / "data/generated/r2a/r2a_t05" / ACCEPTED_RUN_ID
+ACCEPTED_HANDOFF_PATH = ACCEPTED_CLOSURE_ROOT / "r2a_t05_accepted_result_handoff.json"
+ACCEPTED_DONE_PATH = ACCEPTED_CLOSURE_ROOT / "DONE"
+ACCEPTED_HANDOFF_SCHEMA_PATH = (
+    ROOT / "schemas/r2a/r2a_t05_accepted_result_handoff.schema.json"
+)
 EXPECTED_COUNTS = {
     "CA_q10_k5": {
         "raw_true": 20559,
@@ -1409,14 +1417,103 @@ def _render_synthetic_task_document(state: Mapping[str, str]) -> str:
     return f"# Synthetic R2A-T05 task\n\n## 当前状态与停止点\n\n```text\n{block}\n```\n"
 
 
+def _expected_completed_task_state(
+    *,
+    handoff: Mapping[str, Any],
+    handoff_bytes: bytes,
+    done: Mapping[str, Any],
+    schema: Mapping[str, Any],
+) -> dict[str, str]:
+    errors = sorted(
+        Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(
+            handoff
+        ),
+        key=str,
+    )
+    if errors:
+        raise AssertionError(f"accepted handoff schema mismatch: {errors[0].message}")
+    actual_handoff_sha = hashlib.sha256(handoff_bytes).hexdigest()
+    if done.get("accepted_handoff_sha256") != actual_handoff_sha:
+        raise AssertionError("DONE handoff hash mismatch")
+    if done.get("accepted_handoff_filename") != "r2a_t05_accepted_result_handoff.json":
+        raise AssertionError("DONE handoff filename mismatch")
+    if (
+        handoff.get("accepted_run_id") != ACCEPTED_RUN_ID
+        or done.get("accepted_run_id") != ACCEPTED_RUN_ID
+    ):
+        raise AssertionError("accepted run mismatch")
+    acceptance = handoff.get("formal_result_acceptance", {})
+    if acceptance.get("owner_result_review") != "accepted":
+        raise AssertionError("owner result not accepted")
+    if acceptance.get("scientific_review_status") != "passed":
+        raise AssertionError("scientific review not passed")
+    lifecycle = handoff.get("formal_attempt_lifecycle", {})
+    if lifecycle.get("additional_formal_run_allowed") is not False:
+        raise AssertionError("additional formal run allowed")
+    selection = handoff.get("selection", {})
+    if (
+        selection.get("q_selection_status") != "not_selected"
+        or selection.get("canonical_dynamic_request_selected") is not False
+        or selection.get("selected_request_id") is not None
+        or selection.get("selected_request_hash") is not None
+        or selection.get("selected_q_by_dimension") is not None
+        or selection.get("dynamic_state_registered") is not False
+    ):
+        raise AssertionError("q selected or canonical state registered")
+    downstream = handoff.get("downstream_gate", {})
+    if downstream.get("R2A-T06_started") is not False:
+        raise AssertionError("R2A-T06_started must remain false")
+    if done.get("status") != "completed_accepted":
+        raise AssertionError("DONE status mismatch")
+    return {
+        "task_id": "R2A-T05",
+        "status": "completed_accepted",
+        "accepted_run_id": ACCEPTED_RUN_ID,
+        "reviewed_implementation_sha": ("55dceba70bc967caa75c597ce17acb93a2dac511"),
+        "reviewed_formal_execution_sha": ("99013f57eb9835f57ec7d253b35689f2ffc123e7"),
+        "accepted_execution_head": ("260c3e1fe040eb9a44ee64f54a01142e6c3d8efa"),
+        "formal_result_review_status": "accepted",
+        "scientific_review_status": "passed",
+        "owner_result_review": "accepted",
+        "post_run_artifact_remediation": "owner_authorized_completed",
+        "formal_run_attempt_limit": "2",
+        "formal_run_attempts_consumed": "2",
+        "additional_formal_run_allowed": "false",
+        "accepted_handoff_sha256": actual_handoff_sha,
+        "q_selection_status": "not_selected",
+        "canonical_dynamic_request_selected": "false",
+        "R2A-T05_DONE": "present",
+        "R2A-T06_allowed_to_start": "true_after_PR_115_merge",
+        "R2A-T06_started": "false",
+        "PR_state": "Draft",
+    }
+
+
 def _validate_task_document_lifecycle(
     document: str,
     authorization: Mapping[str, Any],
+    *,
+    done: Mapping[str, Any] | None = None,
+    handoff: Mapping[str, Any] | None = None,
+    handoff_bytes: bytes | None = None,
+    handoff_schema: Mapping[str, Any] | None = None,
 ) -> dict[str, str]:
     if "## Current formal authorization" in document:
         raise AssertionError("legacy current authorization heading is forbidden")
     state = _parse_authoritative_task_state(document)
-    expected = _expected_task_state(authorization)
+    if done is None:
+        if state.get("status") == "completed_accepted":
+            raise AssertionError("completed document requires canonical DONE")
+        expected = _expected_task_state(authorization)
+    else:
+        if handoff is None or handoff_bytes is None or handoff_schema is None:
+            raise AssertionError("DONE without accepted handoff")
+        expected = _expected_completed_task_state(
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            done=done,
+            schema=handoff_schema,
+        )
     if state != expected:
         raise AssertionError(
             "task document state does not match authorization lifecycle"
@@ -1424,6 +1521,30 @@ def _validate_task_document_lifecycle(
 
     lifecycle_keys = set(_expected_task_state(_unauthorized_authorization_payload()))
     lifecycle_keys.update(_expected_task_state(_authorized_authorization_payload()))
+    lifecycle_keys.update(
+        {
+            "task_id",
+            "status",
+            "accepted_run_id",
+            "reviewed_implementation_sha",
+            "reviewed_formal_execution_sha",
+            "accepted_execution_head",
+            "formal_result_review_status",
+            "scientific_review_status",
+            "owner_result_review",
+            "post_run_artifact_remediation",
+            "formal_run_attempt_limit",
+            "formal_run_attempts_consumed",
+            "additional_formal_run_allowed",
+            "accepted_handoff_sha256",
+            "q_selection_status",
+            "canonical_dynamic_request_selected",
+            "R2A-T05_DONE",
+            "R2A-T06_allowed_to_start",
+            "R2A-T06_started",
+            "PR_state",
+        }
+    )
     for key in lifecycle_keys:
         occurrences = re.findall(rf"(?m)^{re.escape(key)}:.*$", document)
         expected_occurrences = [f"{key}: {state[key]}"] if key in state else []
@@ -1441,7 +1562,20 @@ def test_task_document_has_one_authoritative_current_state_block() -> None:
             encoding="utf-8"
         )
     )
-    _validate_task_document_lifecycle(document, authorization)
+    if ACCEPTED_DONE_PATH.is_file():
+        handoff_bytes = ACCEPTED_HANDOFF_PATH.read_bytes()
+        _validate_task_document_lifecycle(
+            document,
+            authorization,
+            done=json.loads(ACCEPTED_DONE_PATH.read_text(encoding="utf-8")),
+            handoff=json.loads(handoff_bytes.decode("utf-8")),
+            handoff_bytes=handoff_bytes,
+            handoff_schema=json.loads(
+                ACCEPTED_HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8")
+            ),
+        )
+    else:
+        _validate_task_document_lifecycle(document, authorization)
 
 
 def test_task_document_contract_accepts_not_authorized_state() -> None:
@@ -1531,6 +1665,197 @@ def test_task_document_contract_rejects_lifecycle_key_outside_current_block() ->
     document += "\nauthorization_status: not_authorized\n"
     with pytest.raises(AssertionError, match="not unique to current state"):
         _validate_task_document_lifecycle(document, authorization)
+
+
+def _synthetic_completed_bundle() -> tuple[
+    dict[str, Any], bytes, dict[str, Any], dict[str, Any], str
+]:
+    handoff = json.loads(ACCEPTED_HANDOFF_PATH.read_text(encoding="utf-8"))
+    handoff_bytes = (
+        json.dumps(handoff, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    done = json.loads(ACCEPTED_DONE_PATH.read_text(encoding="utf-8"))
+    done["accepted_handoff_sha256"] = hashlib.sha256(handoff_bytes).hexdigest()
+    schema = json.loads(ACCEPTED_HANDOFF_SCHEMA_PATH.read_text(encoding="utf-8"))
+    state = _expected_completed_task_state(
+        handoff=handoff,
+        handoff_bytes=handoff_bytes,
+        done=done,
+        schema=schema,
+    )
+    return handoff, handoff_bytes, done, schema, _render_synthetic_task_document(state)
+
+
+def _rehash_synthetic_handoff(
+    handoff: Mapping[str, Any], done: dict[str, Any]
+) -> bytes:
+    handoff_bytes = (
+        json.dumps(handoff, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    done["accepted_handoff_sha256"] = hashlib.sha256(handoff_bytes).hexdigest()
+    return handoff_bytes
+
+
+def test_task_document_contract_accepts_completed_handoff_done_and_document() -> None:
+    handoff, handoff_bytes, done, schema, document = _synthetic_completed_bundle()
+    state = _validate_task_document_lifecycle(
+        document,
+        _authorized_authorization_payload(),
+        done=done,
+        handoff=handoff,
+        handoff_bytes=handoff_bytes,
+        handoff_schema=schema,
+    )
+    assert state["status"] == "completed_accepted"
+
+
+def test_task_document_contract_rejects_done_handoff_hash_mismatch() -> None:
+    handoff, handoff_bytes, done, schema, document = _synthetic_completed_bundle()
+    done["accepted_handoff_sha256"] = "0" * 64
+    with pytest.raises(AssertionError, match="DONE handoff hash mismatch"):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+def test_task_document_contract_rejects_completed_document_without_done() -> None:
+    _, _, _, _, document = _synthetic_completed_bundle()
+    with pytest.raises(
+        AssertionError, match="completed document requires canonical DONE"
+    ):
+        _validate_task_document_lifecycle(document, _authorized_authorization_payload())
+
+
+def test_task_document_contract_rejects_done_without_accepted_handoff() -> None:
+    _, _, done, _, document = _synthetic_completed_bundle()
+    with pytest.raises(AssertionError, match="DONE without accepted handoff"):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+        )
+
+
+def test_task_document_contract_rejects_completed_accepted_run_mismatch() -> None:
+    handoff, handoff_bytes, done, schema, document = _synthetic_completed_bundle()
+    done["accepted_run_id"] = "R2A-T05-SYNTHETIC-MISMATCH"
+    with pytest.raises(AssertionError, match="accepted run mismatch"):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+def test_task_document_contract_rejects_owner_result_not_accepted() -> None:
+    handoff, _, done, schema, document = _synthetic_completed_bundle()
+    handoff["formal_result_acceptance"]["owner_result_review"] = "pending"
+    handoff_bytes = _rehash_synthetic_handoff(handoff, done)
+    with pytest.raises(AssertionError):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+def test_task_document_contract_rejects_scientific_review_not_passed() -> None:
+    handoff, _, done, schema, document = _synthetic_completed_bundle()
+    handoff["formal_result_acceptance"]["scientific_review_status"] = "blocked"
+    handoff_bytes = _rehash_synthetic_handoff(handoff, done)
+    with pytest.raises(AssertionError):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+def test_task_document_contract_rejects_additional_formal_run_allowed() -> None:
+    handoff, _, done, schema, document = _synthetic_completed_bundle()
+    handoff["formal_attempt_lifecycle"]["additional_formal_run_allowed"] = True
+    handoff_bytes = _rehash_synthetic_handoff(handoff, done)
+    with pytest.raises(AssertionError):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("q_selection_status", "selected"),
+        ("canonical_dynamic_request_selected", True),
+        ("dynamic_state_registered", True),
+    ],
+)
+def test_task_document_contract_rejects_q_selection_or_registered_state(
+    key: str, value: Any
+) -> None:
+    handoff, _, done, schema, document = _synthetic_completed_bundle()
+    handoff["selection"][key] = value
+    handoff_bytes = _rehash_synthetic_handoff(handoff, done)
+    with pytest.raises(AssertionError):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+def test_task_document_contract_rejects_t06_started_true() -> None:
+    handoff, _, done, schema, document = _synthetic_completed_bundle()
+    handoff["downstream_gate"]["R2A-T06_started"] = True
+    handoff_bytes = _rehash_synthetic_handoff(handoff, done)
+    with pytest.raises(AssertionError):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
+
+
+def test_task_document_contract_rejects_duplicate_completed_lifecycle_key() -> None:
+    handoff, handoff_bytes, done, schema, document = _synthetic_completed_bundle()
+    document = document.replace(
+        "owner_result_review: accepted\n",
+        "owner_result_review: accepted\nowner_result_review: accepted\n",
+        1,
+    )
+    with pytest.raises(AssertionError, match="duplicate task state key"):
+        _validate_task_document_lifecycle(
+            document,
+            _authorized_authorization_payload(),
+            done=done,
+            handoff=handoff,
+            handoff_bytes=handoff_bytes,
+            handoff_schema=schema,
+        )
 
 
 def _sequence_callbacks(

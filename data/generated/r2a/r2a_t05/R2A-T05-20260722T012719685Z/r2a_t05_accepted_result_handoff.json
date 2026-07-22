@@ -1,0 +1,122 @@
+{
+  "$schema": "../../../../../schemas/r2a/r2a_t05_accepted_result_handoff.schema.json",
+  "accepted_execution_head": "260c3e1fe040eb9a44ee64f54a01142e6c3d8efa",
+  "accepted_run_id": "R2A-T05-20260722T012719685Z",
+  "downstream_gate": {
+    "R2A-T05_DONE": "present",
+    "R2A-T06_allowed_to_start": "true_after_PR_115_merge",
+    "R2A-T06_started": false
+  },
+  "evidence_identities": {
+    "anomaly_scan": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/anomaly_scan.json", "sha256": "793a6cbe637a3b18a2ca5ed1814ecece88831908b1ab771859e4e095da4a6836", "byte_size": 413099},
+    "artifact_identity_postcheck": {"storage_class": "formal_result_review_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-result-reviews/R2A-T05-20260722T012719685Z/20260722T062413707Z/artifact_identity_postcheck.json", "sha256": "6a905791c047d0c83d1da77b507e59ab65acbf35db8ff4add3d8b4db28adeb7c", "byte_size": 707},
+    "artifact_manifest": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/artifact_manifest.json", "sha256": "1f61296fa97337f9735b42ba2301fa58380712c6c721a7083d7004535acb22e0", "byte_size": 6936},
+    "artifact_remediation_manifest": {"storage_class": "formal_artifact_remediation_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-artifact-remediations/R2A-T05-20260722T012719685Z/20260722T060039690Z/remediation_manifest.json", "sha256": "e84348533b0d7ea7962d44c04fa1c9e5bf6c693f45b692ce45286ea3de52b859", "byte_size": 8884},
+    "artifact_remediation_receipt_json": {"storage_class": "formal_artifact_remediation_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-artifact-remediations/R2A-T05-20260722T012719685Z/20260722T060039690Z/artifact_remediation_receipt.json", "sha256": "6900bb0178984a45a9b26cb78a2370ef6c5c2846e330c3433bd3cbe2e28a81c6", "byte_size": 5786},
+    "artifact_remediation_receipt_md": {"storage_class": "formal_artifact_remediation_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-artifact-remediations/R2A-T05-20260722T012719685Z/20260722T060039690Z/artifact_remediation_receipt.md", "sha256": "b6689ae510af7b7849f29d27bc2ab6267a12cf1b885bb4e2b43b86f2cc13254b", "byte_size": 3324},
+    "final_review_manifest": {"storage_class": "formal_result_review_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-result-reviews/R2A-T05-20260722T012719685Z/20260722T062413707Z/review_manifest.json", "sha256": "0319530cd78741e505f539fc3d454df0be894d7cdaf05698b6d7c0a21ef7911f", "byte_size": 1344},
+    "formal_determinism_receipt": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/formal_determinism_receipt.json", "sha256": "4e30d9011608858694c5be4917c4d8ddb2808f414f3597f32039717720cdd27f", "byte_size": 1875},
+    "formal_result_owner_review": {"storage_class": "formal_result_review_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-result-reviews/R2A-T05-20260722T012719685Z/20260722T062413707Z/formal_result_owner_review.md", "sha256": "e1df1ac918945bc7d040edd52dcfa7fd8f8e5fbc0d42efebf1bd0f78fe3927c9", "byte_size": 127216},
+    "formal_result_technical_verification": {"storage_class": "formal_result_review_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-result-reviews/R2A-T05-20260722T012719685Z/20260722T062413707Z/formal_result_technical_verification.json", "sha256": "15b733867ed45a93abc8b5aaf4bd3f699cdb0a3e14fe67942f0142c10baa2d07", "byte_size": 22927},
+    "formal_run_summary": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/run_summary.json", "sha256": "902c996641f07108dbcec6a35a0bf9c473fcdfef712ff55f92903f7613ef67e8", "byte_size": 5389},
+    "independent_validation_receipt": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/independent_validation_receipt.json", "sha256": "5bf6de459e5c9ba09fdc55064961e9881864d935e05731eab24b2970b2886439", "byte_size": 304},
+    "repository_immutability_postcheck": {"storage_class": "formal_result_review_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-result-reviews/R2A-T05-20260722T012719685Z/20260722T062413707Z/repository_immutability_postcheck.json", "sha256": "315b387a97a83c39ed5a789dd22f1e9834df1db590e6162c45acdac80afa67b5", "byte_size": 794},
+    "result_analysis": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/result_analysis.md", "sha256": "fad6b781cbb1df9d9303d9afbdffd61887c72247727211421600ef6e4085aa9b", "byte_size": 123596},
+    "result_package": {"storage_class": "formal_run_root", "relative_locator": "data/generated/r2a/r2a_t05/formal-runs/R2A-T05-20260722T012719685Z/result_package.json", "sha256": "1cafc65beed826a3cf5e08b4237656e36f32a768197dd19ee57d9eb7cb913913", "byte_size": 9649}
+  },
+  "formal_attempt_lifecycle": {
+    "additional_formal_run_allowed": false,
+    "attempts": [
+      {"attempt_number": 1, "classification": "external_cumulative_timeout", "formal_process_exit": 124, "formal_result_accepted": false, "inventory_sha256": "9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770", "run_id": "R2A-T05-20260721T013805600Z", "status": "failed_closed"},
+      {"attempt_number": 2, "formal_process_exit": 0, "formal_result_accepted": true, "run_id": "R2A-T05-20260722T012719685Z", "status": "completed_accepted"}
+    ],
+    "formal_run_attempt_limit": 2,
+    "formal_run_attempts_consumed": 2
+  },
+  "formal_manifest": {
+    "byte_size": 10449,
+    "relative_path": "data/generated/r2a/r2a_t05/formal-authorization/99013f57eb9835f57ec7d253b35689f2ffc123e7/r2a_t05_formal_input_manifest.v1.json",
+    "sha256": "368626145f0d1ba78a8d4b8577b4fbbf53a5832da313068445d7984973958c44"
+  },
+  "formal_result_acceptance": {
+    "blocking_anomalies": [],
+    "formal_result_candidate_status": "passed",
+    "formal_technical_acceptance": "passed",
+    "owner_acceptance_status": "accepted",
+    "owner_result_review": "accepted",
+    "scientific_review_status": "passed"
+  },
+  "formal_scope_id": "r2a_t05_ca_exit_mechanism_formal_execution.v1",
+  "implementation_version": "r2a_t05_ca_exit_decomposition.v1",
+  "post_run_artifact_remediation": {
+    "CSV_parse_equivalence": "passed",
+    "artifact_manifest_rebuilt": true,
+    "authorized_RunRoot_changed_file_count": 13,
+    "formal_attempt_consumed": false,
+    "formal_package_modified_between_execution_and_acceptance": true,
+    "formal_reexecution": false,
+    "normalized_csv_count": 11,
+    "reason": "compact_review_csv_default_crlf_line_endings",
+    "result_package_rebuilt": true,
+    "scientific_recomputation": false,
+    "status": "owner_authorized_completed",
+    "text_contract_after_remediation": "passed",
+    "unauthorized_RunRoot_changed_file_count": 0
+  },
+  "request_reconciliation": [
+    {"confirmation_k": 5, "confirmed_true": 1916, "intervals": 751, "logical_request_name": "CA_q10_k5", "q_by_dimension": {"A": 1000, "C": 1000}, "raw_true": 20559, "request_hash": "d07aae4bbbd98f88989cf6b50c3b808935f237cd69f56271f6a210aa90f7ac8f", "request_id": "pcavt-dynreq-v1-d07aae4bbbd98f88", "securities_with_interval": 473, "selected_dimensions": ["C", "A"], "selection_status": "evaluated_not_selected"},
+    {"confirmation_k": 5, "confirmed_true": 7125, "intervals": 2426, "logical_request_name": "CA_q15_k5", "q_by_dimension": {"A": 1500, "C": 1500}, "raw_true": 46651, "request_hash": "cf420e9c025374d19bbc4e83bd75fee96d10d0c322605826ae5cffcf4029674f", "request_id": "pcavt-dynreq-v1-cf420e9c025374d1", "securities_with_interval": 734, "selected_dimensions": ["C", "A"], "selection_status": "evaluated_not_selected"},
+    {"confirmation_k": 5, "confirmed_true": 17642, "intervals": 5372, "logical_request_name": "CA_q20_k5", "q_by_dimension": {"A": 2000, "C": 2000}, "raw_true": 81535, "request_hash": "21bd144aaed98d9e7d404aaa8d2fa0685f7ec29a3deb714d0d1df99c05d5e971", "request_id": "pcavt-dynreq-v1-21bd144aaed98d9e", "securities_with_interval": 775, "selected_dimensions": ["C", "A"], "selection_status": "evaluated_not_selected"},
+    {"confirmation_k": 5, "confirmed_true": 35098, "intervals": 9107, "logical_request_name": "CA_q25_k5", "q_by_dimension": {"A": 2500, "C": 2500}, "raw_true": 124893, "request_hash": "b210f9e5211c46db6cbc41ca1da9ff340018b4ef69e56df07ae22cecafbad3e9", "request_id": "pcavt-dynreq-v1-b210f9e5211c46db", "securities_with_interval": 788, "selected_dimensions": ["C", "A"], "selection_status": "evaluated_not_selected"}
+  ],
+  "reviewed_formal_execution_sha": "99013f57eb9835f57ec7d253b35689f2ffc123e7",
+  "reviewed_implementation_sha": "55dceba70bc967caa75c597ce17acb93a2dac511",
+  "scientific_boundaries": {
+    "backtest_executed": false,
+    "direction_label_generated": false,
+    "future_price_path_read": false,
+    "intensity_label_generated": false,
+    "q20_optimality_claimed": false,
+    "release_label_generated": false,
+    "return_data_read": false,
+    "trading_signal_generated": false
+  },
+  "scientific_result_summary": {
+    "cross_q_daily_identity_conservation": "passed",
+    "cross_q_parent_mapping_status": "passed",
+    "q20_fragmentation_analysis_status": "passed",
+    "q25_shell_conservation_status": "passed",
+    "quick_reentry_analysis_status": "passed",
+    "raw_false_decomposition": {"A_ONLY_FAIL": 5244, "CA_BOTH_FAIL": 73, "C_ONLY_FAIL": 46},
+    "research_anchor": "CA_q20_k5",
+    "research_anchor_q": 2000,
+    "research_anchor_role": "exit_mechanism_decomposition",
+    "termination_primary": {"input_end_open_right_censored": 1, "quality_or_availability_termination": 8, "raw_false": 5363},
+    "total_confirmed_intervals": 5372
+  },
+  "scope_id": "r2a_t05_ca_exit_mechanism_decomposition.v1",
+  "selection": {
+    "canonical_dynamic_request_selected": false,
+    "dynamic_state_registered": false,
+    "q_selection_status": "not_selected",
+    "selected_q_by_dimension": null,
+    "selected_request_hash": null,
+    "selected_request_id": null
+  },
+  "stage_id": "R2A",
+  "status": "completed_accepted",
+  "task_id": "R2A-T05",
+  "validation": {
+    "T04_reconciliation_match": true,
+    "artifact_identity_match": true,
+    "blocking_reasons": [],
+    "cross_q_mapping_unique": true,
+    "daily_identity_conservation": true,
+    "deterministic_output": true,
+    "forbidden_input_fields_absent": true,
+    "request_identity_match": true,
+    "result_package_schema_match": true,
+    "status": "passed",
+    "text_contract_match": true
+  }
+}

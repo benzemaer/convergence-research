@@ -4,28 +4,28 @@
 
 ```text
 task_id: R2A-T05
-status: authorized_pending_execution
-formal_execution_review_status: owner_approved
-approved_formal_execution_sha: 99013f57eb9835f57ec7d253b35689f2ffc123e7
-formal_manifest_status: owner_accepted
-formal_manifest_sha256: 368626145f0d1ba78a8d4b8577b4fbbf53a5832da313068445d7984973958c44
-formal_manifest_byte_size: 10449
-authorization_status: authorized_pending_execution
-formal_run_allowed: true
-historical_formal_attempts_consumed: 1
+status: completed_accepted
+accepted_run_id: R2A-T05-20260722T012719685Z
+reviewed_implementation_sha: 55dceba70bc967caa75c597ce17acb93a2dac511
+reviewed_formal_execution_sha: 99013f57eb9835f57ec7d253b35689f2ffc123e7
+accepted_execution_head: 260c3e1fe040eb9a44ee64f54a01142e6c3d8efa
+formal_result_review_status: accepted
+scientific_review_status: passed
+owner_result_review: accepted
+post_run_artifact_remediation: owner_authorized_completed
 formal_run_attempt_limit: 2
-next_formal_attempt_number: 2
-formal_retry_authorized: true
-historical_failed_run_id: R2A-T05-20260721T013805600Z
-historical_failed_run_inventory_sha256: 9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770
-new_formal_run_started: false
-new_RunRoot: absent
-R2A-T05_DONE: absent
-R2A-T06_allowed_to_start: false
+formal_run_attempts_consumed: 2
+additional_formal_run_allowed: false
+accepted_handoff_sha256: 6d69a6526d14f4844fdc1f5b888bb87768c7eedb58b65ea76445eede3d1a6881
+q_selection_status: not_selected
+canonical_dynamic_request_selected: false
+R2A-T05_DONE: present
+R2A-T06_allowed_to_start: true_after_PR_115_merge
+R2A-T06_started: false
 PR_state: Draft
 ```
 
-当前 successor candidate 只修复 task-document lifecycle 测试契约，使唯一当前状态可按 committed authorization config 在 `not_authorized` 与 `authorized_pending_execution` 两个封闭分支间验证。候选不改变 bulk-copy 实现、研究请求、q/K、Score、日期、validator 或 formal runner；owner 条件式审核、独立 manifest 核验和后续 metadata-only 授权仍是前置条件。
+R2A-T05 formal result、post-run artifact remediation、技术验收、科学审阅与 owner result review 已接受。Accepted handoff 与 canonical `DONE` 已建立；PR #115 合并后 R2A-T06 才获得启动资格，本轮没有启动 T06。
 
 ## Successor manifest authorization evidence
 
@@ -199,3 +199,16 @@ historical_superseded_manifest_3_byte_size: 10449
 ```
 
 该工程诊断不改变 T05 的科学定义，也不授权新的 formal 输入。当前候选仅补足 retry 的历史 RunRoot 校验、累计 attempt 字段、失败闭环和测试；它不生成 manifest、authorization、preflight、formal run 或新的 RunRoot。
+
+## Accepted closure
+
+R2A-T05 的权威 completed lifecycle 由以下 committed closure artifacts 建立，历史 formal execution config 与 authorization config 继续作为执行契约保留，但不再是当前任务状态的唯一来源：
+
+```text
+accepted_handoff: data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json
+accepted_handoff_identity: 6d69a6526d14f4844fdc1f5b888bb87768c7eedb58b65ea76445eede3d1a6881 / 10657 bytes
+DONE: data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/DONE
+acceptance_evidence: docs/evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md
+```
+
+接受结果保留 q20 为退出机制分解的 research anchor，不选择 canonical q。q20 的 5,372 个 confirmed intervals 分解为 5,363 个 raw-false termination、8 个 quality/availability termination 与 1 个 right-censored interval；raw-false 进一步分为 A_ONLY_FAIL 5,244、C_ONLY_FAIL 46、CA_BOTH_FAIL 73。该结果不读取未来价格路径或收益，不生成 release、方向、强度、交易信号或回测结论，也不支持 q 最优性。
