@@ -4,15 +4,18 @@
 
 ```text
 task_id: R2A-T05
-status: formal_execution_candidate_pending_owner_rereview
-candidate_parent_sha: 8bb024f8fb840b69ed565b0d9da3a78f71c27210
-governance_contract_repair: pending_owner_rereview
-authorization_status: not_authorized
-formal_run_allowed: false
+status: authorized_pending_execution
+formal_execution_review_status: owner_approved
+approved_formal_execution_sha: 99013f57eb9835f57ec7d253b35689f2ffc123e7
+formal_manifest_status: owner_accepted
+formal_manifest_sha256: 368626145f0d1ba78a8d4b8577b4fbbf53a5832da313068445d7984973958c44
+formal_manifest_byte_size: 10449
+authorization_status: authorized_pending_execution
+formal_run_allowed: true
 historical_formal_attempts_consumed: 1
 formal_run_attempt_limit: 2
 next_formal_attempt_number: 2
-formal_retry_authorized: false
+formal_retry_authorized: true
 historical_failed_run_id: R2A-T05-20260721T013805600Z
 historical_failed_run_inventory_sha256: 9baeb8a2f6b2ffb47251d937c1551ff83450f62a49996771528c4b3dcf502770
 new_formal_run_started: false
@@ -23,6 +26,21 @@ PR_state: Draft
 ```
 
 当前 successor candidate 只修复 task-document lifecycle 测试契约，使唯一当前状态可按 committed authorization config 在 `not_authorized` 与 `authorized_pending_execution` 两个封闭分支间验证。候选不改变 bulk-copy 实现、研究请求、q/K、Score、日期、validator 或 formal runner；owner 条件式审核、独立 manifest 核验和后续 metadata-only 授权仍是前置条件。
+
+## Successor manifest authorization evidence
+
+```text
+successor_candidate_sha: 99013f57eb9835f57ec7d253b35689f2ffc123e7
+successor_quality_run_id: 29882028158
+successor_quality_status: completed
+successor_quality_conclusion: success
+successor_manifest_sha256: 368626145f0d1ba78a8d4b8577b4fbbf53a5832da313068445d7984973958c44
+successor_manifest_byte_size: 10449
+successor_manifest_verification_root: data/generated/r2a/r2a_t05/formal-manifest-verifications/99013f57eb9835f57ec7d253b35689f2ffc123e7/R2A-T05-MANIFEST-VERIFY-20260722T011159011Z
+successor_manifest_verification_status: passed
+successor_verification_manifest_sha256: a880f4b8704e73dc855da3a804ecbe1a780ccdebb8944499dda3fb702a98df6b
+successor_verification_manifest_byte_size: 3171
+```
 
 ## Governance contract repair history
 
