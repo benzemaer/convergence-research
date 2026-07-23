@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 
 import pytest
 
 import src.r2a.r2a_t06_formal_execution as formal_execution_module
+from src.r2a.r2a_t02_request_identity import (
+    DynamicRequestError,
+    build_canonical_request,
+)
 from src.r2a.r2a_t06_consecutive_failure_exit import REQUEST_ORDER
 from src.r2a.r2a_t06_formal_execution import (
     FormalExecutionError,
@@ -48,6 +53,19 @@ def _receipt(request, counts=None):
     }
 
 
+def _complete_request_spec(manifest: dict, request: dict) -> dict:
+    return {
+        "request_schema_version": "r2a_t02_dynamic_request_spec.v1",
+        "dynamic_protocol_version": manifest["protocol_identity"][
+            "dynamic_protocol_version"
+        ],
+        "score_release_id": manifest["score_release"]["score_release_id"],
+        "selected_dimensions": request["selected_dimensions"],
+        "q_by_dimension": request["q_by_dimension"],
+        "confirmation_k": request["confirmation_k"],
+    }
+
+
 def _source():
     rows = [
         _row(0, True),
@@ -79,6 +97,84 @@ def test_execution_plan_is_frozen() -> None:
         "determinism_build_count": 2,
         "reuse_daily_facts_across_m": True,
     }
+
+
+def test_complete_t02_specs_reproduce_all_frozen_request_identities() -> None:
+    manifest = load_formal_execution_config()
+    for request in manifest["requests"]:
+        canonical = build_canonical_request(_complete_request_spec(manifest, request))
+        assert canonical["request_id"] == request["request_id"]
+        assert canonical["request_hash"] == request["request_hash"]
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    ("request_schema_version", "dynamic_protocol_version", "score_release_id"),
+)
+def test_t02_spec_rejects_each_missing_identity_field(missing_field: str) -> None:
+    manifest = load_formal_execution_config()
+    spec = _complete_request_spec(manifest, manifest["requests"][0])
+    del spec[missing_field]
+    with pytest.raises(DynamicRequestError, match="request_spec_schema_invalid"):
+        build_canonical_request(spec)
+
+
+def test_default_runner_path_passes_complete_canonical_requests_exactly_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization, manifest_bytes, config, git_state = _authorized(tmp_path)
+    manifest = json.loads(manifest_bytes)
+    facts = _source()
+    observed: list[dict] = []
+
+    def evaluate_dynamic_request(
+        *, score_database: Path, canonical_request: dict, output_database: Path
+    ) -> None:
+        assert score_database.name == "score_data.duckdb"
+        observed.append(copy.deepcopy(canonical_request))
+        output_database.write_bytes(b"synthetic")
+
+    monkeypatch.setattr(
+        formal_execution_module,
+        "evaluate_dynamic_request",
+        evaluate_dynamic_request,
+    )
+    result = run_formal_execution(
+        authorization=authorization,
+        manifest_bytes=manifest_bytes,
+        config=config,
+        repo_root=tmp_path,
+        git_state=git_state,
+        validate_request=lambda request, _target: {
+            "status": "passed",
+            "request_id": request["request_id"],
+            "request_hash": request["request_hash"],
+        },
+        summarize_request=lambda target: _receipt(
+            next(
+                request
+                for request in config["requests"]
+                if request["logical_request_name"] == target.stem
+            ),
+            config["accepted_counts"][target.stem],
+        ),
+        load_facts=lambda _target, request: facts[request["logical_request_name"]],
+    )
+
+    assert len(observed) == 4
+    for request, canonical in zip(manifest["requests"], observed, strict=True):
+        assert canonical["spec"] == _complete_request_spec(manifest, request)
+        assert canonical["request_id"] == request["request_id"]
+        assert canonical["request_hash"] == request["request_hash"]
+    run_summary = json.loads(
+        (Path(result["run_root"]) / "scientific/run_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert run_summary["accepted_counts"] == config["accepted_counts"]
+    assert result["result_package"]["selected_exit_confirmation_m"] is None
+    assert result["result_package"]["winner_selected"] is False
+    assert len(result["result_package"]["files"]) == 17
 
 
 def test_four_q_runs_in_fixed_order_exactly_once(tmp_path: Path) -> None:

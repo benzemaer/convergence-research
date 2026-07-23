@@ -785,6 +785,11 @@ def run_formal_execution(
         def default_evaluate(request: Mapping[str, Any], target: Path) -> Any:
             canonical = build_canonical_request(
                 {
+                    "request_schema_version": "r2a_t02_dynamic_request_spec.v1",
+                    "dynamic_protocol_version": manifest["protocol_identity"][
+                        "dynamic_protocol_version"
+                    ],
+                    "score_release_id": manifest["score_release"]["score_release_id"],
                     "selected_dimensions": request["selected_dimensions"],
                     "q_by_dimension": request["q_by_dimension"],
                     "confirmation_k": request["confirmation_k"],
