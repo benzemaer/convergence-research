@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2a_t06_consecutive_failure_exit.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "task_id", "stage_id", "status", "scope_id",
+    "implementation_version", "selected_dimensions", "confirmation_k",
+    "q_by_request", "exit_confirmation_m_candidates", "candidate_roles",
+    "q20_role", "q_selection_status", "canonical_dynamic_request_selected",
+    "winner_selected", "formal_run_allowed", "formal_run_executed",
+    "real_score_data_read", "formal_artifacts_generated", "R2A-T06_DONE",
+    "R2A-T07_allowed_to_start", "R3_allowed_to_start",
+    "owner_implementation_review_required", "accepted_t05_binding",
+    "accepted_t05_counts", "continuity", "lifecycle_states",
+    "quality_termination_reasons", "exit_types", "selection_principle",
+    "candidate_source_mode", "future_formal_required_files",
+    "scientific_boundaries"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t06_consecutive_failure_exit.schema.json"},
+    "task_id": {"const": "R2A-T06"},
+    "stage_id": {"const": "R2A"},
+    "status": {"const": "implementation_candidate_pending_owner_review"},
+    "scope_id": {"const": "r2a_t06_consecutive_failure_exit_confirmation.v1"},
+    "implementation_version": {"const": "r2a_t06_consecutive_failure_exit.v1"},
+    "selected_dimensions": {"const": ["C", "A"]},
+    "confirmation_k": {"const": 5},
+    "q_by_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+      "properties": {
+        "CA_q10_k5": {"$ref": "#/$defs/q10"},
+        "CA_q15_k5": {"$ref": "#/$defs/q15"},
+        "CA_q20_k5": {"$ref": "#/$defs/q20"},
+        "CA_q25_k5": {"$ref": "#/$defs/q25"}
+      }
+    },
+    "exit_confirmation_m_candidates": {"const": [1, 2, 3]},
+    "candidate_roles": {
+      "const": {"1": "accepted_v1_baseline", "2": "primary_challenger", "3": "secondary_challenger"}
+    },
+    "q20_role": {"const": "research_anchor_only"},
+    "q_selection_status": {"const": "not_selected"},
+    "canonical_dynamic_request_selected": {"const": false},
+    "winner_selected": {"const": false},
+    "formal_run_allowed": {"const": false},
+    "formal_run_executed": {"const": false},
+    "real_score_data_read": {"const": false},
+    "formal_artifacts_generated": {"const": false},
+    "R2A-T06_DONE": {"const": "absent"},
+    "R2A-T07_allowed_to_start": {"const": false},
+    "R3_allowed_to_start": {"const": false},
+    "owner_implementation_review_required": {"const": true},
+    "accepted_t05_binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relative_path", "sha256", "git_blob_sha", "done_relative_path", "done_git_blob_sha", "accepted_run_id", "accepted_execution_head", "merge_commit"],
+      "properties": {
+        "relative_path": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"},
+        "git_blob_sha": {"$ref": "#/$defs/gitSha"}, "done_relative_path": {"type": "string"},
+        "done_git_blob_sha": {"$ref": "#/$defs/gitSha"}, "accepted_run_id": {"type": "string"},
+        "accepted_execution_head": {"$ref": "#/$defs/gitSha"}, "merge_commit": {"$ref": "#/$defs/gitSha"}
+      }
+    },
+    "accepted_t05_counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+      "properties": {
+        "CA_q10_k5": {"$ref": "#/$defs/counts"}, "CA_q15_k5": {"$ref": "#/$defs/counts"},
+        "CA_q20_k5": {"$ref": "#/$defs/counts"}, "CA_q25_k5": {"$ref": "#/$defs/counts"}
+      }
+    },
+    "continuity": {
+      "const": {"field": "observation_sequence", "calendar_day_difference_allowed": false, "missing_rows_may_be_skipped": false, "non_ready_rows_may_be_skipped": false}
+    },
+    "lifecycle_states": {"const": ["ACTIVE", "EXIT_PENDING", "EXIT_RECOGNIZED", "QUALITY_TERMINATED", "PENDING_RIGHT_CENSORED"]},
+    "quality_termination_reasons": {"type": "array", "minItems": 7, "uniqueItems": true, "items": {"type": "string"}},
+    "exit_types": {"const": ["A_ONLY_FAIL", "C_ONLY_FAIL", "CA_BOTH_FAIL"]},
+    "selection_principle": {"const": "minimum_sufficient_complexity_after_independent_formal_result_review"},
+    "candidate_source_mode": {"const": "synthetic_fixture_only"},
+    "future_formal_required_files": {"type": "array", "minItems": 17, "uniqueItems": true, "items": {"type": "string"}},
+    "scientific_boundaries": {
+      "type": "object", "additionalProperties": {"const": false},
+      "required": ["future_price_or_return_allowed", "release_or_path_labels_allowed", "trading_or_backtest_allowed", "q_selection_allowed", "dimension_specific_m_allowed", "accepted_v1_daily_state_mutation_allowed", "canonical_dynamic_request_registration_allowed"]
+    }
+  },
+  "$defs": {
+    "q10": {"const": {"C": 1000, "A": 1000}},
+    "q15": {"const": {"C": 1500, "A": 1500}},
+    "q20": {"const": {"C": 2000, "A": 2000}},
+    "q25": {"const": {"C": 2500, "A": 2500}},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw_true", "confirmed_true", "intervals", "securities_with_interval"],
+      "properties": {
+        "raw_true": {"type": "integer", "minimum": 0}, "confirmed_true": {"type": "integer", "minimum": 0},
+        "intervals": {"type": "integer", "minimum": 0}, "securities_with_interval": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

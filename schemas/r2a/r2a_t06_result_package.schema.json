@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2a_t06_result_package.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "package_schema_version", "status", "scope_id", "q_selection_status", "canonical_dynamic_request_selected", "winner_selected", "formal_run_executed", "real_score_data_read", "formal_artifacts_generated", "R2A-T06_DONE", "R2A-T07_allowed_to_start", "R3_allowed_to_start", "files", "validation"],
+  "properties": {
+    "task_id": {"const": "R2A-T06"},
+    "package_schema_version": {"const": "r2a_t06_result_package.v1"},
+    "status": {"enum": ["implementation_candidate", "formal_completed_pending_owner_review", "completed_accepted"]},
+    "scope_id": {"const": "r2a_t06_consecutive_failure_exit_confirmation.v1"},
+    "q_selection_status": {"const": "not_selected"},
+    "canonical_dynamic_request_selected": {"const": false},
+    "winner_selected": {"type": "boolean"},
+    "formal_run_executed": {"type": "boolean"},
+    "real_score_data_read": {"type": "boolean"},
+    "formal_artifacts_generated": {"type": "boolean"},
+    "R2A-T06_DONE": {"enum": ["absent", "present"]},
+    "R2A-T07_allowed_to_start": {"type": "boolean"},
+    "R3_allowed_to_start": {"const": false},
+    "files": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "independent_recalculation", "accepted_daily_fact_immutability", "online_replay_equivalence", "deterministic_output", "parallel_consistency", "cross_q_nesting"],
+      "properties": {
+        "status": {"enum": ["pending", "passed", "failed"]},
+        "independent_recalculation": {"type": "boolean"},
+        "accepted_daily_fact_immutability": {"type": "boolean"},
+        "online_replay_equivalence": {"type": "boolean"},
+        "deterministic_output": {"type": "boolean"},
+        "parallel_consistency": {"type": "boolean"},
+        "cross_q_nesting": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "implementation_candidate"}}}, "then": {"properties": {"winner_selected": {"const": false}, "formal_run_executed": {"const": false}, "real_score_data_read": {"const": false}, "formal_artifacts_generated": {"const": false}, "R2A-T06_DONE": {"const": "absent"}, "R2A-T07_allowed_to_start": {"const": false}}}},
+    {"if": {"properties": {"status": {"const": "formal_completed_pending_owner_review"}}}, "then": {"properties": {"winner_selected": {"const": false}, "formal_run_executed": {"const": true}, "real_score_data_read": {"const": true}, "formal_artifacts_generated": {"const": true}, "R2A-T06_DONE": {"const": "absent"}, "R2A-T07_allowed_to_start": {"const": false}}}},
+    {"if": {"properties": {"status": {"const": "completed_accepted"}}}, "then": {"properties": {"winner_selected": {"const": true}, "formal_run_executed": {"const": true}, "real_score_data_read": {"const": true}, "formal_artifacts_generated": {"const": true}, "R2A-T06_DONE": {"const": "present"}, "R2A-T07_allowed_to_start": {"const": true}}}}
+  ],
+  "$defs": {
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relative_path", "sha256", "byte_size", "storage_class"],
+      "properties": {
+        "relative_path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "byte_size": {"type": "integer", "minimum": 0},
+        "storage_class": {"enum": ["compact_review", "repository_local_detail"]}
+      }
+    }
+  }
+}

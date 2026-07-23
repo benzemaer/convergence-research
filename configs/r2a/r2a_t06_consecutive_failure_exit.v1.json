@@ -1,0 +1,97 @@
+{
+  "$schema": "../../schemas/r2a/r2a_t06_consecutive_failure_exit.schema.json",
+  "task_id": "R2A-T06",
+  "stage_id": "R2A",
+  "status": "implementation_candidate_pending_owner_review",
+  "scope_id": "r2a_t06_consecutive_failure_exit_confirmation.v1",
+  "implementation_version": "r2a_t06_consecutive_failure_exit.v1",
+  "selected_dimensions": ["C", "A"],
+  "confirmation_k": 5,
+  "q_by_request": {
+    "CA_q10_k5": {"C": 1000, "A": 1000},
+    "CA_q15_k5": {"C": 1500, "A": 1500},
+    "CA_q20_k5": {"C": 2000, "A": 2000},
+    "CA_q25_k5": {"C": 2500, "A": 2500}
+  },
+  "exit_confirmation_m_candidates": [1, 2, 3],
+  "candidate_roles": {
+    "1": "accepted_v1_baseline",
+    "2": "primary_challenger",
+    "3": "secondary_challenger"
+  },
+  "q20_role": "research_anchor_only",
+  "q_selection_status": "not_selected",
+  "canonical_dynamic_request_selected": false,
+  "winner_selected": false,
+  "formal_run_allowed": false,
+  "formal_run_executed": false,
+  "real_score_data_read": false,
+  "formal_artifacts_generated": false,
+  "R2A-T06_DONE": "absent",
+  "R2A-T07_allowed_to_start": false,
+  "R3_allowed_to_start": false,
+  "owner_implementation_review_required": true,
+  "accepted_t05_binding": {
+    "relative_path": "data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json",
+    "sha256": "6d69a6526d14f4844fdc1f5b888bb87768c7eedb58b65ea76445eede3d1a6881",
+    "git_blob_sha": "94c06849ff4c6945bbea0e3ae76f4ffefef13c4c",
+    "done_relative_path": "data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/DONE",
+    "done_git_blob_sha": "fa02b2b53596ef237f959ffa6fe019beb6fa9160",
+    "accepted_run_id": "R2A-T05-20260722T012719685Z",
+    "accepted_execution_head": "260c3e1fe040eb9a44ee64f54a01142e6c3d8efa",
+    "merge_commit": "fec2a640d478e18e10c0a56164caedee7666ed16"
+  },
+  "accepted_t05_counts": {
+    "CA_q10_k5": {"raw_true": 20559, "confirmed_true": 1916, "intervals": 751, "securities_with_interval": 473},
+    "CA_q15_k5": {"raw_true": 46651, "confirmed_true": 7125, "intervals": 2426, "securities_with_interval": 734},
+    "CA_q20_k5": {"raw_true": 81535, "confirmed_true": 17642, "intervals": 5372, "securities_with_interval": 775},
+    "CA_q25_k5": {"raw_true": 124893, "confirmed_true": 35098, "intervals": 9107, "securities_with_interval": 788}
+  },
+  "continuity": {
+    "field": "observation_sequence",
+    "calendar_day_difference_allowed": false,
+    "missing_rows_may_be_skipped": false,
+    "non_ready_rows_may_be_skipped": false
+  },
+  "lifecycle_states": ["ACTIVE", "EXIT_PENDING", "EXIT_RECOGNIZED", "QUALITY_TERMINATED", "PENDING_RIGHT_CENSORED"],
+  "quality_termination_reasons": [
+    "expected_observation_missing",
+    "expected_observation_listing_pause",
+    "selected_dimension_blocked",
+    "selected_dimension_diagnostic_required",
+    "selected_dimension_unknown",
+    "selected_dimension_not_eligible",
+    "selected_dimension_score_non_finite"
+  ],
+  "exit_types": ["A_ONLY_FAIL", "C_ONLY_FAIL", "CA_BOTH_FAIL"],
+  "selection_principle": "minimum_sufficient_complexity_after_independent_formal_result_review",
+  "candidate_source_mode": "synthetic_fixture_only",
+  "future_formal_required_files": [
+    "request_identity.json",
+    "input_manifest.json",
+    "run_summary.json",
+    "validation_receipt.json",
+    "result_analysis.md",
+    "false_run_length_profile.csv",
+    "recovery_hazard_profile.csv",
+    "candidate_exit_summary.csv",
+    "recognition_lag_profile.csv",
+    "post_recognition_reentry.csv",
+    "episode_fragmentation_profile.csv",
+    "exit_type_margin_profile.csv",
+    "cross_q_nesting_validation.csv",
+    "year_profile.csv",
+    "security_profile.csv",
+    "deterministic_episode_samples.csv",
+    "t06_detail.duckdb"
+  ],
+  "scientific_boundaries": {
+    "future_price_or_return_allowed": false,
+    "release_or_path_labels_allowed": false,
+    "trading_or_backtest_allowed": false,
+    "q_selection_allowed": false,
+    "dimension_specific_m_allowed": false,
+    "accepted_v1_daily_state_mutation_allowed": false,
+    "canonical_dynamic_request_registration_allowed": false
+  }
+}
