@@ -1,6 +1,6 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。R2A-T05 已接受关闭且 PR #115 已合并。R2A-T06 implementation 已获 owner 批准；前一 formal-execution candidate 未获批准，当前 successor 等待 owner review，不授权 formal run 或真实 Score 读取。
+> 本文是无上下文新会话的当前入口。R2A-T05 已接受关闭且 PR #115 已合并。R2A-T06 implementation 与 formal-execution SHA `462dc56271fe09e5b116dacc2422a342556ef1a0` 已获 owner 批准；当前仅提交 authorization-contract transition，尚未创建 authorization、消费 attempt 或读取真实 Score。
 
 ## 0. 当前状态
 
@@ -59,23 +59,31 @@ R2A-T05_DONE: present
 R2A-T06_started: true
 pre_merge_R2A-T06_allowed_to_start: false
 R2A-T06_allowed_to_start: true_after_PR_115_merge
-R2A-T06_status: formal_execution_candidate_pending_owner_review
+R2A-T06_status: formal_run_authorized_pending_execution
 R2A-T06_previous_unapproved_implementation_sha: 2bd24badf22ede38392ef7a4b3467602cc929106
 R2A-T06_owner_implementation_review_status: passed
 R2A-T06_approved_implementation_sha: 2710d282fadcb998b80b9a482a5d55a4facc775a
 R2A-T06_formal_execution_candidate_status: pending_owner_review
 R2A-T06_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
-R2A-T06_owner_formal_execution_review_status: pending_successor_review
+R2A-T06_owner_formal_execution_review_status: passed
 R2A-T06_previous_unapproved_formal_execution_sha: 4ebadc8aea216730cc6eb9c8b0b8c911574e488d
 R2A-T06_successor_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
-R2A-T06_approved_formal_execution_sha: absent
+R2A-T06_approved_formal_execution_sha: 462dc56271fe09e5b116dacc2422a342556ef1a0
+R2A-T06_reviewed_formal_execution_sha: 462dc56271fe09e5b116dacc2422a342556ef1a0
+R2A-T06_proposed_formal_run_id: R2A-T06-20260723T081207955Z
+R2A-T06_authorization_preview_manifest_sha256: 053fc7ead3a4304096127028313593607121ce99952e1c48b09b74fdc3faa0c7
+R2A-T06_authorization_preview_manifest_byte_size: 6245
+R2A-T06_authorization_contract_parent_sha: 462dc56271fe09e5b116dacc2422a342556ef1a0
+R2A-T06_authorization_contract_review_status: pending_owner_review
+R2A-T06_formal_run_allowed_now: false
 R2A-T06_selected_exit_confirmation_m: null
 R2A-T06_q_selection_status: not_selected
 R2A-T06_canonical_dynamic_request_selected: false
 R2A-T06_winner_selected: false
 R2A-T06_authoritative_manifest_generated: false
 R2A-T06_formal_authorization_created: false
-R2A-T06_formal_run_allowed: false
+R2A-T06_formal_attempt_consumed: false
+R2A-T06_formal_run_allowed: true
 R2A-T06_formal_run_executed: false
 R2A-T06_real_score_data_read: false
 R2A-T06_formal_artifacts_generated: false
@@ -83,8 +91,8 @@ R2A-T06_DONE: absent
 R2A-T07_allowed_to_start: false
 R3_allowed_to_start: false
 owner_implementation_review_required: false
-owner_formal_execution_review_required: true
-current_stop: R2A-T06 formal-execution candidate pending owner review
+owner_formal_execution_review_required: false
+current_stop: R2A-T06 authorization-contract successor pending owner review; no authorization or execution
 ```
 
 ## 1. 已接受基线与边界

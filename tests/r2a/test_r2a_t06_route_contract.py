@@ -57,11 +57,17 @@ def test_task_and_handoff_expose_current_stop() -> None:
     task = _text("docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md")
     handoff = _text("HANDOFF.md")
     index = _text("docs/tasks/README.md")
-    assert "status: formal_execution_candidate_pending_owner_review" in task
+    assert "status: formal_run_authorized_pending_execution" in task
     assert "formal_run_executed: false" in task
     assert "real_score_data_read: false" in task
     assert "R2A-T06_DONE: absent" in task
-    assert "owner_formal_execution_review_required: true" in handoff
+    assert "owner_formal_execution_review_required: false" in handoff
+    assert "R2A-T06_formal_run_allowed_now: false" in handoff
+    assert "R2A-T06_formal_attempt_consumed: false" in handoff
+    assert (
+        "R2A-T06_approved_formal_execution_sha: "
+        "462dc56271fe09e5b116dacc2422a342556ef1a0" in handoff
+    )
     assert (
         "R2A-T06_approved_implementation_sha: "
         "2710d282fadcb998b80b9a482a5d55a4facc775a" in handoff

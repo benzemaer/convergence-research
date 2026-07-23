@@ -7,7 +7,10 @@ from pathlib import Path
 import pytest
 
 from src.r2a.r2a_t06_formal_execution import build_and_validate_lifecycle
-from src.r2a.r2a_t06_formal_input_manifest import build_candidate_manifest
+from src.r2a.r2a_t06_formal_input_manifest import (
+    build_candidate_manifest,
+    load_formal_execution_config,
+)
 from src.r2a.r2a_t06_result_package import (
     CONTROL_FILES,
     SCIENTIFIC_FILES,
@@ -26,7 +29,11 @@ from tests.r2a.test_r2a_t06_formal_execution_preparation import _source
 
 def _package_stage(tmp_path: Path):
     candidate, validation, _determinism = build_and_validate_lifecycle(_source())
-    manifest = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    candidate_config = load_formal_execution_config()
+    candidate_config["formal_run_allowed"] = False
+    manifest = build_candidate_manifest(
+        config=candidate_config, created_at="2026-07-23T00:00:00Z"
+    )
     run_summary = {
         "run_id": "R2A-T06-20260723T000000000Z",
         "request_summaries": manifest["accepted_counts"],

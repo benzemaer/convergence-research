@@ -18,6 +18,13 @@ from src.r2a.r2a_t06_formal_input_manifest import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+APPROVED_FORMAL_EXECUTION_SHA = "462dc56271fe09e5b116dacc2422a342556ef1a0"
+
+
+def _preauthorization_candidate_config() -> dict:
+    config = load_formal_execution_config()
+    config["formal_run_allowed"] = False
+    return config
 
 
 def _committed_bindings(candidate: dict, source_commit: str) -> list[dict]:
@@ -40,8 +47,13 @@ def _committed_bindings(candidate: dict, source_commit: str) -> list[dict]:
 
 def test_formal_config_and_schemas_are_valid() -> None:
     config = load_formal_execution_config()
+    assert config["status"] == "formal_run_authorized_pending_execution"
     assert config["formal_execution_candidate_status"] == "pending_owner_review"
-    assert config["formal_run_allowed"] is False
+    assert config["owner_formal_execution_review_status"] == "passed"
+    assert config["approved_formal_execution_sha"] == APPROVED_FORMAL_EXECUTION_SHA
+    assert config["owner_formal_execution_review_required"] is False
+    assert config["reviewed_formal_execution_sha"] == APPROVED_FORMAL_EXECUTION_SHA
+    assert config["formal_run_allowed"] is True
     for name in (
         "r2a_t06_formal_execution.schema.json",
         "r2a_t06_formal_authorization.schema.json",
@@ -52,14 +64,22 @@ def test_formal_config_and_schemas_are_valid() -> None:
 
 
 def test_candidate_manifest_is_deterministic_and_metadata_only() -> None:
-    left = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
-    right = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    config = _preauthorization_candidate_config()
+    left = build_candidate_manifest(config=config, created_at="2026-07-23T00:00:00Z")
+    right = build_candidate_manifest(config=config, created_at="2026-07-23T00:00:00Z")
     assert canonical_json_bytes(left) == canonical_json_bytes(right)
     assert left["manifest_status"] == "candidate_metadata_only"
     assert left["reviewed_formal_execution_sha"] is None
     assert left["authorization_commit_sha"] is None
     assert left["committed_contract_bindings"] == []
     assert len(left["expected_formal_files"]) == 17
+
+
+def test_authorized_config_rejects_new_candidate_generation() -> None:
+    with pytest.raises(
+        FormalInputManifestError, match="candidate_builder_requires_unapproved_state"
+    ):
+        build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
 
 
 def test_candidate_builder_never_reads_score_database(monkeypatch) -> None:
@@ -79,7 +99,10 @@ def test_candidate_builder_never_reads_score_database(monkeypatch) -> None:
         return original(path)
 
     monkeypatch.setattr(Path, "read_bytes", guarded)
-    build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    build_candidate_manifest(
+        config=_preauthorization_candidate_config(),
+        created_at="2026-07-23T00:00:00Z",
+    )
     assert not any(value.endswith(score_suffix) for value in observed)
     assert not any(
         Path(value).as_posix().endswith(result_package_suffix) for value in observed
@@ -103,7 +126,10 @@ def test_input_path_boundary_rejects_external_retired_and_backup(value: str) -> 
 
 
 def test_authorization_requires_exact_sha_quality_success() -> None:
-    candidate = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    candidate = build_candidate_manifest(
+        config=_preauthorization_candidate_config(),
+        created_at="2026-07-23T00:00:00Z",
+    )
     with pytest.raises(FormalInputManifestError, match="exact_sha_quality_success"):
         authorize_candidate_manifest(
             candidate,
@@ -120,7 +146,10 @@ def test_authorization_requires_exact_sha_quality_success() -> None:
 
 
 def test_superseded_manifest_is_rejected() -> None:
-    candidate = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    candidate = build_candidate_manifest(
+        config=_preauthorization_candidate_config(),
+        created_at="2026-07-23T00:00:00Z",
+    )
     candidate["superseded"] = True
     with pytest.raises(FormalInputManifestError):
         authorize_candidate_manifest(
@@ -138,7 +167,10 @@ def test_superseded_manifest_is_rejected() -> None:
 
 
 def test_authorized_manifest_write_is_immutable(tmp_path: Path) -> None:
-    candidate = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    candidate = build_candidate_manifest(
+        config=_preauthorization_candidate_config(),
+        created_at="2026-07-23T00:00:00Z",
+    )
     authorized = authorize_candidate_manifest(
         candidate,
         reviewed_formal_execution_sha="a" * 40,

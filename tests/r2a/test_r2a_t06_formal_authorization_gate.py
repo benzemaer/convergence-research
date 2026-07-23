@@ -43,7 +43,11 @@ def _authorized(tmp_path: Path):
     reviewed = "a" * 40
     authorization_head = "b" * 40
     config = load_formal_execution_config()
-    candidate = build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
+    candidate_config = copy.deepcopy(config)
+    candidate_config["formal_run_allowed"] = False
+    candidate = build_candidate_manifest(
+        config=candidate_config, created_at="2026-07-23T00:00:00Z"
+    )
     score_path = tmp_path / config["score_release"]["relative_path"]
     score_path.parent.mkdir(parents=True, exist_ok=True)
     score_content = b"synthetic-score-release"

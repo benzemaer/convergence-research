@@ -347,27 +347,35 @@ R2A-T05_canonical_dynamic_request_selected: false
 R2A-T05_DONE: present
 R2A-T06_allowed_to_start: true_after_PR_115_merge
 R2A-T06_started: true
-R2A-T06_status: formal_execution_candidate_pending_owner_review
+R2A-T06_status: formal_run_authorized_pending_execution
 R2A-T06_previous_unapproved_implementation_sha: 2bd24badf22ede38392ef7a4b3467602cc929106
 R2A-T06_owner_implementation_review_status: passed
 R2A-T06_approved_implementation_sha: 2710d282fadcb998b80b9a482a5d55a4facc775a
 R2A-T06_formal_execution_candidate_status: pending_owner_review
 R2A-T06_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
-R2A-T06_owner_formal_execution_review_status: pending_successor_review
+R2A-T06_owner_formal_execution_review_status: passed
 R2A-T06_previous_unapproved_formal_execution_sha: 4ebadc8aea216730cc6eb9c8b0b8c911574e488d
 R2A-T06_successor_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
-R2A-T06_approved_formal_execution_sha: absent
+R2A-T06_approved_formal_execution_sha: 462dc56271fe09e5b116dacc2422a342556ef1a0
+R2A-T06_reviewed_formal_execution_sha: 462dc56271fe09e5b116dacc2422a342556ef1a0
+R2A-T06_proposed_formal_run_id: R2A-T06-20260723T081207955Z
+R2A-T06_authorization_preview_manifest_sha256: 053fc7ead3a4304096127028313593607121ce99952e1c48b09b74fdc3faa0c7
+R2A-T06_authorization_preview_manifest_byte_size: 6245
+R2A-T06_authorization_contract_parent_sha: 462dc56271fe09e5b116dacc2422a342556ef1a0
+R2A-T06_authorization_contract_review_status: pending_owner_review
+R2A-T06_formal_run_allowed_now: false
 R2A-T06_selected_exit_confirmation_m: null
 R2A-T06_authoritative_manifest_generated: false
 R2A-T06_formal_authorization_created: false
-R2A-T06_formal_run_allowed: false
+R2A-T06_formal_attempt_consumed: false
+R2A-T06_formal_run_allowed: true
 R2A-T06_real_score_data_read: false
 R2A-T06_formal_run_executed: false
 R2A-T06_formal_artifacts_generated: false
 R2A-T06_DONE: absent
 R2A-T07_allowed_to_start: false
 R3_allowed_to_start: false
-R2A-T06_owner_formal_execution_review_required: true
+R2A-T06_owner_formal_execution_review_required: false
 ```
 
 Accepted handoff：[`../../data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json`](../../data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json)。Acceptance evidence：[`../evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md`](../evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md)。
@@ -381,7 +389,7 @@ R2A-T07: 版本注册、消费者契约与冻结
 R2A-T08: 阶段验收与 R3 handoff
 ```
 
-T05 的 q20 是退出机制分解研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择。T06 只在 accepted daily facts 上新增连续失效生命周期，不读取未来价格、收益或路径标签，不生成交易信号或回测。Implementation successor 已获 owner 批准；当前 formal-execution successor 只修复五项 owner blocker：attempt 原子消费、Score/request coverage 对账、按 horizon 独立 reentry、persisted 核心表/detail 对账和最终 artifact-manifest 完整性。它仍等待 owner 审阅 exact candidate SHA，未生成权威 manifest、authorization 或 formal artifacts。详细契约见 [`R2A-T06_CA连续失效退出确认与迟滞规则选择.md`](R2A-T06_CA连续失效退出确认与迟滞规则选择.md)。
+T05 的 q20 是退出机制分解研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择。T06 只在 accepted daily facts 上新增连续失效生命周期，不读取未来价格、收益或路径标签，不生成交易信号或回测。Implementation successor 与 formal-execution SHA `462dc56271fe09e5b116dacc2422a342556ef1a0` 已获 owner 批准；当前只提交 schema/config 的 authorization-contract transition，等待该新 commit 的 owner review，尚未生成权威 manifest、authorization、attempt marker 或 formal artifacts。详细契约见 [`R2A-T06_CA连续失效退出确认与迟滞规则选择.md`](R2A-T06_CA连续失效退出确认与迟滞规则选择.md)。
 
 ## 命名与路径规则
 
