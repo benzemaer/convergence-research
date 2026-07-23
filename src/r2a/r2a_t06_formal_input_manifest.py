@@ -319,6 +319,7 @@ def build_candidate_manifest(
         "accepted_handoffs": deepcopy(loaded["accepted_handoffs"]),
         "requests": deepcopy(loaded["requests"]),
         "accepted_counts": deepcopy(loaded["accepted_counts"]),
+        "accepted_coverage": deepcopy(loaded["accepted_coverage"]),
         "execution_plan": deepcopy(loaded["execution_plan"]),
         "config_schema_bindings": _contract_bindings(root),
         "committed_contract_bindings": [],

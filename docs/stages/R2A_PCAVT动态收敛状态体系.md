@@ -416,7 +416,7 @@ accepted daily facts 逐行不变
 
 对每个相同 M，candidate lifecycle 还必须满足 `active_or_pending(q10) ⊆ active_or_pending(q15) ⊆ active_or_pending(q20) ⊆ active_or_pending(q25)`，其中 active-or-pending 仅含 `ACTIVE` 与 `EXIT_PENDING`。每个 stricter-q episode 必须唯一映射到一个 looser-q parent episode，禁止 unmapped、跨 parent 或多对多 mapping；该检查与 raw/confirmed input nesting 分开报告。
 
-未来价格路径与 release onset/direction/intensity 标签不属于 T06；如后续需要，必须单独立项并重新通过 PIT/no-lookahead 设计审核。T06 implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner review。当前 formal-execution candidate 只准备四档串行重算、T04/T05 对账、同一 daily facts 上的 M=1/2/3、独立验证、online replay、worker=1/4 一致性、两次 determinism build、严格 17 文件结果包和落盘后分析；不得读取真实 Score、生成权威 manifest/authorization、执行 formal run、生成正式结果或创建 DONE。
+未来价格路径与 release onset/direction/intensity 标签不属于 T06；如后续需要，必须单独立项并重新通过 PIT/no-lookahead 设计审核。T06 implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner review；前一 formal-execution candidate `4ebadc8aea216730cc6eb9c8b0b8c911574e488d` 未获批准。当前 successor candidate 修复 attempt 原子消费、Score/request 全覆盖对账、horizon-specific reentry、四张 persisted 核心表/detail 独立对账和最终 artifact-manifest sealing；exact SHA 由 PR head 外部绑定，`owner_formal_execution_review_status=pending_successor_review`、`approved_formal_execution_sha=absent`。不得读取真实 Score、生成权威 manifest/authorization、执行 formal run、生成正式结果或创建 DONE。
 
 ### R2A-T07：版本注册与消费者契约冻结
 

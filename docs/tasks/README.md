@@ -324,7 +324,8 @@ post-delete verification 已通过，旧 external input root 已永久退役。R
 formal result、post-run remediation、技术验收、科学审阅和 owner review 已接受，
 accepted handoff 与 canonical `DONE` 已建立。PR #115 已合并；R2A-T06 implementation
 SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner review，当前为 formal-execution
-candidate pending owner review，但不授权 formal run 或真实 Score 读取。
+successor candidate pending owner review；前一 formal-execution candidate `4ebadc8aea216730cc6eb9c8b0b8c911574e488d`
+未获批准，且当前状态不授权 formal run 或真实 Score 读取。
 任务契约见
 [`R2A-T04_Score参数响应与区间结构审核.md`](R2A-T04_Score参数响应与区间结构审核.md)。
 
@@ -352,7 +353,13 @@ R2A-T06_owner_implementation_review_status: passed
 R2A-T06_approved_implementation_sha: 2710d282fadcb998b80b9a482a5d55a4facc775a
 R2A-T06_formal_execution_candidate_status: pending_owner_review
 R2A-T06_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
+R2A-T06_owner_formal_execution_review_status: pending_successor_review
+R2A-T06_previous_unapproved_formal_execution_sha: 4ebadc8aea216730cc6eb9c8b0b8c911574e488d
+R2A-T06_successor_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
+R2A-T06_approved_formal_execution_sha: absent
 R2A-T06_selected_exit_confirmation_m: null
+R2A-T06_authoritative_manifest_generated: false
+R2A-T06_formal_authorization_created: false
 R2A-T06_formal_run_allowed: false
 R2A-T06_real_score_data_read: false
 R2A-T06_formal_run_executed: false
@@ -374,7 +381,7 @@ R2A-T07: 版本注册、消费者契约与冻结
 R2A-T08: 阶段验收与 R3 handoff
 ```
 
-T05 的 q20 是退出机制分解研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择。T06 只在 accepted daily facts 上新增连续失效生命周期，不读取未来价格、收益或路径标签，不生成交易信号或回测。Implementation successor 已获 owner 批准；当前只准备 future formal execution 的 fail-closed 链路并等待 owner 审阅 exact candidate SHA，仍未生成权威 manifest、authorization 或 formal artifacts。详细契约见 [`R2A-T06_CA连续失效退出确认与迟滞规则选择.md`](R2A-T06_CA连续失效退出确认与迟滞规则选择.md)。
+T05 的 q20 是退出机制分解研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择。T06 只在 accepted daily facts 上新增连续失效生命周期，不读取未来价格、收益或路径标签，不生成交易信号或回测。Implementation successor 已获 owner 批准；当前 formal-execution successor 只修复五项 owner blocker：attempt 原子消费、Score/request coverage 对账、按 horizon 独立 reentry、persisted 核心表/detail 对账和最终 artifact-manifest 完整性。它仍等待 owner 审阅 exact candidate SHA，未生成权威 manifest、authorization 或 formal artifacts。详细契约见 [`R2A-T06_CA连续失效退出确认与迟滞规则选择.md`](R2A-T06_CA连续失效退出确认与迟滞规则选择.md)。
 
 ## 命名与路径规则
 

@@ -6,11 +6,10 @@ import csv
 import hashlib
 import json
 import os
-import shutil
 import uuid
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from statistics import median
 from typing import Any
 
@@ -46,6 +45,13 @@ CONTROL_FILES = (
     "determinism_receipt.json",
 )
 REQUEST_ORDER = ("CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5")
+REENTRY_HORIZONS = (
+    ("raw_reentry", 1, "raw_state"),
+    ("raw_reentry", 3, "raw_state"),
+    ("raw_reentry", 5, "raw_state"),
+    ("confirmed_reentry", 5, "confirmed_state_v1"),
+    ("confirmed_reentry", 10, "confirmed_state_v1"),
+)
 
 
 class ResultPackageError(RuntimeError):
@@ -243,72 +249,103 @@ def _recognition_lag(candidates: Sequence[Mapping[str, Any]]) -> list[dict[str, 
     return output
 
 
-def _post_recognition(candidates: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    output: list[dict[str, Any]] = []
+def _post_recognition_outcomes(
+    candidates: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    outcomes: list[dict[str, Any]] = []
     for result in candidates:
         by_security: dict[str, dict[int, Mapping[str, Any]]] = defaultdict(dict)
         for row in result["observation_rows"]:
             by_security[str(row["security_id"])][int(row["observation_sequence"])] = row
-        records: list[dict[str, Any]] = []
         for trigger in result["trigger_rows"]:
             if trigger["disposition"] != "EXIT_RECOGNIZED":
                 continue
-            sequence = int(trigger["exit_recognition_observation_sequence"])
-            rows = by_security[str(trigger["security_id"])]
-            following = [rows[value] for value in sorted(rows) if value > sequence]
-            quality_at = next(
-                (
-                    int(row["observation_sequence"])
-                    for row in following
-                    if row["quality_reason"]
-                ),
-                None,
-            )
-            records.append(
-                {
-                    "raw_reentry_1": any(
-                        row["raw_state"] is True for row in following[:1]
-                    ),
-                    "raw_reentry_3": any(
-                        row["raw_state"] is True for row in following[:3]
-                    ),
-                    "raw_reentry_5": any(
-                        row["raw_state"] is True for row in following[:5]
-                    ),
-                    "confirmed_reentry_5": any(
-                        row["confirmed_state_v1"] is True for row in following[:5]
-                    ),
-                    "confirmed_reentry_10": any(
-                        row["confirmed_state_v1"] is True for row in following[:10]
-                    ),
-                    "quality_interrupted": quality_at is not None,
-                    "input_end_censored": len(following) < 10,
-                }
-            )
-        total = len(records)
+            recognition = int(trigger["exit_recognition_observation_sequence"])
+            security = str(trigger["security_id"])
+            rows = by_security[security]
+            for metric, horizon, state_field in REENTRY_HORIZONS:
+                outcome = "CLEAN_NOT_REENTERED"
+                event_sequence: int | None = None
+                observed_count = 0
+                quality_reason: str | None = None
+                for offset in range(1, horizon + 1):
+                    expected_sequence = recognition + offset
+                    row = rows.get(expected_sequence)
+                    if row is None:
+                        if any(value > expected_sequence for value in rows):
+                            outcome = "QUALITY_INTERRUPTED"
+                            quality_reason = "missing_observation_sequence"
+                            event_sequence = expected_sequence
+                        else:
+                            outcome = "INPUT_END_CENSORED"
+                        break
+                    reason = row.get("quality_reason")
+                    if reason or row.get("joint_ready") is not True:
+                        outcome = "QUALITY_INTERRUPTED"
+                        quality_reason = str(reason or "joint_not_ready")
+                        event_sequence = expected_sequence
+                        break
+                    observed_count += 1
+                    if row.get(state_field) is True:
+                        outcome = "REENTERED"
+                        event_sequence = expected_sequence
+                        break
+                outcomes.append(
+                    {
+                        "trigger_id": trigger["trigger_id"],
+                        "episode_identity": trigger["episode_identity"],
+                        "logical_request_name": result["logical_request_name"],
+                        "exit_confirmation_m": int(result["exit_confirmation_m"]),
+                        "security_id": security,
+                        "recognition_sequence": recognition,
+                        "metric": metric,
+                        "horizon": horizon,
+                        "outcome": outcome,
+                        "event_sequence": event_sequence,
+                        "observed_sequence_count": observed_count,
+                        "quality_reason": quality_reason,
+                    }
+                )
+    return outcomes
+
+
+def _post_recognition(candidates: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    detailed = _post_recognition_outcomes(candidates)
+    grouped: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
+    for item in detailed:
+        grouped[
+            (str(item["logical_request_name"]), int(item["exit_confirmation_m"]))
+        ].append(item)
+    output: list[dict[str, Any]] = []
+    for result in candidates:
+        name = str(result["logical_request_name"])
+        m = int(result["exit_confirmation_m"])
+        records = grouped[(name, m)]
         row: dict[str, Any] = {
-            "logical_request_name": result["logical_request_name"],
-            "exit_confirmation_m": result["exit_confirmation_m"],
-            "recognized_count": total,
-            "quality_interrupted": sum(item["quality_interrupted"] for item in records),
-            "input_end_censored": sum(item["input_end_censored"] for item in records),
+            "logical_request_name": name,
+            "exit_confirmation_m": m,
+            "recognized_count": sum(
+                item["disposition"] == "EXIT_RECOGNIZED"
+                for item in result["trigger_rows"]
+            ),
         }
-        for key in (
-            "raw_reentry_1",
-            "raw_reentry_3",
-            "raw_reentry_5",
-            "confirmed_reentry_5",
-            "confirmed_reentry_10",
-        ):
-            clean = [
+        for metric, horizon, _state_field in REENTRY_HORIZONS:
+            key = f"{metric}_{horizon}"
+            selected = [
                 item
                 for item in records
-                if not item["quality_interrupted"] and not item["input_end_censored"]
+                if item["metric"] == metric and item["horizon"] == horizon
             ]
-            count = sum(item[key] for item in clean)
-            row[f"{key}_count"] = count
-            row[f"{key}_clean_denominator"] = len(clean)
-            row[f"{key}_rate"] = count / len(clean) if clean else None
+            counts = Counter(str(item["outcome"]) for item in selected)
+            denominator = counts["REENTERED"] + counts["CLEAN_NOT_REENTERED"]
+            row[f"{key}_reentered_count"] = counts["REENTERED"]
+            row[f"{key}_clean_not_reentered_count"] = counts["CLEAN_NOT_REENTERED"]
+            row[f"{key}_quality_interrupted_count"] = counts["QUALITY_INTERRUPTED"]
+            row[f"{key}_input_end_censored_count"] = counts["INPUT_END_CENSORED"]
+            row[f"{key}_clean_denominator"] = denominator
+            row[f"{key}_rate"] = (
+                counts["REENTERED"] / denominator if denominator else None
+            )
         output.append(row)
     return output
 
@@ -515,6 +552,9 @@ def _write_detail_database(path: Path, candidate: Mapping[str, Any]) -> None:
         "episodes": [],
         "m_candidate_mapping": [],
         "cross_q_parent_mapping": _cross_q_parent_mappings(candidate),
+        "post_recognition_outcomes": _post_recognition_outcomes(
+            list(candidate["candidates"])
+        ),
     }
     for result in candidate["candidates"]:
         prefix = {
@@ -623,6 +663,58 @@ def artifact_manifest(stage_root: Path) -> dict[str, Any]:
     return {"task_id": "R2A-T06", "files": records}
 
 
+def verify_artifact_manifest(
+    stage_root: Path, manifest: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Independently re-read every sealed artifact identity before publication."""
+
+    loaded = (
+        dict(manifest)
+        if manifest is not None
+        else json.loads(
+            (stage_root / "artifact_manifest.json").read_text(encoding="utf-8")
+        )
+    )
+    if loaded.get("task_id") != "R2A-T06" or not isinstance(loaded.get("files"), list):
+        raise ResultPackageError("artifact_manifest_invalid")
+    expected_paths = {
+        path.relative_to(stage_root).as_posix()
+        for path in stage_root.rglob("*")
+        if path.is_file()
+        and path.name not in {"artifact_manifest.json", "result_package.json"}
+    }
+    registered: dict[str, Mapping[str, Any]] = {}
+    for item in loaded["files"]:
+        if not isinstance(item, Mapping):
+            raise ResultPackageError("artifact_manifest_record_invalid")
+        relative = item.get("relative_path")
+        if not isinstance(relative, str) or "\\" in relative:
+            raise ResultPackageError("artifact_manifest_path_invalid")
+        pure = PurePosixPath(relative)
+        if pure.is_absolute() or ".." in pure.parts or not pure.parts:
+            raise ResultPackageError("artifact_manifest_path_invalid", relative)
+        if relative in registered:
+            raise ResultPackageError("artifact_manifest_duplicate_path", relative)
+        registered[relative] = item
+    if set(registered) != expected_paths:
+        raise ResultPackageError("artifact_manifest_inventory_mismatch")
+    for relative, item in registered.items():
+        path = stage_root.joinpath(*PurePosixPath(relative).parts)
+        if not path.is_file() or path.is_symlink():
+            raise ResultPackageError("artifact_manifest_file_missing", relative)
+        if path.stat().st_size != item.get("byte_size"):
+            raise ResultPackageError("artifact_manifest_byte_size_mismatch", relative)
+        if sha256_file(path) != item.get("sha256"):
+            raise ResultPackageError("artifact_manifest_sha256_mismatch", relative)
+    return {
+        "status": "passed",
+        "verified_file_count": len(registered),
+        "artifact_manifest_sha256": sha256_file(stage_root / "artifact_manifest.json")
+        if (stage_root / "artifact_manifest.json").is_file()
+        else None,
+    }
+
+
 def publish_stage_atomic(stage_root: Path, final_root: Path) -> None:
     if final_root.exists():
         raise ResultPackageError("run_root_collision", str(final_root))
@@ -637,7 +729,7 @@ def preserve_failed_stage(stage_root: Path) -> Path | None:
         return None
     failed = stage_root.with_name(stage_root.name + ".failed")
     if failed.exists():
-        shutil.rmtree(failed)
+        raise ResultPackageError("failed_stage_collision", str(failed))
     os.replace(stage_root, failed)
     return failed
 
@@ -659,5 +751,6 @@ __all__ = [
     "preserve_failed_stage",
     "publish_stage_atomic",
     "scientific_inventory",
+    "verify_artifact_manifest",
     "write_scientific_stage",
 ]

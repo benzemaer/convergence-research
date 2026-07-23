@@ -7,6 +7,9 @@
     "$schema", "task_id", "stage_id", "formal_scope_id", "status",
     "approved_implementation_sha", "owner_implementation_review_status",
     "formal_execution_candidate_sha", "formal_execution_candidate_status",
+    "owner_formal_execution_review_status",
+    "previous_unapproved_formal_execution_sha",
+    "successor_formal_execution_candidate_sha", "approved_formal_execution_sha",
     "owner_formal_execution_review_required", "reviewed_formal_execution_sha",
     "formal_run_allowed", "formal_run_executed", "real_score_data_read",
     "formal_artifacts_generated", "authoritative_manifest_generated",
@@ -14,9 +17,10 @@
     "winner_selected", "q_selection_status", "canonical_dynamic_request_selected",
     "R2A-T06_DONE", "R2A-T07_allowed_to_start", "R3_allowed_to_start",
     "PR_state", "execution_plan", "run_root_policy", "formal_attempt_limit",
-    "formal_attempts_consumed", "repository_local_data_root", "score_release",
+    "formal_attempts_consumed", "attempt_marker_policy",
+    "repository_local_data_root", "score_release",
     "accepted_handoffs", "protocol_identity", "evaluator_identity", "requests",
-    "accepted_counts", "forbidden_input_fields", "scientific_package_files",
+    "accepted_counts", "accepted_coverage", "forbidden_input_fields", "scientific_package_files",
     "control_files", "selection_principle", "minimum_sufficient_complexity_rule"
   ],
   "properties": {
@@ -29,6 +33,10 @@
     "owner_implementation_review_status": {"const": "passed"},
     "formal_execution_candidate_sha": {"const": null},
     "formal_execution_candidate_status": {"const": "pending_owner_review"},
+    "owner_formal_execution_review_status": {"const": "pending_successor_review"},
+    "previous_unapproved_formal_execution_sha": {"const": "4ebadc8aea216730cc6eb9c8b0b8c911574e488d"},
+    "successor_formal_execution_candidate_sha": {"const": null},
+    "approved_formal_execution_sha": {"const": "absent"},
     "owner_formal_execution_review_required": {"const": true},
     "reviewed_formal_execution_sha": {"const": null},
     "formal_run_allowed": {"const": false},
@@ -69,6 +77,16 @@
     },
     "formal_attempt_limit": {"const": 1},
     "formal_attempts_consumed": {"const": 0},
+    "attempt_marker_policy": {
+      "const": {
+        "relative_path_template": "data/generated/r2a/r2a_t06/formal-runs/<RUN_ID>.attempt-consumed.json",
+        "exclusive_create": true,
+        "delete_after_failure": false,
+        "delete_after_completion": false,
+        "attempt_number": 1,
+        "initial_status": "consumed"
+      }
+    },
     "repository_local_data_root": {"const": "data"},
     "score_release": {"$ref": "#/$defs/scoreRelease"},
     "accepted_handoffs": {
@@ -88,6 +106,7 @@
       "items": {"$ref": "#/$defs/request"}
     },
     "accepted_counts": {"$ref": "#/$defs/acceptedCounts"},
+    "accepted_coverage": {"const": {"spine_row_count": 1751066, "source": "R2A-T05 accepted full-scope T03 validation metadata"}},
     "forbidden_input_fields": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "scientific_package_files": {"const": ["request_identity.json", "input_manifest.json", "run_summary.json", "validation_receipt.json", "result_analysis.md", "false_run_length_profile.csv", "recovery_hazard_profile.csv", "candidate_exit_summary.csv", "recognition_lag_profile.csv", "post_recognition_reentry.csv", "episode_fragmentation_profile.csv", "exit_type_margin_profile.csv", "cross_q_nesting_validation.csv", "year_profile.csv", "security_profile.csv", "deterministic_episode_samples.csv", "t06_detail.duckdb"]},
     "control_files": {"const": ["formal_authorization.json", "execution_log.jsonl", "artifact_manifest.json", "result_package.json", "anomaly_scan.json", "determinism_receipt.json"]},

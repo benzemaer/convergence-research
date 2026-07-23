@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import stat
 import subprocess
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +35,7 @@ from src.r2a.r2a_t06_formal_input_manifest import (
     FormalInputManifestError,
     canonical_json_bytes,
     load_formal_execution_config,
+    sha256_file,
     validate_manifest,
     validate_repository_relative_path,
     verify_committed_contract_bindings,
@@ -51,6 +55,7 @@ from src.r2a.r2a_t06_result_package import (
     preserve_failed_stage,
     publish_stage_atomic,
     scientific_inventory,
+    verify_artifact_manifest,
     write_scientific_stage,
 )
 from src.r2a.r2a_t06_validator import (
@@ -146,7 +151,13 @@ def _path_inside_data_root(repo_root: Path, relative: str) -> Path:
         raise FormalExecutionError("input_path_outside_repository_data_root", relative)
     current = target
     while current != repo_root:
-        if current.exists() and current.is_symlink():
+        try:
+            file_attributes = getattr(current.lstat(), "st_file_attributes", 0)
+        except FileNotFoundError:
+            file_attributes = 0
+        if current.is_symlink() or bool(
+            file_attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+        ):
             raise FormalExecutionError("input_reparse_or_symlink_rejected", relative)
         current = current.parent
     return target
@@ -165,6 +176,95 @@ def assert_formal_execution_authorized(
         raise FormalExecutionError("formal_run_not_authorized_preparation_stage")
     if authorization.get("owner_authorized") is not True:
         raise FormalExecutionError("owner_formal_authorization_missing")
+
+
+def _attempt_marker_path(run_root: Path) -> Path:
+    return run_root.with_name(run_root.name + ".attempt-consumed.json")
+
+
+def _run_state_conflicts(run_root: Path) -> list[Path]:
+    parent = run_root.parent
+    run_id = run_root.name
+    patterns = (
+        f".{run_id}.staging-*",
+        f".{run_id}.staging-*.failed",
+        f".{run_id}.reserved*",
+        f"{run_id}.failed",
+        f"{run_id}.reserved*",
+    )
+    conflicts = [run_root] if run_root.exists() else []
+    for pattern in patterns:
+        conflicts.extend(parent.glob(pattern))
+    return sorted(set(conflicts))
+
+
+def consume_formal_attempt(
+    run_root: Path,
+    authorization: Mapping[str, Any],
+    *,
+    consumed_at: str | None = None,
+) -> Path:
+    """Atomically and permanently consume the one authorized formal attempt."""
+
+    marker = _attempt_marker_path(run_root)
+    if marker.exists():
+        raise FormalExecutionError("formal_attempt_already_consumed")
+    conflicts = _run_state_conflicts(run_root)
+    if conflicts:
+        if run_root in conflicts:
+            raise FormalExecutionError("run_root_collision", str(run_root))
+        raise FormalExecutionError(
+            "formal_run_state_conflict", ",".join(str(path) for path in conflicts)
+        )
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "task_id": "R2A-T06",
+        "run_id": authorization["run_id"],
+        "run_root_relative_path": authorization["run_root_relative_path"],
+        "authorization_revision": authorization["authorization_revision"],
+        "reviewed_formal_execution_sha": authorization["reviewed_formal_execution_sha"],
+        "authorization_commit_sha": authorization["authorization_commit_sha"],
+        "manifest_sha256": authorization["manifest_sha256"],
+        "consumed_at": consumed_at
+        or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "formal_attempt_limit": authorization["formal_attempt_limit"],
+        "attempt_number": 1,
+        "status": "consumed",
+    }
+    content = canonical_json_bytes(payload)
+    try:
+        descriptor = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)
+    except FileExistsError as error:
+        raise FormalExecutionError("formal_attempt_already_consumed") from error
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        # A successfully created marker is never removed, even if its write fails.
+        raise
+    return marker
+
+
+def _validate_score_identity(
+    score_path: Path, score_release: Mapping[str, Any]
+) -> dict[str, Any]:
+    if not score_path.is_file():
+        raise FormalExecutionError("score_file_missing", str(score_path))
+    try:
+        byte_size = score_path.stat().st_size
+    except OSError as error:
+        raise FormalExecutionError("score_identity_validation_failed") from error
+    if byte_size != int(score_release["byte_size"]):
+        raise FormalExecutionError("score_byte_size_mismatch")
+    try:
+        digest = sha256_file(score_path)
+    except OSError as error:
+        raise FormalExecutionError("score_identity_validation_failed") from error
+    if digest != score_release["sha256"]:
+        raise FormalExecutionError("score_sha256_mismatch")
+    return {"sha256": digest, "byte_size": byte_size, "status": "passed"}
 
 
 def preflight_formal_execution(
@@ -257,11 +357,6 @@ def preflight_formal_execution(
     expected_parent = loaded["run_root_policy"]["parent_relative_path"]
     if run_root.parent != (root / expected_parent).resolve(strict=False):
         raise FormalExecutionError("run_root_parent_mismatch")
-    if run_root.exists():
-        raise FormalExecutionError("run_root_collision")
-    score_path = _path_inside_data_root(
-        root, manifest["score_release"]["relative_path"]
-    )
     for identity in manifest["accepted_handoffs"].values():
         _path_inside_data_root(root, identity["relative_path"])
     if git_state is None:
@@ -271,6 +366,11 @@ def preflight_formal_execution(
             raise FormalExecutionError(error.reason_code, str(error)) from error
     elif state.get("accepted_metadata_verified") is not True:
         raise FormalExecutionError("accepted_metadata_not_verified")
+    attempt_marker = consume_formal_attempt(run_root, authorization)
+    score_path = _path_inside_data_root(
+        root, manifest["score_release"]["relative_path"]
+    )
+    score_identity = _validate_score_identity(score_path, manifest["score_release"])
     if input_discovery is not None:
         input_discovery(score_path)
     return {
@@ -279,14 +379,50 @@ def preflight_formal_execution(
         "reviewed_formal_execution_sha": reviewed,
         "run_root": str(run_root),
         "score_path": str(score_path),
+        "score_identity": score_identity,
+        "attempt_marker": str(attempt_marker),
         "manifest": manifest,
     }
 
 
-def _request_summary(output_path: Path) -> dict[str, int]:
+def _request_summary(output_path: Path) -> dict[str, Any]:
     try:
         with duckdb.connect(str(output_path), read_only=True) as connection:
+            request_row = connection.execute(
+                "SELECT request_id, request_hash, score_release_id, "
+                "evaluator_version, output_schema_version FROM dynamic_request"
+            ).fetchone()
+            scope_row = connection.execute(
+                "SELECT evaluated_security_count, date_min, date_max, "
+                "spine_row_count FROM evaluation_scope"
+            ).fetchone()
+            if request_row is None or scope_row is None:
+                raise FormalExecutionError("request_receipt_metadata_missing")
             return {
+                "request_id": str(request_row[0]),
+                "request_hash": str(request_row[1]),
+                "score_release_id": str(request_row[2]),
+                "evaluator_version": str(request_row[3]),
+                "output_schema_version": str(request_row[4]),
+                "evaluated_security_count": int(scope_row[0]),
+                "date_min": str(scope_row[1]),
+                "date_max": str(scope_row[2]),
+                "spine_row_count": int(scope_row[3]),
+                "daily_joint_state_count": int(
+                    connection.execute(
+                        "SELECT count(*) FROM daily_joint_states"
+                    ).fetchone()[0]
+                ),
+                "daily_dimension_state_count": int(
+                    connection.execute(
+                        "SELECT count(*) FROM daily_dimension_states"
+                    ).fetchone()[0]
+                ),
+                "confirmed_interval_count": int(
+                    connection.execute(
+                        "SELECT count(*) FROM confirmed_intervals"
+                    ).fetchone()[0]
+                ),
                 "raw_true": int(
                     connection.execute(
                         "SELECT count(*) FROM daily_joint_states "
@@ -322,11 +458,14 @@ def execute_request_sequence(
     output_dir: Path,
     evaluate: Callable[[Mapping[str, Any], Path], Any],
     validate: Callable[[Mapping[str, Any], Path], Mapping[str, Any]],
-    summarize: Callable[[Path], Mapping[str, int]],
+    summarize: Callable[[Path], Mapping[str, Any]],
     expected_counts: Mapping[str, Mapping[str, int]],
+    score_release: Mapping[str, Any],
+    evaluator_identity: Mapping[str, Any],
+    expected_spine_row_count: int,
     request_concurrency: int = 1,
     on_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-) -> tuple[dict[str, Path], dict[str, dict[str, Any]], dict[str, dict[str, int]]]:
+) -> tuple[dict[str, Path], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     names = tuple(str(item["logical_request_name"]) for item in requests)
     if names != REQUEST_ORDER:
         raise FormalExecutionError("request_order_mutation")
@@ -335,7 +474,7 @@ def execute_request_sequence(
     output_dir.mkdir(parents=True, exist_ok=False)
     outputs: dict[str, Path] = {}
     receipts: dict[str, dict[str, Any]] = {}
-    summaries: dict[str, dict[str, int]] = {}
+    summaries: dict[str, dict[str, Any]] = {}
     evaluated: Counter[str] = Counter()
     for request in requests:
         name = str(request["logical_request_name"])
@@ -350,24 +489,57 @@ def execute_request_sequence(
         evaluate(request, target)
         if not target.is_file():
             raise FormalExecutionError("partial_request_output", name)
-        receipt = dict(validate(request, target))
-        if receipt.get("status") != "passed":
+        validation = dict(validate(request, target))
+        if validation.get("status") != "passed":
             raise FormalExecutionError("request_validator_blocked", name)
+        actual = {"logical_request_name": name, **dict(summarize(target))}
+        expected_identity = {
+            "request_id": request["request_id"],
+            "request_hash": request["request_hash"],
+            "score_release_id": score_release["score_release_id"],
+            "evaluator_version": evaluator_identity["evaluator_version"],
+            "output_schema_version": evaluator_identity["output_schema_version"],
+            "evaluated_security_count": score_release["security_count"],
+            "date_min": score_release["date_min"],
+            "date_max": score_release["date_max"],
+            "spine_row_count": expected_spine_row_count,
+            "daily_joint_state_count": expected_spine_row_count,
+            "daily_dimension_state_count": expected_spine_row_count * 2,
+            "confirmed_interval_count": expected_counts[name]["intervals"],
+            **expected_counts[name],
+        }
+        reason_codes = {
+            "request_id": "request_id_mismatch",
+            "request_hash": "request_hash_mismatch",
+            "score_release_id": "score_release_id_mismatch",
+            "evaluator_version": "evaluator_version_mismatch",
+            "output_schema_version": "output_schema_version_mismatch",
+            "evaluated_security_count": "evaluated_security_count_mismatch",
+            "date_min": "date_min_mismatch",
+            "date_max": "date_max_mismatch",
+            "spine_row_count": "spine_row_count_mismatch",
+            "daily_joint_state_count": "daily_joint_state_count_mismatch",
+            "daily_dimension_state_count": "daily_dimension_state_count_mismatch",
+            "confirmed_interval_count": "confirmed_interval_count_mismatch",
+        }
+        for key, expected in expected_identity.items():
+            if actual.get(key) != expected:
+                raise FormalExecutionError(
+                    reason_codes.get(key, "accepted_t04_t05_count_mismatch"), name
+                )
+        actual["status"] = "passed"
         if on_event:
             on_event(
                 "request_validated",
-                {"logical_request_name": name, "receipt": receipt},
+                {"logical_request_name": name, "receipt": actual},
             )
-        actual = {key: int(value) for key, value in summarize(target).items()}
-        if actual != dict(expected_counts[name]):
-            raise FormalExecutionError("accepted_t04_t05_count_mismatch", name)
         if on_event:
             on_event(
                 "request_reconciled",
-                {"logical_request_name": name, "counts": actual},
+                {"logical_request_name": name, "receipt": actual},
             )
         outputs[name] = target
-        receipts[name] = receipt
+        receipts[name] = actual
         summaries[name] = actual
     if set(evaluated.values()) != {1}:
         raise FormalExecutionError("request_evaluation_count_invalid")
@@ -579,10 +751,14 @@ def run_formal_execution(
     evaluate_request: Callable[[Mapping[str, Any], Path, Path], Any] | None = None,
     validate_request: Callable[[Mapping[str, Any], Path], Mapping[str, Any]]
     | None = None,
-    summarize_request: Callable[[Path], Mapping[str, int]] = _request_summary,
+    summarize_request: Callable[[Path], Mapping[str, Any]] = _request_summary,
     load_facts: Callable[
         [Path, Mapping[str, Any]], list[dict[str, Any]]
     ] = load_daily_facts,
+    build_lifecycle: Callable[
+        [Mapping[str, Sequence[Mapping[str, Any]]]],
+        tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+    ] = build_and_validate_lifecycle,
 ) -> dict[str, Any]:
     loaded = deepcopy(dict(config or load_formal_execution_config()))
     preflight = preflight_formal_execution(
@@ -597,6 +773,7 @@ def run_formal_execution(
     final_root = Path(preflight["run_root"])
     stage = create_stage_root(final_root.parent, authorization["run_id"])
     log_path = stage / "execution_log.jsonl"
+    manifest_sealed = False
     _log(
         log_path,
         "stage_0_preflight_passed",
@@ -658,6 +835,9 @@ def run_formal_execution(
             validate=validate_request or default_validate,
             summarize=summarize_request,
             expected_counts=manifest["accepted_counts"],
+            score_release=manifest["score_release"],
+            evaluator_identity=manifest["evaluator_identity"],
+            expected_spine_row_count=manifest["accepted_coverage"]["spine_row_count"],
             request_concurrency=manifest["execution_plan"]["request_concurrency"],
             on_event=lambda event, details: _log(log_path, event, **details),
         )
@@ -666,9 +846,7 @@ def run_formal_execution(
             name: load_facts(outputs[name], manifest["requests"][index])
             for index, name in enumerate(REQUEST_ORDER)
         }
-        candidate, validation_receipt, determinism_receipt = (
-            build_and_validate_lifecycle(source)
-        )
+        candidate, validation_receipt, determinism_receipt = build_lifecycle(source)
         _log(log_path, "stages_2_to_4_lifecycle_validated")
         run_summary = {
             "run_id": authorization["run_id"],
@@ -715,7 +893,6 @@ def run_formal_execution(
             "stage_6_actual_artifact_analysis_completed",
             status=analysis["status"],
         )
-        _write_json(stage / "artifact_manifest.json", artifact_manifest(stage))
         files = scientific_inventory(scientific)
         package = {
             "task_id": "R2A-T06",
@@ -746,20 +923,29 @@ def run_formal_execution(
         validate_t06_result_package(package)
         _write_json(stage / "result_package.json", package)
         _log(log_path, "stage_7_atomic_publication_ready")
+        _write_json(stage / "artifact_manifest.json", artifact_manifest(stage))
+        manifest_sealed = True
+        publication_receipt = verify_artifact_manifest(stage)
         publish_stage_atomic(stage, final_root)
+        post_publish_receipt = verify_artifact_manifest(final_root)
         return {
             "run_root": str(final_root),
             "result_package": package,
             "analysis": analysis,
+            "publication_receipt": publication_receipt,
+            "post_publish_receipt": post_publish_receipt,
         }
     except Exception as error:
         if stage.exists():
-            _log(
-                log_path,
-                "formal_run_failed_closed",
-                reason_code=getattr(error, "reason_code", "formal_execution_failed"),
-                detail=str(error),
-            )
+            if not manifest_sealed:
+                _log(
+                    log_path,
+                    "formal_run_failed_closed",
+                    reason_code=getattr(
+                        error, "reason_code", "formal_execution_failed"
+                    ),
+                    detail=str(error),
+                )
             preserve_failed_stage(stage)
         if isinstance(error, FormalExecutionError):
             raise
@@ -796,6 +982,7 @@ __all__ = [
     "assert_formal_execution_authorized",
     "build_and_validate_lifecycle",
     "compare_formal_builds",
+    "consume_formal_attempt",
     "execute_request_sequence",
     "inspect_git_preflight",
     "load_daily_facts",

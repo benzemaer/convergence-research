@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 
 import pytest
@@ -11,10 +12,12 @@ from src.r2a.r2a_t06_result_package import (
     CONTROL_FILES,
     SCIENTIFIC_FILES,
     ResultPackageError,
+    artifact_manifest,
     create_stage_root,
     preserve_failed_stage,
     publish_stage_atomic,
     scientific_inventory,
+    verify_artifact_manifest,
     write_scientific_stage,
 )
 from src.r2a.r2a_t06_validator import T06ValidationError, validate_t06_result_package
@@ -143,3 +146,58 @@ def test_formal_pending_package_cannot_select_m_or_create_done(tmp_path: Path) -
     done["R2A-T06_DONE"] = "present"
     with pytest.raises(T06ValidationError):
         validate_t06_result_package(done)
+
+
+def _sealed_stage(tmp_path: Path) -> tuple[Path, dict]:
+    stage, _scientific, _candidate, _validation, _manifest = _package_stage(tmp_path)
+    (stage / "execution_log.jsonl").write_text(
+        '{"event":"stage_7_atomic_publication_ready"}\n', encoding="utf-8"
+    )
+    (stage / "formal_authorization.json").write_text("{}\n", encoding="utf-8")
+    (stage / "determinism_receipt.json").write_text("{}\n", encoding="utf-8")
+    (stage / "anomaly_scan.json").write_text("{}\n", encoding="utf-8")
+    manifest = artifact_manifest(stage)
+    (stage / "artifact_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return stage, manifest
+
+
+def test_artifact_manifest_verifies_all_hashes_and_sizes(tmp_path: Path) -> None:
+    stage, manifest = _sealed_stage(tmp_path)
+    receipt = verify_artifact_manifest(stage)
+    assert receipt["status"] == "passed"
+    assert receipt["verified_file_count"] == len(manifest["files"])
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    ("execution_log.jsonl", "scientific/candidate_exit_summary.csv"),
+)
+def test_artifact_manifest_rejects_tampered_file(
+    tmp_path: Path, relative_path: str
+) -> None:
+    stage, _manifest = _sealed_stage(tmp_path)
+    path = stage.joinpath(*relative_path.split("/"))
+    original = path.read_bytes()
+    path.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+    with pytest.raises(ResultPackageError, match="artifact_manifest_sha256_mismatch"):
+        verify_artifact_manifest(stage)
+
+
+def test_artifact_manifest_rejects_missing_registered_file(tmp_path: Path) -> None:
+    stage, _manifest = _sealed_stage(tmp_path)
+    (stage / "execution_log.jsonl").unlink()
+    with pytest.raises(
+        ResultPackageError, match="artifact_manifest_inventory_mismatch"
+    ):
+        verify_artifact_manifest(stage)
+
+
+def test_artifact_manifest_rejects_unregistered_control_file(tmp_path: Path) -> None:
+    stage, _manifest = _sealed_stage(tmp_path)
+    (stage / "unexpected_control.json").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(
+        ResultPackageError, match="artifact_manifest_inventory_mismatch"
+    ):
+        verify_artifact_manifest(stage)

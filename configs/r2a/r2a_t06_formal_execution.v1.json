@@ -8,6 +8,10 @@
   "owner_implementation_review_status": "passed",
   "formal_execution_candidate_sha": null,
   "formal_execution_candidate_status": "pending_owner_review",
+  "owner_formal_execution_review_status": "pending_successor_review",
+  "previous_unapproved_formal_execution_sha": "4ebadc8aea216730cc6eb9c8b0b8c911574e488d",
+  "successor_formal_execution_candidate_sha": null,
+  "approved_formal_execution_sha": "absent",
   "owner_formal_execution_review_required": true,
   "reviewed_formal_execution_sha": null,
   "formal_run_allowed": false,
@@ -44,6 +48,14 @@
   },
   "formal_attempt_limit": 1,
   "formal_attempts_consumed": 0,
+  "attempt_marker_policy": {
+    "relative_path_template": "data/generated/r2a/r2a_t06/formal-runs/<RUN_ID>.attempt-consumed.json",
+    "exclusive_create": true,
+    "delete_after_failure": false,
+    "delete_after_completion": false,
+    "attempt_number": 1,
+    "initial_status": "consumed"
+  },
   "repository_local_data_root": "data",
   "score_release": {
     "score_release_id": "pcavt-score-w120-v1-c7e04f11a2cd09aa",
@@ -84,6 +96,10 @@
     "CA_q15_k5": {"raw_true": 46651, "confirmed_true": 7125, "intervals": 2426, "securities_with_interval": 734},
     "CA_q20_k5": {"raw_true": 81535, "confirmed_true": 17642, "intervals": 5372, "securities_with_interval": 775},
     "CA_q25_k5": {"raw_true": 124893, "confirmed_true": 35098, "intervals": 9107, "securities_with_interval": 788}
+  },
+  "accepted_coverage": {
+    "spine_row_count": 1751066,
+    "source": "R2A-T05 accepted full-scope T03 validation metadata"
   },
   "forbidden_input_fields": ["price", "open", "high", "low", "close", "return", "mfe", "mae", "future_path", "release_label", "direction_label", "trade_signal", "pnl"],
   "scientific_package_files": [

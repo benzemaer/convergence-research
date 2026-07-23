@@ -9,7 +9,7 @@
     "authorization_parent_sha", "authorization_commit_sha", "authorization_revision",
     "formal_attempt_limit", "formal_attempts_consumed", "score_release",
     "protocol_identity", "evaluator_identity", "accepted_handoffs", "requests",
-    "accepted_counts", "execution_plan", "config_schema_bindings",
+    "accepted_counts", "accepted_coverage", "execution_plan", "config_schema_bindings",
     "committed_contract_bindings",
     "repository_local_storage_root", "forbidden_input_fields",
     "expected_formal_files", "superseded"
@@ -34,6 +34,7 @@
     "accepted_handoffs": {"type": "object", "minProperties": 7, "additionalProperties": {"$ref": "#/$defs/fileIdentity"}},
     "requests": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/request"}},
     "accepted_counts": {"$ref": "#/$defs/acceptedCounts"},
+    "accepted_coverage": {"const": {"spine_row_count": 1751066, "source": "R2A-T05 accepted full-scope T03 validation metadata"}},
     "execution_plan": {
       "const": {
         "request_order": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],

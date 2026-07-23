@@ -1,6 +1,6 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。R2A-T05 已接受关闭且 PR #115 已合并。R2A-T06 implementation 已获 owner 批准，当前只准备 formal-execution candidate，不授权 formal run 或真实 Score 读取。
+> 本文是无上下文新会话的当前入口。R2A-T05 已接受关闭且 PR #115 已合并。R2A-T06 implementation 已获 owner 批准；前一 formal-execution candidate 未获批准，当前 successor 等待 owner review，不授权 formal run 或真实 Score 读取。
 
 ## 0. 当前状态
 
@@ -65,10 +65,16 @@ R2A-T06_owner_implementation_review_status: passed
 R2A-T06_approved_implementation_sha: 2710d282fadcb998b80b9a482a5d55a4facc775a
 R2A-T06_formal_execution_candidate_status: pending_owner_review
 R2A-T06_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
+R2A-T06_owner_formal_execution_review_status: pending_successor_review
+R2A-T06_previous_unapproved_formal_execution_sha: 4ebadc8aea216730cc6eb9c8b0b8c911574e488d
+R2A-T06_successor_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
+R2A-T06_approved_formal_execution_sha: absent
 R2A-T06_selected_exit_confirmation_m: null
 R2A-T06_q_selection_status: not_selected
 R2A-T06_canonical_dynamic_request_selected: false
 R2A-T06_winner_selected: false
+R2A-T06_authoritative_manifest_generated: false
+R2A-T06_formal_authorization_created: false
 R2A-T06_formal_run_allowed: false
 R2A-T06_formal_run_executed: false
 R2A-T06_real_score_data_read: false
@@ -143,4 +149,4 @@ q20 仅是 `exit_mechanism_decomposition` research anchor，`q_selection_status=
 
 R2A-T05 accepted handoff 位于 `data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json`，acceptance evidence 位于 `docs/evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md`。
 
-R2A-T06 task contract 位于 `docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md`。前一 SHA `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准；successor implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner review。当前 formal-execution candidate 实现四档串行重算与对账、同一 daily facts 上的 M=1/2/3、独立验证、online/parallel/determinism、17 文件结果包和实际 artifact 分析，停止于 exact candidate SHA 经 Quality 后等待 owner formal-execution review。不得创建权威 manifest、formal authorization、读取真实 Score、选择 M 或创建 DONE。
+R2A-T06 task contract 位于 `docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md`。前一 implementation SHA `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准；successor implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner review。前一 formal-execution candidate `4ebadc8aea216730cc6eb9c8b0b8c911574e488d` 的 review 为 changes required；当前 successor 修复 attempt 原子消费、Score/request coverage 对账、horizon-specific reentry、persisted 核心表/detail 对账和最终 artifact-manifest sealing，停止于 exact PR head 经 Quality 后等待 owner formal-execution review。不得创建权威 manifest、formal authorization、读取真实 Score、选择 M 或创建 DONE。
