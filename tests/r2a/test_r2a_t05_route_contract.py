@@ -39,7 +39,10 @@ def test_t05_route_is_preserved_after_t06_successor_start() -> None:
     assert "R2A-T07：版本注册与消费者契约冻结" in stage
     assert "q20 仅是 `exit_mechanism_decomposition` research anchor" in handoff
     assert "T06 的 no-lookahead/PIT 要求保留" in task
-    assert "R2A-T06_status: implementation_candidate_pending_owner_review" in handoff
+    assert (
+        "R2A-T06_status: implementation_candidate_remediation_pending_successor_review"
+        in handoff
+    )
     assert "formal_run_started: false" in task
 
 

@@ -8,11 +8,12 @@
     "implementation_version", "selected_dimensions", "confirmation_k",
     "q_by_request", "exit_confirmation_m_candidates", "candidate_roles",
     "q20_role", "q_selection_status", "canonical_dynamic_request_selected",
-    "winner_selected", "formal_run_allowed", "formal_run_executed",
+    "winner_selected", "selected_exit_confirmation_m", "previous_unapproved_implementation_sha",
+    "owner_implementation_review_status", "approved_implementation_sha", "formal_run_allowed", "formal_run_executed",
     "real_score_data_read", "formal_artifacts_generated", "R2A-T06_DONE",
     "R2A-T07_allowed_to_start", "R3_allowed_to_start",
     "owner_implementation_review_required", "accepted_t05_binding",
-    "accepted_t05_counts", "continuity", "lifecycle_states",
+    "accepted_t05_counts", "continuity", "candidate_cross_q_invariant", "lifecycle_states",
     "quality_termination_reasons", "exit_types", "selection_principle",
     "candidate_source_mode", "future_formal_required_files",
     "scientific_boundaries"
@@ -21,7 +22,7 @@
     "$schema": {"const": "../../schemas/r2a/r2a_t06_consecutive_failure_exit.schema.json"},
     "task_id": {"const": "R2A-T06"},
     "stage_id": {"const": "R2A"},
-    "status": {"const": "implementation_candidate_pending_owner_review"},
+    "status": {"const": "implementation_candidate_remediation_pending_successor_review"},
     "scope_id": {"const": "r2a_t06_consecutive_failure_exit_confirmation.v1"},
     "implementation_version": {"const": "r2a_t06_consecutive_failure_exit.v1"},
     "selected_dimensions": {"const": ["C", "A"]},
@@ -45,6 +46,10 @@
     "q_selection_status": {"const": "not_selected"},
     "canonical_dynamic_request_selected": {"const": false},
     "winner_selected": {"const": false},
+    "selected_exit_confirmation_m": {"const": null},
+    "previous_unapproved_implementation_sha": {"const": "2bd24badf22ede38392ef7a4b3467602cc929106"},
+    "owner_implementation_review_status": {"const": "pending_successor_review"},
+    "approved_implementation_sha": {"const": "absent"},
     "formal_run_allowed": {"const": false},
     "formal_run_executed": {"const": false},
     "real_score_data_read": {"const": false},
@@ -73,6 +78,15 @@
     },
     "continuity": {
       "const": {"field": "observation_sequence", "calendar_day_difference_allowed": false, "missing_rows_may_be_skipped": false, "non_ready_rows_may_be_skipped": false}
+    },
+    "candidate_cross_q_invariant": {
+      "const": {
+        "membership": "lifecycle_state in {ACTIVE, EXIT_PENDING}",
+        "nested_order": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+        "same_exit_confirmation_m_required": true,
+        "unique_parent_episode_required": true,
+        "multi_parent_mapping_allowed": false
+      }
     },
     "lifecycle_states": {"const": ["ACTIVE", "EXIT_PENDING", "EXIT_RECOGNIZED", "QUALITY_TERMINATED", "PENDING_RIGHT_CENSORED"]},
     "quality_termination_reasons": {"type": "array", "minItems": 7, "uniqueItems": true, "items": {"type": "string"}},

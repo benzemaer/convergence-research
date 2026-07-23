@@ -24,6 +24,9 @@ def test_route_is_implementation_only_and_successors_are_blocked() -> None:
     assert config["q_selection_status"] == "not_selected"
     assert config["canonical_dynamic_request_selected"] is False
     assert config["winner_selected"] is False
+    assert config["selected_exit_confirmation_m"] is None
+    assert config["owner_implementation_review_status"] == "pending_successor_review"
+    assert config["approved_implementation_sha"] == "absent"
     assert config["formal_run_allowed"] is False
     assert config["formal_run_executed"] is False
     assert config["real_score_data_read"] is False
@@ -49,9 +52,12 @@ def test_task_and_handoff_expose_current_stop() -> None:
     task = _text("docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md")
     handoff = _text("HANDOFF.md")
     index = _text("docs/tasks/README.md")
-    assert "status: implementation_candidate_pending_owner_review" in task
+    assert (
+        "status: implementation_candidate_remediation_pending_successor_review" in task
+    )
     assert "formal_run_executed: false" in task
     assert "real_score_data_read: false" in task
     assert "R2A-T06_DONE: absent" in task
     assert "owner_implementation_review_required: true" in handoff
+    assert "R2A-T06_approved_implementation_sha: absent" in handoff
     assert "R2A-T07_allowed_to_start: false" in index

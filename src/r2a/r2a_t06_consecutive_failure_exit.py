@@ -555,6 +555,105 @@ def _validate_cross_q_input(
     return checks
 
 
+def _episode_memberships(result: Mapping[str, Any]) -> list[dict[str, Any]]:
+    active_states = {"ACTIVE", "EXIT_PENDING"}
+    observations = result["observation_rows"]
+    memberships: list[dict[str, Any]] = []
+    for episode in result["episode_rows"]:
+        security = episode["security_id"]
+        start = int(episode["start_observation_sequence"])
+        end = int(episode["end_observation_sequence"])
+        keys = {
+            (security, int(row["observation_sequence"]))
+            for row in observations
+            if row["security_id"] == security
+            and start <= int(row["observation_sequence"]) <= end
+            and row["lifecycle_state"] in active_states
+        }
+        memberships.append({"episode": episode, "keys": keys})
+    return memberships
+
+
+def _validate_candidate_cross_q(
+    candidates: Sequence[Mapping[str, Any]],
+    input_checks: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    by_key = {
+        (row["logical_request_name"], int(row["exit_confirmation_m"])): row
+        for row in candidates
+    }
+    input_by_pair = {(row["child"], row["parent"]): row for row in input_checks}
+    output: list[dict[str, Any]] = []
+    for m in EXIT_CONFIRMATION_VALUES:
+        for child, parent in zip(REQUEST_ORDER, REQUEST_ORDER[1:]):
+            child_result = by_key[(child, m)]
+            parent_result = by_key[(parent, m)]
+            child_active = {
+                (row["security_id"], int(row["observation_sequence"]))
+                for row in child_result["observation_rows"]
+                if row["lifecycle_state"] in {"ACTIVE", "EXIT_PENDING"}
+            }
+            parent_active = {
+                (row["security_id"], int(row["observation_sequence"]))
+                for row in parent_result["observation_rows"]
+                if row["lifecycle_state"] in {"ACTIVE", "EXIT_PENDING"}
+            }
+            violations = len(child_active - parent_active)
+            child_memberships = _episode_memberships(child_result)
+            parent_memberships = _episode_memberships(parent_result)
+            mapped = 0
+            unmapped = 0
+            multi_parent = 0
+            for item in child_memberships:
+                keys = item["keys"]
+                containing = [
+                    parent_item
+                    for parent_item in parent_memberships
+                    if keys and keys <= parent_item["keys"]
+                ]
+                intersecting = [
+                    parent_item
+                    for parent_item in parent_memberships
+                    if keys & parent_item["keys"]
+                ]
+                if len(containing) == 1:
+                    mapped += 1
+                elif len(containing) > 1 or len(intersecting) > 1:
+                    multi_parent += 1
+                else:
+                    unmapped += 1
+            input_row = input_by_pair[(child, parent)]
+            mapping_status = (
+                "passed" if unmapped == 0 and multi_parent == 0 else "failed"
+            )
+            overall = (
+                "passed"
+                if input_row["status"] == "passed"
+                and violations == 0
+                and mapping_status == "passed"
+                else "failed"
+            )
+            if overall != "passed":
+                raise T06Error("candidate_cross_q_lifecycle_nesting_violation")
+            output.append(
+                {
+                    "exit_confirmation_m": m,
+                    "child_request": child,
+                    "parent_request": parent,
+                    "raw_violation_count": input_row["raw_violation_count"],
+                    "confirmed_violation_count": input_row["confirmed_violation_count"],
+                    "active_or_pending_violation_count": violations,
+                    "child_episode_count": len(child_memberships),
+                    "mapped_child_episode_count": mapped,
+                    "unmapped_child_episode_count": unmapped,
+                    "multi_parent_child_episode_count": multi_parent,
+                    "mapping_status": mapping_status,
+                    "overall_status": overall,
+                }
+            )
+    return output
+
+
 def build_t06_candidate(
     source_by_request: Mapping[str, Sequence[Mapping[str, Any]]],
     *,
@@ -569,7 +668,7 @@ def build_t06_candidate(
         raise T06Error("worker_count_invalid")
     loaded = dict(config or load_t06_config())
     identities = verify_accepted_bindings(loaded)
-    if tuple(source_by_request) != REQUEST_ORDER:
+    if set(source_by_request) != set(REQUEST_ORDER):
         raise T06Error("candidate_request_order_mismatch")
     nesting = _validate_cross_q_input(source_by_request)
     jobs = [
@@ -579,12 +678,25 @@ def build_t06_candidate(
     ]
 
     def build_job(job: tuple[str, int]) -> dict[str, Any]:
+        from src.r2a.r2a_t06_result_analysis import (
+            build_false_run_inventory,
+            false_run_length_profile,
+            recovery_hazard_profile,
+        )
+
         name, exit_confirmation_m = job
-        return build_exit_lifecycle(
+        result = build_exit_lifecycle(
             source_by_request[name],
             logical_request_name=name,
             exit_confirmation_m=exit_confirmation_m,
         )
+        inventory = build_false_run_inventory(
+            result["observation_rows"], result["trigger_rows"]
+        )
+        result["false_run_inventory"] = inventory
+        result["false_run_length_profile"] = false_run_length_profile(inventory)
+        result["recovery_hazard_profile"] = recovery_hazard_profile(inventory)
+        return result
 
     if worker_count == 1:
         candidates = [build_job(job) for job in jobs]
@@ -598,12 +710,15 @@ def build_t06_candidate(
         "q_selection_status": "not_selected",
         "canonical_dynamic_request_selected": False,
         "winner_selected": False,
+        "selected_exit_confirmation_m": None,
+        "owner_implementation_review_status": "pending_successor_review",
+        "approved_implementation_sha": None,
         "formal_run_executed": False,
         "real_score_data_read": False,
         "formal_artifacts_generated": False,
         "request_identities": [identities[name] for name in REQUEST_ORDER],
-        "cross_q_nesting_validation": nesting,
         "candidates": candidates,
+        "cross_q_nesting_validation": _validate_candidate_cross_q(candidates, nesting),
         "candidate_exit_summary": [_candidate_summary(item) for item in candidates],
     }
 

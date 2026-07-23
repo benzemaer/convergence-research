@@ -4,7 +4,7 @@
 
 ```text
 task_id: R2A-T06
-status: implementation_candidate_pending_owner_review
+status: implementation_candidate_remediation_pending_successor_review
 branch: codex/r2a-t06-ca-consecutive-failure-exit-confirmation
 base_merge_commit: fec2a640d478e18e10c0a56164caedee7666ed16
 R2A-T05_status: completed_accepted
@@ -14,6 +14,10 @@ q20_role: research_anchor_only
 q_selection_status: not_selected
 canonical_dynamic_request_selected: false
 winner_selected: false
+selected_exit_confirmation_m: null
+previous_unapproved_implementation_sha: 2bd24badf22ede38392ef7a4b3467602cc929106
+owner_implementation_review_status: pending_successor_review
+approved_implementation_sha: absent
 formal_run_allowed: false
 formal_run_executed: false
 real_score_data_read: false
@@ -92,9 +96,21 @@ raw_state / confirmed_state_v1
 
 recognition available time 不得回填到 trigger：M=1/2/3 的 recognition lag 必须分别为 0/1/2 个 observation。
 
+## Candidate lifecycle 跨 q invariant
+
+对相同 M 和 observation key，`active_or_pending = lifecycle_state in {ACTIVE, EXIT_PENDING}`，并冻结：
+
+```text
+active_or_pending(q10) subset active_or_pending(q15)
+active_or_pending(q15) subset active_or_pending(q20)
+active_or_pending(q20) subset active_or_pending(q25)
+```
+
+每个 stricter-q episode 的全部 active-or-pending observation 必须唯一包含于同证券的一个 looser-q episode。找不到 parent、横跨多个 parent、多对多 mapping 或 stricter active-or-pending observation 在 looser q 不 active/pending，均须 fail closed。Raw/confirmed input nesting 与 candidate lifecycle nesting 分开复算和报告。
+
 ## 实现、validator 与测试
 
-实现包括版本化 config/schema、纯生命周期 builder、独立 validator、result-analysis 骨架、synthetic-only implementation runner 和默认拒绝的 future-formal 入口。独立 validator 不接受 builder 自报 counts，必须从输入 daily facts 和 M 规则复算 observation、trigger、episode、recognition、cancellation、quality termination、right censoring、summary、排序和身份。
+实现包括版本化 config/schema、纯生命周期 builder、逐 observation online reducer、独立 validator、result-analysis 骨架、synthetic-only implementation runner 和默认拒绝的 future-formal 入口。独立 validator 不导入 production 私有科学函数，不接受 builder 自报 counts，必须独立复算输入 domain、quality precedence、exit type、identity、observation、trigger、episode、recognition、cancellation、quality termination、right censoring、summary、trigger-anchored false run/hazard、排序和跨 q mapping。Online receipt 只有在 one-row、fixed/random chunk、false/recovery/quality 边界和交错证券 replay 与 batch 全表一致后才可为 true。
 
 集合关系使用稳定的 accepted baseline episode identity，而不是 recognition date：
 
@@ -107,9 +123,13 @@ cancelled_episode_set(M2) subset cancelled_episode_set(M3)
 
 ## 未来 formal 结果包（本阶段不生成）
 
-未来正式包必须包含用户授权列出的 17 个 compact/detail 文件，包括 `false_run_length_profile.csv`、`recovery_hazard_profile.csv`、`candidate_exit_summary.csv`、recognition/reentry/fragmentation/margin/cross-q/year/security profiles、deterministic samples 与 git-ignored `t06_detail.duckdb`。逐 observation、trigger、episode 和 candidate mapping 只能进入 repository-local git-ignored detail storage。
+未来正式包必须包含用户授权列出的 17 个 compact/detail 文件且每个恰好一次，包括 `false_run_length_profile.csv`、`recovery_hazard_profile.csv`、`candidate_exit_summary.csv`、recognition/reentry/fragmentation/margin/cross-q/year/security profiles、deterministic samples 与 git-ignored `t06_detail.duckdb`。Formal pending 不得提前选择 M；completed accepted 必须绑定 accepted run、reviewed implementation/execution SHA、owner accepted、completed-passed result analysis、零 blocking anomaly、具体 `selected_exit_confirmation_m` 和最小充分复杂度选择证据。逐 observation、trigger、episode 和 candidate mapping 只能进入 repository-local git-ignored detail storage。
 
-未来每个 `q × M` 必须报告 provisional、recognized、cancelled、quality-terminated-pending、pending-right-censored、cancel rate、recognition lag、security breadth、episode count/span、active-day density、bridged false count 和 recognition 后 raw/confirmed re-entry。False-run `L` 在首次 raw true、quality interruption 或 input end 前计数；h1/h2/h3 只在仍可观测的 next valid observation 上计算，并按 q、year、security、exit type 和 threshold-margin bucket 分层。
+未来每个 `q × M` 必须报告 provisional、recognized、cancelled、quality-terminated-pending、pending-right-censored、cancel rate、recognition lag、security breadth、episode count/span、active-day density、bridged false count 和 recognition 后 raw/confirmed re-entry。False-run `L` 只从已 confirmed active 后的合法 provisional trigger 开始，在紧邻的首次 raw true、quality interruption 或 input end 前计数；不得纳入 confirmed active 前或已退出 inactive 状态的任意 false。h1/h2/h3 的 risk set 不得跳过中间 quality/missing，并按 q、year、security、trigger exit type 和 threshold-margin bucket 分层。
+
+## Owner implementation review remediation
+
+前一 candidate `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准。本 successor remediation 只处理五项 blocker：validator 科学语义独立、真实 online replay equivalence、result-package completion gate、trigger-anchored false-run/hazard、candidate lifecycle cross-q nesting。未扩大参数或研究范围；successor SHA 仍须 owner 重新审阅，当前不存在 approved implementation SHA。
 
 ## 禁止范围与阻塞条件
 

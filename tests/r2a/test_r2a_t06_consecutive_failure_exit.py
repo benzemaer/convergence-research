@@ -246,7 +246,9 @@ def test_cross_q_panel_and_deterministic_ordering() -> None:
     shuffled = _panel(list(reversed(rows)))
     second = build_t06_candidate(shuffled)
     assert candidate_to_json(first) == candidate_to_json(second)
-    assert all(row["status"] == "passed" for row in first["cross_q_nesting_validation"])
+    assert all(
+        row["overall_status"] == "passed" for row in first["cross_q_nesting_validation"]
+    )
 
 
 def test_cross_q_raw_nesting_violation_fails_closed() -> None:

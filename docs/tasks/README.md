@@ -345,7 +345,11 @@ R2A-T05_canonical_dynamic_request_selected: false
 R2A-T05_DONE: present
 R2A-T06_allowed_to_start: true_after_PR_115_merge
 R2A-T06_started: true
-R2A-T06_status: implementation_candidate_pending_owner_review
+R2A-T06_status: implementation_candidate_remediation_pending_successor_review
+R2A-T06_previous_unapproved_implementation_sha: 2bd24badf22ede38392ef7a4b3467602cc929106
+R2A-T06_owner_implementation_review_status: pending_successor_review
+R2A-T06_approved_implementation_sha: absent
+R2A-T06_selected_exit_confirmation_m: null
 R2A-T06_formal_run_allowed: false
 R2A-T06_real_score_data_read: false
 R2A-T06_DONE: absent
@@ -364,7 +368,7 @@ R2A-T07: 版本注册、消费者契约与冻结
 R2A-T08: 阶段验收与 R3 handoff
 ```
 
-T05 的 q20 是退出机制分解研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择。T06 只在 accepted daily facts 上新增连续失效生命周期，不读取未来价格、收益或路径标签，不生成交易信号或回测。当前仅为 implementation candidate，等待 owner 审阅 implementation SHA。详细契约见 [`R2A-T06_CA连续失效退出确认与迟滞规则选择.md`](R2A-T06_CA连续失效退出确认与迟滞规则选择.md)。
+T05 的 q20 是退出机制分解研究锚点，不是 best、optimal、selected canonical、winner 或正式参数选择。T06 只在 accepted daily facts 上新增连续失效生命周期，不读取未来价格、收益或路径标签，不生成交易信号或回测。前一 implementation SHA 未获批准；当前为五项 blocker remediation successor candidate，等待 owner 重新审阅。详细契约见 [`R2A-T06_CA连续失效退出确认与迟滞规则选择.md`](R2A-T06_CA连续失效退出确认与迟滞规则选择.md)。
 
 ## 命名与路径规则
 

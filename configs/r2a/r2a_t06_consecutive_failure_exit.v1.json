@@ -2,7 +2,7 @@
   "$schema": "../../schemas/r2a/r2a_t06_consecutive_failure_exit.schema.json",
   "task_id": "R2A-T06",
   "stage_id": "R2A",
-  "status": "implementation_candidate_pending_owner_review",
+  "status": "implementation_candidate_remediation_pending_successor_review",
   "scope_id": "r2a_t06_consecutive_failure_exit_confirmation.v1",
   "implementation_version": "r2a_t06_consecutive_failure_exit.v1",
   "selected_dimensions": ["C", "A"],
@@ -23,6 +23,10 @@
   "q_selection_status": "not_selected",
   "canonical_dynamic_request_selected": false,
   "winner_selected": false,
+  "selected_exit_confirmation_m": null,
+  "previous_unapproved_implementation_sha": "2bd24badf22ede38392ef7a4b3467602cc929106",
+  "owner_implementation_review_status": "pending_successor_review",
+  "approved_implementation_sha": "absent",
   "formal_run_allowed": false,
   "formal_run_executed": false,
   "real_score_data_read": false,
@@ -52,6 +56,13 @@
     "calendar_day_difference_allowed": false,
     "missing_rows_may_be_skipped": false,
     "non_ready_rows_may_be_skipped": false
+  },
+  "candidate_cross_q_invariant": {
+    "membership": "lifecycle_state in {ACTIVE, EXIT_PENDING}",
+    "nested_order": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+    "same_exit_confirmation_m_required": true,
+    "unique_parent_episode_required": true,
+    "multi_parent_mapping_allowed": false
   },
   "lifecycle_states": ["ACTIVE", "EXIT_PENDING", "EXIT_RECOGNIZED", "QUALITY_TERMINATED", "PENDING_RIGHT_CENSORED"],
   "quality_termination_reasons": [

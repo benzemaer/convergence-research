@@ -414,6 +414,8 @@ accepted daily facts 逐行不变
 不同执行并行度结果一致
 ```
 
+对每个相同 M，candidate lifecycle 还必须满足 `active_or_pending(q10) ⊆ active_or_pending(q15) ⊆ active_or_pending(q20) ⊆ active_or_pending(q25)`，其中 active-or-pending 仅含 `ACTIVE` 与 `EXIT_PENDING`。每个 stricter-q episode 必须唯一映射到一个 looser-q parent episode，禁止 unmapped、跨 parent 或多对多 mapping；该检查与 raw/confirmed input nesting 分开报告。
+
 未来价格路径与 release onset/direction/intensity 标签不属于 T06；如后续需要，必须单独立项并重新通过 PIT/no-lookahead 设计审核。T06 implementation 阶段不得读取真实 Score、执行 formal run、生成正式结果或创建 DONE。
 
 ### R2A-T07：版本注册与消费者契约冻结
