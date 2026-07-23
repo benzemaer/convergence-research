@@ -138,7 +138,12 @@ def _identity(path: Path, relative_path: str) -> dict[str, Any]:
     }
 
 
-def _verify_accepted_metadata(repo_root: Path, config: Mapping[str, Any]) -> None:
+def _verify_accepted_metadata(
+    repo_root: Path,
+    config: Mapping[str, Any],
+    *,
+    require_local_result_package: bool,
+) -> None:
     expected_tasks = {
         "t01": "R2A-T01",
         "t02": "R2A-T02",
@@ -147,6 +152,8 @@ def _verify_accepted_metadata(repo_root: Path, config: Mapping[str, Any]) -> Non
         "t05": "R2A-T05",
     }
     for name, identity in config["accepted_handoffs"].items():
+        if name == "t05_result_package":
+            continue
         relative = validate_repository_relative_path(str(identity["relative_path"]))
         path = repo_root / relative
         if not path.is_file():
@@ -164,6 +171,28 @@ def _verify_accepted_metadata(repo_root: Path, config: Mapping[str, Any]) -> Non
                     "accepted_metadata_status_mismatch", name
                 )
     t05 = _read_json(repo_root / config["accepted_handoffs"]["t05"]["relative_path"])
+    result_package_evidence = t05["evidence_identities"]["result_package"]
+    result_package_identity = {
+        "relative_path": result_package_evidence["relative_locator"],
+        "sha256": result_package_evidence["sha256"],
+        "byte_size": result_package_evidence["byte_size"],
+    }
+    configured_result_package = config["accepted_handoffs"]["t05_result_package"]
+    if result_package_identity != configured_result_package:
+        raise FormalInputManifestError("accepted_result_package_binding_mismatch")
+    if require_local_result_package:
+        relative = validate_repository_relative_path(
+            str(configured_result_package["relative_path"])
+        )
+        path = repo_root / relative
+        if not path.is_file():
+            raise FormalInputManifestError(
+                "accepted_metadata_missing", "t05_result_package"
+            )
+        if _identity(path, relative) != configured_result_package:
+            raise FormalInputManifestError(
+                "accepted_metadata_identity_mismatch", "t05_result_package"
+            )
     reconciled = {
         row["logical_request_name"]: {
             key: int(row[key])
@@ -268,7 +297,7 @@ def build_candidate_manifest(
     if loaded.get("formal_run_allowed") is not False:
         raise FormalInputManifestError("candidate_builder_requires_unapproved_state")
     if verify_accepted_metadata:
-        _verify_accepted_metadata(root, loaded)
+        _verify_accepted_metadata(root, loaded, require_local_result_package=False)
     payload = {
         "$schema": "../../schemas/r2a/r2a_t06_formal_input_manifest.schema.json",
         "task_id": "R2A-T06",
@@ -353,6 +382,16 @@ def authorize_candidate_manifest(
     return payload
 
 
+def verify_formal_accepted_metadata(
+    repo_root: str | Path, config: Mapping[str, Any]
+) -> None:
+    """Verify every accepted local identity before formal Score discovery."""
+
+    _verify_accepted_metadata(
+        Path(repo_root).resolve(), config, require_local_result_package=True
+    )
+
+
 def write_immutable_manifest(
     path: str | Path, payload: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -386,6 +425,7 @@ __all__ = [
     "sha256_file",
     "validate_manifest",
     "validate_repository_relative_path",
+    "verify_formal_accepted_metadata",
     "verify_committed_contract_bindings",
     "write_immutable_manifest",
 ]

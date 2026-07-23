@@ -35,6 +35,7 @@ from src.r2a.r2a_t06_formal_input_manifest import (
     validate_manifest,
     validate_repository_relative_path,
     verify_committed_contract_bindings,
+    verify_formal_accepted_metadata,
 )
 from src.r2a.r2a_t06_formal_result_analysis import (
     FormalResultAnalysisError,
@@ -263,6 +264,13 @@ def preflight_formal_execution(
     )
     for identity in manifest["accepted_handoffs"].values():
         _path_inside_data_root(root, identity["relative_path"])
+    if git_state is None:
+        try:
+            verify_formal_accepted_metadata(root, loaded)
+        except FormalInputManifestError as error:
+            raise FormalExecutionError(error.reason_code, str(error)) from error
+    elif state.get("accepted_metadata_verified") is not True:
+        raise FormalExecutionError("accepted_metadata_not_verified")
     if input_discovery is not None:
         input_discovery(score_path)
     return {

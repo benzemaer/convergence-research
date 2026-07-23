@@ -64,6 +64,9 @@ def test_candidate_manifest_is_deterministic_and_metadata_only() -> None:
 
 def test_candidate_builder_never_reads_score_database(monkeypatch) -> None:
     score_suffix = "score_data.duckdb"
+    result_package_suffix = (
+        "formal-runs/R2A-T05-20260722T012719685Z/result_package.json"
+    )
     original = Path.read_bytes
     observed: list[str] = []
 
@@ -71,11 +74,16 @@ def test_candidate_builder_never_reads_score_database(monkeypatch) -> None:
         observed.append(str(path))
         if str(path).endswith(score_suffix):
             raise AssertionError("Score content must not be read")
+        if path.as_posix().endswith(result_package_suffix):
+            raise AssertionError("T05 detail result package must not be read")
         return original(path)
 
     monkeypatch.setattr(Path, "read_bytes", guarded)
     build_candidate_manifest(created_at="2026-07-23T00:00:00Z")
     assert not any(value.endswith(score_suffix) for value in observed)
+    assert not any(
+        Path(value).as_posix().endswith(result_package_suffix) for value in observed
+    )
 
 
 @pytest.mark.parametrize(

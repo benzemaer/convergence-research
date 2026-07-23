@@ -88,6 +88,7 @@ def _authorized(tmp_path: Path):
             "parent": reviewed,
             "clean": True,
             "committed_contract_bindings_verified": True,
+            "accepted_metadata_verified": True,
         },
     )
 
@@ -200,3 +201,24 @@ def test_forbidden_field_policy_rejected(tmp_path: Path) -> None:
             repo_root=tmp_path,
             git_state=git_state,
         )
+
+
+def test_accepted_metadata_must_be_verified_before_discovery(tmp_path: Path) -> None:
+    authorization, manifest, config, git_state = _authorized(tmp_path)
+    git_state["accepted_metadata_verified"] = False
+    discovered = False
+
+    def discover(_path: Path) -> None:
+        nonlocal discovered
+        discovered = True
+
+    with pytest.raises(FormalExecutionError, match="accepted_metadata_not_verified"):
+        preflight_formal_execution(
+            authorization=authorization,
+            manifest_bytes=manifest,
+            config=config,
+            repo_root=tmp_path,
+            git_state=git_state,
+            input_discovery=discover,
+        )
+    assert discovered is False
