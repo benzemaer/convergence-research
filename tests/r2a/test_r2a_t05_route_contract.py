@@ -30,21 +30,21 @@ def test_t05_config_freezes_anchor_without_selecting_q() -> None:
     ]
 
 
-def test_t05_route_replaces_old_t05_t06_meaning_and_preserves_pit() -> None:
+def test_t05_route_is_preserved_after_t06_successor_start() -> None:
     stage = _text("docs/stages/R2A_PCAVT动态收敛状态体系.md")
     task = _text("docs/tasks/R2A-T05_CA退出机制与跨q结构分解.md")
     handoff = _text("HANDOFF.md")
     assert "R2A-T05：CA q20 退出机制与跨 q 结构分解" in stage
-    assert "R2A-T06：PIT/no-lookahead release 标签协议" in stage
+    assert "R2A-T06：CA 连续失效退出确认与迟滞规则选择" in stage
     assert "R2A-T07：版本注册与消费者契约冻结" in stage
     assert "q20 仅是 `exit_mechanism_decomposition` research anchor" in handoff
     assert "T06 的 no-lookahead/PIT 要求保留" in task
-    assert "R2A-T06_allowed_to_start: false" in handoff
+    assert "R2A-T06_status: formal_run_authorized_pending_execution" in handoff
     assert "formal_run_started: false" in task
 
 
-def test_t05_does_not_create_t06_execution_files_or_formal_done() -> None:
+def test_t06_successor_does_not_create_formal_done() -> None:
     assert not (ROOT / "configs/r2a/r2a_t06.v1.json").exists()
     assert not (ROOT / "schemas/r2a/r2a_t06.schema.json").exists()
     assert not (ROOT / "scripts/r2a/run_r2a_t06.py").exists()
-    assert not list((ROOT / "data/generated/r2a").glob("r2a_t05*/DONE"))
+    assert not list((ROOT / "data/generated/r2a").glob("r2a_t06*/DONE"))

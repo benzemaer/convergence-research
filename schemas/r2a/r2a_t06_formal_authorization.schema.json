@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2a_t06_formal_authorization.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "task_id", "formal_scope_id", "owner_authorized",
+    "approved_implementation_sha", "reviewed_formal_execution_sha",
+    "execution_parent_sha", "authorization_commit_sha",
+    "authorization_commit_parent", "authorization_revision",
+    "quality_run_id", "quality_sha", "quality_status", "quality_conclusion",
+    "formal_attempt_limit", "formal_attempts_consumed", "manifest_sha256",
+    "manifest_byte_size", "run_id", "run_root_relative_path"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t06_formal_authorization.schema.json"},
+    "task_id": {"const": "R2A-T06"},
+    "formal_scope_id": {"const": "r2a_t06_consecutive_failure_exit_formal_execution.v1"},
+    "owner_authorized": {"const": true},
+    "approved_implementation_sha": {"const": "2710d282fadcb998b80b9a482a5d55a4facc775a"},
+    "reviewed_formal_execution_sha": {"$ref": "#/$defs/gitSha"},
+    "execution_parent_sha": {"$ref": "#/$defs/gitSha"},
+    "authorization_commit_sha": {"$ref": "#/$defs/gitSha"},
+    "authorization_commit_parent": {"$ref": "#/$defs/gitSha"},
+    "authorization_revision": {"type": "integer", "minimum": 1},
+    "quality_run_id": {"type": "integer", "minimum": 1},
+    "quality_sha": {"$ref": "#/$defs/gitSha"},
+    "quality_status": {"const": "completed"},
+    "quality_conclusion": {"const": "success"},
+    "formal_attempt_limit": {"const": 1},
+    "formal_attempts_consumed": {"const": 0},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "manifest_byte_size": {"type": "integer", "minimum": 1},
+    "run_id": {"type": "string", "pattern": "^R2A-T06-[0-9]{8}T[0-9]{9}Z$"},
+    "run_root_relative_path": {"type": "string", "pattern": "^data/generated/r2a/r2a_t06/formal-runs/R2A-T06-[0-9]{8}T[0-9]{9}Z$"}
+  },
+  "$defs": {
+    "gitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -399,19 +399,24 @@ mutually exclusive daily Q10/Q15/Q20/Q25 hierarchy identities
 
 正式 T05 将来可以生成 request identity、input manifest、run summary、validation receipt、result analysis 和 compact review tables；逐区间 inventory、逐日身份和 mapping 只能保存在 repository-local git-ignored detail storage。本 implementation PR 只包含 candidate code、contract、schema、synthetic tests 和 runner，不能执行真实 formal run、读取真实 Score 或创建 DONE。
 
-### R2A-T06：PIT/no-lookahead release 标签协议
+### R2A-T06：CA 连续失效退出确认与迟滞规则选择
 
-T06 才读取 point-in-time 价格未来路径，冻结 release onset、release recognition、方向和强度标签。T06 的强制验收包括：
+T06 在 accepted `[C,A]`、K=5 daily state facts 上比较 M=1/2/3 连续 valid raw-false 退出确认。它只新增退出生命周期，不修改 accepted v1 raw/confirmed state，不读取价格、收益或未来路径，也不预选 winner。强制验收包括：
 
 ```text
-strict-past / point-in-time availability
-available_time <= evaluation_as_of
-逐日 replay 与批量计算一致
+M=1 精确复现 accepted v1 valid raw-false exit
+recognition lag 分别为 0/1/2 observation
+quality interruption 不被 M 延后
+accepted daily facts 逐行不变
+跨 q 与 M 集合关系一致
+逐 observation replay 与批量计算一致
 缺失 observation 不被跳过
 不同执行并行度结果一致
 ```
 
-T06 的 no-lookahead/PIT 要求是 release 标签协议的组成部分，不能删除或降级为一般说明。当前 T05 PR 不实现 T06，不创建 T06 config/schema/runner，不读取价格数据。
+对每个相同 M，candidate lifecycle 还必须满足 `active_or_pending(q10) ⊆ active_or_pending(q15) ⊆ active_or_pending(q20) ⊆ active_or_pending(q25)`，其中 active-or-pending 仅含 `ACTIVE` 与 `EXIT_PENDING`。每个 stricter-q episode 必须唯一映射到一个 looser-q parent episode，禁止 unmapped、跨 parent 或多对多 mapping；该检查与 raw/confirmed input nesting 分开报告。
+
+未来价格路径与 release onset/direction/intensity 标签不属于 T06；如后续需要，必须单独立项并重新通过 PIT/no-lookahead 设计审核。T06 implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 与 formal-execution SHA `462dc56271fe09e5b116dacc2422a342556ef1a0` 已通过 owner review。当前只提交 authorization-contract transition，状态为 `formal_run_authorized_pending_execution`；该新 commit 获 owner 批准前，不得生成权威 manifest/authorization、创建 attempt marker、读取真实 Score、执行 formal run、生成正式结果或创建 DONE。
 
 ### R2A-T07：版本注册与消费者契约冻结
 
@@ -438,7 +443,7 @@ artifact hashes
 Score release 通过
 动态协议通过
 真实参数响应合理
-T05 exit decomposition、T06 PIT/no-lookahead release labels、独立结果分析和交易约束边界均通过
+T05 exit decomposition、T06 consecutive-failure exit confirmation 和独立结果分析均通过
 独立结果分析通过
 ```
 
@@ -497,6 +502,6 @@ zero-event 合理性
 未选维度隔离
 ```
 
-T06 另需完成 point-in-time、strict no-lookahead、逐日 replay 与 batch 等价和未来路径标签的独立复算。T05 的 exit decomposition 结果不能替代 T06 的 release label 验收，T06 也不能反向修改 T05 的 accepted interval 或退出语义。
+T06 另需完成 M=1 baseline reconciliation、trigger/recognition/cancellation/quality termination、逐 observation replay 与 batch 等价、并行一致和 M 集合关系的独立复算。T06 不得反向修改 T05 accepted daily state 或 interval 事实。
 
 如果发生全零、全一、全 NULL、数量级突变、与上游 availability 不一致，或属于当前任务验收范围的复算/响应/集合关系异常，必须停止下游推进。异常未解释前，不得标记 completed，不得推进 README gate，不得发布数据。

@@ -338,6 +338,14 @@ CONFIGS = (
         ROOT / "configs/r2a/r2a_t05_ca_exit_decomposition.v1.json",
     ),
     (
+        ROOT / "schemas/r2a/r2a_t06_consecutive_failure_exit.schema.json",
+        ROOT / "configs/r2a/r2a_t06_consecutive_failure_exit.v1.json",
+    ),
+    (
+        ROOT / "schemas/r2a/r2a_t06_formal_execution.schema.json",
+        ROOT / "configs/r2a/r2a_t06_formal_execution.v1.json",
+    ),
+    (
         ROOT / "schemas/r2a/r2a_t05_formal_execution.schema.json",
         ROOT / "configs/r2a/r2a_t05_formal_execution.v1.json",
     ),
