@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from src.r2a.r2a_t06_consecutive_failure_exit import T06Error
 from src.r2a.r2a_t06_formal_execution import (
     FORMAL_REQUIRED_FILES,
+    FormalExecutionError,
     run_formal,
 )
 
@@ -25,8 +25,11 @@ def test_route_is_implementation_only_and_successors_are_blocked() -> None:
     assert config["canonical_dynamic_request_selected"] is False
     assert config["winner_selected"] is False
     assert config["selected_exit_confirmation_m"] is None
-    assert config["owner_implementation_review_status"] == "pending_successor_review"
-    assert config["approved_implementation_sha"] == "absent"
+    assert config["owner_implementation_review_status"] == "passed"
+    assert (
+        config["approved_implementation_sha"]
+        == "2710d282fadcb998b80b9a482a5d55a4facc775a"
+    )
     assert config["formal_run_allowed"] is False
     assert config["formal_run_executed"] is False
     assert config["real_score_data_read"] is False
@@ -37,7 +40,9 @@ def test_route_is_implementation_only_and_successors_are_blocked() -> None:
 
 
 def test_formal_runner_fails_before_input_discovery() -> None:
-    with pytest.raises(T06Error, match="formal_run_not_authorized"):
+    with pytest.raises(
+        FormalExecutionError, match="owner_formal_authorization_missing"
+    ):
         run_formal(None)
 
 
@@ -52,12 +57,13 @@ def test_task_and_handoff_expose_current_stop() -> None:
     task = _text("docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md")
     handoff = _text("HANDOFF.md")
     index = _text("docs/tasks/README.md")
-    assert (
-        "status: implementation_candidate_remediation_pending_successor_review" in task
-    )
+    assert "status: formal_execution_candidate_pending_owner_review" in task
     assert "formal_run_executed: false" in task
     assert "real_score_data_read: false" in task
     assert "R2A-T06_DONE: absent" in task
-    assert "owner_implementation_review_required: true" in handoff
-    assert "R2A-T06_approved_implementation_sha: absent" in handoff
+    assert "owner_formal_execution_review_required: true" in handoff
+    assert (
+        "R2A-T06_approved_implementation_sha: "
+        "2710d282fadcb998b80b9a482a5d55a4facc775a" in handoff
+    )
     assert "R2A-T07_allowed_to_start: false" in index

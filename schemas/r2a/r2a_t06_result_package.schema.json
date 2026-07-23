@@ -67,7 +67,7 @@
     {
       "if": {"properties": {"status": {"const": "formal_completed_pending_owner_review"}}, "required": ["status"]},
       "then": {"properties": {
-        "accepted_run_id": {"type": "string"}, "reviewed_implementation_sha": {"$ref": "#/$defs/gitSha"},
+        "accepted_run_id": {"type": "string"}, "reviewed_implementation_sha": {"const": "2710d282fadcb998b80b9a482a5d55a4facc775a"},
         "reviewed_execution_sha": {"$ref": "#/$defs/gitSha"}, "owner_result_review": {"const": "pending"},
         "result_analysis_status": {"enum": ["completed_passed", "completed_blocked"]},
         "blocking_anomaly_count": {"type": "integer"}, "selected_exit_confirmation_m": {"const": null},
@@ -81,7 +81,7 @@
     {
       "if": {"properties": {"status": {"const": "completed_accepted"}}, "required": ["status"]},
       "then": {"properties": {
-        "accepted_run_id": {"type": "string"}, "reviewed_implementation_sha": {"$ref": "#/$defs/gitSha"},
+        "accepted_run_id": {"type": "string"}, "reviewed_implementation_sha": {"const": "2710d282fadcb998b80b9a482a5d55a4facc775a"},
         "reviewed_execution_sha": {"$ref": "#/$defs/gitSha"}, "owner_result_review": {"const": "accepted"},
         "result_analysis_status": {"const": "completed_passed"}, "blocking_anomaly_count": {"const": 0},
         "selected_exit_confirmation_m": {"enum": [1, 2, 3]}, "selection_evidence": {"minItems": 1},

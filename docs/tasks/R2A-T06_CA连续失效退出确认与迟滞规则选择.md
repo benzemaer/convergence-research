@@ -4,7 +4,7 @@
 
 ```text
 task_id: R2A-T06
-status: implementation_candidate_remediation_pending_successor_review
+status: formal_execution_candidate_pending_owner_review
 branch: codex/r2a-t06-ca-consecutive-failure-exit-confirmation
 base_merge_commit: fec2a640d478e18e10c0a56164caedee7666ed16
 R2A-T05_status: completed_accepted
@@ -16,8 +16,10 @@ canonical_dynamic_request_selected: false
 winner_selected: false
 selected_exit_confirmation_m: null
 previous_unapproved_implementation_sha: 2bd24badf22ede38392ef7a4b3467602cc929106
-owner_implementation_review_status: pending_successor_review
-approved_implementation_sha: absent
+owner_implementation_review_status: passed
+approved_implementation_sha: 2710d282fadcb998b80b9a482a5d55a4facc775a
+formal_execution_candidate_status: pending_owner_review
+formal_execution_candidate_sha: exact PR head（由 Git/PR 外部绑定，避免提交自引用）
 formal_run_allowed: false
 formal_run_executed: false
 real_score_data_read: false
@@ -25,11 +27,12 @@ formal_artifacts_generated: false
 R2A-T06_DONE: absent
 R2A-T07_allowed_to_start: false
 R3_allowed_to_start: false
-owner_implementation_review_required: true
+owner_implementation_review_required: false
+owner_formal_execution_review_required: true
 PR_state: Draft
 ```
 
-本阶段只交付 implementation candidate、合成验证和 implementation review 准备。完成 runner、validator 或 Quality 不等于任务完成；没有 owner 对 implementation SHA 的明确批准，不得准备 formal manifest、读取真实 Score、执行 formal run、生成正式结果或选择 M。
+Owner 已批准 implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a`。当前只交付 formal-execution candidate：未来 runner、manifest 协议、授权门禁、17 文件结果包、落盘后异常扫描与结果分析代码及合成验证。完成 runner、validator 或 Quality 不等于任务完成；没有 owner 对 exact formal-execution candidate SHA 的明确批准和后续独立 authorization commit，不得生成权威 manifest、读取真实 Score、执行 formal run、生成正式结果或选择 M。
 
 ## 唯一研究问题
 
@@ -121,15 +124,21 @@ cancelled_episode_set(M2) subset cancelled_episode_set(M3)
 
 测试覆盖四种 false-run 长度、false 后恢复、false 后 quality/input end、confirmed 前 false、证券隔离、calendar gap、sequence gap、missing、listing pause、blocked/unknown/diagnostic、not eligible、non-finite、三种 exit type、四档 q 嵌套、多 episode ordinal、重复运行、worker 标签一致和二进制路径枚举属性。M=1 必须逐项复现 accepted v1 valid raw-false exit；原 daily facts 必须逐行不变。
 
+## Formal-execution candidate（本阶段不运行）
+
+未来 formal runner 已冻结为 q10、q15、q20、q25 严格串行且每档只调用一次 accepted T03 evaluator；每档立即校验 request/Score identity、daily/true/interval/security counts，任一不一致即在 T06 lifecycle 前停止。四档已验证 daily facts 各自复用于 M=1/2/3，canonical worker=1，并以 worker=4 做全表一致性检查；两次独立 build 比较 observation、trigger、episode、compact tables、排序、null 语义和 fingerprint。
+
+候选 manifest builder 只读取 accepted metadata 与版本化契约，不读取 Score 内容。未来权威 manifest 只能在 exact reviewed SHA 的 GitHub Quality success 后生成，并从该 SHA 的 Git blob 绑定 config/schema canonical bytes；authorization、HEAD/parent、attempt、manifest hash/size、clean worktree、RunRoot、repository-local path、accepted identity/count 和禁止字段门禁全部必须在 Score discovery 前通过。当前配置保持 `formal_run_allowed=false`，未创建 authorization 或权威 manifest。
+
 ## 未来 formal 结果包（本阶段不生成）
 
 未来正式包必须包含用户授权列出的 17 个 compact/detail 文件且每个恰好一次，包括 `false_run_length_profile.csv`、`recovery_hazard_profile.csv`、`candidate_exit_summary.csv`、recognition/reentry/fragmentation/margin/cross-q/year/security profiles、deterministic samples 与 git-ignored `t06_detail.duckdb`。Formal pending 不得提前选择 M；completed accepted 必须绑定 accepted run、reviewed implementation/execution SHA、owner accepted、completed-passed result analysis、零 blocking anomaly、具体 `selected_exit_confirmation_m` 和最小充分复杂度选择证据。逐 observation、trigger、episode 和 candidate mapping 只能进入 repository-local git-ignored detail storage。
 
 未来每个 `q × M` 必须报告 provisional、recognized、cancelled、quality-terminated-pending、pending-right-censored、cancel rate、recognition lag、security breadth、episode count/span、active-day density、bridged false count 和 recognition 后 raw/confirmed re-entry。False-run `L` 只从已 confirmed active 后的合法 provisional trigger 开始，在紧邻的首次 raw true、quality interruption 或 input end 前计数；不得纳入 confirmed active 前或已退出 inactive 状态的任意 false。h1/h2/h3 的 risk set 不得跳过中间 quality/missing，并按 q、year、security、trigger exit type 和 threshold-margin bucket 分层。
 
-## Owner implementation review remediation
+## Owner implementation review 与 formal 停止点
 
-前一 candidate `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准。本 successor remediation 只处理五项 blocker：validator 科学语义独立、真实 online replay equivalence、result-package completion gate、trigger-anchored false-run/hazard、candidate lifecycle cross-q nesting。未扩大参数或研究范围；successor SHA 仍须 owner 重新审阅，当前不存在 approved implementation SHA。
+前一 candidate `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准；successor `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner implementation review，且是本 formal-execution candidate 的唯一实现基线。当前停止于 formal-execution candidate pending owner review；不得将实现批准解释为 formal authorization。
 
 ## 禁止范围与阻塞条件
 
@@ -137,6 +146,6 @@ cancelled_episode_set(M2) subset cancelled_episode_set(M3)
 
 M=1 不能复现 baseline、daily facts 被修改、全零/全一/全 NULL、M 无响应、lag 非 0/1/2、集合非单调、quality 被吞、missing 被跳过、cross-q 异常、identity 不守恒、单年/少数证券/单 exit type 异常主导、数量级相对 T05 突变、availability/evaluability 不一致、online/batch 或 parallel 不一致、validator 复算不一致，任一出现都必须停止，不能创建 DONE、推进 README gate、允许 T07/R3 或解释为正式结果。
 
-## Implementation review 交付
+## Formal-execution review 交付
 
-本 PR 停止于 task contract、config/schema、implementation、validator、analysis skeleton、synthetic/property tests 和全 Quality 通过；随后只提交并推送 implementation SHA、保持 Draft PR 和 clean worktree。PR body 必须明确 `formal_run_executed=false`、`real_score_data_read=false`、`formal_artifacts_generated=false`、`R2A-T06_DONE=absent`、`R2A-T07_allowed_to_start=false`、`R3_allowed_to_start=false` 和 `owner_implementation_review_required=true`。
+本 PR 停止于 formal runner、manifest/authorization schema、结果包与 artifact-readback analysis、synthetic tests 和全 Quality 通过；随后只提交并推送 formal-execution candidate SHA、保持 Draft PR 和 clean worktree。`formal_run_executed=false`、`real_score_data_read=false`、`formal_artifacts_generated=false`、`selected_exit_confirmation_m=null`、`winner_selected=false`、`R2A-T06_DONE=absent`、`R2A-T07_allowed_to_start=false`、`R3_allowed_to_start=false`，且 `owner_formal_execution_review_required=true`。

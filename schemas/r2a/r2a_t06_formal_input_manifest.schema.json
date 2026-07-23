@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "r2a_t06_formal_input_manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "task_id", "scope_id", "manifest_version", "manifest_status",
+    "created_at", "approved_implementation_sha", "reviewed_formal_execution_sha",
+    "authorization_parent_sha", "authorization_commit_sha", "authorization_revision",
+    "formal_attempt_limit", "formal_attempts_consumed", "score_release",
+    "protocol_identity", "evaluator_identity", "accepted_handoffs", "requests",
+    "accepted_counts", "execution_plan", "config_schema_bindings",
+    "committed_contract_bindings",
+    "repository_local_storage_root", "forbidden_input_fields",
+    "expected_formal_files", "superseded"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/r2a/r2a_t06_formal_input_manifest.schema.json"},
+    "task_id": {"const": "R2A-T06"},
+    "scope_id": {"const": "r2a_t06_consecutive_failure_exit_formal_execution.v1"},
+    "manifest_version": {"const": "r2a_t06_formal_input_manifest.v1"},
+    "manifest_status": {"enum": ["candidate_metadata_only", "authorized_immutable"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "approved_implementation_sha": {"const": "2710d282fadcb998b80b9a482a5d55a4facc775a"},
+    "reviewed_formal_execution_sha": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/gitSha"}]},
+    "authorization_parent_sha": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/gitSha"}]},
+    "authorization_commit_sha": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/gitSha"}]},
+    "authorization_revision": {"type": "integer", "minimum": 0},
+    "formal_attempt_limit": {"const": 1},
+    "formal_attempts_consumed": {"const": 0},
+    "score_release": {"$ref": "#/$defs/scoreRelease"},
+    "protocol_identity": {"const": {"dynamic_protocol_version": "pcavt_dynamic_state_protocol.v1", "protocol_config_version": "r2a_t02_dynamic_state_protocol.v1"}},
+    "evaluator_identity": {"const": {"evaluator_version": "r2a_t03_dynamic_evaluator.v1", "output_schema_version": "r2a_t03_dynamic_evaluation_output.v1", "bulk_copy_required": true}},
+    "accepted_handoffs": {"type": "object", "minProperties": 7, "additionalProperties": {"$ref": "#/$defs/fileIdentity"}},
+    "requests": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/request"}},
+    "accepted_counts": {"$ref": "#/$defs/acceptedCounts"},
+    "execution_plan": {
+      "const": {
+        "request_order": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+        "request_concurrency": 1,
+        "evaluation_count_per_request": 1,
+        "m_candidate_order": [1, 2, 3],
+        "canonical_worker_count": 1,
+        "parallel_check_worker_count": 4,
+        "determinism_build_count": 2,
+        "reuse_daily_facts_across_m": true
+      }
+    },
+    "config_schema_bindings": {
+      "type": "array", "minItems": 4, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/fileIdentity"}
+    },
+    "committed_contract_bindings": {
+      "type": "array", "maxItems": 4, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/committedTextBinding"}
+    },
+    "repository_local_storage_root": {"const": "data"},
+    "forbidden_input_fields": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string"}},
+    "expected_formal_files": {"const": ["request_identity.json", "input_manifest.json", "run_summary.json", "validation_receipt.json", "result_analysis.md", "false_run_length_profile.csv", "recovery_hazard_profile.csv", "candidate_exit_summary.csv", "recognition_lag_profile.csv", "post_recognition_reentry.csv", "episode_fragmentation_profile.csv", "exit_type_margin_profile.csv", "cross_q_nesting_validation.csv", "year_profile.csv", "security_profile.csv", "deterministic_episode_samples.csv", "t06_detail.duckdb"]},
+    "superseded": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"manifest_status": {"const": "candidate_metadata_only"}}, "required": ["manifest_status"]},
+      "then": {"properties": {"reviewed_formal_execution_sha": {"const": null}, "authorization_parent_sha": {"const": null}, "authorization_commit_sha": {"const": null}, "authorization_revision": {"const": 0}, "committed_contract_bindings": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"manifest_status": {"const": "authorized_immutable"}}, "required": ["manifest_status"]},
+      "then": {"properties": {"reviewed_formal_execution_sha": {"$ref": "#/$defs/gitSha"}, "authorization_parent_sha": {"$ref": "#/$defs/gitSha"}, "authorization_commit_sha": {"$ref": "#/$defs/gitSha"}, "authorization_revision": {"type": "integer", "minimum": 1}, "committed_contract_bindings": {"minItems": 4, "maxItems": 4}}}
+    }
+  ],
+  "$defs": {
+    "gitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relativePath": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)"},
+    "fileIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relative_path", "sha256", "byte_size"],
+      "properties": {"relative_path": {"$ref": "#/$defs/relativePath"}, "sha256": {"$ref": "#/$defs/sha256"}, "byte_size": {"type": "integer", "minimum": 1}}
+    },
+    "committedTextBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relative_path", "source_commit", "git_blob_sha", "committed_byte_sha256", "normalized_text_sha256", "encoding", "line_ending", "bom", "trailing_lf_count", "byte_size"],
+      "properties": {
+        "relative_path": {"enum": ["configs/r2a/r2a_t06_formal_execution.v1.json", "schemas/r2a/r2a_t06_formal_execution.schema.json", "schemas/r2a/r2a_t06_formal_authorization.schema.json", "schemas/r2a/r2a_t06_formal_input_manifest.schema.json"]},
+        "source_commit": {"$ref": "#/$defs/gitSha"},
+        "git_blob_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "committed_byte_sha256": {"$ref": "#/$defs/sha256"},
+        "normalized_text_sha256": {"$ref": "#/$defs/sha256"},
+        "encoding": {"const": "utf-8"}, "line_ending": {"const": "lf"},
+        "bom": {"const": false}, "trailing_lf_count": {"const": 1},
+        "byte_size": {"type": "integer", "minimum": 1}
+      }
+    },
+    "scoreRelease": {
+      "type": "object", "additionalProperties": false,
+      "required": ["score_release_id", "relative_path", "sha256", "byte_size", "schema_version", "date_min", "date_max", "security_count"],
+      "properties": {
+        "score_release_id": {"const": "pcavt-score-w120-v1-c7e04f11a2cd09aa"}, "relative_path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}, "byte_size": {"type": "integer", "minimum": 1},
+        "schema_version": {"type": "string"}, "date_min": {"type": "string", "format": "date"},
+        "date_max": {"type": "string", "format": "date"}, "security_count": {"const": 800}
+      }
+    },
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["logical_request_name", "request_id", "request_hash", "selected_dimensions", "q_by_dimension", "confirmation_k", "selection_status"],
+      "properties": {
+        "logical_request_name": {"enum": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"]},
+        "request_id": {"pattern": "^pcavt-dynreq-v1-[0-9a-f]{16}$"}, "request_hash": {"$ref": "#/$defs/sha256"},
+        "selected_dimensions": {"const": ["C", "A"]}, "q_by_dimension": {"type": "object"},
+        "confirmation_k": {"const": 5}, "selection_status": {"const": "evaluated_not_selected"}
+      }
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["raw_true", "confirmed_true", "intervals", "securities_with_interval"],
+      "properties": {"raw_true": {"type": "integer"}, "confirmed_true": {"type": "integer"}, "intervals": {"type": "integer"}, "securities_with_interval": {"type": "integer"}}
+    },
+    "acceptedCounts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["CA_q10_k5", "CA_q15_k5", "CA_q20_k5", "CA_q25_k5"],
+      "properties": {"CA_q10_k5": {"$ref": "#/$defs/counts"}, "CA_q15_k5": {"$ref": "#/$defs/counts"}, "CA_q20_k5": {"$ref": "#/$defs/counts"}, "CA_q25_k5": {"$ref": "#/$defs/counts"}}
+    }
+  }
+}

@@ -1,13 +1,13 @@
 # R2A / PCAVT 研究交接
 
-> 本文是无上下文新会话的当前入口。R2A-T05 已接受关闭且 PR #115 已合并。R2A-T06 连续失效退出确认已进入 implementation candidate，只授权实现与合成验证，不授权 formal run 或真实 Score 读取。
+> 本文是无上下文新会话的当前入口。R2A-T05 已接受关闭且 PR #115 已合并。R2A-T06 implementation 已获 owner 批准，当前只准备 formal-execution candidate，不授权 formal run 或真实 Score 读取。
 
 ## 0. 当前状态
 
 ```text
 repository: benzemaer/convergence-research
 branch: codex/r2a-t06-ca-consecutive-failure-exit-confirmation
-PR: pending Draft
+PR: #116
 PR state: Draft
 R2A-T04_merge_commit: a4b6696f3c9cd32cb9bc0c29606e3121958bc26e
 
@@ -59,10 +59,12 @@ R2A-T05_DONE: present
 R2A-T06_started: true
 pre_merge_R2A-T06_allowed_to_start: false
 R2A-T06_allowed_to_start: true_after_PR_115_merge
-R2A-T06_status: implementation_candidate_remediation_pending_successor_review
+R2A-T06_status: formal_execution_candidate_pending_owner_review
 R2A-T06_previous_unapproved_implementation_sha: 2bd24badf22ede38392ef7a4b3467602cc929106
-R2A-T06_owner_implementation_review_status: pending_successor_review
-R2A-T06_approved_implementation_sha: absent
+R2A-T06_owner_implementation_review_status: passed
+R2A-T06_approved_implementation_sha: 2710d282fadcb998b80b9a482a5d55a4facc775a
+R2A-T06_formal_execution_candidate_status: pending_owner_review
+R2A-T06_formal_execution_candidate_sha: exact PR head（Git/PR external binding）
 R2A-T06_selected_exit_confirmation_m: null
 R2A-T06_q_selection_status: not_selected
 R2A-T06_canonical_dynamic_request_selected: false
@@ -74,8 +76,9 @@ R2A-T06_formal_artifacts_generated: false
 R2A-T06_DONE: absent
 R2A-T07_allowed_to_start: false
 R3_allowed_to_start: false
-owner_implementation_review_required: true
-current_stop: R2A-T06 remediation successor candidate pending owner review
+owner_implementation_review_required: false
+owner_formal_execution_review_required: true
+current_stop: R2A-T06 formal-execution candidate pending owner review
 ```
 
 ## 1. 已接受基线与边界
@@ -140,4 +143,4 @@ q20 仅是 `exit_mechanism_decomposition` research anchor，`q_selection_status=
 
 R2A-T05 accepted handoff 位于 `data/generated/r2a/r2a_t05/R2A-T05-20260722T012719685Z/r2a_t05_accepted_result_handoff.json`，acceptance evidence 位于 `docs/evidence/r2a/R2A-T05_CA_exit_mechanism_formal_result_acceptance.md`。
 
-R2A-T06 task contract 位于 `docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md`。前一 SHA `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准；当前只修复 validator independence、online replay、package gate、trigger-anchored hazard 与 lifecycle cross-q nesting，停止于 successor implementation SHA 经 Quality 后等待 owner 重新审阅。不得创建 formal authorization 或读取真实 Score。
+R2A-T06 task contract 位于 `docs/tasks/R2A-T06_CA连续失效退出确认与迟滞规则选择.md`。前一 SHA `2bd24badf22ede38392ef7a4b3467602cc929106` 未获批准；successor implementation SHA `2710d282fadcb998b80b9a482a5d55a4facc775a` 已通过 owner review。当前 formal-execution candidate 实现四档串行重算与对账、同一 daily facts 上的 M=1/2/3、独立验证、online/parallel/determinism、17 文件结果包和实际 artifact 分析，停止于 exact candidate SHA 经 Quality 后等待 owner formal-execution review。不得创建权威 manifest、formal authorization、读取真实 Score、选择 M 或创建 DONE。

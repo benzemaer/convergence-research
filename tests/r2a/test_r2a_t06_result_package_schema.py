@@ -49,7 +49,9 @@ def _package(status: str) -> dict[str, object]:
         "canonical_dynamic_request_selected": False,
         "winner_selected": accepted,
         "accepted_run_id": "R2A-T06-SYNTHETIC" if formal else None,
-        "reviewed_implementation_sha": "1" * 40 if formal else None,
+        "reviewed_implementation_sha": (
+            "2710d282fadcb998b80b9a482a5d55a4facc775a" if formal else None
+        ),
         "reviewed_execution_sha": "2" * 40 if formal else None,
         "owner_result_review": "accepted" if accepted else "pending",
         "result_analysis_status": "completed_passed" if formal else "not_started",
